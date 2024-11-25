@@ -117,6 +117,7 @@ contains
     class(particle), intent(in)           :: p
     class(nuclearDatabase), intent(inout) :: xsData
     real(defReal)                         :: val
+    integer(shortInt)                     :: matIdx
     type(neutronMacroXSs)                 :: xss
     class(neutronMaterial), pointer       :: mat
 
@@ -124,10 +125,12 @@ contains
 
     ! Return zero if particle is not neutron or if the particle is in void
     if (p % type /= P_NEUTRON) return
-    if (p % matIdx() == VOID_MAT) return
+
+    matIdx = p % getMatIdx()
+    if (matIdx == VOID_MAT) return
 
     ! Get pointer to active material data
-    mat => neutronMaterial_CptrCast(xsData % getMaterial(p % matIdx()))
+    mat => neutronMaterial_CptrCast(xsData % getMaterial(matIdx))
 
     ! Return if material is not a neutronMaterial
     if (.not.associated(mat)) return

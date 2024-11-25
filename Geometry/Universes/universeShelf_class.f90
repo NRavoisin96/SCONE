@@ -1,12 +1,14 @@
 module universeShelf_class
 
   use numPrecision
+  use universalVariables,   only : NOT_PRESENT
   use genericProcedures,    only : fatalError, numToChar
   use dictionary_class,     only : dictionary
   use intMap_class,         only : intMap
   use charMap_class,        only : charMap
   use surfaceShelf_class,   only : surfaceShelf
   use cellShelf_class,      only : cellShelf
+  use meshShelf_class,      only : meshShelf
 
   ! Universe objects
   use universe_inter,       only : universe
@@ -24,8 +26,8 @@ module universeShelf_class
   !!   ptr  -> Pointer to the universe
   !!
   type :: uniBox
-    character(nameLen)       :: name = ''
-    class(universe), pointer :: ptr => null()
+    character(:), allocatable :: name
+    class(universe), pointer  :: ptr => null()
   end type uniBox
 
   !!
@@ -86,58 +88,52 @@ contains
   !! Errors:
   !!   fatalError if there are multiple universes with the same id
   !!
-  subroutine init(self, fills, dict, cells, surfs, mats)
-    class(universeShelf), intent(inout) :: self
-    type(uniFills), intent(out)         :: fills
-    class(dictionary), intent(in)       :: dict
-    type(cellShelf), intent(inout)      :: cells
-    type(surfaceShelf), intent(inout)   :: surfs
-    type(charMap), intent(in)           :: mats
+  subroutine init(self, dict, mats, fills, cells, surfs, meshes)
+    class(universeShelf), intent(inout)           :: self
+    class(dictionary), intent(in)                 :: dict
+    type(charMap), intent(in)                     :: mats
+    type(uniFills), intent(out)                   :: fills
+    type(cellShelf), intent(inout)                :: cells
+    type(surfaceShelf), intent(inout)             :: surfs
+    type(meshShelf), intent(inout)                :: meshes
     character(nameLen), dimension(:), allocatable :: names
-    integer(shortInt)                             :: i, id, idx
+    integer(shortInt)                             :: nUniverses, i, id, idx
+    character(:), allocatable                     :: name
     integer(shortInt), dimension(:), allocatable  :: fillInfo
-    integer(shortInt), parameter :: NOT_PRESENT = -7
-    character(100), parameter    :: Here = 'init (universeShelf_class.f90)'
+    character(100), parameter                     :: Here = 'init (universeShelf_class.f90)'
 
-    ! Get all universe names
+    ! Get all universe names.
     call dict % keys(names, 'dict')
 
-    ! Allocate space and uniFills size
-    allocate (self % unis(size(names)))
-    call fills % init(size(names))
+    ! Allocate space and uniFills size.
+    nUniverses = size(names)
+    allocate (self % unis(nUniverses))
+    call fills % init(nUniverses)
 
-    ! Build universes
-    do i = 1, size(names)
-      ! Build new universe
-      self % unis(i) % name = names(i)
+    ! Build universes.
+    do i = 1, nUniverses
+      ! Retrieve name of current universe and build it.
+      name = trim(names(i))
+      self % unis(i) % name = name
 
       ! Build new interface
-      call new_universe_ptr(self % unis(i) % ptr, &
-                            fillInfo, &
-                            dict % getDictPtr(names(i)),&
-                            cells, surfs, mats)
+      call new_universe_ptr(dict % getDictPtr(name), mats, cells, surfs, meshes, fillInfo, self % unis(i) % ptr)
 
       ! Add ID to map detecting any conflicts
       id = self % unis(i) % ptr % id()
       idx = self % idMap % getOrDefault(id, NOT_PRESENT)
-      if (idx /= NOT_PRESENT) then
-        call fatalError(Here,'Universes '//trim(names(i))// ' & '//&
-                              trim(self % unis(idx) % name)//&
-                             ' have the same ID: '//numToChar(id))
-      else
-        call self % idMap % add(id, i)
+      if (idx /= NOT_PRESENT) call fatalError(Here, 'Universes '//name// ' & '//trim(self % unis(idx) % name)//&
+                                              ' have the same id: '//numToChar(id)//'.')
+      
+      call self % idMap % add(id, i)
 
-      end if
-
-      ! Store content info in fills
+      ! Store content info into fills and set new universe index.
       call fills % addUniverse(i, id, fillInfo)
-
-      ! Load index info into the universe
       call self % unis(i) % ptr % setIdx(i)
 
     end do
 
-    ! Finish build
+    ! Finish build.
     call fills % finishBuild(self % idMap)
 
   end subroutine init
@@ -183,16 +179,15 @@ contains
     class(universeShelf), intent(in) :: self
     integer(shortInt), intent(in)    :: idx
     class(universe), pointer         :: ptr
-    character(100), parameter :: Here = 'getPtr (universeShelf_class.f90)'
+    integer(shortInt)                :: nUniverses
+    character(100), parameter        :: Here = 'getPtr (universeShelf_class.f90)'
 
     ! Return pointer
-    if (idx < 1 .or. idx > size(self % unis)) then
-         call fatalError(Here, 'Requested index: '//numToChar(idx)//' is not valid. Must be between &
-                               &1 and '//numToChar(size(self % unis)))
-    else
-      ptr => self % unis(idx) % ptr
-
-    end if
+    nUniverses = size(self % unis)
+    if (idx < 1 .or. idx > nUniverses) call fatalError(Here, 'Requested index: '//numToChar(idx)//' is not valid. Must be between &
+                                                       &1 and '//numToChar(nUniverses)//'.')
+    
+    ptr => self % unis(idx) % ptr
 
   end function getPtr
 
@@ -212,14 +207,11 @@ contains
     class(universeShelf), intent(in) :: self
     integer(shortInt), intent(in)    :: id
     integer(shortInt)                :: idx
-    integer(shortInt), parameter :: NOT_PRESENT = -7
-    character(100), parameter :: Here = 'getIdx (universeShelf_class.f90)'
+    character(100), parameter        :: Here = 'getIdx (universeShelf_class.f90)'
 
     idx = self % idMap % getOrDefault(id, NOT_PRESENT)
 
-    if (idx == NOT_PRESENT) then
-      call fatalError(Here, 'There is no universe with ID: '//numToChar(id))
-    end if
+    if (idx == NOT_PRESENT) call fatalError(Here, 'There is no universe with id: '//numToChar(id)//'.')
 
   end function getIdx
 
@@ -238,14 +230,13 @@ contains
   function getId(self, idx) result(id)
     class(universeShelf), intent(in) :: self
     integer(shortInt), intent(in)    :: idx
-    integer(shortInt)                :: id
-    character(100), parameter :: Here = 'getId (universeShelf_class.f90)'
+    integer(shortInt)                :: nUniverses, id
+    character(100), parameter        :: Here = 'getId (universeShelf_class.f90)'
 
     ! Catch invalid idx
-    if (idx < 1 .or. idx > size(self % unis)) then
-       call fatalError(Here, 'Requested index: '//numToChar(idx)//' is not valid. Must be between &
-                             &1 and '//numToChar(size(self % unis)))
-    end if
+    nUniverses = size(self % unis)
+    if (idx < 1 .or. idx > nUniverses) call fatalError(Here, 'Requested index: '//numToChar(idx)//' is not valid. Must be between &
+                                                       &1 and '//numToChar(nUniverses)//'.')
 
     id = self % unis(idx) % ptr % id()
 
@@ -273,8 +264,16 @@ contains
   !!
   elemental subroutine kill(self)
     class(universeShelf), intent(inout) :: self
+    integer(shortInt)                   :: i
 
-    if (allocated(self % unis)) deallocate(self % unis)
+    if (allocated(self % unis)) then
+        do i = 1, size(self % unis)
+            call self % unis(i) % ptr % kill()
+            if (allocated(self % unis(i) % name)) deallocate(self % unis(i) % name)
+        
+        end do
+        deallocate(self % unis)
+    end if
     call self % idMap % kill()
 
   end subroutine kill

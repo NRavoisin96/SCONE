@@ -202,16 +202,18 @@ contains
     integer(shortInt)                    :: sIdx, cIdx
     integer(longInt)                     :: addr
     real(defReal)                        :: score, flux
+    integer(shortInt)                    :: matIdx
     character(100), parameter :: Here = 'reportInColl simpleFMClerk_class.f90'
 
     ! Return if collision is virtual but virtual collision handling is off
     if ((.not. self % handleVirtual) .and. virtual) return
 
     ! Ensure we're not in void (could happen when scoring virtual collisions)
-    if (p % matIdx() == VOID_MAT) return
+    matIdx = p % getMatIdx()
+    if (matIdx == VOID_MAT) return
 
     ! Get material pointer
-    mat => neutronMaterial_CptrCast(xsData % getMaterial(p % matIdx()))
+    mat => neutronMaterial_CptrCast(xsData % getMaterial(matIdx))
     if (.not.associated(mat)) then
       call fatalError(Here,'Unrecognised type of material was retrived from nuclearDatabase')
     end if
@@ -221,9 +223,9 @@ contains
 
     ! Calculate flux with the right cross section according to virtual collision handling
     if (self % handleVirtual) then
-      flux = p % w / xsData % getTrackingXS(p, p % matIdx(), TRACKING_XS)
+      flux = p % w / xsData % getTrackingXS(p, matIdx, TRACKING_XS)
     else
-      flux = p % w / xsData % getTotalMatXS(p, p % matIdx())
+      flux = p % w / xsData % getTotalMatXS(p, matIdx)
     end if
 
     ! Find starting index in the map

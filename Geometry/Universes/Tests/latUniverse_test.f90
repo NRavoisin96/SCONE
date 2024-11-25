@@ -9,6 +9,7 @@ module latUniverse_test
   use coord_class,        only : coord
   use surfaceShelf_class, only : surfaceShelf
   use cellShelf_class,    only : cellShelf
+  use meshShelf_class,    only : meshShelf
   use latUniverse_class,  only : latUniverse
   use funit
 
@@ -31,6 +32,7 @@ module latUniverse_test
   ! Variables
   type(surfaceShelf) :: surfs
   type(cellShelf)    :: cells
+  type(meshShelf)    :: meshes
   type(charMap)      :: mats
   type(latUniverse)  :: uni1
   type(latUniverse)  :: uni2
@@ -42,33 +44,33 @@ contains
   !!
 @Before
   subroutine setUp()
-    integer(shortInt), dimension(:), allocatable :: fill
+    integer(shortInt), dimension(:), allocatable :: fills
     type(dictionary)   :: dict
     character(nameLen) :: name
     integer(shortInt), dimension(:), allocatable :: ref
 
-    ! Add materials
+    ! Add materials.
     name = 'void'
     call mats % add(name, 3)
 
-    ! Build universe 1
+    ! Build universe 1.
     call charToDict(dict, UNI1_DEF)
-    call uni1 % init(fill, dict, cells, surfs, mats)
+    call uni1 % init(dict, mats, fills, cells, surfs, meshes)
     call dict % kill()
     call uni1 % setIdx(8)
 
-    ! Verify fill vector
+    ! Verify fill vector.
     ref = [-4, -5, -6, -1, -2, -3, -7, -4, -8, -3, -4, -5, 3]
-    @assertEqual(ref, fill)
+    @assertEqual(ref, fills)
 
-    ! Build universe 2
+    ! Build universe 2.
     call charToDict(dict, UNI2_DEF)
-    call uni2 % init(fill, dict, cells, surfs, mats)
+    call uni2 % init(dict, mats, fills, cells, surfs, meshes)
     call dict % kill()
     call uni2 % setIdx(3)
 
     ref = [-1, -2, -1]
-    @assertEqual(ref, fill)
+    @assertEqual(ref, fills)
 
   end subroutine setUp
 
@@ -207,9 +209,9 @@ contains
   !!
 @Test
   subroutine test_distance()
-    real(defReal)     :: d, ref, eps
-    integer(shortInt) :: surfIdx
-    type(coord)       :: pos
+    real(defReal)            :: d, ref, eps
+    integer(shortInt)        :: surfIdx
+    type(coord)              :: pos
     real(defReal), parameter :: TOL = 1.0E-7_defReal
 
     ! ** 3D universe
@@ -220,7 +222,7 @@ contains
     pos % cellIdx = 0
     pos % localId = 11
 
-    call uni1 % distance(d, surfIdx, pos)
+    call uni1 % distance(pos, d, surfIdx)
 
     ref = 2.5_defReal
     @assertEqual(ref, d, TOL * ref)
@@ -234,7 +236,7 @@ contains
     pos % cellIdx = 0
     pos % localId = 13
 
-    call uni1 % distance(d, surfIdx, pos)
+    call uni1 % distance(pos, d, surfIdx)
 
     @assertEqual(INF, d)
     @assertEqual(-7, surfIdx )
@@ -248,7 +250,7 @@ contains
     pos % cellIdx = 0
     pos % localId = 4
 
-    call uni1 % distance(d, surfIdx, pos)
+    call uni1 % distance(pos, d, surfIdx)
 
     ref = SQRT2 * HALF
     @assertEqual(ref, d, ref * TOL)
@@ -262,7 +264,7 @@ contains
     pos % cellIdx = 0
     pos % localId = 4
 
-    call uni1 % distance(d, surfIdx, pos)
+    call uni1 % distance(pos, d, surfIdx)
     @assertEqual(ZERO, d,  TOL)
     @assertEqual(-2, surfIdx )
 
@@ -274,7 +276,7 @@ contains
     pos % cellIdx = 0
     pos % localId = 2
 
-    call uni2 % distance(d, surfIdx, pos)
+    call uni2 % distance(pos, d, surfIdx)
 
     @assertEqual(INF, d)
 
@@ -283,7 +285,7 @@ contains
     pos % dir = [ZERO, 0.01_defReal, ONE]
     pos % dir = pos % dir / norm2(pos % dir)
 
-    call uni2 % distance(d, surfIdx, pos)
+    call uni2 % distance(pos, d, surfIdx)
 
     ref = sqrt(40.0_defReal**2 + 0.4_defReal**2)
     @assertEqual(ref, d, TOL * ref)
@@ -297,7 +299,7 @@ contains
     pos % cellIdx = 0
     pos % localId = 3
 
-    call uni2 % distance(d, surfIdx, pos)
+    call uni2 % distance(pos, d, surfIdx)
 
     ref = HALF * SQRT2
     @assertEqual(ref, d, TOL * ref)

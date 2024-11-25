@@ -2,10 +2,11 @@ module plane_class
 
   use numPrecision
   use universalVariables, only : X_AXIS, Y_AXIS, Z_AXIS, INF
-  use genericProcedures,  only : fatalError, dotProduct, numToChar
+  use genericProcedures,  only : fatalError, numToChar, isEqual
   use dictionary_class,   only : dictionary
   use quadSurface_inter,  only : quadSurface
   use surface_inter,      only : kill_super => kill
+  
   implicit none
   private
 
@@ -20,8 +21,8 @@ module plane_class
   !!  pl { type plane; id 16; coeffs (1.0 2.0 1.0 0.0);}
   !!
   !! Private members:
-  !!   norm -> Normal vector (normalised) [c1, c2, c3]
-  !!   offset -> Offset, c4 (also normalised)
+  !!   norm   -> Normalised normal vector [c1, c2, c3]
+  !!   offset -> Normalised offset [c4]
   !!
   !! Interface:
   !!   surface interface
@@ -32,30 +33,14 @@ module plane_class
     real(defReal)               :: offset = ZERO
   contains
     ! Superclass procedures
-    procedure :: myType
     procedure :: init
-    procedure :: boundingBox
     procedure :: evaluate
     procedure :: distance
-    procedure :: going
+    procedure :: entersPositiveHalfspace
     procedure :: kill
   end type plane
 
-
 contains
-
-  !!
-  !! Return surface type name
-  !!
-  !! See surface_inter for more details
-  !!
-  pure function myType(self) result(str)
-    class(plane), intent(in)  :: self
-    character(:), allocatable  :: str
-
-    str = 'plane'
-
-  end function myType
 
   !!
   !! Initialise plane from a dictionary
@@ -63,60 +48,45 @@ contains
   !! See surface_inter for more details
   !!
   !! Errors:
-  !!   fatalError if id < 0.
-  !!   fatalError if is not a plane (coeffcients 1-3 are 0.0)
+  !!   -fatalError if coefficients do not have 4 entries.
+  !!   -fatalError if coefficients 1-3 are all ZERO (invalid normal).
   !!
   subroutine init(self, dict)
     class(plane), intent(inout)              :: self
     class(dictionary), intent(in)            :: dict
-    integer(shortInt)                        :: id
+    integer(shortInt)                        :: id, N
     real(defReal), dimension(:), allocatable :: coeffs
-    character(100), parameter :: Here = 'init (plane_class.f90)'
+    real(defReal)                            :: offset
+    real(defReal), dimension(6)              :: boundingBox
+    character(100), parameter                :: Here = 'init (plane_class.f90)'
 
-    ! Get from dictionary
+    ! Load id.
     call dict % get(id, 'id')
-    call dict % get(coeffs,'coeffs')
+    call self % setId(id)
+    
+    ! Load coefficients.
+    call dict % get(coeffs, 'coeffs')
+    N = size(coeffs)
+    if (N /= 4) call fatalError(Here, 'Coefficients must have size 4. Has: '//numToChar(N)//'.')
+    if (isEqual(coeffs(1:3), ZERO)) call fatalError(Here, 'Invalid plane normal. Coefficients 1-3 are all 0.')
 
-    ! Check values
-    if (id < 1) then
-      call fatalError(Here,'Invalid surface id provided. ID must be > 1')
-
-    else if (size(coeffs) /= 4) then
-      call fatalError(Here, '4 plane coefficients must be given. There are: '//&
-                            numToChar(size(coeffs)))
-    else if (all(coeffs(1:3) == ZERO)) then
-      call fatalError(Here, 'Invalid plane normal. coefficients 1-3 are all 0.0.')
-
-    end if
-
-    ! Normalise coefficients
+    ! Set normal vector and offset.
     coeffs = coeffs / norm2(coeffs(1:3))
-
-    ! Load data
-    call self % setID(id)
+    offset = coeffs(4)
     self % norm = coeffs(1:3)
-    self % offset = coeffs(4)
+    self % offset = offset
 
-
+    ! Initialise bounding box and check if plane is aligned with one axis. Check for
+    ! perfect equality here.
+    boundingBox(1:3) = -INF
+    boundingBox(4:6) = INF
+    if (coeffs(2) == ZERO .and. coeffs(3) == ZERO) boundingBox([1, 4]) = offset
+    if (coeffs(1) == ZERO .and. coeffs(3) == ZERO) boundingBox([2, 5]) = offset
+    if (coeffs(1) == ZERO .and. coeffs(2) == ZERO) boundingBox([3, 6]) = offset
+    call self % setBoundingBox(boundingBox)
+    call self % setType('plane')
 
   end subroutine init
-
-  !!
-  !! Return axis-aligned bounding box for the surface
-  !!
-  !! See surface_inter for details
-  !!
-  !! Always returns infinate box (even when aligned with some axis)
-  !!
-  pure function boundingBox(self) result(aabb)
-    class(plane), intent(in)   :: self
-    real(defReal), dimension(6) :: aabb
-
-    aabb(1:3) = -INF
-    aabb(4:6) = INF
-
-
-  end function boundingBox
 
   !!
   !! Evaluate surface expression c = F(r)
@@ -128,40 +98,65 @@ contains
     real(defReal), dimension(3), intent(in) :: r
     real(defReal)                           :: c
 
-    c = dotProduct(r, self % norm) - self % offset
+    c = dot_product(r, self % norm) - self % offset
 
   end function evaluate
 
-
+  !! Function 'distance'
   !!
-  !! Return distance to the surface
+  !! Basic description:
+  !!   Returns the distance to the plane.
   !!
-  !! See surface_inter for details
+  !! Detailed description:
+  !!   Consider a generic plane. A point lying on this plane satisfies:
   !!
-  !! Solve linear equaltion
-  !!   d*k + c = 0.0
+  !!   c1 * x + c2 * y + c3 * z - c4 = 0
   !!
-  !!   k = F'(r) .dot. u = c1*u1 + c2*u2 +c3*u3
-  !!   c = F(r)
+  !!   Now consider a point p(d) = [p_x(d), p_y(d), p_z(d)] along a ray of direction u = [u_x, u_y, u_z].
+  !!   Its parametric equation can be written as:
+  !!
+  !!   p(d) = r + d * u
+  !!
+  !!   Substituting this into the equation for the plane, we get:
+  !!
+  !!   c1 * (r_x + d * u_x) + c2 * (r_y + d * u_y) + c3 * (r_z + d * u_z) - c4 = 0
+  !!=> (c1 * u_x + c2 * u_y + c3 * u_z) * d + c1 * r_x + c2 * u_y + c3 * u_z - c4 = 0
+  !!
+  !!   Now, define:
+  !!
+  !!   k = c1 * u_x + c2 * u_y + c3 * u_z
+  !!   c = c1 * r_x + c2 * u_y + c3 * u_z - c4 (note: this is the value returned by the 'evaluate' function)
+  !!
+  !!   Then the equation becomes:
+  !!
+  !!   k * d + c = 0
+  !!
+  !!   which is linear in d. The solution is simply given by:
+  !!
+  !!   d = - c / k
+  !!
+  !! Arguments:
+  !!   r [in] -> Position of the particle.
+  !!   u [in] -> Direction of the particle.
   !!
   pure function distance(self, r, u) result(d)
-    class(plane), intent(in)              :: self
-    real(defReal), dimension(3), intent(in) :: r
-    real(defReal), dimension(3), intent(in) :: u
-    real(defReal)                           :: d
-    real(defReal)                           :: k, c
+    class(plane), intent(in)                :: self
+    real(defReal), dimension(3), intent(in) :: r, u
+    real(defReal)                           :: d, k, c
 
-    k = dotProduct(u, self % norm)
+    ! Initialise d = INF then compute k and c.
+    d = INF
+    k = dot_product(u, self % norm)
     c = self % evaluate(r)
 
-    if ( k == ZERO .or. abs(c) < self % surfTol()) then ! Parallel or at the surface
-      d = INF
-
-    else
-      d = -c/k
-      if (d <= ZERO .or. d > INF) d = INF
-
-    end if
+    ! If the particle's direction is parallel to the plane (k = ZERO) or if the particle
+    ! is within surface tolerance of the plane, there is no intersection and we can return
+    ! early.
+    if (isEqual(k, ZERO) .or. abs(c) < self % getSurfTol()) return
+    
+    ! If reached here, update d and cap resulting distance at infinity.
+    d = -c / k
+    if (d <= ZERO .or. d > INF) d = INF
 
   end function distance
 
@@ -173,23 +168,24 @@ contains
   !! Note:
   !!   For parallel direction halfspace is asigned by the sign of `evaluate` result.
   !!
-  pure function going(self, r, u) result(halfspace)
-    class(plane), intent(in)              :: self
-    real(defReal), dimension(3), intent(in) :: r
-    real(defReal), dimension(3), intent(in) :: u
+  pure function entersPositiveHalfspace(self, r, u) result(halfspace)
+    class(plane), intent(in)                :: self
+    real(defReal), dimension(3), intent(in) :: r, u
     logical(defBool)                        :: halfspace
     real(defReal)                           :: proj
 
-    proj = dotProduct(u, self % norm)
-    halfspace = proj > ZERO
+    proj = dot_product(u, self % norm)
 
-    ! Special case of parallel direction
-    ! Partilce stays in its current halfspace
-    if (proj == ZERO) then
+    ! Special case of parallel direction. Particle stays in its current halfspace.
+    if (isEqual(proj, ZERO)) then
       halfspace = self % evaluate(r) >= ZERO
+      return
+      
     end if
 
-  end function going
+    halfspace = proj > ZERO
+
+  end function entersPositiveHalfspace
 
   !!
   !! Return to uninitialised state

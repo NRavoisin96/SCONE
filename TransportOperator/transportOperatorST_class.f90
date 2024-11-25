@@ -51,19 +51,20 @@ contains
     type(tallyAdmin), intent(inout)           :: tally
     class(particleDungeon),intent(inout)      :: thisCycle
     class(particleDungeon),intent(inout)      :: nextCycle
-    integer(shortInt)                         :: event
+    integer(shortInt)                         :: event, matIdx
     real(defReal)                             :: sigmaT, dist
     type(distCache)                           :: cache
     character(100), parameter :: Here = 'surfaceTracking (transportOperatorST_class.f90)'
 
+    matIdx = p % getMatIdx()
     STLoop: do
 
       ! Obtain the local cross-section
-      if (p % matIdx() == VOID_MAT) then
-        dist = INFINITY
+      if (matIdx == VOID_MAT) then
+        dist = INF
 
       else
-        sigmaT = self % xsData % getTrackingXS(p, p % matIdx(), MATERIAL_XS)
+        sigmaT = self % xsData % getTrackingXS(p, matIdx, MATERIAL_XS)
         dist = -log( p % pRNG % get()) / sigmaT
 
         ! Should never happen! Catches NaN distances
@@ -87,13 +88,13 @@ contains
       call tally % reportPath(p, dist)
 
       ! Kill particle if it has leaked
-      if (p % matIdx() == OUTSIDE_FILL) then
+      if (matIdx == OUTSIDE_FILL) then
         p % isDead = .true.
         p % fate = LEAK_FATE
       end if
 
       ! Give error if the particle somehow ended in an undefined material
-      if (p % matIdx() == UNDEF_MAT) then
+      if (matIdx == UNDEF_MAT) then
         print *, p % rGlobal()
         call fatalError(Here, "Particle is in undefined material")
       end if

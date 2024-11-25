@@ -12,7 +12,7 @@ module numPrecision
   integer, public, parameter :: endOfFile = -1
 
 
-  ! Usefull constants
+  ! Useful constants
   real(defReal), public, parameter :: PI = 4.0_defReal * atan(1.0_defReal), &
                                       SQRT2 = sqrt(2._defReal), &
                                       SQRT2_2 = sqrt(2._defReal)/2._defReal , &
@@ -21,11 +21,13 @@ module numPrecision
                                       TWO = 2.0_defReal, &
                                       TWO_PI  = TWO * PI, &
                                       SQRT_PI = sqrt(PI), &
-                                      HALF    = 0.5_defReal
+                                      HALF    = 0.5_defReal, &
+                                      THIRD   = ONE / 3.0_defReal, &
+                                      FOURTH  = 0.25_defReal, &
+                                      SIXTH   = ONE / 6.0_defReal
 
   real(defReal), public, parameter  :: floatTol = 1.0e-12 !*** Should be replaced
   real(defReal), public, parameter  :: FP_REL_TOL = 1.0e-7_defReal
-
 
 contains
 

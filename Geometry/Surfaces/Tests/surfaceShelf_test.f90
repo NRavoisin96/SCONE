@@ -57,21 +57,20 @@ contains
     ! 1st Surface
     idx = shelf % getIdx(18)
     ptr => shelf % getPtr(idx)
-    @assertEqual(18, ptr % id())
-    @assertEqual('sphere', ptr % myType())
+    @assertEqual(18, ptr % getId())
+    @assertEqual('sphere', ptr % getType())
     @assertEqual(18, shelf % getId(idx))
 
     ! 2nd Surface
     idx = shelf % getIdx(1)
     ptr => shelf % getPtr(idx)
-    @assertEqual(1, ptr % id())
-    @assertEqual('zPlane', ptr % myType())
+    @assertEqual(1, ptr % getId())
+    @assertEqual('zPlane', ptr % getType())
     @assertEqual(1, shelf % getId(idx))
 
     ! Test size
     @assertEqual(3, shelf % getSize())
 
   end subroutine testShelf
-
 
 end module surfaceShelf_test

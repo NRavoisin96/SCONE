@@ -66,10 +66,11 @@ contains
   !!   Return ZERO if particle is not a Neutron
   !!
   function get(self, p, xsData) result(val)
-    class(weightResponse), intent(in)      :: self
+    class(weightResponse), intent(in)     :: self
     class(particle), intent(in)           :: p
     class(nuclearDatabase), intent(inout) :: xsData
     real(defReal)                         :: val
+    integer(shortInt)                     :: matIdx
     class(neutronMaterial), pointer       :: mat
 
     val = ZERO
@@ -78,15 +79,16 @@ contains
     if(p % type /= P_NEUTRON) return
 
     ! Get pointer to active material data
-    mat => neutronMaterial_CptrCast(xsData % getMaterial(p % matIdx()))
+    matIdx = p % getMatIdx()
+    mat => neutronMaterial_CptrCast(xsData % getMaterial(matIdx))
 
     ! Return if material is not a neutronMaterial
     if(.not.associated(mat)) return
 
     if (self % moment == 0) then
-      val = xsData % getTotalMatXS(p, p % matIdx()) / (p % w)
+      val = xsData % getTotalMatXS(p, matIdx) / (p % w)
     else
-      val = xsData % getTotalMatXS(p, p % matIdx()) * ((p % w) ** (self % moment - 1))
+      val = xsData % getTotalMatXS(p, matIdx) * ((p % w) ** (self % moment - 1))
     end if
 
   end function get

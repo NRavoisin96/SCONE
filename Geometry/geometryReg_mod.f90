@@ -1,7 +1,7 @@
 !!
 !! Registry that contains all defined geometries and fields
 !!
-!! Stores and manages liftime of all geometries and fields
+!! Stores and manages lifetimes of all geometries and fields
 !! Allows to obtain pointer to a geometry or a field
 !! Serves as geometry and field factory
 !!
@@ -98,19 +98,17 @@ contains
     class(geometry), allocatable, intent(inout) :: geom
     character(nameLen), intent(in)              :: name
     integer(shortInt)                           :: idx
-    integer(shortInt), parameter :: NOT_PRESENT = -7
-    character(100), parameter    :: Here = 'addGeom (geometryReg_mod.f90)'
+    integer(shortInt), parameter                :: NOT_PRESENT = -7
+    character(100), parameter                   :: Here = 'addGeom (geometryReg_mod.f90)'
 
     ! Get free index
     idx = geometryNameMap % getOrDefault(name, NOT_PRESENT)
 
-    if (idx /= NOT_PRESENT) then
-      call fatalError(Here, 'Geometry with name: '//trim(name)//' has already been defined with &
-                            &idx: '//numToChar(idx))
-    else
-      idx = freeGeomIdx()
-      geometryTop = geometryTop + 1 ! Increment counter
-    end if
+    if (idx /= NOT_PRESENT) call fatalError(Here, 'Geometry with name: '//trim(name)//' has already been defined with &
+                                            &idx: '//numToChar(idx))
+    
+    idx = freeGeomIdx()
+    geometryTop = geometryTop + 1 ! Increment counter
 
     ! Initialise & store index
     call geometryNameMap % add(name, idx)
@@ -137,12 +135,10 @@ contains
     character(nameLen), intent(in) :: name
     integer(shortInt)              :: idx
     integer(shortInt), parameter   :: NOT_PRESENT = -8
-    character(*), parameter :: Here = 'geomIdx (geometryReg_mod.f90)'
+    character(*), parameter        :: Here = 'geomIdx (geometryReg_mod.f90)'
 
     idx = geometryNameMap % getOrDefault(name, NOT_PRESENT)
-    if (idx == NOT_PRESENT) then
-      call fatalError(Here, 'Geometry: '//trim(name)//' was not found.')
-    end if
+    if (idx == NOT_PRESENT) call fatalError(Here, 'Geometry: '//trim(name)//' was not found.')
 
   end function geomIdx
 
@@ -161,13 +157,11 @@ contains
   function geomPtr(idx) result(ptr)
     integer(shortInt), intent(in) :: idx
     class(geometry), pointer      :: ptr
-    character(*), parameter :: Here = 'geomPtr (geometryReg_mod.f90)'
+    character(*), parameter       :: Here = 'geomPtr (geometryReg_mod.f90)'
 
     ! Check index
-    if (idx < 1 .or. idx > geometryTop) then
-      call fatalError(Here,'Index: '//numToChar(idx)//' does not correspond to valid geometry. &
-                           &Must be 1-'//numToChar(geometryTop))
-    end if
+    if (idx < 1 .or. idx > geometryTop) call fatalError(Here,'Index: '//numToChar(idx)//' does not correspond to valid geometry. &
+                                                        &Must be 1-'//numToChar(geometryTop))
 
     ptr => geometries(idx) % geom
 
@@ -185,12 +179,9 @@ contains
   function geomNum() result(N)
     integer(shortInt) :: N
 
+    N = 0
     ! Check allocation and get size
-    if (allocated(geometries)) then
-      N = geometryTop
-    else
-      N = 0
-    end if
+    if (allocated(geometries)) N = geometryTop
 
   end function geomNum
 
@@ -208,19 +199,17 @@ contains
     class(field), allocatable, intent(inout) :: kentta
     character(nameLen), intent(in)           :: name
     integer(shortInt)                        :: idx
-    integer(shortInt), parameter :: NOT_PRESENT = -7
-    character(100), parameter    :: Here = 'addField (geometryReg_mod.f90)'
+    integer(shortInt), parameter             :: NOT_PRESENT = -7
+    character(100), parameter                :: Here = 'addField (geometryReg_mod.f90)'
 
     ! Get free index
     idx = fieldNameMap % getOrDefault(name, NOT_PRESENT)
 
-    if (idx /= NOT_PRESENT) then
-      call fatalError(Here, 'Field with name: '//trim(name)//' has already been defined with &
-                            &idx: '//numToChar(idx))
-    else
-      idx = freeFieldIdx()
-      fieldTop = fieldTop + 1 ! Increment counter
-    end if
+    if (idx /= NOT_PRESENT) call fatalError(Here, 'Field with name: '//trim(name)//' has already been defined with &
+                                            &idx: '//numToChar(idx))
+
+    idx = freeFieldIdx()
+    fieldTop = fieldTop + 1 ! Increment counter
 
     ! Initialise & store index
     call fieldNameMap % add(name, idx)
@@ -247,12 +236,10 @@ contains
     character(nameLen), intent(in) :: name
     integer(shortInt)              :: idx
     integer(shortInt), parameter   :: NOT_PRESENT = -8
-    character(*), parameter :: Here = 'fieldIdx (geometryReg_mod.f90)'
+    character(*), parameter        :: Here = 'fieldIdx (geometryReg_mod.f90)'
 
     idx = fieldNameMap % getOrDefault(name, NOT_PRESENT)
-    if (idx == NOT_PRESENT) then
-      call fatalError(Here, 'Field: '//trim(name)//' was not found.')
-    end if
+    if (idx == NOT_PRESENT) call fatalError(Here, 'Field: '//trim(name)//' was not found.')
 
   end function fieldIdx
 
@@ -271,13 +258,11 @@ contains
   function fieldPtr(idx) result(ptr)
     integer(shortInt), intent(in) :: idx
     class(field), pointer         :: ptr
-    character(*), parameter :: Here = 'fieldPtr (geometryReg_mod.f90)'
+    character(*), parameter       :: Here = 'fieldPtr (geometryReg_mod.f90)'
 
     ! Check index
-    if (idx < 1 .or. idx > fieldTop) then
-      call fatalError(Here,'Index: '//numToChar(idx)//' does not correspond to valid field. &
-                           &Must be 1-'//numToChar(fieldTop))
-    end if
+    if (idx < 1 .or. idx > fieldTop) call fatalError(Here,'Index: '//numToChar(idx)//' does not correspond to valid field. &
+                                                     &Must be 1-'//numToChar(fieldTop))
 
     ptr => fields(idx) % kentta
 
@@ -297,6 +282,7 @@ contains
       end do
 
       deallocate(geometries)
+
     end if
     geometryTop = 0
 
@@ -308,6 +294,7 @@ contains
       end do
 
       deallocate(fields)
+
     end if
     fieldTop = 0
 
@@ -334,30 +321,29 @@ contains
     ! Set index
     idx = geometryTop + 1
 
-    ! Check allocation/extension of geometries array
-    if (allocated(geometries)) then
-      N = size(geometries)
+    ! If geometries array is not allocated, allocate it and return early
+    if (.not. allocated(geometries)) then
+      allocate (geometries(START_SIZE))
+      return
 
-      if (idx > N) then ! Extend Array
-        N = int(GROWTH_RATE * N)
+    end if
 
-        ! Allocate temporary
-        allocate (temp(N))
+    ! Initialise N and check allocation/extension of geometries array
+    N = size(geometries)
+    if (idx > N) then ! Extend Array
+      N = int(GROWTH_RATE * N)
 
-        ! Load values
-        do i = 1, geometryTop
-          temp(i) % name = geometries(i) % name
-          call move_alloc(geometries(i) % geom, temp(i) % geom)
-        end do
+      ! Allocate temporary
+      allocate (temp(N))
 
-        ! Switch allocation
-        call move_alloc(temp, geometries)
+      ! Load values
+      do i = 1, geometryTop
+        temp(i) % name = geometries(i) % name
+        call move_alloc(geometries(i) % geom, temp(i) % geom)
+      end do
 
-      end if
-
-    else ! Allocate array
-      N = START_SIZE
-      allocate (geometries(N))
+      ! Switch allocation
+      call move_alloc(temp, geometries)
 
     end if
 
@@ -377,37 +363,36 @@ contains
   !!   Does NOT increment the fieldTop counter
   !!
   function freeFieldIdx() result(idx)
-    integer(shortInt)                        :: idx
-    integer(shortInt)                        :: N, i
+    integer(shortInt)                         :: idx
+    integer(shortInt)                         :: N, i
     type(fieldBox), dimension(:), allocatable :: temp
 
     ! Set index
     idx = fieldTop + 1
 
-    ! Check allocation/extension of geometries array
-    if (allocated(fields)) then
-      N = size(fields)
+    ! If fields array is not allocated, allocate it and return early
+    if (.not. allocated(fields)) then
+      allocate (fields(START_SIZE))
+      return
 
-      if (idx > N) then ! Extend Array
-        N = int(GROWTH_RATE * N)
+    end if
 
-        ! Allocate temporary
-        allocate (temp(N))
+    ! Check allocation/extension of fields array
+    N = size(fields)
+    if (idx > N) then ! Extend Array
+      N = int(GROWTH_RATE * N)
 
-        ! Move values
-        do i = 1, fieldTop
-          temp(i) % name = fields(i) % name
-          call move_alloc(fields(i) % kentta, temp(i) % kentta)
-        end do
+      ! Allocate temporary
+      allocate (temp(N))
 
-        ! Switch allocation
-        call move_alloc(temp, fields)
+      ! Move values
+      do i = 1, fieldTop
+        temp(i) % name = fields(i) % name
+        call move_alloc(fields(i) % kentta, temp(i) % kentta)
+      end do
 
-      end if
-
-    else ! Allocate array
-      N = START_SIZE
-      allocate (fields(N))
+      ! Switch allocation
+      call move_alloc(temp, fields)
 
     end if
 

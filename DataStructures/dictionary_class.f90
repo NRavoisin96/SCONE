@@ -635,7 +635,7 @@ contains
         value = self % entries(idx) % char0_alloc
 
       case default
-        call fatalError(Here,'Entery under keyword ' // keyword // ' is not a character')
+        call fatalError(Here,'Entry under keyword ' // keyword // ' is not a character')
 
     end select
 

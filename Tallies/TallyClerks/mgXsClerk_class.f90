@@ -226,7 +226,7 @@ contains
     type(neutronMacroXSs)                 :: xss
     class(neutronMaterial), pointer       :: mat
     real(defReal)                         :: nuFissXS, captXS, fissXS, scattXS, flux
-    integer(shortInt)                     :: enIdx, locIdx, binIdx
+    integer(shortInt)                     :: enIdx, matIdx, locIdx, binIdx
     integer(longInt)                      :: addr
     character(100), parameter :: Here =' reportInColl (mgXsClerk_class.f90)'
 
@@ -258,19 +258,20 @@ contains
     addr = self % getMemAddress() + self % width * (binIdx - 1) - 1
 
     ! Calculate flux with the right cross section according to virtual collision handling
+    matIdx = p % getMatIdx()
     if (self % handleVirtual) then
-      flux = p % w / xsData % getTrackingXS(p, p % matIdx(), TRACKING_XS)
+      flux = p % w / xsData % getTrackingXS(p, matIdx, TRACKING_XS)
     else
-      flux = p % w / xsData % getTotalMatXS(p, p % matIdx())
+      flux = p % w / xsData % getTotalMatXS(p, matIdx)
     end if
 
     ! Check if the particle is in void. This call might happen when handling virtual collisions.
     ! This is relevant in the case of homogenising materials that include void: the flux
     ! in void will be different than zero, and the zero reaction rates have to be averaged
-    if (p % matIdx() /= VOID_MAT) then
+    if (matIdx /= VOID_MAT) then
 
       ! Get material pointer
-      mat => neutronMaterial_CptrCast(xsData % getMaterial(p % matIdx()))
+      mat => neutronMaterial_CptrCast(xsData % getMaterial(matIdx))
       if (.not.associated(mat)) then
         call fatalError(Here,'Unrecognised type of material was retrived from nuclearDatabase')
       end if

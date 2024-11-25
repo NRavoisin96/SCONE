@@ -38,7 +38,7 @@ contains
   !!
 @Before
   subroutine setUp()
-    type(dictionary) :: dict
+    type(dictionary)   :: dict
     character(nameLen) :: name
 
     ! Surface shelf

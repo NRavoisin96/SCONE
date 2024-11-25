@@ -4,6 +4,8 @@ add_sources( ./dictionary_class.f90
              ./charMap_class.f90
              ./stack_class.f90
              ./dynArray_class.f90
+             ./kdTree_class.f90
+             ./node_class.f90
              ./dictParser_func.f90)
 
 # Add Unit Tests to a global List
@@ -11,6 +13,7 @@ add_unit_tests( ./Tests/dictionary_test.f90
                 ./Tests/intMap_test.f90
                 ./Tests/charMap_test.f90
                 ./Tests/dynArray_test.f90
+                ./Tests/kdTree_test.f90
                 ./Tests/dictParser_test.f90)
 
 add_integration_tests( ./Tests/dictParser_iTest.f90)

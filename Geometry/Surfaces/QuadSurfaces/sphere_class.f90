@@ -2,16 +2,13 @@ module sphere_class
 
   use numPrecision
   use universalVariables, only : INF, SURF_TOL
-  use genericProcedures,  only : fatalError, dotProduct, numToChar
+  use genericProcedures,  only : fatalError, numToChar
   use dictionary_class,   only : dictionary
   use surface_inter,      only : kill_super => kill
   use quadSurface_inter,  only : quadSurface
 
   implicit none
   private
-
-  ! Local constants
-  character(*), parameter :: TYPE_NAME    = 'sphere'
 
   !!
   !! Sphere surface
@@ -28,7 +25,6 @@ module sphere_class
   !!       }
   !!
   !! Private Members:
-  !!   origin -> Location of the midle of the sphere
   !!   r      -> Sphere radius
   !!   r_sq   -> Square of radius r (r^2)
   !!
@@ -37,34 +33,19 @@ module sphere_class
   !!
   type, public, extends(quadSurface) :: sphere
     private
-    real(defReal), dimension(3) :: origin = ZERO
-    real(defReal)               :: r      = ZERO
-    real(defReal)               :: r_sq   = ZERO
+    real(defReal) :: radius = ZERO, radiusSquared = ZERO
   contains
     ! Superclass procedures
-    procedure :: myType
     procedure :: init
-    procedure :: boundingBox
     procedure :: evaluate
     procedure :: distance
-    procedure :: going
+    procedure :: entersPositiveHalfspace
     procedure :: kill
+    procedure :: getRadius
+    procedure :: getRadiusSquared
   end type sphere
 
 contains
-
-  !!
-  !! Return surface type name
-  !!
-  !! See surface_inter for more details
-  !!
-  pure function myType(self) result(str)
-    class(sphere), intent(in) :: self
-    character(:), allocatable  :: str
-
-    str = TYPE_NAME
-
-  end function myType
 
   !!
   !! Initialise sphere from a dictionary
@@ -75,52 +56,36 @@ contains
   !!   fatalError if radius or id < 0.
   !!
   subroutine init(self, dict)
-    class(sphere), intent(inout)  :: self
-    class(dictionary), intent(in) :: dict
+    class(sphere), intent(inout)             :: self
+    class(dictionary), intent(in)            :: dict
     integer(shortInt)                        :: id
     real(defReal), dimension(:), allocatable :: origin
-    character(100), parameter :: Here = 'init (sphere_class.f90)'
+    real(defReal)                            :: radius
+    real(defReal), dimension(6)              :: boundingBox
+    character(100), parameter                :: Here = 'init (sphere_class.f90)'
 
-    ! Get from dictionary
+    ! Load id.
     call dict % get(id, 'id')
-    call dict % get(self % r, 'radius')
+    call self % setId(id)
+    
+    ! Load origin.
     call dict % get(origin, 'origin')
+    call self % setOrigin(origin, 3)
 
-    ! Check values
-    if (id < 1) then
-      call fatalError(Here,'Invalid surface id provided. ID must be > 1')
+    ! Load radius and set surface tolerance.
+    call dict % get(radius, 'radius')
+    if (radius <= ZERO) call fatalError(Here, 'Radius of the sphere must be +ve. Is: '//numToChar(radius)//'.')
+    self % radius = radius
+    self % radiusSquared = radius * radius
+    call self % setSurfTol(TWO * radius * SURF_TOL)
 
-    else if (size(origin) /= 3) then
-      call fatalError(Here,'Origin needs to have size 3. Has: '//numToChar(size(origin)))
-
-    else if ( self % r <= ZERO) then
-      call fatalError(Here, 'Radius of sphere must be +ve. Is: '//numToChar(self % r))
-
-    end if
-
-    ! Load data
-    self % r_sq = self % r * self % r
-    self % origin = origin
-    call self % setID(id)
-
-    ! Set surface tolerance
-    call self % setTol( TWO * self % r * SURF_TOL)
+    ! Set bounding box.
+    boundingBox(1:3) = origin - radius
+    boundingBox(4:6) = origin + radius
+    call self % setBoundingBox(boundingBox)
+    call self % setType('sphere')
 
   end subroutine init
-
-  !!
-  !! Return axis-aligned bounding box for the surface
-  !!
-  !! See surface_inter for details
-  !!
-  pure function boundingBox(self) result(aabb)
-    class(sphere), intent(in)   :: self
-    real(defReal), dimension(6) :: aabb
-
-    aabb(1:3) = self % origin - [self % r, self % r, self % r]
-    aabb(4:6) = self % origin + [self % r, self % r, self % r]
-
-  end function boundingBox
 
   !!
   !! Evaluate surface expression c = F(r)
@@ -130,56 +95,94 @@ contains
   pure function evaluate(self, r) result(c)
     class(sphere), intent(in)               :: self
     real(defReal), dimension(3), intent(in) :: r
+    real(defReal), dimension(3)             :: offsetCoords
     real(defReal)                           :: c
-    real(defReal), dimension(3)             :: diff
 
-    diff = r - self % origin
-
-    c = dotProduct(diff, diff) - self % r_sq
+    ! Offset coordinates with respect to sphere's origin and compute c.
+    offsetCoords = r - self % getOrigin()
+    c = dot_product(offsetCoords, offsetCoords) - self % radiusSquared
 
   end function evaluate
 
+  !! Function 'distance'
   !!
-  !! Return distance to the surface
+  !! Basic description:
+  !!   Returns the distance to the surface of the sphere.
   !!
-  !! See surface_inter for details
+  !! Detailed description:
+  !!   Consider a sphere of radius R. A point lying on the surface of this sphere satisfies:
   !!
-  !! Solves quadratic intersection equation
-  !!   d^2 + 2kd + c = 0
-  !!   c = F(r)
-  !!   k = (r1-x0)u1 + (r2-y0)u2 + (r3-z0)u3
+  !!   (x - x0)² + (y - y0)² + (z - z0)² - R² = 0
+  !!
+  !!   Now consider a point p(d) = [p_x(d), p_y(d), p_z(d)] along a ray of direction u = [u_x, u_y, u_z].
+  !!   Its parametric equation can be written as:
+  !!
+  !!   p(d) = r + d * u
+  !!
+  !!   Substituting this into the equation for the sphere, we get:
+  !!
+  !!   (r_x + d * u_x - x0)² + (r_y + d * u_y - y0)² + (r_z + d * u_z - z0)² - R² = 0
+  !!=> (d * u_x + (r_x - x0))² + (d * u_y + (r_y - y0))² + (d * u_z + (r_z - z0))² - R² = 0
+  !!=> (u_x² + u_y² + u_z²) * d² + 2 * ((r_x - x0) * u_x + (r_y - y0) * u_y + (r_z - z0) * u_z) * d 
+  !!   + (r_x - x0)² + (r_y - y0)² + (r_z - z0)² - R² = 0
+  !!
+  !!   Now, define:
+  !!
+  !!   a = u_x² + u_y² + u_z²
+  !!     = 1 (since norm(u) = 1)
+  !!   k = (r_x - x0) * u_x + (r_y - y0) * u_y + (r_z - z0) * u_z
+  !!   c = (r_x - x0)² + (r_y - y0)² + (r_z - z0)² - R² (note: this is the value returned by the 
+  !!   'evaluate' function)
+  !!
+  !!   Then the equation becomes:
+  !!
+  !!   d² + 2kd + c = 0
+  !!
+  !!   which is quadratic in d. The determinant (delta) is given by:
+  !!
+  !!   delta = 4k² - 4c
+  !!         = 4(k² - c)
+  !!
+  !!   And the two solutions for d are therefore:
+  !!
+  !!   d_1 = (-2k + 2sqrt(k² - c)) / 2
+  !!       = -k + sqrt(k² - c)
+  !!   d_2 = (-2k - 2sqrt(k² - c)) / 2
+  !!       = -(k + sqrt(k² - c))
+  !!
+  !! Arguments:
+  !!   r [in] -> Position of the particle.
+  !!   u [in] -> Direction of the particle.
   !!
   pure function distance(self, r, u) result(d)
-    class(sphere), intent(in)              :: self
-    real(defReal), dimension(3), intent(in) :: r
-    real(defReal), dimension(3), intent(in) :: u
-    real(defReal)                           :: d
-    real(defReal)                           :: c, k, delta
+    class(sphere), intent(in)               :: self
+    real(defReal), dimension(3), intent(in) :: r, u
+    real(defReal)                           :: d, c, k, delta
 
-    ! Calculate quadratic components
+    ! Initialise d = INF and calculate k and c.
+    d = INF
+    k = dot_product(r - self % getOrigin(), u)
     c = self % evaluate(r)
-    k = dotProduct(r - self % origin, u)
-    delta = k*k - c  ! Technically delta/4
+    
+    ! Compute delta (technically, delta / 4).
+    delta = k * k - c
 
-    ! Calculate the distance
-    if (delta < ZERO) then ! No intersection
-      d = INF
+    ! If delta < ZERO, the solutions are complex. There is no intersection and we can return early.
+    if (delta < ZERO) return
 
-    else if (abs(c) < self % surfTol()) then ! Point at a surface
-      if ( k >= ZERO) then
-        d = INF
-      else
-        d = -k + sqrt(delta)
-      end if
-
-    else if (c < ZERO) then ! Point inside the surface
-      d = -k + sqrt(delta)
-
-    else ! Point outside the surface
-      d = -k - sqrt(delta)
-      if (d <= ZERO) d = INF
+    ! Check if particle is within surface tolerance of the sphere.
+    if (abs(c) < self % getSurfTol()) then
+      ! Update d only if k < ZERO (k >= ZERO corresponds to the particle moving away from the sphere). 
+      ! Choose maximum distance and return.
+      if (k < ZERO) d = -k + sqrt(delta)
+      return
 
     end if
+
+    ! If reached here, update d depending on the sign of c set d = INF if distance is negative.
+    d = -(k + sign(sqrt(delta), c))
+    if (d <= ZERO) d = INF
+
   end function distance
 
   !!
@@ -187,15 +190,14 @@ contains
   !!
   !! See surface_inter for details
   !!
-  pure function going(self, r, u) result(halfspace)
-    class(sphere), intent(in)              :: self
-    real(defReal), dimension(3), intent(in) :: r
-    real(defReal), dimension(3), intent(in) :: u
+  pure function entersPositiveHalfspace(self, r, u) result(halfspace)
+    class(sphere), intent(in)               :: self
+    real(defReal), dimension(3), intent(in) :: r, u
     logical(defBool)                        :: halfspace
 
-    halfspace = dotProduct(r - self % origin, u) >= ZERO
+    halfspace = dot_product(r - self % getOrigin(), u) >= ZERO
 
-  end function going
+  end function entersPositiveHalfspace
 
   !!
   !! Return to uninitialised state
@@ -207,10 +209,31 @@ contains
     call kill_super(self)
 
     ! Local
-    self % origin = ZERO
-    self % r      = ZERO
-    self % r_sq   = ZERO
+    self % radius = ZERO
+    self % radiusSquared = ZERO
 
   end subroutine kill
+
+  !!
+  !! Returns radius of sphere
+  !!
+  elemental function getRadius(self) result(radius)
+    class(sphere), intent(in) :: self
+    real(defReal)             :: radius
+
+    radius = self % radius
+
+  end function getRadius
+
+  !!
+  !! Returns square of the radius of the sphere.
+  !!
+  elemental function getRadiusSquared(self) result(radiusSquared)
+    class(sphere), intent(in) :: self
+    real(defReal)             :: radiusSquared
+
+    radiusSquared = self % radiusSquared
+
+  end function getRadiusSquared
 
 end module sphere_class

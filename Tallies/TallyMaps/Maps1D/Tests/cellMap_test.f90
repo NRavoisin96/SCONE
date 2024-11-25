@@ -1,6 +1,5 @@
 module cellMap_test
   use numPrecision
-  use funit
   use universalVariables, only : VOID_MAT
   use particle_class,     only : particleState
   use dictionary_class,   only : dictionary
@@ -11,9 +10,9 @@ module cellMap_test
   use geometryReg_mod,    only : gr_kill => kill
   use geometryFactory_func, only : new_geometry
   use materialMenu_mod,     only : mm_nameMap => nameMap
+  use funit
 
   implicit none
-
 
 @testCase
   type, extends(TestCase) :: test_cellMap
@@ -115,7 +114,7 @@ contains
   !!
   !! Mapping test without undefined bin
   !!
-@Test
+  @Test
   subroutine testMappingNoUndefined(this)
     class(test_cellMap), intent(inout)       :: this
     type(particleState)                      :: state
@@ -132,11 +131,10 @@ contains
 
   end subroutine testMappingNoUndefined
 
-
   !!
   !! Mapping test with undefined bin
   !!
-@Test
+  @Test
   subroutine testMappingUndefined(this)
     class(test_cellMap), intent(inout)       :: this
     type(particleState)                      :: state
@@ -153,11 +151,10 @@ contains
 
   end subroutine testMappingUndefined
 
-
   !!
   !! Test number of bins inquiry
   !!
-@Test
+  @Test
   subroutine testNumberOfBinsInquiry(this)
     class(test_cellMap), intent(inout) :: this
 
@@ -173,7 +170,7 @@ contains
   !! Test correctness of print subroutine
   !! Does not checks that values are correct, but that calls sequance is without errors
   !!
-@Test
+  @Test
   subroutine testPrint(this)
     class(test_cellMap), intent(inout) :: this
     type(outputFile)                   :: out

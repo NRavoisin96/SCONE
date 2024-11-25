@@ -21,8 +21,8 @@ module cellShelf_class
   !!   ptr  -> Pointer to the cell
   !!
   type :: cellBox
-    character(nameLen)   :: name = ''
-    class(cell), pointer :: ptr  => null()
+    character(:), allocatable :: name
+    class(cell), pointer      :: ptr  => null()
   end type cellBox
 
   !!
@@ -51,7 +51,7 @@ module cellShelf_class
   !!   getID   -> Return cell ID given its index
   !!   getFill -> Return content of the cell. If -ve it is universe ID. If +ve it is matIdx.
   !!   getSize -> Return the number of cells (max cellIdx)
-  !!   kill    -> Return to uninitialised state
+  !!   kill -> Return to uninitialised state
   !!
   !! NOTE: Becouse cells are stored as pointers, calling `kill` is crucial to prevent
   !!   memory leaks. TODO: Add `final` procedure here ?
@@ -90,39 +90,45 @@ contains
     type(surfaceShelf), intent(inout)             :: surfs
     type(charMap), intent(in)                     :: mats
     character(nameLen), dimension(:), allocatable :: names
+    character(:), allocatable                     :: name
     class(dictionary), pointer                    :: tempDict
-    character(nameLen)                            :: filling, matName
-    integer(shortInt)                             :: i, id, idx, fill
-    integer(shortInt), parameter :: NOT_PRESENT = -7
-    character(100), parameter :: Here = 'init (cellShelf_class.f90)'
+    character(nameLen)                            :: filling, matName, cellType
+    integer(shortInt)                             :: nCells, i, id, idx, fill
+    integer(shortInt), parameter                  :: NOT_PRESENT = -7
+    character(100), parameter                     :: Here = 'init (cellShelf_class.f90)'
 
     ! Get all keys for subdictionaries
     call dict % keys(names, 'dict')
 
     ! Allocate space
-    allocate (self % cells(size(names)))
+    nCells = size(names)
+    allocate (self % cells(nCells))
 
     ! Build cells
-    do i = 1, size(names)
-      self % cells(i) % name = names(i)
-      self % cells(i) % ptr => new_cell_ptr(dict % getDictPtr(names(i)), surfs)
+    do i = 1, nCells
+    
+      !!
+      !! Load local copy of dictionary pointer corresponding to the current name.
+      !!
+      tempDict => dict % getDictPtr(names(i))
+      name = trim(names(i))
+      self % cells(i) % name = name
+      self % cells(i) % ptr => new_cell_ptr(tempDict, surfs)
       id = self % cells(i) % ptr % id()
 
       ! Add ID to the map detecting any conflicts
       idx = self % idMap % getOrDefault(id, NOT_PRESENT)
       if (idx /= NOT_PRESENT) then
-        call fatalError(Here,'Cells '//trim(names(i))// ' & '//&
-                              trim(self % cells(idx) % name)//&
-                             ' have the same ID: '//numToChar(id))
+        call fatalError(Here,'Cells '//name//' & '//self % cells(idx) % name//' have the same ID: '//numToChar(id)//'.')
 
       else
         call self % idMap % add(id, i)
 
       end if
 
-      ! Load cell content
-      tempDict => dict % getDictPtr(names(i))
+      ! Load cell content and type
       call tempDict % get(filling, 'filltype')
+      call tempDict % get(cellType, 'type')
 
       select case (filling)
         case ('outside')
@@ -163,18 +169,18 @@ contains
   !!   Pointer to the cell under index idx
   !!
   !! Error:
-  !!   fatalError is idx does not correspond to a cell (is out-of-bounds)
+  !!   fatalError if idx does not correspond to a cell (is out-of-bounds)
   !!
   function getPtr(self, idx) result (ptr)
     class(cellShelf), intent(in)  :: self
     integer(shortInt), intent(in) :: idx
     class(cell), pointer          :: ptr
-    character(100), parameter :: Here = 'getPtr (cellShelf_class.f90)'
+    character(100), parameter     :: Here = 'getPtr (cellShelf_class.f90)'
 
     ! Catch invalid idx
     if (idx < 1 .or. idx > size(self % cells)) then
        call fatalError(Here, 'Requested index: '//numToChar(idx)//' is not valid. Must be between &
-                             &1 and '//numToChar(size(self % cells)))
+                             &1 and '//numToChar(size(self % cells))//'.')
     end if
 
     ! Return pointer
@@ -195,11 +201,11 @@ contains
   !!   fatalError if there is no cell with ID
   !!
   function getIdx(self, id) result(idx)
-    class(cellShelf), intent(in)    :: self
-    integer(shortInt), intent(in)   :: id
-    integer(shortInt)               :: idx
-    integer(shortInt), parameter :: NOT_PRESENT = -7
-    character(100), parameter :: Here = 'getIdx (cellShelf_class.f90)'
+    class(cellShelf), intent(in)  :: self
+    integer(shortInt), intent(in) :: id
+    integer(shortInt)             :: idx
+    integer(shortInt), parameter  :: NOT_PRESENT = -7
+    character(100), parameter     :: Here = 'getIdx (cellShelf_class.f90)'
 
     idx = self % idMap % getOrDefault(id, NOT_PRESENT)
 
@@ -225,7 +231,7 @@ contains
     class(cellShelf), intent(in)  :: self
     integer(shortInt), intent(in) :: idx
     integer(shortInt)             :: id
-    character(100), parameter :: Here = 'getId (cellShelf_class.f90)'
+    character(100), parameter     :: Here = 'getId (cellShelf_class.f90)'
 
     ! Catch invalid idx
     if (idx < 1 .or. idx > size(self % cells)) then
@@ -292,6 +298,7 @@ contains
     if (allocated(self % cells)) then
       do i = 1, size(self % cells)
         call self % cells(i) % ptr % kill()
+        if (allocated(self % cells(i) % name)) deallocate(self % cells(i) % name)
       end do
 
       deallocate(self % cells)

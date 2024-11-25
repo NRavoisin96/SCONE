@@ -2,10 +2,11 @@ module aPlane_class
 
   use numPrecision
   use universalVariables, only : X_AXIS, Y_AXIS, Z_AXIS, INF
-  use genericProcedures,  only : fatalError
+  use genericProcedures,  only : fatalError, isEqual
   use dictionary_class,   only : dictionary
   use quadSurface_inter,  only : quadSurface
   use surface_inter,      only : kill_super => kill
+  
   implicit none
   private
 
@@ -31,46 +32,18 @@ module aPlane_class
   !!
   type, public, extends(quadSurface) :: aPlane
     private
-    integer(shortInt) :: axis = -7
-    real(defReal)     :: a0   = ZERO
+    integer(shortInt) :: axis = 0
+    real(defReal)     :: a0 = ZERO
   contains
     ! Superclass procedures
-    procedure :: myType
     procedure :: init
-    procedure :: boundingBox
     procedure :: evaluate
     procedure :: distance
-    procedure :: going
+    procedure :: entersPositiveHalfspace
     procedure :: kill
   end type aPlane
 
-
 contains
-
-  !!
-  !! Return surface type name
-  !!
-  !! See surface_inter for more details
-  !!
-  pure function myType(self) result(str)
-    class(aPlane), intent(in)  :: self
-    character(:), allocatable  :: str
-
-    select case(self % axis)
-      case(X_AXIS)
-        str = 'xPlane'
-
-      case(Y_AXIS)
-        str = 'yPlane'
-
-      case(Z_AXIS)
-        str = 'zPlane'
-
-      case default
-        str = 'unknown aPlane'
-
-    end select
-  end function myType
 
   !!
   !! Initialise aPlane from a dictionary
@@ -78,27 +51,23 @@ contains
   !! See surface_inter for more details
   !!
   !! Errors:
-  !!   fatalError if id < 0.
+  !!   -fatalError if id < 1.
+  !!   -fatalError if plane type is not recognised.
   !!
   subroutine init(self, dict)
     class(aPlane), intent(inout)  :: self
     class(dictionary), intent(in) :: dict
-    integer(shortInt)             :: id
+    integer(shortInt)             :: id, axis
     character(nameLen)            :: type
-    character(100), parameter :: Here = 'init (aPlane_class.f90)'
+    real(defReal), dimension(6)   :: boundingBox
+    character(100), parameter     :: Here = 'init (aPlane_class.f90)'
 
-    ! Get from dictionary
+    ! Load id.
     call dict % get(id, 'id')
-    call dict % get(type,'type')
+    call self % setId(id)
 
-    ! Check values
-    if (id < 1) then
-      call fatalError(Here,'Invalid surface id provided. ID must be > 1')
-    end if
-
-    ! Load data
-    call self % setID(id)
-
+    ! Load type.
+    call dict % get(type, 'type')
     select case(type)
       case('xPlane')
         self % axis = X_AXIS
@@ -116,23 +85,15 @@ contains
         call fatalError(Here, 'Unknown type of axis plane: '//type)
     end select
 
+    ! Set bounding box.
+    axis = self % axis
+    boundingBox(1:3) = -INF
+    boundingBox(4:6) = INF
+    boundingBox([axis, axis + 3]) = self % a0
+    call self % setBoundingBox(boundingBox)
+    call self % setType(type)
+
   end subroutine init
-
-  !!
-  !! Return axix-align bounding box for the surface
-  !!
-  !! See surface_inter for details
-  !!
-  pure function boundingBox(self) result(aabb)
-    class(aPlane), intent(in)   :: self
-    real(defReal), dimension(6) :: aabb
-
-    aabb(1:3) = -INF
-    aabb(4:6) = INF
-
-    aabb([self % axis, self % axis + 3]) = self % a0
-
-  end function boundingBox
 
   !!
   !! Evaluate surface expression c = F(r)
@@ -148,35 +109,31 @@ contains
 
   end function evaluate
 
-
   !!
   !! Return distance to the surface
   !!
   !! See surface_inter for details
   !!
   pure function distance(self, r, u) result(d)
-    class(aPlane), intent(in)              :: self
-    real(defReal), dimension(3), intent(in) :: r
-    real(defReal), dimension(3), intent(in) :: u
-    real(defReal)                           :: d
-    real(defReal)                           :: ua, ra
+    class(aPlane), intent(in)               :: self
+    real(defReal), dimension(3), intent(in) :: r, u
+    integer(shortInt)                       :: axis
+    real(defReal)                           :: d, offsetCoord, uAxis
 
-    ra = self % a0 - r(self % axis)
-    ua = u(self % axis)
+    ! Initialise d = INF and retrieve offset coordinates and direction components 
+    ! along the plane axis.
+    d = INF
+    axis = self % axis
+    offsetCoord = self % a0 - r(axis)
+    uAxis = u(axis)
 
-    if(abs(ra) < self % surfTol()) then ! Within surface tolerance
-      d = INF
-
-    else if (ua /= ZERO) then ! Normal case
-      d = ra/ua
-
-    else  ! Parallel to the plane
-      d = INF
-
-    end if
-
-    ! Cap the distance
-    if ( d <= ZERO .or. d > INF ) d = INF
+    ! If particle is within surface tolerance of the plane or parallel to the plane
+    ! axis, there is no intersection and we can return early.
+    if (abs(offsetCoord) < self % getSurfTol() .or. isEqual(uAxis, ZERO)) return
+    
+    ! Update d and cap distance at infinity.
+    d = offsetCoord / uAxis
+    if (d <= ZERO .or. d > INF) d = INF
 
   end function distance
 
@@ -188,23 +145,28 @@ contains
   !! Note:
   !!   For parallel direction halfspace is asigned by the sign of `evaluate` result.
   !!
-  pure function going(self, r, u) result(halfspace)
-    class(aPlane), intent(in)              :: self
-    real(defReal), dimension(3), intent(in) :: r
-    real(defReal), dimension(3), intent(in) :: u
-    logical(defBool)                        :: halfspace
-    real(defReal)                           :: ua
+  pure function entersPositiveHalfspace(self, r, u) result(isHalfspacePositive)
+    class(aPlane), intent(in)               :: self
+    real(defReal), dimension(3), intent(in) :: r, u
+    logical(defBool)                        :: isHalfspacePositive
+    integer(shortInt)                       :: axis
+    real(defReal)                           :: uAxis
 
-    ua = u(self % axis)
-    halfspace = ua > ZERO
+    ! Retrieve plane axis and direction component along the axis.
+    axis = self % axis
+    uAxis = u(axis)
 
-    ! Special case of parallel direction
-    ! Partilce stays in its current halfspace
-    if (ua == ZERO) then
-      halfspace = (r(self % axis) - self % a0) >= ZERO
+    ! If particle direction is parallel to the plane, halfspace is determined using
+    ! position along this plane's axis.
+    if (isEqual(uAxis, ZERO)) then
+      isHalfspacePositive = r(axis) - self % a0 >= ZERO
+      return
+
     end if
 
-  end function going
+    isHalfspacePositive = uAxis > ZERO
+
+  end function entersPositiveHalfspace
 
   !!
   !! Return to uninitialised state
@@ -216,10 +178,9 @@ contains
     call kill_super(self)
 
     ! Local
-    self % axis = -7
+    self % axis = 0
     self % a0 = ZERO
 
   end subroutine kill
-
 
 end module aPlane_class

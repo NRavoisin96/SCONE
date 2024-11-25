@@ -20,31 +20,30 @@ module surfaceFactory_func
   implicit none
   private
 
-  ! List that contains all accaptable types of surfaces
-  ! NOTE: It is necessary to adjust trailing blanks so all entries have the same length
-  character(nameLen), dimension(*), parameter :: AVAILABLE_SURFACE = ['xPlane         ',&
-                                                                      'yPlane         ',&
-                                                                      'zPlane         ',&
-                                                                      'plane          ',&
-                                                                      'xCylinder      ',&
-                                                                      'yCylinder      ',&
-                                                                      'zCylinder      ',&
-                                                                      'xCone          ',&
-                                                                      'yCone          ',&
-                                                                      'zCone          ',&
-                                                                      'sphere         ',&
-                                                                      'box            ',&
-                                                                      'xSquareCylinder',&
-                                                                      'ySquareCylinder',&
-                                                                      'zSquareCylinder',&
-                                                                      'xTruncCylinder ',&
-                                                                      'yTruncCylinder ',&
-                                                                      'zTruncCylinder ' ]
+  ! List containing all acceptable surface types.
+  ! NOTE: It is necessary to adjust trailing blanks so all entries have the same length.
+  character(nameLen), dimension(*), parameter :: AVAILABLE_SURFACES = ['xPlane         ',&
+                                                                       'yPlane         ',&
+                                                                       'zPlane         ',&
+                                                                       'plane          ',&
+                                                                       'xCylinder      ',&
+                                                                       'yCylinder      ',&
+                                                                       'zCylinder      ',&
+                                                                       'xCone          ',&
+                                                                       'yCone          ',&
+                                                                       'zCone          ',&
+                                                                       'sphere         ',&
+                                                                       'box            ',&
+                                                                       'xSquareCylinder',&
+                                                                       'ySquareCylinder',&
+                                                                       'zSquareCylinder',&
+                                                                       'xTruncCylinder ',&
+                                                                       'yTruncCylinder ',&
+                                                                       'zTruncCylinder ' ]
 
-  ! Public interface
+  ! Public interfaces
   public :: new_surface_ptr
   public :: new_surface
-
 
 contains
 
@@ -64,12 +63,12 @@ contains
     class(dictionary), intent(in) :: dict
     class(surface), pointer       :: new
     character(nameLen)            :: type
-    character(100), parameter :: Here = 'new_surface_ptr (surfaceFactory_func.f90)'
+    character(100), parameter     :: Here = 'new_surface_ptr (surfaceFactory_func.f90)'
 
-    ! Obtain type of the surface
+    ! Obtain type of the surface and trim it.
     call dict % get(type, 'type')
 
-    ! Allocate approperiate subclass
+    ! Allocate appropriate subclass.
     select case (type)
       case ('xPlane', 'yPlane', 'zPlane')
         allocate (aPlane :: new)
@@ -96,13 +95,13 @@ contains
         allocate (truncCylinder :: new)
 
       case default
-        print '(A)' , ' AVAILABLE SURFACES: '
-        print '(A)' , AVAILABLE_SURFACE
-        call fatalError(Here, 'Unrecognised type of a surface: '//trim(type))
+        print '(A)' , 'AVAILABLE SURFACES: '
+        print '(A)' , AVAILABLE_SURFACES
+        call fatalError(Here, 'Unrecognised type of surface: '//trim(type)//'.')
 
       end select
 
-      ! Initialise surface
+      ! Initialise surface and set its type.
       call new % init(dict)
 
   end function new_surface_ptr

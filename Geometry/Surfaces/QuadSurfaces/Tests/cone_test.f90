@@ -138,11 +138,11 @@ contains
     real(defReal), parameter        :: TOL = 1.0E-6_defReal
 
     ! Test ID
-    @assertEqual(52, this % surf % id())
+    @assertEqual(52, this % surf % getId())
 
     ! Change ID
     call this % surf % setID(1)
-    @assertEqual(1, this % surf % id())
+    @assertEqual(1, this % surf % getId())
 
     ! Name
     select case(this % axis)
@@ -153,18 +153,18 @@ contains
       case(Z_AXIS)
         name = 'zCone'
     end select
-    @assertEqual(name, this % surf % myType())
+    @assertEqual(name, this % surf % getType())
 
     ! Bounding Box
     ref(this % axis)      = TWO
     ref(this % axis + 3)  = 11.0_defReal
     ref(this % plane)     = -9.0_defReal
     ref(this % plane + 3) = 11.0_defReal
-    aabb = this % surf % boundingBox()
+    aabb = this % surf % getBoundingBox()
     @assertEqual(ref, aabb, TOL)
 
     ! Tolerance
-    @assertEqual(this % surf % surfTol(), SURF_TOL*5.50_defReal, TOL)
+    @assertEqual(this % surf % getSurfTol(), SURF_TOL*5.50_defReal, TOL)
 
   end subroutine testMisc
 
@@ -178,7 +178,7 @@ contains
 
     ! Set boundary conditions
     ! Should ignore extra entries
-    call this % surf % setBC([VACUUM_BC, REFLECTIVE_BC, REFLECTIVE_BC])
+    call this % surf % setBCs([VACUUM_BC, REFLECTIVE_BC, REFLECTIVE_BC])
 
     ! Apply BC
     r = [ONE, ONE, ONE]
@@ -212,7 +212,7 @@ contains
     real(defReal)                   :: eps, tolerance
 
     ! Get surface tolerance
-    tolerance = this % surf % surfTol()
+    tolerance = this % surf % getSurfTol()
 
     ! Set axis and plane axis indices
     a  = this % axis
@@ -301,7 +301,7 @@ contains
     real(defReal), parameter :: TOL = 1.0E-7
 
     ! Get surface tolerance
-    tolerance = this % surf % surfTol()
+    tolerance = this % surf % getSurfTol()
 
     ! Set axis and plane axis indices
     a = this % axis

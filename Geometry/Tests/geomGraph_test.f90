@@ -114,16 +114,16 @@ contains
 
     ! Test gtting content
     ! Universe
-    call graph % getFill(idx, id, 1, 1)
+    call graph % getFill(1, 1, idx, id)
     @assertEqual(-2, idx)
     @assertEqual(3, id)
 
-    call graph % getFill(idx, id, 3, 3)
+    call graph % getFill(3, 3, idx, id)
     @assertEqual(-5, idx)
     @assertEqual(8, id)
 
     ! Material
-    call graph % getFill(idx, id, 8, 2)
+    call graph % getFill(8, 2, idx, id)
     @assertEqual(2, idx)
     @assertEqual(4, id)
 
@@ -149,7 +149,7 @@ contains
     call graph % init(geom, dict)
 
     ! Verify location array
-    ! Test will fail if traverse order is change (even if structure is correct)!
+    ! Test will fail if traverse order is changed (even if structure is correct)!
     @assertEqual([-2, 0, -3, -3, -5, 1, 4, 1, 4, 1, 2], graph % array % idx)
     @assertEqual([ 3, 0,  6,  8, 10, 1, 2, 3, 4, 5, 6], graph % array % id)
 
@@ -161,16 +161,16 @@ contains
 
     ! Test gtting content
     ! Universe
-    call graph % getFill(idx, id, 1, 1)
+    call graph % getFill(1, 1, idx, id)
     @assertEqual(-2, idx)
     @assertEqual(3, id)
 
-    call graph % getFill(idx, id, 3, 3)
+    call graph % getFill(3, 3, idx, id)
     @assertEqual(-5, idx)
     @assertEqual(10, id)
 
     ! Material
-    call graph % getFill(idx, id, 8, 2)
+    call graph % getFill(8, 2, idx, id)
     @assertEqual(4, idx)
     @assertEqual(4, id)
 

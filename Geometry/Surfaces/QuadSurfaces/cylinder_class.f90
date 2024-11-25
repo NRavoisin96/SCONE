@@ -2,7 +2,7 @@ module cylinder_class
 
   use numPrecision
   use universalVariables, only : SURF_TOL, INF, X_AXIS, Y_AXIS, Z_AXIS
-  use genericProcedures,  only : fatalError, numToChar, dotProduct
+  use genericProcedures,  only : fatalError, numToChar, isEqual
   use dictionary_class,   only : dictionary
   use quadSurface_inter,  only : quadSurface
   use surface_inter,      only : kill_super => kill
@@ -31,103 +31,39 @@ module cylinder_class
   !!         radius 7.34; }
   !!
   !! Private Members:
-  !!   axis   -> Index of an alignment axis in {X_AXIS, Y_AXIS, Z_AXIS}
-  !!   plane  -> Indexes of axis in plane of cylinder {X_AXIS, Y_AXIS, Z_AXIS}\{axis}
-  !!   origin -> Location of the middle of the cylinder (component in axis has no significance)
-  !!   r      -> Cylinder radius
-  !!   r_sq   -> Square of radius r (r^2)
+  !!   axis          -> Index of an alignment axis in {X_AXIS, Y_AXIS, Z_AXIS}
+  !!   planes        -> Indexes of axis in planes of cylinder {X_AXIS, Y_AXIS, Z_AXIS}\{axis}
+  !!   origin        -> Location of the middle of the cylinder.
+  !!   radius        -> Radius of the cylinder.
+  !!   radiusSquared -> Radius of the cylinder squared.
   !!
   !! Interface:
   !!   surface interface
   !!
   type, public, extends(quadSurface) :: cylinder
     private
-    integer(shortInt)               :: axis   = 0
-    integer(shortInt), dimension(2) :: plane  = 0
-    real(defReal), dimension(3)     :: origin = ZERO
-    real(defReal)                   :: r      = ZERO
-    real(defReal)                   :: r_sq   = ZERO
+    integer(shortInt)               :: axis = 0
+    integer(shortInt), dimension(2) :: planes = 0
+    real(defReal)                   :: radius = ZERO, radiusSquared = ZERO
   contains
     ! Superclass procedures
-    procedure :: myType
     procedure :: init
-    procedure :: boundingBox
     procedure :: evaluate
     procedure :: distance
-    procedure :: going
+    procedure :: entersPositiveHalfspace
     procedure :: kill
 
-    ! Local procedures
+    ! Local procedures.
     procedure :: build
 
   end type cylinder
 
 contains
-
-  !!
-  !! Return surface type name
-  !!
-  !! See surface_inter for more details
-  !!
-  pure function myType(self) result(str)
-    class(cylinder), intent(in) :: self
-    character(:), allocatable   :: str
-
-    select case(self % axis)
-      case(X_AXIS)
-        str = 'xCylinder'
-
-      case(Y_AXIS)
-        str = 'yCylinder'
-
-      case(Z_AXIS)
-        str = 'zCylinder'
-
-      case default
-        str = 'unknown cylinder'
-
-    end select
-
-  end function myType
-
-  !!
-  !! Initialise cylinder from a dictionary
-  !!
-  !! See surface_inter for more details
-  !!
-  !! Errors:
-  !!   fatalError if radius or id < 0.
-  !!
-  subroutine init(self, dict)
-    class(cylinder), intent(inout)  :: self
-    class(dictionary), intent(in)   :: dict
-    integer(shortInt)                        :: id
-    real(defReal), dimension(:), allocatable :: origin
-    character(nameLen)                       :: name
-    real(defReal)                            :: r
-    character(100), parameter :: Here = 'init (cylinder_class.f90)'
-
-    ! Get from dictionary
-    call dict % get(id, 'id')
-    call dict % get(r, 'radius')
-    call dict % get(origin, 'origin')
-    call dict % get(name, 'type')
-
-    ! Check origin size
-    if (size(origin) /= 3) then
-      call fatalError(Here,'Origin needs to have size 3. Has: '//numToChar(size(origin)))
-    end if
-
-    ! Build cylinder
-    call self % build(id, name, origin, r )
-
-  end subroutine init
-
   !!
   !! Build cylinder from components
   !!
   !! Args:
-  !!   id [in]   -> Surface ID
+  !!   id [in] -> Surface ID
   !!   type [in] -> Cylinder type {'xCylinder', 'yCylinder' or 'zCylinder'}
   !!   origin [in] -> Cylinder origin
   !!   radius [in] -> Cylinder radius
@@ -141,65 +77,80 @@ contains
     character(*), intent(in)                :: type
     real(defReal), dimension(3), intent(in) :: origin
     real(defReal), intent(in)               :: radius
-    character(100), parameter :: Here = 'build (cylinder_class.f90)'
+    integer(shortInt)                       :: axis
+    integer(shortInt), dimension(2)         :: planes
+    real(defReal), dimension(6)             :: boundingBox
+    character(100), parameter               :: Here = 'build (cylinder_class.f90)'
 
-    ! Check values
-   if (id < 1) then
-     call fatalError(Here,'Invalid surface id provided. ID must be > 1')
+    ! Check values.
+    if (id < 1) call fatalError(Here, 'Invalid surface id provided. Id must be > 1.')
+    if (radius <= ZERO) call fatalError(Here, 'Radius of cylinder must be +ve. Is: '//numToChar(radius)//'.')
 
-   else if ( radius <= ZERO) then
-     call fatalError(Here, 'Radius of cylinder must be +ve. Is: '//numToChar(radius))
+    ! Select type of cylinder
+    select case(type)
+      case('xCylinder')
+        axis = X_AXIS
+        planes = [Y_AXIS, Z_AXIS]
 
-   end if
+      case('yCylinder')
+        axis = Y_AXIS
+        planes = [X_AXIS, Z_AXIS]
 
-   ! Select type of cylinder
-   select case(type)
-     case('xCylinder')
-       self % axis = X_AXIS
-       self % plane = [Y_AXIS, Z_AXIS]
+      case('zCylinder')
+        axis = Z_AXIS
+        planes = [X_AXIS, Y_AXIS]
 
-     case('yCylinder')
-       self % axis = Y_AXIS
-       self % plane = [X_AXIS, Z_AXIS]
+      case default
+        call fatalError(Here, 'Unknown type of cylinder: '//type//'.')
 
-     case('zCylinder')
-       self % axis = Z_AXIS
-       self % plane = [X_AXIS, Y_AXIS]
+    end select
 
-     case default
-       call fatalError(Here, 'Unknown type of cylinder: '//type)
+    ! Load data.
+    self % axis = axis
+    self % planes = planes
+    self % radius = radius
+    self % radiusSquared = radius * radius
+    call self % setOrigin(origin(planes), 2)
 
-   end select
-
-   ! Load data
-   self % r = radius
-   self % r_sq = radius * radius
-   self % origin = origin
-   call self % setID(id)
-
-   ! Set surface tolerance
-   call self % setTol( TWO * self % r * SURF_TOL)
+    ! Set id, surface tolerance and bounding box.
+    call self % setId(id)
+    call self % setSurfTol(TWO * radius * SURF_TOL)
+    boundingBox(planes) = origin(planes) - radius
+    boundingBox(planes + 3) = origin(planes) + radius
+    boundingBox(axis) = -INF
+    boundingBox(axis + 3) = INF
+    call self % setBoundingBox(boundingBox)
+    call self % setType(type)
 
   end subroutine build
 
   !!
-  !! Return axis-aligned bounding box for the surface
+  !! Initialise cylinder from a dictionary
   !!
-  !! See surface_inter for details
+  !! See surface_inter for more details
   !!
-  pure function boundingBox(self) result(aabb)
-    class(cylinder), intent(in)   :: self
-    real(defReal), dimension(6) :: aabb
+  !! Errors:
+  !!   fatalError if radius or id < 0.
+  !!
+  subroutine init(self, dict)
+    class(cylinder), intent(inout)           :: self
+    class(dictionary), intent(in)            :: dict
+    integer(shortInt)                        :: id
+    character(nameLen)                       :: type
+    real(defReal), dimension(:), allocatable :: origin
+    real(defReal)                            :: radius
+    character(100), parameter                :: Here = 'init (cylinder_class.f90)'
 
-    ! Top and bottom in a plane
-    aabb(self % plane) = self % origin(self % plane) - [self % r, self % r]
-    aabb(3 + self % plane) = self % origin(self % plane) + [self % r, self % r]
+    ! Get from dictionary
+    call dict % get(id, 'id')
+    call dict % get(radius, 'radius')
+    call dict % get(origin, 'origin')
+    call dict % get(type, 'type')
 
-    ! Axis
-    aabb(self % axis) = -INF
-    aabb(3 + self % axis) = INF
+    ! Build cylinder.
+    call self % build(id, type, origin, radius)
 
-  end function boundingBox
+  end subroutine init
 
   !!
   !! Evaluate surface expression c = F(r)
@@ -210,83 +161,114 @@ contains
     class(cylinder), intent(in)             :: self
     real(defReal), dimension(3), intent(in) :: r
     real(defReal)                           :: c
-    real(defReal), dimension(2)             :: diff
+    real(defReal), dimension(2)             :: offsetCoords
 
-    diff = r(self % plane) - self % origin(self % plane)
-    c = dot_product(diff, diff) - self % r_sq
+    ! Offset coordinates with respect to cylinder's origin and compute c.
+    offsetCoords = r(self % planes) - self % getOrigin()
+    c = dot_product(offsetCoords, offsetCoords) - self % radiusSquared
 
   end function evaluate
 
+  !! Function 'distance'
   !!
-  !! Return distance to the surface
+  !! Basic description:
+  !!   Returns the distance to the surface of the cylinder.
   !!
-  !! See surface_inter for details
+  !! Detailed description:
+  !!   Consider an infinite cylinder parallel to the z-axis (the reasoning is identical for cylinders
+  !!   parallel to the other two axes); a point lying on the surface of this cylinder satisfies:
   !!
-  !! Solves quadratic intersection equation
-  !!   ad^2 + 2kd + c = 0
-  !!   c = F(r)
-  !!   k = (r1-x0)u1 + (r2-y0)u2
-  !!   a = u1^2 + u2^2
+  !!   (x - x0)² + (y - y0)² - R² = 0
+  !!
+  !!   Now consider a point p(d) = [p_x(d), p_y(d), p_z(d)] along a ray of direction u = [u_x, u_y, u_z].
+  !!   Its parametric equation can be written as:
+  !!
+  !!   p(d) = r + d * u
+  !!
+  !!   Substituting this into the equation for the cylinder, we get:
+  !!
+  !!   (r_x + d * u_x - x0)² + (r_y + d * u_y - y0)² - R² = 0
+  !!=> (d * u_x + (r_x - x0))² + (d * u_y + (r_y - y0))² - R² = 0
+  !!=> (u_x² + u_y²) * d² + 2 * ((r_x - x0) * u_x + (r_y - y0) * u_y) * d + (r_x - x0)² + (r_y - y0)² - R² = 0
+  !!
+  !!   Now, define:
+  !!
+  !!   a = u_x² + u_y²
+  !!     = 1 - u_z² (since norm(u) = 1)
+  !!   k = (r_x - x0) * u_x + (r_y - y0) * u_y
+  !!   c = (r_x - x0)² + (r_y - y0)² - R² (note: this is the value returned by the 'evaluate' function)
+  !!
+  !!   Then the equation becomes:
+  !!
+  !!   ad² + 2kd + c = 0
+  !!
+  !!   which is quadratic in d. The determinant (delta) is given by:
+  !!
+  !!   delta = 4k² - 4ac
+  !!         = 4(k² - ac)
+  !!
+  !!   And the two solutions for d are therefore:
+  !!
+  !!   d_1 = (-2k + 2sqrt(k² - ac)) / (2a)
+  !!       = (-k + sqrt(k² - ac)) / a
+  !!   d_2 = (-2k - 2sqrt(k² - ac)) / (2a)
+  !!       = -(k + sqrt(k² - ac)) / a
+  !!
+  !! Arguments:
+  !!   r [in] -> Position of the particle.
+  !!   u [in] -> Direction of the particle.
   !!
   pure function distance(self, r, u) result(d)
     class(cylinder), intent(in)             :: self
-    real(defReal), dimension(3), intent(in) :: r
-    real(defReal), dimension(3), intent(in) :: u
-    real(defReal)                           :: d, a
-    real(defReal)                           :: c, k, delta
+    real(defReal), dimension(3), intent(in) :: r, u
+    real(defReal)                           :: d, uAxis, a, c, k, delta
+    integer(shortInt), dimension(2)         :: planes
 
-    ! Calculate quadratic components in the plane
+    ! Initialise d = INF, retrieve planes and axial direction component and calculate a, k and c.
+    d = INF
+    planes = self % planes
+    uAxis = u(self % axis)
+    a = ONE - uAxis * uAxis
+    k = dot_product(r(planes) - self % getOrigin(), u(planes))
     c = self % evaluate(r)
-    k = dot_product(r(self % plane) - self % origin(self % plane) , u(self % plane))
-    a = ONE - u(self % axis)**2
-    delta = k*k - a*c  ! Technically delta/4
 
-    ! Calculate the distance
-    if (delta < ZERO .or. a == ZERO) then ! No intersection
-      d = INF
+    ! Compute delta (technically, delta / 4).
+    delta = k * k - a * c
 
-    else if (abs(c) < self % surfTol()) then ! Point at a surface
-      if ( k >= ZERO) then
-        d = INF
-      else
-        d = -k + sqrt(delta)
-        d = d/a
-      end if
+    ! If delta < ZERO, the solutions are complex. If a = ZERO, the ray is parallel to the cylinder's
+    ! axis. In any case there is no intersection and we can return early.
+    if (delta < ZERO .or. isEqual(a, ZERO)) return
 
-    else if (c < ZERO) then ! Point inside the surface
-      d = -k + sqrt(delta)
-      d = d/a
-
-    else ! Point outside the surface
-      d = -k - sqrt(delta)
-      d = d/a
-      if (d <= ZERO) d = INF
+    ! Check if particle is within surface tolerance of the cylinder.
+    if (abs(c) < self % getSurfTol()) then
+      ! Update d only if k < ZERO (k >= ZERO corresponds to the particle moving away from the cylinder). 
+      ! Choose maximum distance and return.
+      if (k < ZERO) d = (-k + sqrt(delta)) / a
+      return
 
     end if
 
-    ! Cap distance at Infinity
-    d = min(d, INF)
+    ! If reached here, update d depending on the sign of c and cap distance at infinity.
+    d = -(k + sign(sqrt(delta), c)) / a
+    if (d <= ZERO .or. d > INF) d = INF
 
   end function distance
 
   !!
-  !! Returns TRUE if particle is going into +ve halfspace
+  !! Returns .true. if particle is going into +ve halfspace.
   !!
   !! See surface_inter for details
   !!
-  pure function going(self, r, u) result(halfspace)
-    class(cylinder), intent(in)              :: self
-    real(defReal), dimension(3), intent(in) :: r
-    real(defReal), dimension(3), intent(in) :: u
-    logical(defBool)                        :: halfspace
-    real(defReal), dimension(2)             :: rp, up
+  pure function entersPositiveHalfspace(self, r, u) result(isHalfspacePositive)
+    class(cylinder), intent(in)             :: self
+    real(defReal), dimension(3), intent(in) :: r, u
+    integer(shortInt), dimension(2)         :: planes
+    logical(defBool)                        :: isHalfspacePositive
 
-    rp = r(self % plane) - self % origin(self % plane)
-    up = u(self % plane)
+    planes = self % planes
+    isHalfspacePositive = dot_product(r(planes) - self % getOrigin() , u(planes)) >= ZERO
 
-    halfspace = dot_product(rp , up ) >= ZERO
-
-  end function going
+  end function entersPositiveHalfspace
 
   !!
   !! Return to uninitialised state
@@ -298,11 +280,10 @@ contains
     call kill_super(self)
 
     ! Local
-    self % axis   = 0
-    self % plane   = 0
-    self % origin = ZERO
-    self % r      = ZERO
-    self % r_sq   = ZERO
+    self % axis = 0
+    self % planes = 0
+    self % radius = ZERO
+    self % radiusSquared = ZERO
 
   end subroutine kill
 

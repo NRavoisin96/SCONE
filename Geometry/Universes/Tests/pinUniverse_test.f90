@@ -8,8 +8,10 @@ module pinUniverse_test
   use coord_class,        only : coord
   use surfaceShelf_class, only : surfaceShelf
   use cellShelf_class,    only : cellShelf
+  use meshShelf_class,    only : meshShelf
   use pinUniverse_class,  only : pinUniverse, MOVING_IN, MOVING_OUT
   use funit
+  
   implicit none
 
   ! Parameters
@@ -20,6 +22,7 @@ module pinUniverse_test
   ! Variables
   type(surfaceShelf) :: surfs
   type(cellShelf)    :: cells
+  type(meshShelf)    :: meshes
   type(charMap)      :: mats
   type(pinUniverse)  :: uni
 
@@ -32,7 +35,7 @@ contains
 @Before
   subroutine setup()
     character(nameLen)                           :: name
-    integer(shortInt), dimension(:), allocatable :: fill
+    integer(shortInt), dimension(:), allocatable :: fills
     type(dictionary)                             :: dict
 
     ! Load void material
@@ -41,13 +44,13 @@ contains
 
     ! Build universe
     call charToDict(dict, UNI_DEF)
-    call uni % init(fill, dict, cells, surfs, mats)
+    call uni % init(dict, mats, fills, cells, surfs, meshes)
 
     ! Set index
     call uni % setIdx(3)
 
     ! Verify fill array
-    @assertEqual([-14, -7, 13], fill)
+    @assertEqual([-14, -7, 13], fills)
 
 
   end subroutine setup
@@ -144,9 +147,9 @@ contains
   !!
 @Test
   subroutine test_distance()
-    real(defReal)     :: d, ref
-    integer(shortInt) :: surfIdx
-    type(coord)       :: pos
+    real(defReal)            :: d, ref
+    integer(shortInt)        :: surfIdx
+    type(coord)              :: pos
     real(defReal), parameter :: TOL = 1.0E-7_defReal
 
     ! ** In local cell 1 distance to boundary
@@ -156,7 +159,7 @@ contains
     pos % cellIdx = 0
     pos % localId = 1
 
-    call uni % distance(d, surfIdx, pos)
+    call uni % distance(pos, d, surfIdx)
 
     ref = 0.5_defReal
     @assertEqual(ref, d, ref * tol)
@@ -167,7 +170,7 @@ contains
     pos % dir = [ONE, ZERO, ZERO]
     pos % localId = 3
 
-    call uni % distance(d, surfIdx, pos)
+    call uni % distance(pos, d, surfIdx)
     @assertEqual(INF, d)
     ! Surface momento is undefined -> No crossing
 
@@ -176,7 +179,7 @@ contains
     pos % dir = [ZERO, -ONE, ZERO]
     pos % localId = 2
 
-    call uni % distance(d, surfIdx, pos)
+    call uni % distance(pos, d, surfIdx)
     ref = 0.1_defReal
     @assertEqual(ref, d, ref * tol)
     @assertEqual(MOVING_IN, surfIdx)
@@ -253,7 +256,7 @@ contains
 @Test
   subroutine test_edgeCases()
     type(coord)       :: pos
-    integer(shortInt) :: idx, localID, cellIdx
+    integer(shortInt) :: idx, localID, cellIdx, tetrahedronIdx
     real(defReal)     :: eps, d
     real(defReal), parameter :: TOL = 1.0E-7_defReal
 
@@ -267,16 +270,15 @@ contains
 
     ! Should find particle in cell 1
     ! And return very small distance -> MOVING OUT
-    call uni % findCell(localID, cellIDx, pos % r, pos % dir)
+    call uni % findCell(pos % r, pos % dir, localID, cellIDx, tetrahedronIdx)
     @assertEqual(1, localID)
 
     pos % localID = 1
-    call uni % distance(d, idx, pos)
+    call uni % distance(pos, d, idx)
 
     @assertEqual(ZERO, d, 1.0E-3_defReal)
     @assertEqual(MOVING_OUT, idx)
 
   end subroutine test_edgeCases
-
 
 end module pinUniverse_test

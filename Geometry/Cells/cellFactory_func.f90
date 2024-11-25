@@ -16,7 +16,7 @@ module cellFactory_func
 
   ! List that contains acceptable types of cells
   ! NOTE: It is necessary to adjust trailing blanks so all entries have the same length
-  character(nameLen), dimension(*), parameter :: AVAILABLE_CELL = ['simpleCell']
+  character(nameLen), dimension(*), parameter :: AVAILABLE_CELLS = ['simpleCell']
 
   ! Public Interface
   public :: new_cell_ptr
@@ -42,20 +42,20 @@ contains
     type(surfaceShelf), intent(inout) :: surfs
     class(cell), pointer              :: new
     character(nameLen)                :: type
-    character(100), parameter :: Here = 'new_cell_ptr (cellFactory_func.f90)'
+    character(100), parameter         :: Here = 'new_cell_ptr (cellFactory_func.f90)'
 
     ! Obtain type of the cell
     call dict % get(type, 'type')
 
-    ! Allocate approperiate cell
+    ! Allocate appropriate cell
     select case (type)
       case ('simpleCell')
         allocate(simpleCell :: new)
 
       case default
         print '(A)', 'AVAILABLE CELLS: '
-        print '(A)', AVAILABLE_CELL
-        call fatalError(Here, 'Unrecognised type of a cell: '//trim(type))
+        print '(A)', AVAILABLE_CELLS
+        call fatalError(Here, 'Unrecognised cell type: '//trim(type))
 
     end select
 
@@ -87,6 +87,5 @@ contains
     deallocate (temp)
 
   end subroutine new_cell
-
 
 end module cellFactory_func

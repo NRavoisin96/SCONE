@@ -1,5 +1,4 @@
 module geometry_inter
-
   use numPrecision
   use universalVariables, only : X_AXIS, Y_AXIS, Z_AXIS, HARDCODED_MAX_NEST
   use genericProcedures,  only : fatalError
@@ -14,12 +13,12 @@ module geometry_inter
   !! Distance Cache
   !!
   !! Args:
-  !!   lvl  -> Current valid level (e.g. 3 means that levels 1-3 have valid distance)
+  !!   lvl  -> Current valid level (e.g. 3 means that levels 1-3 have valid distances)
   !!   dist -> Array of distances
-  !!   surf -> Array of coresponding surface mementos for crossing
+  !!   surf -> Array of corresponding surface mementos for crossing
   !!
   type, public :: distCache
-    integer(shortInt) :: lvl = 0
+    integer(shortInt)                                :: lvl = 0
     real(defReal), dimension(HARDCODED_MAX_NEST)     :: dist = ZERO
     integer(shortInt), dimension(HARDCODED_MAX_NEST) :: surf = 0
   end type distCache
@@ -33,16 +32,16 @@ module geometry_inter
     generic :: move  => move_noCache, move_withCache
 
     ! Deferred procedures
-    procedure(init), deferred            :: init
-    procedure(kill), deferred            :: kill
-    procedure(placeCoord), deferred      :: placeCoord
-    procedure(whatIsAt), deferred        :: whatIsAt
-    procedure(bounds), deferred          :: bounds
-    procedure(move_noCache), deferred    :: move_noCache
-    procedure(move_withCache), deferred  :: move_withCache
-    procedure(moveGlobal), deferred      :: moveGlobal
-    procedure(teleport), deferred        :: teleport
-    procedure(activeMats), deferred      :: activeMats
+    procedure(init), deferred           :: init
+    procedure(kill), deferred        :: kill
+    procedure(placeCoord), deferred     :: placeCoord
+    procedure(whatIsAt), deferred       :: whatIsAt
+    procedure(bounds), deferred         :: bounds
+    procedure(move_noCache), deferred   :: move_noCache
+    procedure(move_withCache), deferred :: move_withCache
+    procedure(moveGlobal), deferred     :: moveGlobal
+    procedure(teleport), deferred       :: teleport
+    procedure(activeMats), deferred     :: activeMats
 
     ! Common procedures
     procedure :: slicePlot
@@ -76,9 +75,9 @@ module geometry_inter
     end subroutine kill
 
     !!
-    !! Place coordinate list into geometry
+    !! Places coordinate list into geometry.
     !!
-    !! Finds unique cell and material as well as location at all intermediate levels
+    !! Finds unique cell and material as well as location at all intermediate levels.
     !!
     !! Args:
     !!   coords [inout] -> Initialised coordinate list. This means that location in tope level must
@@ -94,7 +93,7 @@ module geometry_inter
     end subroutine placeCoord
 
     !!
-    !! Find material and unique cell at a given location
+    !! Finds material and unique cell at a given location.
     !!
     !! Args:
     !!   matIdx [out] -> material index at the location
@@ -112,9 +111,9 @@ module geometry_inter
     end subroutine whatIsAt
 
     !!
-    !! Return Axis Aligned Bounding Box encompassing the geometry
+    !! Return Axis Aligned Bounding Box encompassing the geometry.
     !!
-    !! Provides with bounds of the geometry
+    !! Provides with bounds of the geometry.
     !!
     !! Args:
     !!   None
@@ -247,14 +246,14 @@ module geometry_inter
     end subroutine teleport
 
     !!
-    !! Returns the list of active materials used in the geometry
+    !! Returns the list of active materials used in the geometry.
     !!
     !! Args:
     !!   None
     !!
     !! Result:
-    !!   Integer list with the IDs of the active materials. Void is not considered
-    !!   an active materials, even if it can be present in the geometry.
+    !!   matList -> Integer list with the IDs of the active materials. Void is not considered as an
+    !!              active material, even if it is present in the geometry.
     !!
     function activeMats(self) result(matList)
       import :: geometry, shortInt

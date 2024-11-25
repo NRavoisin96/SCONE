@@ -11,6 +11,7 @@ module rootUniverse_class
   use cylinder_class,     only : cylinder
   use cell_inter,         only : cell
   use cellShelf_class,    only : cellShelf
+  use meshShelf_class,    only : meshShelf
   use universe_inter,     only : universe, kill_super => kill, charToFill
 
   implicit none
@@ -25,7 +26,7 @@ module rootUniverse_class
   !! Is composed of two regions. Inside and outside separated by a single surface.
   !! Inside is the -ve halfspace of the boundary surface
   !! +ve halfspace is OUTSIDE
-  !! Filling can be universe given by ID (`u<67` syntax) or a material given by name (e.g. 'fuel')
+  !! Filling can be universe given by ID (`u<6>` syntax) or a material given by name (e.g. 'fuel')
   !!
   !! Local ID 1 is inside. 2 is outside.
   !!
@@ -73,48 +74,40 @@ contains
   !! Errors:
   !!   fatalError for invalid input
   !!
-  subroutine init(self, fill, dict, cells, surfs, mats)
+  subroutine init(self, dict, mats, fills, cells, surfs, meshes)
     class(rootUniverse), intent(inout)                        :: self
-    integer(shortInt), dimension(:), allocatable, intent(out) :: fill
     class(dictionary), intent(in)                             :: dict
+    type(charMap), intent(in)                                 :: mats
+    integer(shortInt), dimension(:), allocatable, intent(out) :: fills
     type(cellShelf), intent(inout)                            :: cells
     type(surfaceShelf), intent(inout)                         :: surfs
-    type(charMap), intent(in)                                 :: mats
+    type(meshShelf), intent(inout)                            :: meshes
     integer(shortInt)                                         :: id
     character(nameLen)                                        :: name
-    character(100), parameter :: Here = 'init (rootUniverse_class.f90)'
+    character(100), parameter                                 :: Here = 'init (rootUniverse_class.f90)'
 
     ! Setup the base class
     ! With: id, origin rotations...
     call self % setupBase(dict)
 
-    ! Make sure root does not contain neither origin nor rotation
-    if (dict % isPresent('origin')) then
-      call fatalError(Here, 'Origin is not allowed. Centre of the root universe is &
-                            &always (0.0 0.0 0.0).')
-    else if (dict % isPresent('rotation')) then
-      call fatalError(Here, 'Rotation is not allowed. Root universe cannot be rotated.')
+    ! Make sure root does not contain origin nor rotation.
+    if (dict % isPresent('origin')) call fatalError(Here, 'Origin is not allowed. Centre of the root universe is &
+                                                    &always (0.0 0.0 0.0).')
+    if (dict % isPresent('rotation')) call fatalError(Here, 'Rotation is not allowed. Root universe cannot be rotated.')
 
-    end if
-
-    ! Get boundary surface
+    ! Get boundary surface.
     call dict % get(id, 'border')
+    if (id < 1) call fatalError(Here, 'Border id must be +ve. Inside is always in &
+                                &-ve halfspace. Was given: '//numToChar(id)//'.')
 
-    if ( id == 0) then
-      call fatalError(Here, 'Invalid border surface ID: 0')
-    else if (id < 0) then
-      call fatalError(Here, 'Border must be given as +ve ID. Inside is always in &
-                           &-ve halfspace. Was given: '//numToChar(id))
-   end if
+    self % surfIdx = surfs % getIdx(id)
+    self % surf => surfs % getPtr(self % surfIdx)
 
-   self % surfIdx = surfs % getIdx(id)
-   self % surf => surfs % getPtr(self % surfIdx)
-
-   ! Create fill array
-   allocate(fill(2))
-   fill(OUTSIDE_ID) = OUTSIDE_MAT
-   call dict % get(name, 'fill')
-   fill(INSIDE_ID) = charToFill(name, mats, Here)
+    ! Create fill array.
+    allocate(fills(2))
+    fills(OUTSIDE_ID) = OUTSIDE_MAT
+    call dict % get(name, 'fill')
+    fills(INSIDE_ID) = charToFill(name, mats, Here)
 
   end subroutine init
 
@@ -123,23 +116,16 @@ contains
   !!
   !! See universe_inter for details.
   !!
-  subroutine findCell(self, localID, cellIdx, r, u)
+  subroutine findCell(self, r, u, localId, cellIdx, tetrahedronIdx)
     class(rootUniverse), intent(inout)      :: self
-    integer(shortInt), intent(out)          :: localID
-    integer(shortInt), intent(out)          :: cellIdx
-    real(defReal), dimension(3), intent(in) :: r
-    real(defReal), dimension(3), intent(in) :: u
+    real(defReal), dimension(3), intent(in) :: r, u
+    integer(shortInt), intent(out)          :: localId, cellIdx, tetrahedronIdx
 
+    ! Set cellIdx = 0, initialise localId = INSIDE_ID then check halfspace.
     cellIdx = 0
-    ! Check halfspace
-    if (self % surf % halfspace(r, u)) then
-      localID = OUTSIDE_ID
-
-    else
-      localID = INSIDE_ID
-
-    end if
-
+    tetrahedronIdx = 0
+    localId = INSIDE_ID
+    if (self % surf % halfspace(r, u)) localId = OUTSIDE_ID
 
   end subroutine findCell
 
@@ -148,12 +134,12 @@ contains
   !!
   !! See universe_inter for details.
   !!
-  subroutine distance(self, d, surfIdx, coords)
+  subroutine distance(self, coords, d, surfIdx)
     class(rootUniverse), intent(inout) :: self
+    type(coord), intent(inout)         :: coords
     real(defReal), intent(out)         :: d
     integer(shortInt), intent(out)     :: surfIdx
-    type(coord), intent(in)            :: coords
-    character(100), parameter :: Here = 'distance (rootUniverse_class.f90)'
+    character(100), parameter          :: Here = 'distance (rootUniverse_class.f90)'
 
     surfIdx = self % surfIdx
     d = self % surf % distance(coords % r, coords % dir)
@@ -172,10 +158,10 @@ contains
     class(rootUniverse), intent(inout) :: self
     type(coord), intent(inout)         :: coords
     integer(shortInt), intent(in)      :: surfIdx
-    character(100), parameter :: Here = 'cross (rootUniverse_class.f90)'
+    character(100), parameter          :: Here = 'cross (rootUniverse_class.f90)'
 
     ! Cross by cell finding in case of significant undershoots
-    call self % findCell(coords % localID, coords % cellIdx, coords % r, coords % dir)
+    call self % findCell(coords % r, coords % dir, coords % localID, coords % cellIdx, coords % tetrahedronIdx)
 
   end subroutine cross
 
@@ -189,7 +175,7 @@ contains
     type(coord), intent(in)         :: coords
     real(defReal), dimension(3)     :: offset
 
-    ! There is no cell offset
+    ! There is no cell offset.
     offset = ZERO
 
   end function cellOffset
@@ -204,7 +190,7 @@ contains
     call kill_super(self)
 
     ! Kill local
-    self % surf    => null()
+    self % surf => null()
     self % surfIdx = 0
 
   end subroutine kill
@@ -225,6 +211,5 @@ contains
     idx = self % surfIdx
 
   end function border
-
 
 end module rootUniverse_class

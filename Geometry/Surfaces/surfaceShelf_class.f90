@@ -18,8 +18,8 @@ module surfaceShelf_class
   !!   ptr  -> Pointer to the surface
   !!
   type :: surfaceBox
-    character(nameLen)      :: name = ''
-    class(surface), pointer :: ptr => null()
+    character(:), allocatable :: name
+    class(surface), pointer   :: ptr => null()
   end type surfaceBox
 
   !!
@@ -42,8 +42,8 @@ module surfaceShelf_class
   !!   getPtr  -> Return pointer to a surface given its index
   !!   getIdx  -> Return index of a surface given its id
   !!   getID   -> Return id of a surface given its idx
-  !!   getSize    -> Return the number of surfaces (max surfIdx)
-  !!   kill    -> Return to uninitialised state
+  !!   getSize -> Return the number of surfaces (max surfIdx)
+  !!   kill -> Return to uninitialised state
   !!
   !! NOTE: Becouse surfaces are stored as pointers, calling `kill` is crutial to prevent
   !!   memory leaks. TODO: Add `final` procedure here ?
@@ -65,72 +65,70 @@ module surfaceShelf_class
 contains
 
   !!
-  !! Load surfaces into shelf
+  !! Loads surfaces into shelf
   !!
   !! Args:
-  !!   dict [in] -> Dictionary with subdictionaries that contain surface definitions
+  !!   dict [in] -> Dictionary with subdictionaries that contain surface definitions.
   !!
   !! Errors:
-  !!   fatalError if there are clashes in surface ID
+  !!   fatalError if there are clashes in surface ids.
   !!
   subroutine init(self, dict)
     class(surfaceShelf), intent(inout)            :: self
     class(dictionary), intent(in)                 :: dict
     character(nameLen), dimension(:), allocatable :: names
-    integer(shortInt)                             :: i, id, idx
-    integer(shortInt), parameter :: NOT_PRESENT = -7
-    character(100), parameter :: Here = 'init (surfaceShelf_class.f90)'
+    character(:), allocatable                     :: trimmedName
+    integer(shortInt)                             :: nSurfaces, i, id, idx
+    integer(shortInt), parameter                  :: NOT_PRESENT = -7
+    character(100), parameter                     :: Here = 'init (surfaceShelf_class.f90)'
 
-    ! Get all keys for subdictionaries
+    ! Get all keys for subdictionaries and compute number of surfaces to allocate.
     call dict % keys(names, 'dict')
+    nSurfaces = size(names)
 
-    ! Allocate space
-    allocate (self % surfaces(size(names)))
-
-    ! Build surfaces
-    do i = 1, size(names)
-      self % surfaces(i) % name = names(i)
+    ! Allocate space and build surfaces.
+    allocate (self % surfaces(nSurfaces))
+    do i = 1, nSurfaces
+      trimmedName = trim(names(i))
+      self % surfaces(i) % name = trimmedName
       self % surfaces(i) % ptr => new_surface_ptr(dict % getDictPtr(names(i)))
-      id = self % surfaces(i) % ptr % id()
+      id = self % surfaces(i) % ptr % getId()
 
-      ! Add ID to the map detecting any conflicts
+      ! Add id to the map detecting any conflicts.
       idx = self % idMap % getOrDefault(id, NOT_PRESENT)
-      if (idx /= NOT_PRESENT) then
-        call fatalError(Here,'Surfaces '//trim(names(i))// ' & '//&
-                             trim(self % surfaces(idx) % name)//&
-                             ' have the same ID: '//numToChar(id))
+      if (idx /= NOT_PRESENT) call fatalError(Here,'Surfaces '//trimmedName// ' & '//&
+                                              self % surfaces(idx) % name//&
+                                              ' have the same Id: '//numToChar(id)//'.')
 
-      else
-        call self % idMap % add(id, i)
+      call self % idMap % add(id, i)
 
-      end if
     end do
 
   end subroutine init
 
   !!
-  !! Return pointer to the surface indicated by index
+  !! Returns pointer to the surface indicated by index
   !!
   !! Args:
   !!   idx [in] -> Index of the surface
   !!
   !! Result:
-  !!   Pointer to a surface under index idx
+  !!   Pointer to a surface.
   !!
   !! Error:
-  !!   fatalError is idx does not correspond to a surface (is out-of-bounds)
+  !!   fatalError if idx does not correspond to a surface (is out-of-bounds).
   !!
   function getPtr(self, idx) result (ptr)
     class(surfaceShelf), intent(in) :: self
     integer(shortInt), intent(in)   :: idx
+    integer(shortInt)               :: nSurfaces
     class(surface), pointer         :: ptr
-    character(100), parameter :: Here = 'getPtr (surfaceShelf_class.f90)'
+    character(100), parameter       :: Here = 'getPtr (surfaceShelf_class.f90)'
 
-    ! Catch invalid idx
-    if (idx < 1 .or. idx > size(self % surfaces)) then
-       call fatalError(Here, 'Requested index: '//numToChar(idx)//' is not valid. Must be between &
-                             &1 and '//numToChar(size(self % surfaces)))
-    end if
+    ! Catch invalid idx.
+    nSurfaces = size(self % surfaces)
+    if (idx < 1 .or. idx > nSurfaces) call fatalError(Here, 'Requested index: '//numToChar(idx)//' is not valid. Must be between &
+                                                      &1 and '//numToChar(nSurfaces)//'.')
 
     ! Return pointer
     ptr => self % surfaces(idx) % ptr
@@ -138,74 +136,70 @@ contains
   end function getPtr
 
   !!
-  !! Return IDX of a surface with ID
+  !! Returns index of a surface with id.
   !!
   !! Args:
   !!   id [in] -> Id of the surface
   !!
   !! Result:
-  !!   Index of a surface with ID
+  !!   Index of the surface.
   !!
   !! Error:
-  !!   fatalError if there is not surface with ID
+  !!   fatalError if there is no surface with id.
   !!
   function getIdx(self, id) result(idx)
     class(surfaceShelf), intent(in) :: self
     integer(shortInt), intent(in)   :: id
     integer(shortInt)               :: idx
-    integer(shortInt), parameter :: NOT_PRESENT = -7
-    character(100), parameter :: Here = 'getIdx (surfaceShelf_class.f90)'
+    integer(shortInt), parameter    :: NOT_PRESENT = -7
+    character(100), parameter       :: Here = 'getIdx (surfaceShelf_class.f90)'
 
     idx = self % idMap % getOrDefault(id, NOT_PRESENT)
-
-    if (idx == NOT_PRESENT) then
-      call fatalError(Here, 'There is no surface with ID: '//numToChar(id))
-    end if
+    if (idx == NOT_PRESENT) call fatalError(Here, 'There is no surface with Id: '//numToChar(id)//'.')
 
   end function getIdx
 
   !!
-  !! Return ID of the surface with index
+  !! Returns the id of a surface with index = idx.
   !!
   !! Args:
-  !!   idx [in] -> Index of the surface
+  !!   idx [in] -> Index of the surface.
   !!
   !! Result:
-  !!   ID of the surface under index
+  !!   Id of the surface.
   !!
   !! Error:
-  !!   fatalError is idx does not correspond to a surface (is out-of-bounds)
+  !!   fatalError if idx does not correspond to a surface (is out-of-bounds).
   !!
   function getId(self, idx) result(id)
     class(surfaceShelf), intent(in) :: self
     integer(shortInt), intent(in)   :: idx
-    integer(shortInt)               :: id
-    character(100), parameter :: Here = 'getID (surfaceShelf_class.f90)'
+    integer(shortInt)               :: id, nSurfaces
+    character(100), parameter       :: Here = 'getId (surfaceShelf_class.f90)'
 
-    ! Catch invalid idx
-    if (idx < 1 .or. idx > size(self % surfaces)) then
-       call fatalError(Here, 'Requested index: '//numToChar(idx)//' is not valid. Must be between &
-                             &1 and '//numToChar(size(self % surfaces)))
-    end if
+    ! Catch invalid idx.
+    nSurfaces = size(self % surfaces)
+    if (idx < 1 .or. idx > nSurfaces) call fatalError(Here, 'Requested index: '//numToChar(idx)//' is not valid. Must be between &
+                                                      &1 and '//numToChar(nSurfaces)//'.')
 
-    id = self % surfaces(idx) % ptr % id()
+    id = self % surfaces(idx) % ptr % getId()
 
   end function getId
 
   !!
-  !! Return size of the shelf
+  !! Returns size of the shelf
   !!
   !! Args:
   !!   None
   !!
   !! Result:
-  !!   Number of surfaces on the shelf
+  !!   Number of surfaces in the shelf.
   !!
-  elemental function getSize(self) result(N)
+  elemental function getSize(self) result(nSurfaces)
     class(surfaceShelf), intent(in) :: self
-    integer(shortInt)               :: N
+    integer(shortInt)               :: nSurfaces
 
-    N = size(self % surfaces)
+    nSurfaces = size(self % surfaces)
 
   end function getSize
 
@@ -219,8 +213,9 @@ contains
     if (allocated(self % surfaces)) then
       do i = 1, size(self % surfaces)
         call self % surfaces(i) % ptr % kill()
-      end do
+        if (allocated(self % surfaces(i) % name)) deallocate(self % surfaces(i) % name)
 
+      end do
       deallocate(self % surfaces)
     end if
 

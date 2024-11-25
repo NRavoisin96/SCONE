@@ -12,36 +12,35 @@ module coord_class
   !!
   !! Co-ordinates are considered valid if:
   !!   * dir is normalised to 1.0 (norm2(dir) ~= 1.0)
-  !!   * uniIdx, uniRootId & localID are set to +ve values
+  !!   * uniIdx, uniRootId & localId are set to +ve values
   !!
   !! Public Members:
-  !!   r -> Position
-  !!   dir -> Direction
-  !!   isRotated -> Is rotated wrt previous (higher by 1) level
-  !!   rotMat    -> Rotation matrix wrt previous level
-  !!   uniIdx    -> Index of the occupied universe
-  !!   uniRootID -> Location of the occupied universe in geometry graph
-  !!   localID   -> Local cell in the occupied universe
-  !!   cellIdx   -> Index of the occupied cell in cellShelf. 0 is cell is local to the universe
+  !!   r              -> Position
+  !!   rEnd           -> Pre-computed end position (reserved for mesh tracking)
+  !!   dir            -> Direction
+  !!   isRotated      -> Is rotated wrt previous (higher by 1) level
+  !!   isLeaving      -> Is leaving 
+  !!   rotMat         -> Rotation matrix wrt previous level
+  !!   uniIdx         -> Index of the occupied universe
+  !!   uniRootId      -> Location of the occupied universe in geometry graph
+  !!   localId        -> Local cell in the occupied universe
+  !!   cellIdx        -> Index of the occupied cell in cellShelf. 0 is cell is local to the universe
+  !!   tetrahedronIdx -> Index of the occupied tetrahedron in meshShelf (for mesh universe)
   !!
   !! Interface:
-  !!   isValid -> True if co-ordinates are valid
-  !!   display -> Print co-ordinates to the console
-  !!   kill    -> Return to uninitialised state
+  !!   isValid        -> Returns .true. if coordinates are valid
+  !!   display        -> Prints coordinates to the console
+  !!   kill        -> Returns to uninitialised state
   !!
   type, public :: coord
-    real(defReal), dimension(3)   :: r         = ZERO
-    real(defReal), dimension(3)   :: dir       = ZERO
-    logical(defBool)              :: isRotated = .false.
-    real(defReal), dimension(3,3) :: rotMat    = ZERO
-    integer(shortInt)             :: uniIdx    = 0
-    integer(shortInt)             :: uniRootID = 0
-    integer(shortInt)             :: localID   = 0
-    integer(shortInt)             :: cellIdx   = 0
+    real(defReal), dimension(3)   :: r = ZERO, rEnd = ZERO, dir = ZERO
+    logical(defBool)              :: isRotated = .false., isLeaving = .false.
+    real(defReal), dimension(3,3) :: rotMat = ZERO
+    integer(shortInt)             :: uniIdx = 0, uniRootId = 0, localId = 0, cellIdx = 0, tetrahedronIdx = 0
   contains
     procedure :: isValid => isValid_coord
     procedure :: display => display_coord
-    procedure :: kill    => kill_coord
+    procedure :: kill => kill_coord
   end type coord
 
   !!
@@ -50,25 +49,25 @@ module coord_class
   !! Specifies the position of a particle in space
   !!
   !! It can exist in the following states:
-  !!  ABOVE GEOMETRY     -> Nesting = 1. matIdx & uniqueID are < 0 (unassigned). Co-ordinates at
+  !!  ABOVE GEOMETRY     -> Nesting = 1. matIdx & uniqueId are < 0 (unassigned). Co-ordinates at
   !!                          level 1 are reliable.
   !!  PLACED IN GEOMETRY -> Nesting >=1. matIdx is assigned. Coordinates up to nesting are realible
   !!  UNINITIALISED      -> Is neither PLACED nor ABOVE
   !!
   !!  NOTE:
-  !!   moveGlobal resets regionID & matIdx to 0
-  !!   moveLocal  leaves regionID & matIdx unchanged
+  !!   moveGlobal resets regionId & matIdx to 0
+  !!   moveLocal  leaves regionId & matIdx unchanged
   !!
   !! Public Members:
   !!   nesting  -> Maximum currently occupied nexting level
   !!   lvl      -> Coordinates at each level
   !!   matIdx   -> Material index at the current position
-  !!   uniqueID -> Unique cell ID at the current position
+  !!   uniqueId -> Unique cell Id at the current position
   !!
   !! Interface:
   !!   init              -> Initialise and place ABOVE GEOMETRY, given position and
   !!                          normalised direction
-  !!   kill              -> Return to uninitialised state
+  !!   kill           -> Returns to uninitialised state
   !!   isPlaced          -> True if co-ordinates are PLACED IN GEOMETRY
   !!   isAbove           -> True of co-ordinates are ABOVE GEOMETRY
   !!   isUninitialised   -> True if co-ordinates are UNINITIALISED
@@ -91,12 +90,10 @@ module coord_class
     ! Build procedures
     procedure :: init
     procedure :: kill
-
     ! State enquiry procedures
     procedure :: isPlaced
     procedure :: isAbove
     procedure :: isUninitialised
-
     ! Interface procedures
     procedure :: addLevel
     procedure :: decreaseLevel
@@ -107,7 +104,6 @@ module coord_class
     procedure :: cell
     procedure :: assignPosition
     procedure :: assignDirection
-
   end type coordList
 
 contains
@@ -133,7 +129,7 @@ contains
     correct = abs(norm2(self % dir) - ONE) < FP_REL_TOL
 
     correct = correct .and. self % uniIdx  > 0
-    correct = correct .and. self % localID > 0
+    correct = correct .and. self % localId > 0
     correct = correct .and. self % uniRootId > 0
 
   end function isValid_coord
@@ -146,8 +142,8 @@ contains
 
     print *, "R: ", self % r
     print *, "U: ", self % dir
-    print *, "UniIdx: ", numToChar(self % uniIDx), " LocalID: ", numToChar(self % localID), &
-             "UniRootId", numToChar(self % uniRootID)
+    print *, "UniIdx: ", numToChar(self % uniIdx), " LocalId: ", numToChar(self % localId), &
+             "UniRootId", numToChar(self % uniRootId)
 
   end subroutine display_coord
 
@@ -158,12 +154,13 @@ contains
     class(coord), intent(inout) :: self
 
     self % r         = ZERO
+    self % rEnd      = ZERO
     self % dir       = ZERO
     self % isRotated = .false.
     self % rotMat    = ZERO
     self % uniIdx    = 0
-    self % uniRootID = 0
-    self % localID   = 0
+    self % uniRootId = 0
+    self % localId   = 0
     self % cellIdx   = 0
 
   end subroutine kill_coord
@@ -187,8 +184,7 @@ contains
   !!
   pure subroutine init(self, r, u)
     class(coordList), intent(inout)         :: self
-    real(defReal), dimension(3), intent(in) :: r
-    real(defReal), dimension(3), intent(in) :: u
+    real(defReal), dimension(3), intent(in) :: r, u
 
     call self % takeAboveGeom()
 
@@ -206,7 +202,7 @@ contains
 
     self % nesting  = 0
     self % matIdx   = -3
-    self % uniqueID = -3
+    self % uniqueId = -3
 
     ! Kill coordinates
     call self % lvl % kill()
@@ -226,7 +222,7 @@ contains
     class(coordList), intent(in) :: self
     logical(defBool)             :: isIt
 
-    isIt = (self % matIdx > 0) .and. (self % uniqueID > 0) .and. (self % nesting >= 1)
+    isIt = (self % matIdx > 0) .and. (self % uniqueId > 0) .and. (self % nesting >= 1)
 
   end function isPlaced
 
@@ -243,7 +239,7 @@ contains
     class(coordList), intent(in) :: self
     logical(defBool)             :: isIt
 
-    isIt = (self % matIdx < 0) .and. (self % uniqueID < 0) .and. (self % nesting == 1)
+    isIt = (self % matIdx < 0) .and. (self % uniqueId < 0) .and. (self % nesting == 1)
 
   end function isAbove
 
@@ -295,7 +291,7 @@ contains
 
     self % nesting  = 1
     self % matIdx   = -3
-    self % uniqueID = -3
+    self % uniqueId = -3
 
   end subroutine takeAboveGeom
 
@@ -309,14 +305,12 @@ contains
   !!   fatalError if n is -ve or larger then current nesting
   !!
   subroutine decreaseLevel(self, n)
-    class(coordList), intent(inout)  :: self
-    integer(shortInt), intent(in)    :: n
-    character(100),parameter :: Here = 'decreaseLevel (coord_class.f90)'
+    class(coordList), intent(inout) :: self
+    integer(shortInt), intent(in)   :: n
+    character(100), parameter       :: Here = 'decreaseLevel (coord_class.f90)'
 
-    if (n > self % nesting .or. n < 1) then
-      call fatalError(Here,'New nesting: '//numToChar(n)//' is invalid. Current nesting: '//&
-                            numToChar(self % nesting))
-    end if
+    if (n > self % nesting .or. n < 1) call fatalError(Here,'New nesting: '//numToChar(n)//' is invalid. Current nesting: '//&
+    numToChar(self % nesting))
 
     self % nesting = n
 
@@ -346,14 +340,14 @@ contains
   !! Move point inside the geometry
   !!
   !! Moves above and including level n
-  !! Does not change matIdx nor uniqueID
+  !! Does not change matIdx nor uniqueId
   !!
   !! Args:
   !!   d [in] -> Distance (+ve or -ve)
   !!   n [in] -> Nesting level
   !!
   !! Errors:
-  !!   If d < 0.0 movment is backwards
+  !!   If d < 0.0 movement is backwards
   !!
   subroutine moveLocal(self, d, n)
     class(coordList), intent(inout) :: self
@@ -392,10 +386,10 @@ contains
         ! Note that rotation must be performed with the matrix
         ! Deflections by mu & phi depend on coordinates
         ! Deflection by the same my & phi may be diffrent at diffrent, rotated levels!
-        self % lvl(i) % dir = matmul(self % lvl(i) % rotMat, self % lvl(i-1) % dir)
+        self % lvl(i) % dir = matmul(self % lvl(i) % rotMat, self % lvl(i - 1) % dir)
 
       else
-        self % lvl(i) % dir = self % lvl(i-1) % dir
+        self % lvl(i) % dir = self % lvl(i - 1) % dir
 
       end if
     end do
@@ -453,13 +447,13 @@ contains
     ! Assign new direction in global frame
     self % lvl(1) % dir = u
 
-    ! Propage the change to lower levels
+    ! Propagate changes to lower levels
     do i = 2, self % nesting
       if(self % lvl(i) % isRotated) then
-        self % lvl(i) % dir = matmul(self % lvl(i) % rotMat, self % lvl(i-1) % dir)
+        self % lvl(i) % dir = matmul(self % lvl(i) % rotMat, self % lvl(i - 1) % dir)
 
       else
-        self % lvl(i) % dir = self % lvl(i-1) % dir
+        self % lvl(i) % dir = self % lvl(i - 1) % dir
 
       end if
     end do

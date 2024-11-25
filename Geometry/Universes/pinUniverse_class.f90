@@ -10,6 +10,7 @@ module pinUniverse_class
   use cylinder_class,     only : cylinder
   use cell_inter,         only : cell
   use cellShelf_class,    only : cellShelf
+  use meshShelf_class,    only : meshShelf
   use universe_inter,     only : universe, kill_super => kill, charToFill
   implicit none
   private
@@ -19,10 +20,10 @@ module pinUniverse_class
   integer(shortInt), parameter, public :: MOVING_IN = -1, MOVING_OUT = -2
 
   !!
-  !! Universe that represents a single pin
+  !! Universe that represents a single pin.
   !!
-  !! Is composed from co-centring cylinders. Central cell has local ID 1 and the ID
-  !! increases with subsequent rings.
+  !! Is composed of concentric cylinders. Central cell has localId 1 and the id increases with
+  !! subsequent rings.
   !!
   !! Sample Dictionary Input:
   !!   pinUni {
@@ -34,21 +35,21 @@ module pinUniverse_class
   !!     fills (u<3> void clad u<4>);
   !!   }
   !!
-  !!  There must be 0.0 entry, which indicates outermost annulus (infinite radius).
+  !!  Radii must contain a 0.0 entry, which indicates the outermost annulus (infinite radius).
   !!  `fills` and `radii` are given as pairs by position in the input arrays. Thus, fills
-  !!  are sorted together with the `radii`. As a result, in the example, local cell 1 is
-  !!  filled with u<4>, cell 2 with u<3> etc.
+  !!  are sorted together with the radii. As a result, in the example, local cell 1 is filled
+  !!  with u<4>, cell 2 with u<3> etc.
   !!
   !! Public Members:
-  !!  r_sqr  -> Array of radius^2 for each annulus
-  !!  annuli -> Array of cylinder surfaces that represent different annuli
+  !!  radiiSquared -> Array of radius squared for each annulus.
+  !!  annuli       -> Array of cylinder surfaces corresponding to different annuli.
   !!
   !! Interface:
   !!   universe interface
   !!
   type, public, extends(universe) :: pinUniverse
     private
-    real(defReal), dimension(:), allocatable  :: r_sq
+    real(defReal), dimension(:), allocatable  :: radiiSquared
     type(cylinder), dimension(:), allocatable :: annuli
   contains
     ! Superclass procedures
@@ -70,74 +71,63 @@ contains
   !! Errors:
   !!   fatalError for invalid input
   !!
-  subroutine init(self, fill, dict, cells, surfs, mats)
-    class(pinUniverse), intent(inout)                        :: self
-    integer(shortInt), dimension(:), allocatable, intent(out) :: fill
+  subroutine init(self, dict, mats, fills, cells, surfs, meshes)
+    class(pinUniverse), intent(inout)                         :: self
     class(dictionary), intent(in)                             :: dict
+    type(charMap), intent(in)                                 :: mats
+    integer(shortInt), dimension(:), allocatable, intent(out) :: fills
     type(cellShelf), intent(inout)                            :: cells
     type(surfaceShelf), intent(inout)                         :: surfs
-    type(charMap), intent(in)                                 :: mats
-    integer(shortInt)                             :: idx, N, i
-    real(defReal), dimension(:), allocatable      :: radii
-    character(nameLen), dimension(:), allocatable :: fillNames
-    character(100), parameter :: Here = 'init (pinUniverse_class.f90)'
+    type(meshShelf), intent(inout)                            :: meshes
+    integer(shortInt)                                         :: idx, N, i
+    real(defReal), dimension(:), allocatable                  :: radii
+    character(nameLen), dimension(:), allocatable             :: fillNames
+    character(100), parameter                                 :: Here = 'init (pinUniverse_class.f90)'
 
     ! Setup the base class
     ! With: id, origin rotations...
     call self % setupBase(dict)
 
-    ! Load radii and fill data
+    ! Load radii and fill data.
     call dict % get(radii, 'radii')
     call dict % get(fillNames, 'fills')
 
-    ! Check values
-    if (size(radii) /= size(fillNames)) then
-      call fatalError(Here, 'Size of radii and fills does not match')
+    ! Check values.
+    if (size(radii) /= size(fillNames)) call fatalError(Here, 'Sizes of radii and fills do not match.')
+    if (any(radii < ZERO)) call fatalError(Here, 'Found radius with -ve value.')
 
-    else if (any(radii < ZERO)) then
-      call fatalError(Here, 'Found -ve value of radius.')
-
-    end if
-
-    ! Sort radii with selection sort
-    ! Start with value 0.0 that represents outermost element
-    ! Change 0.0 to infinity
+    ! Find radius with value 0.0 (representing outermost element) and swap it and corresponding fill to
+    ! the last elements of each array. Set radius with 0.0 value to INF.
     N = size(radii)
     idx = minloc(radii, 1)
-    if (radii(idx) /= ZERO) call fatalError(Here, 'Did not found outermost element with radius 0.0.')
-    call swap( radii(idx), radii(N))
-    call swap( fillNames(idx), fillNames(N))
+    if (radii(idx) /= ZERO) call fatalError(Here, 'Could not find outermost element with radius 0.0.')
+    call swap(radii(idx), radii(N))
+    call swap(fillNames(idx), fillNames(N))
     radii(N) = INF * 1.1_defReal
 
-    do i = N-1,1,-1
+    ! Sort radii and fills into ascending order.
+    do i = N - 1, 1, -1
       idx = maxloc(radii(1:i), 1)
-      call swap( radii(idx), radii(i))
-      call swap( fillNames(idx), fillNames(i))
+      call swap(radii(idx), radii(i))
+      call swap(fillNames(idx), fillNames(i))
+
     end do
 
-    ! Check for duplicate values of radii
-    do i = 1, N-1
-      if (radii(i) == radii(i+1)) then
-        call fatalError(Here, 'Duplicate value of radius: '//numToChar(radii(i)))
-      end if
+    ! Check for duplicate values of radii.
+    do i = 1, N - 1
+      if (radii(i) == radii(i + 1)) call fatalError(Here, 'Duplicate value of radius: '//numToChar(radii(i))//'.')
+
     end do
 
-    ! Load data & Build cylinders
-    self % r_sq = radii * radii
-
+    ! Load radii squared, build cylinders and create fill array.
+    self % radiiSquared = radii * radii
     allocate(self % annuli(N))
+    allocate(fills(N))
     do i = 1, N
-      call self % annuli(i) % build(id=1, origin=[ZERO, ZERO, ZERO], &
-                                    type='zCylinder', radius=radii(i) )
+      call self % annuli(i) % build(id = 1, origin = [ZERO, ZERO, ZERO], type = 'zCylinder', radius = radii(i))
+      fills(i) = charToFill(fillNames(i), mats, Here)
+
     end do
-
-    ! Create fill array
-    allocate(fill(N))
-
-    do i = 1, N
-      fill(i) = charToFill(fillNames(i), mats, Here)
-    end do
-
 
   end subroutine init
 
@@ -146,27 +136,28 @@ contains
   !!
   !! See universe_inter for details.
   !!
-  subroutine findCell(self, localID, cellIdx, r, u)
+  subroutine findCell(self, r, u, localId, cellIdx, tetrahedronIdx)
     class(pinUniverse), intent(inout)       :: self
-    integer(shortInt), intent(out)          :: localID
-    integer(shortInt), intent(out)          :: cellIdx
-    real(defReal), dimension(3), intent(in) :: r
-    real(defReal), dimension(3), intent(in) :: u
-    real(defReal)                           :: r_sq, mul
+    real(defReal), dimension(3), intent(in) :: r, u
+    integer(shortInt), intent(out)          :: localId, cellIdx, tetrahedronIdx
+    real(defReal), dimension(2)             :: rPlanes, uPlanes
+    real(defReal)                           :: rPlanesSquared, mul, surfTol
 
-    r_sq = r(1)*r(1) + r(2)*r(2)
+    ! Set cellIdx = 0, retrieve the particle's position and direction components in the
+    ! cylinders' planes (all cylinders are zCylinders so these components are 1 and 2) and
+    ! compute rPlanesSquared.
     cellIdx = 0
+    tetrahedronIdx = 0
+    rPlanes = r(1:2)
+    uPlanes = u(1:2)
+    rPlanesSquared = dot_product(rPlanes, rPlanes)
 
-    ! Need to include surface tolerance. Determine multiplier by direction
-    if ( r(1)*u(1) + r(2)*u(2) >= ZERO) then
-      mul = -ONE
-    else
-      mul = ONE
-    end if
-
-    ! Find local cell
-    do localID = 1, size(self % r_sq)
-      if( r_sq < self % r_sq(localID) + mul * self % annuli(localID) % surfTol() ) return
+    ! Find local cell. Pre-compute multiplier based on particle direction.
+    mul = sign(ONE, -dot_product(rPlanes, uPlanes))
+    do localId = 1, size(self % radiiSquared)
+      ! Retrieve surface tolerance of current cylinder and check if particle is inside it.
+      surfTol = mul * self % annuli(localId) % getSurfTol()
+      if(rPlanesSquared < self % radiiSquared(localId) + surfTol) return
 
     end do
     ! If reached here localID = size(self % r_sq) + 1
@@ -181,46 +172,47 @@ contains
   !! Errors:
   !!   fatalError is localID is invalid
   !!
-  subroutine distance(self, d, surfIdx, coords)
+  subroutine distance(self, coords, d, surfIdx)
     class(pinUniverse), intent(inout)  :: self
+    type(coord), intent(inout)         :: coords
     real(defReal), intent(out)         :: d
     integer(shortInt), intent(out)     :: surfIdx
-    type(coord), intent(in)            :: coords
+    real(defReal), dimension(3)        :: r, u
     real(defReal)                      :: d_out, d_in
-    integer(shortInt)                  :: id
-    character(100), parameter :: Here = 'distance (pinUniverse_class.f90)'
+    integer(shortInt)                  :: localId, nAnnuli
+    character(100), parameter          :: Here = 'distance (pinUniverse_class.f90)'
 
-    ! Get local id
-    id = coords % localID
+    ! Retrieve localId and number of annuli. Call fatalError if localId is out of bounds.
+    localId = coords % localId
+    nAnnuli = size(self % annuli)
+    if (localId < 1 .or. localId > nAnnuli + 1) call fatalError(Here, 'Invalid local id: '//numToChar(localId)//'.')
 
-    if (id < 1 .or. id > size(self % r_sq) + 1) then
-      call fatalError(Here, 'Invalid local ID: '//numToChar(id))
-    end if
+    ! Retrieve particle's location and direction components and compute outer and inner distances.
+    r = coords % r
+    u = coords % dir
 
-    ! Outer distance
-    if (id > size(self % r_sq)) then
+    ! Outer distance.
+    if (localId > nAnnuli) then
       d_out = INF
 
     else
-      d_out = self % annuli(id) % distance(coords % r, coords % dir)
+      d_out = self % annuli(localId) % distance(r, u)
+
     end if
 
-    ! Inner distance
-    if (id == 1) then
+    ! Inner distance.
+    if (localId == 1) then
       d_in = INF
-    else
-      d_in = self % annuli(id-1) % distance(coords % r, coords % dir)
-    end if
-
-    ! Select distance and surface
-    if ( d_in < d_out) then
-      surfIdx = MOVING_IN
-      d = d_in
 
     else
-      surfIdx = MOVING_OUT
-      d = d_out
+      d_in = self % annuli(localId - 1) % distance(r, u)
+
     end if
+
+    ! Select distance and surface.
+    d = min(d_in, d_out)
+    surfIdx = MOVING_IN
+    if (d_out <= d_in) surfIdx = MOVING_OUT
 
   end subroutine distance
 
@@ -233,10 +225,10 @@ contains
   !!   fatalError if surface from distance is not MOVING_IN or MOVING_OUT
   !!
   subroutine cross(self, coords, surfIdx)
-    class(pinUniverse), intent(inout) :: self
+    class(pinUniverse), intent(inout)  :: self
     type(coord), intent(inout)         :: coords
     integer(shortInt), intent(in)      :: surfIdx
-    character(100), parameter :: Here = 'cross (pinUniverse_class.f90)'
+    character(100), parameter          :: Here = 'cross (pinUniverse_class.f90)'
 
     if (surfIdx == MOVING_IN) then
       coords % localID = coords % localID - 1
@@ -245,7 +237,7 @@ contains
       coords % localID = coords % localID + 1
 
     else
-      call fatalError(Here, 'Unknown surface memento: '//numToChar(surfIdx))
+      call fatalError(Here, 'Unknown surface memento: '//numToChar(surfIdx)//'.')
 
     end if
 
@@ -276,7 +268,7 @@ contains
     call kill_super(self)
 
     ! Kill local
-    if(allocated(self % r_sq)) deallocate(self % r_sq)
+    if(allocated(self % radiiSquared)) deallocate(self % radiiSquared)
     if(allocated(self % annuli)) deallocate(self % annuli)
 
   end subroutine kill

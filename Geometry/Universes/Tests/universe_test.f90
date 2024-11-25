@@ -1,19 +1,18 @@
 module universe_test
+  
   use numPrecision
   use charMap_class,  only : charMap
   use universe_inter, only : charToFill
   use funit
+  
   implicit none
-
 
   !!
   !! Note that universe is abstract thus it cannot be tested by itself
   !!
   !! Tests for universe non-overridable procedures are in cellUniverse_test
   !!
-
 contains
-
   !!
   !! Test charToFill
   !!
@@ -56,7 +55,5 @@ contains
     @assertEqual(-5, charToFill(name, mats, Here))
 
   end subroutine test_charToFill
-
-
 
 end module universe_test

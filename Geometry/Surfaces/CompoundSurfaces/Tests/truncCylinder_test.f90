@@ -154,11 +154,11 @@ contains
     p2 = this % plane(2)
 
     ! Test ID
-    @assertEqual(75, this % surf % id())
+    @assertEqual(75, this % surf % getId())
 
     ! Change ID
     call this % surf % setID(1)
-    @assertEqual(1, this % surf % id())
+    @assertEqual(1, this % surf % getId())
 
     ! Name
     select case(this % axis)
@@ -169,12 +169,12 @@ contains
       case(Z_AXIS)
         name = 'zTruncCylinder'
     end select
-    @assertEqual(name, this % surf % myType())
+    @assertEqual(name, this % surf % getType())
 
     ! Bounding Box
     ref([ax, p1, p2]) = [0.5_defReal, -1.0_defReal, 0.0_defReal]
     ref([ax, p1, p2]+3) = [3.5_defReal, 3.0_defReal, 4.0_defReal]
-    aabb = this % surf % boundingBox()
+    aabb = this % surf % getBoundingBox()
     @assertEqual(ref, aabb, TOL)
 
   end subroutine testMisc
@@ -197,7 +197,7 @@ contains
     pe = [ax, p1, p2] ! Common permutation
 
     ! *** CASE 1 VACUUM + REFLECTIVE
-    call this % surf % setBC([VACUUM_BC, REFLECTIVE_BC])
+    call this % surf % setBCs([VACUUM_BC, REFLECTIVE_BC])
 
     ! ** Explicit BC
     ! Vacuum face
@@ -229,7 +229,7 @@ contains
     @assertEqual(u_ref, u, TOL)
 
     ! **** CASE 2 PERIODIC
-    call this % surf % setBC([PERIODIC_BC, PERIODIC_BC])
+    call this % surf % setBCs([PERIODIC_BC, PERIODIC_BC])
 
     ! Explicit BC
     ! Periodic face
@@ -306,7 +306,7 @@ contains
     u = u/norm2(u)
     @assertFalse(this % surf % halfspace(r, u))
 
-    ! Outside outside surface tol
+    ! Outside surface tol
     eps = 1.001_defReal * SURF_TOL
     r(pe) = [3.3_defReal, -1.0_defReal-eps, 2.0_defReal]
     u(pe) = [ONE, ONE, ZERO]
@@ -337,7 +337,7 @@ contains
     u = u/norm2(u)
     @assertFalse(this % surf % halfspace(r, u))
 
-    ! Outside outside surface tol
+    ! Outside surface tol
     eps = 1.001_defReal * SURF_TOL
     r(pe) = [3.5_defReal+eps, 1.3_defReal, 1.8_defReal]
     u(pe) = [-ONE, ONE, ZERO]

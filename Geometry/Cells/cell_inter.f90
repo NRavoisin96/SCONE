@@ -14,24 +14,24 @@ module cell_inter
   !!
   !! Abstract interface for all cells
   !!
-  !! Cell is intendet to represent a volume of space. It is not intended to be
+  !! Cell is intented to represent a volume of space. It is not intended to be
   !! a independent entity, but rather to be used as a component of universes.
   !!
   !! Private Members:
-  !!   cellId -> Id for a particular cell instance
+  !!   cellId   -> Id for a particular cell instance
   !!
   !! Interface:
   !!   init     -> Initialise from dictionary and surface Shelf
-  !!   inside   -> Return true is a given position is cntained inside the cell
+  !!   inside   -> Return true is a given position is contained inside the cell
   !!   distance -> Assuming the point is inside the cell, calculate distance to the boundary
-  !!     and give surfIdx for the surface that will be crossed
+  !!               and give surfIdx for the surface that will be crossed
   !!  setId     -> Set ID of a cell
   !!  id        -> Return id of a cell
-  !!  kill      -> Return to uninitialised state
+  !!  kill      -> Returns to uninitialised state
   !!
   type, public, abstract :: cell
     private
-    integer(shortInt) :: cellId = 0
+    integer(shortInt)             :: cellId = 0
   contains
     procedure(init), deferred     :: init
     procedure(inside), deferred   :: inside
@@ -68,13 +68,13 @@ module cell_inter
     !!   u [in] -> Normalised direction (norm2(u) = 1.0)
     !!
     !! Result:
-    !!   True if position is inside the cell. False otherwsie
+    !!   True if position is inside the cell. False otherwise
     !!
-    pure function inside(self, r, u) result(isIt)
-      import :: cell, defReal, defBool
+    pure function inside(self, r, u, idx) result(isIt)
+      import :: cell, defReal, shortInt, defBool
       class(cell), intent(in)                 :: self
-      real(defReal), dimension(3), intent(in) :: r
-      real(defReal), dimension(3), intent(in) :: u
+      real(defReal), dimension(3), intent(in) :: r, u
+      integer(shortInt), intent(in), optional :: idx
       logical(defBool)                        :: isIt
     end function inside
 
@@ -88,10 +88,10 @@ module cell_inter
     !!   surfIdx [out] -> Index of a surface that will be crossed. If the surface is not defined on
     !!     the surface shelf its value should be -ve. If no surface is hit return 0.
     !!   r [in]        -> Position
-    !!   u [in]        -> ormalised direction (norm2(u) = 1.0)
+    !!   u [in]        -> Normalised direction (norm2(u) = 1.0)
     !!
     !! Note: If cell has some internally defined surfaces it should return -ve values of the
-    !!   surfIdx, with the meaning for diffrent -ve numbers beeing dependant on particular
+    !!   surfIdx, with the meaning for different -ve numbers being dependant on particular
     !!   subclass of the cell
     !!
     pure subroutine distance(self, d, surfIdx, r, u)
@@ -99,31 +99,29 @@ module cell_inter
       class(cell), intent(in)                 :: self
       real(defReal), intent(out)              :: d
       integer(shortInt), intent(out)          :: surfIdx
-      real(defReal), dimension(3), intent(in) :: r
-      real(defReal), dimension(3), intent(in) :: u
+      real(defReal), dimension(3), intent(in) :: r, u
     end subroutine distance
 
   end interface
 
-
 contains
 
   !!
-  !! Set ID pf the cell
+  !! Sets Id of the cell.
   !!
   !! Args:
-  !!   id [in] -> ID of the cell (>0)
+  !!   cellId [in] -> Id of the cell.
   !!
   !! Errors:
-  !!   fatalError if id <= 0
+  !!   fatalError if cellId < 1.
   !!
-  subroutine setId(self, id)
+  subroutine setId(self, cellId)
     class(cell), intent(inout)    :: self
-    integer(shortInt), intent(in) :: id
-    character(100), parameter :: Here = 'setId (cell_inter.f90)'
+    integer(shortInt), intent(in) :: cellId
+    character(100), parameter     :: Here = 'setId (cell_inter.f90)'
 
-    if (id <= 0) call fatalError(Here, 'Cell ID must be >0. Is '//numToChar(id))
-    self % cellId = id
+    if (cellId < 1) call fatalError(Here, 'Cell ID must be +ve. Is: '//numToChar(cellId))
+    self % cellId = cellId
 
   end subroutine setId
 
@@ -153,6 +151,5 @@ contains
     self % cellId = 0
 
   end subroutine kill
-
 
 end module cell_inter

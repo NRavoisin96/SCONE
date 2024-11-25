@@ -9,26 +9,28 @@ module cellUniverse_class
   use surfaceShelf_class, only : surfaceShelf
   use cell_inter,         only : cell
   use cellShelf_class,    only : cellShelf
+  use meshShelf_class,    only : meshShelf
   use universe_inter,     only : universe, kill_super => kill
+
   implicit none
   private
 
   !!
   !! Local helper class to group cell data
   !!
-  !! Public Members:
-  !!   idx -> cellIdx of the cell in cellShelf
-  !!   ptr -> Pointer to the cell
+  !! Public members:
+  !!   idx           -> cellIdx of the cell in cellShelf.
+  !!   ptr           -> Pointer to the cell.
   !!
   type, private :: localCell
-    integer(shortInt)    :: idx = 0
-    class(cell), pointer :: ptr => null()
+    integer(shortInt)                            :: idx = 0
+    class(cell), pointer                         :: ptr => null()
   end type localCell
 
   !!
   !! Representation of a universe via cells
   !!
-  !! Each local cell in the universe corresponds to a cell given by an ID.
+  !! Each local cell in the universe corresponds to a cell given by an id.
   !! An extra local cell is always defined inside the cellUniverse with UNDEF_MAT
   !! (undefined material) filling. If position is not in any user-defined cell, it is in this
   !! extra cell. Extra cell exists to enable plotting of geometry without fatalErrors.
@@ -41,9 +43,11 @@ module cellUniverse_class
   !!         cells ( 1 3 4);         }
   !!
   !! Note:
-  !!   - Local IDs are assigned in order as in definition. In the example above local id would map
-  !!   to following cell  [localID: cellID] {1: 1, 2: 3, 3: 4, 4: UNDEF }
+  !!   - Local ids are assigned in order of definition. In the example above local ids would map
+  !!     to the following cell ids  [localID: cellID] {1: 1, 2: 3, 3: 4, 4: UNDEF }
   !!   - Cell overlaps are forbidden, but there is no check to find overlaps.
+  !! 
+  !!   TODO: add check to find overlaps?
   !!
   !! Public Members:
   !!   cells -> Structure that stores cellIdx and pointers to the cells
@@ -70,16 +74,16 @@ contains
   !!
   !! See universe_inter for details.
   !!
-  subroutine init(self, fill, dict, cells, surfs, mats)
+  subroutine init(self, dict, mats, fills, cells, surfs, meshes)
     class(cellUniverse), intent(inout)                        :: self
-    integer(shortInt), dimension(:), allocatable, intent(out) :: fill
     class(dictionary), intent(in)                             :: dict
+    type(charMap), intent(in)                                 :: mats
+    integer(shortInt), dimension(:), allocatable, intent(out) :: fills
     type(cellShelf), intent(inout)                            :: cells
     type(surfaceShelf), intent(inout)                         :: surfs
-    type(charMap), intent(in)                                 :: mats
-    integer(shortInt), dimension(:), allocatable  :: cellTemp
-    integer(shortInt)                             :: N, i
-    character(100), parameter :: Here = 'init (cellUniverse_class.f90)'
+    type(meshShelf), intent(inout)                            :: meshes
+    integer(shortInt), dimension(:), allocatable              :: cellTemp
+    integer(shortInt)                                         :: N, i
 
     ! Setup the base class
     ! With: id, origin rotations...
@@ -89,23 +93,19 @@ contains
     call dict % get(cellTemp, 'cells')
     N = size(cellTemp)
 
+    ! Allocate cells and fill arrays.
     allocate(self % cells(N))
-    self % cells % idx = cellTemp
+    allocate(fills(N + 1))
 
-    ! Load pointers and convert cell ID to IDX
+    ! Convert cell ids to idxs, load pointers and create fill array.
+    self % cells % idx = cellTemp
     do i = 1, N
-      ! Convert cell ID to IDX
       self % cells(i) % idx = cells % getIdx(self % cells(i) % idx)
       self % cells(i) % ptr => cells % getPtr(self % cells(i) % idx)
+      fills(i) = cells % getFill(self % cells(i) % idx)
+      
     end do
-
-    ! Create fill array
-    allocate(fill(N+1))
-
-    do i = 1, N
-      fill(i) = cells % getFill(self % cells(i) % idx)
-    end do
-    fill(N+1) = UNDEF_MAT
+    fills(N + 1) = UNDEF_MAT
 
   end subroutine init
 
@@ -114,24 +114,24 @@ contains
   !!
   !! See universe_inter for details.
   !!
-  subroutine findCell(self, localID, cellIdx, r, u)
+  pure subroutine findCell(self, r, u, localId, cellIdx, tetrahedronIdx)
     class(cellUniverse), intent(inout)      :: self
-    integer(shortInt), intent(out)          :: localID
-    integer(shortInt), intent(out)          :: cellIdx
-    real(defReal), dimension(3), intent(in) :: r
-    real(defReal), dimension(3), intent(in) :: u
+    real(defReal), dimension(3), intent(in) :: r, u
+    integer(shortInt), intent(out)          :: localId, cellIdx, tetrahedronIdx
 
+    tetrahedronIdx = 0
     ! Search all cells
-    do localID = 1, size(self % cells)
-      if (self % cells(localID) % ptr % inside(r, u)) then
-        cellIdx = self % cells(localID) % idx
+    do localId = 1, size(self % cells)
+      if (self % cells(localId) % ptr % inside(r, u)) then
+        cellIdx = self % cells(localId) % idx
         return
 
       end if
+
     end do
 
-    ! If not found return undefined cell
-    ! Already set to localID (== size(self % cells) + 1) by the do loop
+    ! If not found return undefined cell.
+    ! Already set to localId (== size(self % cells) + 1) by the do loop
     cellIdx = 0
 
   end subroutine findCell
@@ -144,22 +144,21 @@ contains
   !! Errors:
   !!   fatalError if in UNDEFINED cell
   !!
-  subroutine distance(self, d, surfIdx, coords)
+  subroutine distance(self, coords, d, surfIdx)
     class(cellUniverse), intent(inout) :: self
+    type(coord), intent(inout)         :: coords
     real(defReal), intent(out)         :: d
     integer(shortInt), intent(out)     :: surfIdx
-    type(coord), intent(in)            :: coords
-    integer(shortInt)                  :: localID
-    character(100), parameter :: Here = 'distance (cellUniverse_class.f90)'
+    integer(shortInt)                  :: localId
+    character(100), parameter          :: Here = 'distance (cellUniverse_class.f90)'
 
-    localID = coords % localID
+    localId = coords % localId
 
-    if (localID > size(self % cells)) then
-      call fatalError(Here, 'Particle is in undefined local cell. Local ID: '//numToChar(localID))
-    end if
+    if (localId > size(self % cells)) call fatalError(Here, &
+    'Particle is in undefined cell with local id: '//numToChar(localId)//'.')
 
     ! Calculate distance
-    call self % cells(localID) % ptr % distance(d, surfIdx, coords % r, coords % dir)
+    call self % cells(localId) % ptr % distance(d, surfIdx, coords % r, coords % dir)
 
   end subroutine distance
 
@@ -171,7 +170,7 @@ contains
   !! Note: Introduces extra movement to the particle to push it over boundary
   !!   for more efficient search. Distance is NUGDE.
   !!
-  subroutine cross(self, coords, surfIdx)
+  pure subroutine cross(self, coords, surfIdx)
     class(cellUniverse), intent(inout) :: self
     type(coord), intent(inout)         :: coords
     integer(shortInt), intent(in)      :: surfIdx
@@ -181,11 +180,8 @@ contains
     coords % r = coords % r + coords % dir * NUDGE
 
     ! Find cell
-    ! TODO: Some cell neighbout list
-    call self % findCell(coords % localID, &
-                         coords % cellIdx, &
-                         coords % r,       &
-                         coords % dir)
+    ! TODO: Some cell neighbour list
+    call self % findCell(coords % r, coords % dir, coords % localId, coords % cellIdx, coords % tetrahedronIdx)
 
   end subroutine cross
 
@@ -194,7 +190,7 @@ contains
   !!
   !! See universe_inter for details.
   !!
-  function cellOffset(self, coords) result (offset)
+  pure function cellOffset(self, coords) result (offset)
     class(cellUniverse), intent(in) :: self
     type(coord), intent(in)         :: coords
     real(defReal), dimension(3)     :: offset
@@ -210,13 +206,12 @@ contains
   elemental subroutine kill(self)
     class(cellUniverse), intent(inout) :: self
 
-    ! SUperclass
+    ! Superclass
     call kill_super(self)
 
     ! Local
     if(allocated(self % cells)) deallocate(self % cells)
 
   end subroutine kill
-
 
 end module cellUniverse_class

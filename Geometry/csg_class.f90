@@ -1,5 +1,4 @@
 module csg_class
-
   use numPrecision
   use universalVariables,  only : MAX_COL, HARDCODED_MAX_NEST
   use genericProcedures,   only : fatalError, numToChar
@@ -9,6 +8,7 @@ module csg_class
   use surface_inter,       only : surface
   use cellShelf_class,     only : cellShelf
   use universeShelf_class, only : universeShelf
+  use meshShelf_class,     only : meshShelf
   use universe_inter,      only : universe
   use rootUniverse_class,  only : rootUniverse
   use uniFills_class,      only : uniFills
@@ -43,13 +43,14 @@ module csg_class
   !!   rootIdx   -> Index of the root universe
   !!
   !! Interface:
-  !!   init -> Load geometry
-  !!   kill -> Return to uninitialised state
+  !!   init    -> Loads geometry
+  !!   kill -> Returns to uninitialised state
   !!
   type, public :: csg
     type(surfaceShelf)  :: surfs
     type(cellShelf)     :: cells
     type(universeShelf) :: unis
+    type(meshShelf)     :: meshes
     type(geomGraph)     :: graph
     integer(shortInt)   :: borderIdx = 0
     integer(shortInt)   :: rootIdx   = 0
@@ -57,7 +58,6 @@ module csg_class
     procedure :: init
     procedure :: kill
   end type csg
-
 
 contains
 
@@ -84,23 +84,20 @@ contains
     class(universe), pointer                     :: uni_ptr
     class(surface), pointer                      :: surf_ptr
     integer(shortInt), dimension(:), allocatable :: BC
-    character(100), parameter :: Here = 'init (csg_class.f90)'
+    character(100), parameter                    :: Here = 'init (csg_class.f90)'
 
     ! Choose whether to display messages
-    if (present(silent)) then
-      loud = .not.silent
-    else
-      loud = .true.
-    end if
+    loud = .true.
+    if (present(silent)) loud = .not. silent
 
-    ! Print beggining
+    ! Print beginning
     if (loud) then
       print *, repeat('<>', MAX_COL/2)
       print *, "/\/\ READING GEOMETRY /\/\"
+      print *, "Building Surfaces"
     end if
 
     ! Build Surfaces
-    if (loud) print *, "Building Surfaces"
     call self % surfs % init(dict % getDictPtr('surfaces'))
     if (loud) print *, "DONE!"
 
@@ -109,13 +106,20 @@ contains
     call self % cells % init(dict % getDictPtr('cells'), self % surfs, mats)
     if (loud) print *, "DONE!"
 
+    ! Build Meshes if present.
+    if (dict % isPresent('meshes')) then
+      if (loud) print *, "Building Meshes"
+      call self % meshes % init(dict % getDictPtr('meshes'))
+      if (loud) print *, "DONE!"
+
+    end if
+
     ! Build Universes
     if(loud) print *, "Building Universes"
-    call self % unis % init(fills, &
-                            dict % getDictPtr('universes'),&
+    call self % unis % init(dict % getDictPtr('universes'), mats, fills, &
                             self % cells, &
                             self % surfs, &
-                            mats)
+                            self % meshes)
     if (loud) print *, "DONE!"
 
     ! Select Root universe
@@ -138,52 +142,43 @@ contains
     uni_ptr => self % unis % getPtr(self % rootIdx)
 
     select type(uni_ptr)
-    class is (rootUniverse)
-      ! Get boundary surface
-      self % borderIdx = uni_ptr % border()
+      class is (rootUniverse)
+        ! Get boundary surface
+        self % borderIdx = uni_ptr % border()
 
-    class default
-      call fatalError(Here, 'Root universe with ID: '//numToChar(rootID)//' is not type &
-                           &`rootUniverse`. Thus it cannot be the root of the geometry')
+      class default
+        call fatalError(Here, 'Universe with ID: '//numToChar(rootID)//' is not of type &
+                            &`rootUniverse`. Thus it cannot be the root of the geometry.')
     end select
 
     ! Set boundary conditions
     call dict % get(BC, 'boundary')
     surf_ptr => self % surfs % getPtr(self % borderIdx)
-    call surf_ptr % setBC(BC)
+    call surf_ptr % setBCs(BC)
 
     ! Check validity of geometry structure
     if (loud) print *, "CHECKING GEOMETRY:"
     ! Check for recursion
-    if (fills % hasCycles()) then
-      call fatalError(Here ,'There is recursion in the geometry nesting. &
-                            &Universe cannot contain itself below itself.')
-    else if (loud) then
-      print '(2X, A)', "Recursion in definition - NOT PRESENT!"
-    end if
+    if (fills % hasCycles()) call fatalError(Here ,'There is recursion in the geometry nesting. &
+                                             &Universe cannot contain itself below itself.')
+    if (loud) print '(2X, A)', "Recursion in definition - NOT PRESENT!"
 
     ! Check maximum nesting
     nesting = fills % maxNesting()
-    if (nesting > HARDCODED_MAX_NEST) then
-      call fatalError(Here,'Nesting level: '// numToChar(nesting) //'> &
-                          & max nesting'//numToChar(HARDCODED_MAX_NEST))
-    else if (loud) then
-      print '(2X, A)', "Nesting level - FINE!"
-    end if
+    if (nesting > HARDCODED_MAX_NEST) call fatalError(Here,'Nesting level: '// numToChar(nesting) //'> &
+                                                      & max nesting'//numToChar(HARDCODED_MAX_NEST))
+    if (loud) print '(2X, A)', "Nesting level - FINE!"
 
     ! Check outside below root
-    if (fills % nestedOutside()) then
-      call fatalError(Here,'Cell with outside fill is present below root universe')
-    else if (loud) then
-      print '(2X, A)', "Outside below root - NOT PRESENT!"
-    end if
+    if (fills % nestedOutside()) call fatalError(Here,'Cell with outside fill is present below root universe.')
+    if (loud) print '(2X, A)', "Outside below root - NOT PRESENT!"
 
     ! Build geometry Graph
     if (loud) print *, "BUILDING GEOMETRY GRAPH"
     call self % graph % init(fills, dict % getDictPtr('graph'))
     if (loud) print *, "DONE!"
 
-    ! Print geometry information
+    ! Print geometry information and end
     if (loud) then
       print *, "GEOMETRY INFORMATION "
       print '(2X, 2A)', "Number of Surfaces: ", numToChar(self % surfs % getSize())
@@ -192,13 +187,9 @@ contains
       print '(2X, 2A)', "Nesting Levels: ", numToChar(nesting)
       print '(2X, 2A)', "Unique Cells: ", numToChar(self % graph % uniqueCells)
       print '(2X, 2A)', "Unused universes (ID): ", numToChar(fills % unusedUniverses())
-      print '(2X, 2A)', "Boundary Surface ID: ", numToChar(surf_ptr % id())
-      print '(2X, 2A)', "Boundary Surface Type: ", surf_ptr % myType()
+      print '(2X, 2A)', "Boundary Surface ID: ", numToChar(surf_ptr % getId())
+      print '(2X, 2A)', "Boundary Surface Type: ", surf_ptr % getType()
       print '(2X, 2A)', "Boundary Conditions: ", numToChar(BC)
-    end if
-
-    ! Print End
-    if (loud) then
       print *, "\/\/ FINISHED READING GEOMETRY \/\/"
       print *, repeat('<>', MAX_COL/2)
     end if
@@ -214,6 +205,7 @@ contains
     ! Clean content
     call self % surfs % kill()
     call self % cells % kill()
+    call self % meshes % kill()
     call self % unis % kill()
     call self % graph % kill()
     self % borderIdx = 0

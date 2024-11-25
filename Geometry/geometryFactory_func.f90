@@ -13,7 +13,7 @@ module geometryFactory_func
   use geometryStd_class, only : geometryStd
   use geometryReg_mod,   only : gr_addGeom => addGeom
 
-  ! Meterial interface
+  ! Material interface
   use materialMenu_mod,  only : mm_nameMap => nameMap
 
   implicit none
@@ -79,6 +79,5 @@ contains
     call gr_addGeom(geom, name)
 
   end subroutine new_geometry
-
 
 end module geometryFactory_func

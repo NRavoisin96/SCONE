@@ -123,7 +123,7 @@ contains
           call self % makeBmpImg(tempDict)
 
         case default
-          call fatalError(here, 'Unrecognised visualisation - presently only accept vtk')
+          call fatalError(here, 'Unrecognised visualisation - presently only accepts vtk and bmp.')
 
       end select
 

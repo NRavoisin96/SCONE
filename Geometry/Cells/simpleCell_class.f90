@@ -1,5 +1,4 @@
 module simpleCell_class
-
   use numPrecision
   use universalVariables, only : INF
   use genericProcedures,  only : fatalError, hasDuplicates, numToChar
@@ -22,7 +21,7 @@ module simpleCell_class
   type :: surfInfo
     integer(shortInt)       :: surfIdx = 0
     class(surface), pointer :: ptr => null()
-  end type
+  end type surfInfo
 
 
   !!
@@ -53,6 +52,7 @@ module simpleCell_class
     procedure :: init
     procedure :: inside
     procedure :: distance
+    procedure :: getSurfaces
     procedure :: kill
   end type simpleCell
 
@@ -64,24 +64,23 @@ contains
   !! See cell_inter for details
   !!
   subroutine init(self, dict, surfs)
-    class(simpleCell), intent(inout)  :: self
-    class(dictionary), intent(in)     :: dict
-    type(surfaceShelf), intent(inout) :: surfs
-    integer(shortInt), dimension(:), allocatable :: surfIDs
+    class(simpleCell), intent(inout)             :: self
+    class(dictionary), intent(in)                :: dict
+    type(surfaceShelf), intent(inout)            :: surfs
+    integer(shortInt), dimension(:), allocatable :: surfIds
     integer(shortInt)                            :: surfIdx, id, i
-    character(100), parameter :: Here = 'init (simpleCell_class.f90)'
+    character(100), parameter                    :: Here = 'init (simpleCell_class.f90)'
 
-    ! Get surface IDs from dictionary
-    call dict % get(surfIDs, 'surfaces')
-
-    ! Allocate space
-    allocate(self % surfaces(size(surfIDs)))
+    ! Get surface ids from dictionary and allocate space.
+    call dict % get(surfIds, 'surfaces')
+    allocate(self % surfaces(size(surfIds)))
 
     ! Load indexes & Pointers
     do i = 1, size(self % surfaces)
-      surfIdx = surfs % getIdx( abs(surfIDs(i)))
+      surfIdx = surfs % getIdx(abs(surfIds(i)))
       self % surfaces(i) % ptr => surfs % getPtr(surfIdx)
-      self % surfaces(i) % surfIdx = sign(surfIdx, surfIDs(i))
+      self % surfaces(i) % surfIdx = sign(surfIdx, surfIds(i))
+      
     end do
 
     ! Get cell ID
@@ -89,9 +88,8 @@ contains
     call self % setId(id)
 
     ! Check surfaces for duplicates
-    if (hasDuplicates(abs(self % surfaces % surfIdx))) then
-      call fatalError(Here, 'There are repeated surfaces in definition of cell: '//numToChar(id))
-    end if
+    if (hasDuplicates(abs(self % surfaces % surfIdx))) call fatalError(Here, &
+    'There are repeated surfaces in definition of cell: '//numToChar(id)//'.')
 
   end subroutine init
 
@@ -100,15 +98,15 @@ contains
   !!
   !! See cell_inter for details
   !!
-  pure function inside(self, r, u) result(isIt)
+  pure function inside(self, r, u, idx) result(isIt)
     class(simpleCell), intent(in)           :: self
-    real(defReal), dimension(3), intent(in) :: r
-    real(defReal), dimension(3), intent(in) :: u
+    real(defReal), dimension(3), intent(in) :: r, u
+    integer(shortInt), intent(in), optional :: idx
     logical(defBool)                        :: isIt
     integer(shortInt)                       :: i
     logical(defBool)                        :: halfspace, sense
 
-    ! Keep compiler happy (in immpossible case of cell with no surfaces)
+    ! Keep compiler happy (in impossible case of cell with no surfaces)
     isIt = .false.
 
     do i= 1, size(self % surfaces)
@@ -119,7 +117,7 @@ contains
 
       ! If halfspace is not equivalent to sense it means that point
       ! is outside the cell.
-      if(.not.isIt) return
+      if(.not. isIt) return
     end do
 
   end function inside
@@ -152,6 +150,26 @@ contains
     end do
 
   end subroutine distance
+
+  !!
+  !! Function 'getSurfaces'
+  !!
+  !! Basic description:
+  !!   Returns the 'surfaces' component of the simpleCell structure.
+  !!
+  !! Result:
+  !!   surfaces: an array of 'surfInfo' structures.
+  !!
+  !! Error:
+  !!   None.
+  !!
+  pure function getSurfaces(self) result(surfaces)
+    class(simpleCell), intent(in)                       :: self
+    integer(shortInt), dimension(size(self % surfaces)) :: surfaces
+
+    surfaces = self % surfaces % surfIdx
+
+  end function getSurfaces
 
   !!
   !! Return to uninitialised state

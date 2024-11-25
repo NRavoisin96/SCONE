@@ -132,7 +132,7 @@ module particle_class
     procedure                  :: nesting
     procedure                  :: getCellIdx
     procedure                  :: getUniIdx
-    procedure                  :: matIdx
+    procedure                  :: getMatIdx
     procedure, non_overridable :: getType
 
     ! Enquiry about physical state
@@ -394,13 +394,13 @@ contains
   !!
   !! Return current material index
   !!
-  pure function matIdx(self) result(Idx)
+  pure function getMatIdx(self) result(matIdx)
     class(particle), intent(in) :: self
-    integer(shortInt)           :: idx
+    integer(shortInt)           :: matIdx
 
-    idx = self % coords % matIdx
+    matIdx = self % coords % matIdx
 
-  end function matIdx
+  end function getMatIdx
 
   !!
   !! Return one of the particle Tpes defined in universal variables
@@ -670,7 +670,7 @@ contains
   function equal_particleState(LHS,RHS) result(isEqual)
     class(particleState), intent(in) :: LHS
     class(particleState), intent(in) :: RHS
-    logical(defBool)              :: isEqual
+    logical(defBool)                 :: isEqual
 
     isEqual = .true.
     isEqual = isEqual .and. LHS % wgt == RHS % wgt

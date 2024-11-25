@@ -1,6 +1,6 @@
 module quadSurface_inter
 
-  use surface_inter, only : surface
+  use surface_inter,     only : surface
 
   implicit none
   private
@@ -12,7 +12,7 @@ module quadSurface_inter
   !! surfaces into a familly of subclasses of surface.
   !!
   type, public, abstract, extends(surface) :: quadSurface
-    ! Adds nothing yet
-  end type
-
+    ! Adds nothing.
+  end type quadSurface
+  
 end module quadSurface_inter

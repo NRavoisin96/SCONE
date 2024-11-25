@@ -45,19 +45,19 @@ contains
     real(defReal), parameter :: TOL = 1.0E-6_defReal
 
     ! Test ID
-    @assertEqual(7, surf % id())
+    @assertEqual(7, surf % getId())
 
     ! Change ID
     call surf % setID(1)
-    @assertEqual(1, surf % id())
+    @assertEqual(1, surf % getId())
 
     ! Bounding box
     ref = [0.0_defReal, 0.0_defReal, -2.0_defReal, 2.0_defReal, 4.0_defReal, 4.0_defReal]
-    aabb = surf % boundingBox()
+    aabb = surf % getBoundingBox()
     @assertEqual(ref, aabb, TOL)
 
     ! Name
-    @assertEqual('box', surf % myType())
+    @assertEqual('box', surf % getType())
 
   end subroutine testMisc
 
@@ -70,8 +70,8 @@ contains
     real(defReal), parameter :: TOL = 1.0E-6
 
     ! Assign boundary conditions
-    call surf % setBC([VACUUM_BC, REFLECTIVE_BC, PERIODIC_BC, &
-                      PERIODIC_BC, REFLECTIVE_BC, REFLECTIVE_BC])
+    call surf % setBCs([VACUUM_BC, REFLECTIVE_BC, PERIODIC_BC, &
+                       PERIODIC_BC, REFLECTIVE_BC, REFLECTIVE_BC])
 
     ! ** Explicit BC
     ! Vacuum surface

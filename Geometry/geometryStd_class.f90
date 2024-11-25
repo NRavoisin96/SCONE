@@ -2,18 +2,17 @@ module geometryStd_class
 
   use numPrecision
   use universalVariables
-  use genericProcedures,  only : fatalError, numToChar
-  use coord_class,        only : coordList, coord
-  use dictionary_class,   only : dictionary
-  use charMap_class,      only : charMap
-  use geometry_inter,     only : geometry, distCache
-  use csg_class,          only : csg
-  use universe_inter,     only : universe
-  use surface_inter,      only : surface
+  use genericProcedures, only : fatalError, numToChar
+  use coord_class,       only : coordList, coord
+  use dictionary_class,  only : dictionary
+  use charMap_class,     only : charMap
+  use geometry_inter,    only : geometry, distCache
+  use csg_class,         only : csg
+  use universe_inter,    only : universe
+  use surface_inter,     only : surface
 
   ! Nuclear Data
-  use materialMenu_mod,   only : nMat
-
+  use materialMenu_mod,  only : nMat
 
   implicit none
   private
@@ -107,13 +106,11 @@ contains
     type(coordList), intent(inout) :: coords
     class(universe), pointer       :: uni
     real(defReal), dimension(3)    :: r, dir
-    character(100), parameter :: Here = 'placeCoord (geometryStd_class.f90)'
+    character(100), parameter      :: Here = 'placeCoord (geometryStd_class.f90)'
 
     ! Check that coordList is initialised
-    if (coords % nesting < 1) then
-      call fatalError(Here, 'CoordList is not initialised. Nesting is: '//&
-                             numToChar(coords % nesting))
-    end if
+    if (coords % nesting < 1) call fatalError(Here, 'CoordList is not initialised. Nesting is: '//&
+                                              numToChar(coords % nesting))
 
     ! Place coordinates above geometry (in case they were placed)
     call coords % takeAboveGeom()
@@ -139,19 +136,14 @@ contains
   !!
   subroutine whatIsAt(self, matIdx, uniqueID, r, u)
     class(geometryStd), intent(in)                    :: self
-    integer(shortInt), intent(out)                    :: matIdx
-    integer(shortInt), intent(out)                    :: uniqueID
+    integer(shortInt), intent(out)                    :: matIdx, uniqueID
     real(defReal), dimension(3), intent(in)           :: r
     real(defReal), dimension(3), optional, intent(in) :: u
     type(coordList)                                   :: coords
-    real(defReal), dimension(3)                       :: u_l
+    real(defReal), dimension(3)                       :: u_l = [ONE, ZERO, ZERO]
 
-    ! Select direction
-    if (present(u)) then
-      u_l = u
-    else
-      u_l = [ONE, ZERO, ZERO]
-    end if
+    ! If a direction is supplied, update u_l
+    if (present(u)) u_l = u
 
     ! Initialise coordinates
     call coords % init(r, u_l)
@@ -172,19 +164,19 @@ contains
   !!
   function bounds(self)
     class(geometryStd), intent(in) :: self
-    real(defReal), dimension(6) :: bounds
-    class(surface), pointer     :: surf
-    integer(shortInt)           :: i
+    real(defReal), dimension(6)    :: bounds
+    class(surface), pointer        :: surf
+    integer(shortInt)              :: i
 
     ! Get boundary surface
     surf => self % geom % surfs % getPtr(self % geom % borderIdx)
-    bounds = surf % boundingBox()
+    bounds = surf % getBoundingBox()
 
-    ! Change the infinate dimension to 0.0
+    ! Change infinite dimensions to ZERO
     do i = 1, 3
-      if(bounds(i) <= -INF .and. bounds(i+3) >= INF) then
+      if(bounds(i) <= -INF .and. bounds(i + 3) >= INF) then
         bounds(i) = ZERO
-        bounds(i+3) = ZERO
+        bounds(i + 3) = ZERO
       end if
     end do
 
@@ -206,47 +198,49 @@ contains
     real(defReal)                  :: dist
     class(surface), pointer        :: surf
     class(universe), pointer       :: uni
-    character(100), parameter :: Here = 'move (geometryStd_class.f90)'
+    character(100), parameter      :: Here = 'move (geometryStd_class.f90)'
 
-    if (.not.coords % isPlaced()) then
-      call fatalError(Here, 'Coordinate list is not placed in the geometry')
-    end if
+    if (.not.coords % isPlaced()) call fatalError(Here, 'Coordinate list is not placed in the geometry.')
 
     ! Find distance to the next surface
-    call self % closestDist(dist, surfIdx, level, coords)
+    call self % closestDist(coords, maxDist, dist, surfIdx, level)
 
     if (maxDist < dist) then ! Moves within cell
+      ! Move local, register event and return early
       call coords % moveLocal(maxDist, coords % nesting)
       event = COLL_EV
-      maxDist = maxDist ! Left for explicitness. Compiler will not stand it anyway
+      return
 
-    else if (surfIdx == self % geom % borderIdx .and. level == 1) then ! Hits domain boundary
+    end if
+
+    ! Update maxDist if reached this point
+    maxDist = dist
+
+    if (surfIdx == self % geom % borderIdx .and. level == 1) then ! Hits domain boundary
       ! Move global to the boundary
       call coords % moveGlobal(dist)
       event = BOUNDARY_EV
-      maxDist = dist
 
-      ! Get boundary surface and apply BCs
+      ! Get boundary surface and apply boundary conditions
       surf => self % geom % surfs % getPtr(self % geom % borderIdx)
       call surf % explicitBC(coords % lvl(1) % r, coords % lvl(1) % dir)
 
-      ! Place back in geometry
+      ! Place back in geometry and return early
       call self % placeCoord(coords)
-
-    else ! Crosses to diffrent local cell
-      ! Move to boundary at hit level
-      call coords % moveLocal(dist, level)
-      event = CROSS_EV
-      maxDist = dist
-
-      ! Get universe and cross to the next cell
-      uni => self % geom % unis % getPtr_fast(coords % lvl(level) % uniIdx)
-      call uni % cross(coords % lvl(level), surfIdx)
-
-      ! Get material
-      call self % diveToMat(coords, level)
+      return
 
     end if
+
+    ! If reached here then particle crosses to a different local cell. Move to boundary at hit level
+    call coords % moveLocal(dist, level)
+    event = CROSS_EV
+
+    ! Get universe and cross to the next cell
+    uni => self % geom % unis % getPtr_fast(coords % lvl(level) % uniIdx)
+    call uni % cross(coords % lvl(level), surfIdx)
+
+    ! Get material
+    call self % diveToMat(coords, level)
 
   end subroutine move_noCache
 
@@ -267,51 +261,54 @@ contains
     real(defReal)                  :: dist
     class(surface), pointer        :: surf
     class(universe), pointer       :: uni
-    character(100), parameter :: Here = 'move_withCache (geometryStd_class.f90)'
+    character(100), parameter      :: Here = 'move_withCache (geometryStd_class.f90)'
 
-    if (.not.coords % isPlaced()) then
-      call fatalError(Here, 'Coordinate list is not placed in the geometry')
-    end if
+    if (.not. coords % isPlaced()) call fatalError(Here, 'Coordinate list is not placed in the geometry.')
 
-    ! Find distance to the next surface
-    call self % closestDist_cache(dist, surfIdx, level, coords, cache)
+    ! Find distance to the next surface and reset cache level to 0 afterwards
+    call self % closestDist_cache(coords, cache, maxDist, dist, surfIdx, level)
+    cache % lvl = 0
 
     if (maxDist < dist) then ! Moves within cell
+      ! Move local, register event and return early
       call coords % moveLocal(maxDist, coords % nesting)
       event = COLL_EV
-      maxDist = maxDist ! Left for explicitness. Compiler will not stand it anyway
-      cache % lvl = 0
+      return
 
-    else if (surfIdx == self % geom % borderIdx .and. level == 1) then ! Hits domain boundary
-      ! Move global to the boundary
+    end if
+
+    ! Update maxDist if reached this point
+    maxDist = dist
+
+    if (surfIdx == self % geom % borderIdx .and. level == 1) then ! Hits domain boundary
+      ! Move global to the boundary and register event
       call coords % moveGlobal(dist)
       event = BOUNDARY_EV
-      maxDist = dist
-      cache % lvl = 0
 
       ! Get boundary surface and apply BCs
       surf => self % geom % surfs % getPtr(self % geom % borderIdx)
       call surf % explicitBC(coords % lvl(1) % r, coords % lvl(1) % dir)
 
-      ! Place back in geometry
+      ! Place back in geometry and return early
       call self % placeCoord(coords)
-
-    else ! Crosses to diffrent local cell
-      ! Move to boundary at hit level
-      call coords % moveLocal(dist, level)
-      event = CROSS_EV
-      maxDist = dist
-      cache % dist(1:level-1) = cache % dist(1:level-1) - dist
-      cache % lvl = level - 1
-
-      ! Get universe and cross to the next cell
-      uni => self % geom % unis % getPtr_fast(coords % lvl(level) % uniIdx)
-      call uni % cross(coords % lvl(level), surfIdx)
-
-      ! Get material
-      call self % diveToMat(coords, level)
+      return
 
     end if
+
+    ! If reached here then particle crosses to a different local cell. Move to boundary at hit level
+    call coords % moveLocal(dist, level)
+
+    ! Register event and update cache level and distance
+    event = CROSS_EV
+    cache % lvl = level - 1
+    cache % dist(1:level - 1) = cache % dist(1:level - 1) - dist
+
+    ! Get universe and cross to the next cell
+    uni => self % geom % unis % getPtr_fast(coords % lvl(level) % uniIdx)
+    call uni % cross(coords % lvl(level), surfIdx)
+
+    ! Get material
+    call self % diveToMat(coords, level)
 
   end subroutine move_withCache
 
@@ -330,28 +327,24 @@ contains
     class(surface), pointer        :: surf
     real(defReal)                  :: dist
 
-    ! Get boundary surface
+    ! Initialise event = COLL_EV and get boundary surface.
+    event = COLL_EV
     surf => self % geom % surfs % getPtr(self % geom % borderIdx)
 
     ! Find distance to the boundary
     dist = surf % distance(coords % lvl(1) % r, coords % lvl(1) % dir)
 
-    ! Select collision or boundary hit
-    if (maxDist < dist) then ! maxDist is shorter
-      ! Move above the geometry
-      call coords % moveGlobal(maxDist)
-      event = COLL_EV
-      maxDist = maxDist
-
-    else
-      ! Move to boundary and apply BC
-      call coords % moveGlobal(dist)
-      event = BOUNDARY_EV
-      call surf % explicitBC(coords % lvl(1) % r, coords % lvl(1) % dir)
+    ! Check if dist < maxDist. If so, update maxDist and event
+    if (dist < maxDist) then
       maxDist = dist
+      event = BOUNDARY_EV
 
     end if
 
+    ! Move global and apply boundary conditions if applicable
+    call coords % moveGlobal(maxDist)
+    if (event == BOUNDARY_EV) call surf % explicitBC(coords % lvl(1) % r, coords % lvl(1) % dir)
+    
     ! Return particle to geometry
     call self % placeCoord(coords)
 
@@ -379,8 +372,7 @@ contains
     ! If point is outside apply boundary transformations
     if (coords % matIdx == OUTSIDE_MAT) then
       surf => self % geom % surfs % getPtr(self % geom % borderIdx)
-      call surf % transformBC(coords % lvl(1) % r, &
-                              coords % lvl(1) % dir)
+      call surf % transformBC(coords % lvl(1) % r, coords % lvl(1) % dir)
 
       ! Return particle to geometry
       call self % placeCoord(coords)
@@ -409,12 +401,10 @@ contains
       N = N - 1
       lastIdx = self % geom % graph % usedMats(N)
     end if
-    ! Check if the last entry of the list is an undefined material
-    if (lastIdx == UNDEF_MAT) then
-      matList = self % geom % graph % usedMats(1:N-1)
-    else
-      matList = self % geom % graph % usedMats(1:N)
-    end if
+  
+    ! Check if the last entry of the list is an undefined material and if so update N
+    if (lastIdx == UNDEF_MAT) N = N - 1
+    matList = self % geom % graph % usedMats(1:N)
 
   end function activeMats
 
@@ -439,43 +429,42 @@ contains
     integer(shortInt)              :: rootID, localID, fill, id, i
     class(universe), pointer       :: uni
     real(defReal), dimension(3)    :: offset
-    character(100), parameter :: Here = 'diveToMat (geometryStd_class.f90)'
+    character(100), parameter      :: Here = 'diveToMat (geometryStd_class.f90)'
 
     do i = start, HARDCODED_MAX_NEST
       ! Find cell fill
-      rootId = coords % lvl(i) % uniRootID
+      rootID = coords % lvl(i) % uniRootID
       localID = coords % lvl(i) % localID
-      call self % geom % graph % getFill(fill, id, rootID, localID)
+      call self % geom % graph % getFill(rootID, localID, fill, id)
 
       if (fill >= 0) then ! Found material cell
         coords % matIdx   = fill
         coords % uniqueID = id
         return
 
-      else ! Universe fill descend a level
-        if (i == HARDCODED_MAX_NEST) exit ! If there is nested universe at the lowest level
-
-        fill = abs(fill)
-
-        ! Get current universe
-        uni => self % geom % unis % getPtr_fast(coords % lvl(i) % uniIdx)
-
-        ! Get cell offset
-        offset = uni % cellOffset(coords % lvl(i))
-
-        ! Get nested universe
-        uni => self % geom % unis % getPtr_fast(fill)
-
-        ! Enter nested univers
-        call coords % addLevel()
-        call uni % enter(coords % lvl(i+1), coords % lvl(i) % r - offset, coords % lvl(i) % dir)
-        coords % lvl(i+1) % uniRootID = id ! Must be after enter where coord has intent out
-
       end if
+
+      ! If reached here we have a universe fill and we descend a level
+      if (i == HARDCODED_MAX_NEST) exit ! If there is nested universe at the lowest level
+      fill = abs(fill)
+
+      ! Get current universe
+      uni => self % geom % unis % getPtr_fast(coords % lvl(i) % uniIdx)
+
+      ! Get cell offset
+      offset = uni % cellOffset(coords % lvl(i))
+
+      ! Get nested universe
+      uni => self % geom % unis % getPtr_fast(fill)
+
+      ! Enter nested universe
+      call coords % addLevel()
+      call uni % enter(coords % lvl(i + 1), coords % lvl(i) % r - offset, coords % lvl(i) % dir)
+      coords % lvl(i + 1) % uniRootID = id ! Must be after enter where coord has intent out
     end do
 
     call fatalError(Here, 'Failed to find material cell. Should not happen after &
-                          &geometry checks during build...')
+                    &geometry checks during build...')
 
   end subroutine diveToMat
 
@@ -486,38 +475,38 @@ contains
   !! and surfIdx for crossing surface
   !!
   !! Args:
-  !!   dist [out]    -> Value of closest distance
-  !!   surfIdx [out] -> Surface index for the crossing returned from the universe
-  !!   lvl     [out] -> Level at which crossing is closest
-  !!   coords [in]   -> Current coordinates of a particle
+  !!   coords [inout] -> Current coordinates of a particle
+  !!   maxDist [in]   -> Maximum distance of travel
+  !!   dist [out]     -> Value of closest distance
+  !!   surfIdx [out]  -> Surface index for the crossing returned from the universe
+  !!   lvl     [out]  -> Level at which crossing is closest
   !!
-  subroutine closestDist(self, dist, surfIdx, lvl, coords)
+  subroutine closestDist(self, coords, maxDist, dist, surfIdx, lvl)
     class(geometryStd), intent(in) :: self
+    type(coordList), intent(inout) :: coords
+    real(defReal), intent(in)      :: maxDist
     real(defReal), intent(out)     :: dist
-    integer(shortInt), intent(out) :: surfIdx
-    integer(shortInt), intent(out) :: lvl
-    type(coordList), intent(in)    :: coords
-    integer(shortInt)              :: l, test_idx
-    real(defReal)                  :: test_dist
+    integer(shortInt), intent(out) :: surfIdx, lvl
+    integer(shortInt)              :: l, testIdx
+    real(defReal)                  :: testDist
     class(universe), pointer       :: uni
 
+    ! Initialise variables and loop over all geometry levels.
     dist = INF
     surfIdx = 0
     lvl = 0
     do l = 1, coords % nesting
-      ! Get universe
+      ! Get universe and compute distance.
+      coords % lvl(l) % rEnd = coords % lvl(l) % r + coords % lvl(l) % dir * maxDist
       uni => self % geom % unis % getPtr_fast(coords % lvl(l) % uniIdx)
-
-      ! Find distance
-      call uni % distance(test_dist, test_idx, coords % lvl(l))
+      call uni % distance(coords % lvl(l), testDist, testIdx)
 
       ! Save distance, surfIdx & level coresponding to shortest distance
       ! Take FP precision into account
-      if ((dist - test_dist) >= dist * FP_REL_TOL) then
-        dist = test_dist
-        surfIdx = test_idx
-        lvl = l
-      end if
+      if ((dist - testDist) < dist * FP_REL_TOL) cycle
+      dist = testDist
+      surfIdx = testIdx
+      lvl = l
 
     end do
   end subroutine closestDist
@@ -529,24 +518,26 @@ contains
   !! and surfIdx for crossing surface
   !!
   !! Args:
-  !!   dist [out]    -> Value of closest distance
-  !!   surfIdx [out] -> Surface index for the crossing returned from the universe
-  !!   lvl     [out] -> Level at which crossing is closest
-  !!   coords [in]   -> Current coordinates of a particle
-  !!   cache [inout] -> Distance cache. Use valid distances from cache. Put calculated
-  !!     distances on the cache.
+  !!   coords [inout] -> Current coordinates of a particle
+  !!   cache [inout]  -> Distance cache. Use valid distances from cache. Put calculated
+  !!                     distances on the cache.
+  !!   maxDist        -> Maximum distance of travel.
+  !!   dist [out]     -> Value of closest distance
+  !!   surfIdx [out]  -> Surface index for the crossing returned from the universe
+  !!   lvl [out]      -> Level at which crossing is closest
   !!
-  subroutine closestDist_cache(self, dist, surfIdx, lvl, coords, cache)
+  subroutine closestDist_cache(self, coords, cache, maxDist, dist, surfIdx, lvl)
     class(geometryStd), intent(in) :: self
-    real(defReal), intent(out)     :: dist
-    integer(shortInt), intent(out) :: surfIdx
-    integer(shortInt), intent(out) :: lvl
-    type(coordList), intent(in)    :: coords
+    type(coordList), intent(inout) :: coords
     type(distCache), intent(inout) :: cache
-    integer(shortInt)              :: l, test_idx
-    real(defReal)                  :: test_dist
+    real(defReal), intent(in)      :: maxDist
+    real(defReal), intent(out)     :: dist
+    integer(shortInt), intent(out) :: surfIdx, lvl
+    integer(shortInt)              :: l, testIdx
+    real(defReal)                  :: testDist
     class(universe), pointer       :: uni
 
+    ! Initialise variables and loop over all geometry levels.
     dist = INF
     surfIdx = 0
     lvl = 0
@@ -558,21 +549,21 @@ contains
         uni => self % geom % unis % getPtr_fast(coords % lvl(l) % uniIdx)
 
         ! Find distance
-        call uni % distance(cache % dist(l), cache % surf(l), coords % lvl(l))
+        coords % lvl(l) % rEnd = coords % lvl(l) % r + coords % lvl(l) % dir * maxDist
+        call uni % distance(coords % lvl(l), cache % dist(l), cache % surf(l))
         cache % lvl = cache % lvl + 1
       end if
 
       ! Read distance and crossing memento from cache
-      test_dist = cache % dist(l)
-      test_idx  = cache % surf(l)
+      testDist = cache % dist(l)
+      testIdx  = cache % surf(l)
 
       ! Save distance, surfIdx & level coresponding to shortest distance
       ! Take FP precision into account
-      if ((dist - test_dist) >= dist * FP_REL_TOL) then
-        dist = test_dist
-        surfIdx = test_idx
-        lvl = l
-      end if
+      if ((dist - testDist) < dist * FP_REL_TOL) cycle
+      dist = testDist
+      surfIdx = testIdx
+      lvl = l
 
     end do
   end subroutine closestDist_cache

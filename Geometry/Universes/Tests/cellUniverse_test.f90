@@ -8,6 +8,7 @@ module cellUniverse_test
   use charMap_class,      only : charMap
   use coord_class,        only : coord
   use surfaceShelf_class, only : surfaceShelf
+  use meshShelf_class,    only : meshShelf
   use cellShelf_class,    only : cellShelf
   use cellUniverse_class, only : cellUniverse
   use funit
@@ -23,7 +24,6 @@ module cellUniverse_test
   " cell1 {id 1; type simpleCell; surfaces (-1); filltype uni; universe 3;} &
   & cell2 {id 2; type simpleCell; surfaces (1 2); filltype uni; universe 4;}"
 
-
   !
   ! Note that rotation is such that following axis transformation applies:
   !   x -> z
@@ -35,6 +35,7 @@ module cellUniverse_test
 
   ! Variables
   type(surfaceShelf) :: surfs
+  type(meshShelf)    :: meshes
   type(cellShelf)    :: cells
   type(charMap)      :: mats
   type(cellUniverse) :: uni
@@ -46,34 +47,34 @@ contains
   !!
 @Before
   subroutine setUp()
-    integer(shortInt), dimension(:), allocatable :: fill
+    integer(shortInt), dimension(:), allocatable :: fills
     type(dictionary) :: dict
 
-    ! Build surfaces and MATS
-
+    ! Build surfaces.
     call charToDict(dict, SURF_DEF)
     call surfs % init(dict)
     call dict % kill()
 
+    ! Build cells.
     call charToDict(dict, CELL_DEF)
     call cells % init(dict, surfs, mats)
     call dict % kill()
 
-    ! Build universe
+    ! Build universe.
     call charToDict(dict, UNI_DEF)
-    call uni % init(fill, dict, cells, surfs, mats)
+    call uni % init(dict, mats, fills, cells, surfs, meshes)
     call dict % kill()
 
-    ! Set index
+    ! Set index.
     call uni % setIdx(8)
 
-    ! Verify fill
-    @assertEqual([-3, -4, UNDEF_MAT], fill)
+    ! Verify fill.
+    @assertEqual([-3, -4, UNDEF_MAT], fills)
 
   end subroutine setUp
 
   !!
-  !! Clean environment
+  !! Clean environment.
   !!
 @After
   subroutine clean()
@@ -107,7 +108,7 @@ contains
   subroutine test_enter()
     type(coord) :: new
     real(defReal), dimension(3) :: r_ref, u_ref, r, dir
-    real(defReal), parameter :: TOL = 1.0E-7_defReal
+    real(defReal), parameter    :: TOL = 1.0E-7_defReal
 
     ! ** Enter into local cell 1
     r = [0.0_defReal, 0.0_defReal, 3.0_defReal ]
@@ -169,9 +170,9 @@ contains
   !!
 @Test
   subroutine test_distance()
-    real(defReal)     :: d, ref
-    integer(shortInt) :: surfIdx
-    type(coord)       :: pos
+    real(defReal)            :: d, ref
+    integer(shortInt)        :: surfIdx
+    type(coord)              :: pos
     real(defReal), parameter :: TOL = 1.0E-7_defReal
 
     ! ** In local cell 1 distance to boundary
@@ -181,7 +182,7 @@ contains
     pos % cellIdx = cells % getIdx(1)
     pos % localId = 1
 
-    call uni % distance(d, surfIdx, pos)
+    call uni % distance(pos, d, surfIdx)
 
     ref = 3.0_defReal
     @assertEqual(ref, d, TOL * ref)
@@ -194,7 +195,7 @@ contains
     pos % cellIdx = cells % getIdx(2)
     pos % localId = 2
 
-    call uni % distance(d, surfIdx, pos)
+    call uni % distance(pos, d, surfIdx)
 
     ref = 2.0_defReal
     @assertEqual(ref, d, TOL * ref)
@@ -203,7 +204,7 @@ contains
     ! ** In local cell 2 distance to infinity
     ! surfIdx must be set to 0
     pos % dir = [ONE, ZERO, ZERO]
-    call uni % distance(d, surfIdx, pos)
+    call uni % distance(pos, d, surfIdx)
 
     @assertEqual(INF, d)
     @assertEqual(0, surfIdx)
@@ -259,7 +260,5 @@ contains
     @assertEqual([ZERO, ZERO, ZERO], uni % cellOffset(pos) )
 
   end subroutine test_cellOffset
-
-
 
 end module cellUniverse_test

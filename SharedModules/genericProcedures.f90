@@ -10,8 +10,21 @@ module genericProcedures
 
   implicit none
 
+  interface append
+    module procedure append_defReal
+    module procedure append_shortInt
+    module procedure append_shortIntArray
+  end interface
+
+  interface countCharacters
+    module procedure countCharacters_shortInt
+    module procedure countCharacters_longInt
+    module procedure countCharacters_defReal
+  end interface countCharacters
+  
   interface swap
     module procedure swap_shortInt
+    module procedure swap_shortIntArray
     module procedure swap_defReal
     module procedure swap_char_nameLen
     module procedure swap_defReal_defReal
@@ -24,6 +37,7 @@ module genericProcedures
   end interface
 
   interface hasDuplicates
+    module procedure hasDuplicates_char
     module procedure hasDuplicates_shortInt
     module procedure hasDuplicates_defReal
   end interface
@@ -47,6 +61,14 @@ module genericProcedures
     module procedure linFind_defReal
     module procedure linFind_defReal_withTOL
     module procedure linFind_shortInt
+  end interface
+
+  interface findCommon
+    module procedure findCommon_shortInt
+  end interface
+
+  interface findDifferent
+    module procedure findDifferent_shortInt
   end interface
 
   interface findDuplicates
@@ -91,8 +113,354 @@ module genericProcedures
     module procedure concatenateArrays_Real
   end interface
 
-  contains
+  interface isEqual
+    module procedure isEqual_defReal
+    module procedure isEqual_defRealArray
+  end interface
 
+contains
+  !!
+  !! Computes solutions of quadratic equation a * x² + b * x + c = 0
+  !!
+  pure function computeQuadraticSolutions(a, b, c, delta) result(solutions)
+    real(defReal), intent(in)                :: a, b, c, delta
+    real(defReal), dimension(:), allocatable :: solutions
+    real(defReal)                            :: inverseA
+
+    ! If delta < ZERO, the solutions are complex. In this case there are no solutions.
+    ! Allocate the solutions array to 0-size return.
+    if (delta < ZERO) then
+      allocate(solutions(0))
+      return
+
+    end if
+    
+    ! Handle special cases first. If a = ZERO, the quadratic equation becomes linear.
+    if (isEqual(a, ZERO)) then
+      ! If b = ZERO, this is a degenerate case and there are no solutions. Allocate the 
+      ! solutions array to 0-size return.
+      if (isEqual(b, ZERO)) then
+        allocate(solutions(0))
+        return
+
+      end if
+
+      ! If reached here, there is only one solution given by d = -c / (2 * b).
+      allocate(solutions(1))
+      solutions(1) = -HALF * c / b
+      return
+
+    end if
+
+    ! If reached here, there are two solutions. Pre-compute 1 / a and compute solutions.
+    allocate(solutions(2))
+    inverseA = ONE / a
+    solutions(1) = -(b + sqrt(delta)) * inverseA
+    solutions(2) = -(b - sqrt(delta)) * inverseA
+
+  end function computeQuadraticSolutions
+
+  !! Subroutine 'append_shortInt'
+  !!
+  !! Basic description:
+  !!   Adds a shortInt value to a shortInt array. Allocates the array if it is empty.
+  !!
+  !! Result:
+  !!   array -> Array of shortInt integer entries.
+  !!
+  !! Error:
+  !!   None.
+  !!
+  pure subroutine append_shortInt(array, value)
+    integer(shortInt), dimension(:), allocatable, intent(inout) :: array
+    integer(shortInt), intent(in)                               :: value
+    
+    if (.not. allocated(array)) then
+      allocate(array(1))
+      array = value
+      return
+
+    end if
+    
+    array = [array, value]
+
+  end subroutine append_shortInt
+  
+  !! Subroutine 'append_shortIntArray'
+  !!
+  !! Basic description:
+  !!   Adds a shortInt array to a shortInt array. Allocates the array if it is empty.
+  !!
+  !! Result:
+  !!   array -> Array of shortInt integer entries.
+  !!
+  !! Error:
+  !!   None.
+  !!
+  pure subroutine append_shortIntArray(array, values)
+    integer(shortInt), dimension(:), allocatable, intent(inout) :: array
+    integer(shortInt), dimension(:), intent(in)                 :: values
+    
+    if (.not. allocated(array)) then
+      allocate(array(size(values)))
+      array = values
+      return
+
+    end if
+    
+    array = [array, values]
+
+  end subroutine append_shortIntArray
+
+  !! Subroutine 'append_defReal'
+  !!
+  !! Basic description:
+  !!   Adds a defReal entry to a defReal array. Allocates the array if it is empty.
+  !!
+  !! Result:
+  !!   array -> Array of defReal real entries.
+  !!
+  !! Error:
+  !!   None.
+  !!
+  pure subroutine append_defReal(array, value)
+    integer(defReal), dimension(:), allocatable, intent(inout) :: array
+    integer(defReal), intent(in)                               :: value
+    
+    if (.not. allocated(array)) then
+      allocate(array(1))
+      array = value
+      return
+
+    end if
+    
+    array = [array, value]
+
+  end subroutine append_defReal
+
+  pure function computePyramidCentre(array) result(centre)
+    real(defReal), dimension(2, 3), intent(in) :: array
+    real(defReal), dimension(3)                :: centre
+
+    centre = FOURTH * sum(array, 1)
+
+  end function computePyramidCentre
+
+  pure function computePyramidVolume(array) result(volume)
+    real(defReal), dimension(2, 3), intent(in) :: array
+    real(defReal)                              :: volume
+
+    volume = THIRD * abs(dot_product(array(1, :), array(2, :)))
+
+  end function computePyramidVolume
+
+  !! Function 'computeTetrahedronCentre'
+  !!
+  !! Basic description:
+  !!   Computes the centre of the tetrahedron given a 3x4 array containing the
+  !!   3-D coordinates of its vertices.
+  !!
+  !! Arguments:
+  !!   array [in] -> 3x4 array containing the 3-D coordinates of the tetrahedron's
+  !!                 vertices.
+  !!
+  !! Result:
+  !!   centre     -> 3-D coordinates of the tetrahedron's centre.
+  !!
+  pure function computeTetrahedronCentre(array) result(centre)
+    real(defReal), dimension(4, 3), intent(in) :: array
+    real(defReal), dimension(3)                :: centre
+
+    centre = FOURTH * sum(array, 1)
+
+  end function computeTetrahedronCentre
+
+  !! Function 'computeTetrahedronVolume'
+  !!
+  !! Basic description:
+  !!   Computes the volume of the tetrahedron given a 3x4 array containing the
+  !!   3-D coordinates of its vertices.
+  !!
+  !! Arguments:
+  !!   array [in] -> 3x4 array containing the 3-D coordinates of the tetrahedron's
+  !!                 vertices.
+  !!
+  !! Result:
+  !!   volume     -> Volume of the tetrahedron.
+  !!
+  pure function computeTetrahedronVolume(array) result(volume)
+    real(defReal), dimension(4, 3), intent(in) :: array
+    real(defReal)                              :: volume
+    real(defReal), dimension(3)                :: A
+
+    A = array(1, :)
+    volume = SIXTH * abs(dot_product(crossProduct(array(2, :) - A, array(3, :) - A), array(4, :) - A))
+
+  end function computeTetrahedronVolume
+
+  !! Function 'computeTriangleAra'
+  !!
+  !! Basic description:
+  !!   Computes the area of a triangle from its normal vector.
+  !!
+  !! Arguments:
+  !!   normal [in] -> 3-D components of the triangle's normal vector.
+  !!
+  pure function computeTriangleArea(normal) result(area)
+    real(defReal), dimension(3), intent(in) :: normal
+    real(defReal)                           :: area
+
+    area = HALF * norm2(normal)
+
+  end function computeTriangleArea
+
+  !! Function 'computeTriangleCentre'
+  !!
+  !! Basic description:
+  !!   Computes the centre of a triangle given a 3x3 array containing the
+  !!   3-D coordinates of its vertices.
+  !!
+  !! Arguments:
+  !!   array [in] -> 3x3 array containing the 3-D coordinates of the triangle's
+  !!                 vertices.
+  !!
+  !! Result:
+  !!   centre     -> 3-D coordinates of the triangle's centre.
+  !!
+  pure function computeTriangleCentre(array) result(centre)
+    real(defReal), dimension(3, 3), intent(in) :: array
+    real(defReal), dimension(3)                :: centre
+
+    centre = THIRD * sum(array, 1)
+
+  end function computeTriangleCentre
+
+  !! Function 'computeTriangleNormal'
+  !!
+  !! Basic description:
+  !!   Computes the normal vector of a triangle given a 3x3 array containing the
+  !!   3-D coordinates of its vertices.
+  !!
+  !! Arguments:
+  !!   array [in] -> 3x3 array containing the 3-D coordinates of the triangle's
+  !!                 vertices.
+  !!
+  !! Result:
+  !!   normal     -> 3-D components of the triangle's normal vector.
+  !!
+  pure function computeTriangleNormal(array) result(normal)
+    real(defReal), dimension(3, 3), intent(in) :: array
+    real(defReal), dimension(3)                :: normal
+
+    normal = crossProduct(array(2, :) - array(1, :), array(3, :) - array(1, :))
+
+  end function computeTriangleNormal
+
+  !! Function 'countCharacters_shortInt'
+  !!
+  !! Basic description:
+  !!   Counts the number of characters in a shortInt integer.
+  !!
+  !! Arguments:
+  !!   n [in] -> A shortInt integer.
+  !!
+  !! Result:
+  !!   nChars -> Number of characters in the shortInt integer.
+  !!
+  elemental function countCharacters_shortInt(n) result(nChars)
+    integer(shortInt), intent(in) :: n
+    integer(shortInt)             :: nChars, absValue
+
+    ! Initialise nChars to 0 or 1 depending on whether n is positive or negative.
+    nChars = max(0, sign(1, -n))
+
+    ! Compute the absolute value of n, then increment nChars by 1 for each power of 10 in absValue.
+    absValue = abs(n)
+    do while (absValue > 0)
+      absValue = absValue / 10
+      nChars = nChars + 1
+
+    end do
+
+    ! Catch special case where n = 0 (since nChars = 0 in this case).
+    nChars = max(nChars, 1)
+
+  end function countCharacters_shortInt
+
+  !! Function 'countCharacters_longInt'
+  !!
+  !! Basic description:
+  !!   Counts the number of characters in a longInt integer.
+  !!
+  !! Arguments:
+  !!   n [in] -> A longInt integer.
+  !!
+  !! Result:
+  !!   nChars -> Number of characters in the longInt integer.
+  !!
+  elemental function countCharacters_longInt(n) result(nChars)
+    integer(longInt), intent(in) :: n
+    integer(shortInt)            :: nChars
+    integer(longInt)             :: absValue
+
+    ! Initialise nChars to 0 or 1 depending on whether n is positive or negative.
+    nChars = 0
+    if (n < 0) nChars = 1
+
+    ! Compute the absolute value of n, then increment nChars by 1 for each power of 10 in absValue.
+    absValue = abs(n)
+    do while (absValue > 0)
+      absValue = absValue / 10
+      nChars = nChars + 1
+
+    end do
+
+    ! Catch special case where n = 0 (since nChars = 0 in this case).
+    nChars = max(nChars, 1)
+
+  end function countCharacters_longInt
+
+  !! Function 'countCharacters_defReal'
+  !!
+  !! Basic description:
+  !!   Counts the number of characters in a defReal real.
+  !!
+  !! Arguments:
+  !!   r [in] -> A defReal real.
+  !!
+  !! Result:
+  !!   nChars -> Number of characters in the defReal real.
+  !!
+  elemental function countCharacters_defReal(r) result(nChars)
+    real(defReal), intent(in) :: r
+    integer(shortInt)         :: nChars
+    real(defReal)             :: absValue
+    real(defReal), parameter  :: lowerBound = 0.1_defReal, upperBound = 1.0E17_defReal
+
+    ! Initialise nChars to 18 or 19 depending on whether r is positive or negative.
+    ! Note: here we need to be careful, as to Fortran ZERO = -ZERO, but sign(a, ZERO) /= sign(a, -ZERO)!
+    nChars = 18
+    if (sign(ONE, r) < ZERO) nChars = nChars + 1
+
+    ! If r = ZERO or r = -ZERO (this is equivalent to Fortran) return early.
+    if (r == ZERO) return
+
+    ! Compute the absolute value of r.
+    absValue = abs(r)
+    
+    ! If lowerBound <= absValue < ONE Fortran outputs one more character. Increase nChars 
+    ! by 1 and return.
+    if (lowerBound <= absValue .and. absValue < ONE) then
+      nChars = nChars + 1
+      return
+
+    end if
+
+    ! If absValue < lowerBound or upperBound <= absValue then Fortran outputs the number in
+    ! scientific notation. Add 5 characters in this case.
+    if (absValue < lowerBound .or. upperBound <= absValue) nChars = nChars + 5
+
+  end function countCharacters_defReal
 
   !!
   !! Binary search for the largest smaller-or-equal element in the array
@@ -114,10 +482,9 @@ module genericProcedures
   !!   idx == tooManyIter if search fails to terminate
   !!
   pure function binaryFloorIdxClosed_Real(array, value) result(idx)
-    real(defReal),dimension(:),intent(in) :: array
-    real(defReal),intent(in)              :: value
-    integer(shortInt)                     :: idx
-    integer(shortInt)                     :: bottom, top, i
+    real(defReal), dimension(:), intent(in) :: array
+    real(defReal), intent(in)               :: value
+    integer(shortInt)                       :: idx, bottom, top, i
 
     ! Find Top and Bottom Index Array
     bottom = 1
@@ -343,7 +710,7 @@ module genericProcedures
   !! Removes duplicates from an unsorted realArray
   !! Does not preserve the order
   !!
-  function removeDuplicates_Real(realArray) result(out)
+  pure function removeDuplicates_Real(realArray) result(out)
     real(defReal), dimension(:), intent(in)   :: realArray
     real(defReal), dimension(:),allocatable   :: out
     real(defReal), dimension(size(realArray)) :: array
@@ -410,7 +777,7 @@ module genericProcedures
   !! Removes duplicates from a sorted realArray
   !! Preserves the order
   !!
-  function removeDuplicatesSorted_Real(realArray) result(out)
+  pure function removeDuplicatesSorted_Real(realArray) result(out)
     real(defReal), dimension(:), intent(in)   :: realArray
     real(defReal), dimension(:),allocatable   :: out
     real(defReal), dimension(size(realArray)) :: array
@@ -442,7 +809,7 @@ module genericProcedures
   !! Find duplicates from a sorted realArray
   !! Returns an array with the index of the repeated element
   !!
-  function findDuplicatesSorted_Real(realArray) result(out)
+  pure function findDuplicatesSorted_Real(realArray) result(out)
     real(defReal), dimension(:), intent(in)       :: realArray
     integer(shortInt), dimension(:),allocatable   :: out
     integer(shortInt), dimension(size(realArray)) :: array
@@ -505,12 +872,85 @@ module genericProcedures
     end if
   end function findDuplicates_Char
 
+  !! Function 'findCommon_shortInt'
+  !!
+  !! Basic description:
+  !!   Find common entries between two shortInt arrays.
+  !!
+  !! Result:
+  !!   commons -> shortInt array containing the common entries between the two supplied arrays.
+  !!
+  !! Error:
+  !!   None.
+  !!
+  pure function findCommon_shortInt(array1, array2) result(commons)
+    integer(shortInt), dimension(:), intent(in)  :: array1, array2
+    integer(shortInt), dimension(:), allocatable :: commons
+    integer(shortInt), dimension(size(array1))   :: array1Copy
+    integer(shortInt), dimension(size(array2))   :: array2Copy
+    integer(shortInt)                            :: i, j
+    
+    ! Copy the two input arrays and sort them.
+    array1Copy = array1
+    array2Copy = array2
+    call quickSort(array1Copy)
+    call quickSort(array2Copy)
+
+    ! Initialise i = 1 and j = 1 then search for all entries in each array.
+    i = 1
+    j = 1
+    do while (i <= size(array1Copy) .and. j <= size(array2Copy))
+      if (array1Copy(i) == array2Copy(j)) then
+        call append(commons, array1Copy(i))
+        i = i + 1
+        j = j + 1
+
+      else if (array1Copy(i) < array2Copy(j)) then
+        i = i + 1
+
+      else
+        j = j + 1
+
+      end if
+
+    end do
+
+  end function findCommon_shortInt
+
+  !! Function 'findDifferent_shortInt'
+  !!
+  !! Basic description:
+  !!   Returns the element of a size-2 shortInt array not equal to value. Useful for mesh tracking
+  !!   where we need to use lots of connectivity information.
+  !!
+  !! Arguments:
+  !!   array [in] -> A shortInt array of length 2.
+  !!   value [in] -> Value to exclude.
+  !!
+  !! Result:
+  !!   different -> The element in the array not equal to value.
+  !!
+  pure function findDifferent_shortInt(array, value) result(different)
+    integer(shortInt), dimension(2), intent(in) :: array
+    integer(shortInt), intent(in)               :: value
+    integer(shortInt)                           :: different
+    
+    if (array(1) == value) then
+      different = array(2)
+
+    else
+      different = array(1)
+
+    end if
+    
+  end function findDifferent_shortInt
+
   !!
   !! Searches linearly for the occurance of target in charArray. Removes left blanks.
   !! Following Errors can occur:
   !! targetNotFound -> target is not present in the array
   !!
-  function linFind_Char(charArray,target) result(idx)
+  pure function linFind_Char(charArray,target) result(idx)
     character(*),dimension(:),intent(in) :: charArray
     character(*),intent(in)              :: target
     integer(shortInt)                    :: idx
@@ -527,7 +967,7 @@ module genericProcedures
   !! Searches linearly for the occurance of target in defRealArray. Following Errors can occur
   !! valueOutsideArray -> target is not present in the array
   !!
-  function linFind_defReal(defRealArray,target) result (idx)
+  pure function linFind_defReal(defRealArray,target) result (idx)
     real(defReal), dimension(:), intent(in)  :: defRealArray
     real(defReal), intent(in)                :: target
     integer(shortInt)                        :: idx
@@ -548,7 +988,7 @@ module genericProcedures
   !!   target [in]       -> traget to search for
   !!   tol [in]          -> relative tolerance (+ve)
   !!
-  function linFind_defReal_withTOL(defRealArray, target, tol) result (idx)
+  pure function linFind_defReal_withTOL(defRealArray, target, tol) result (idx)
     real(defReal), dimension(:), intent(in)  :: defRealArray
     real(defReal), intent(in)                :: target
     real(defReal), intent(in)                :: tol
@@ -581,7 +1021,7 @@ module genericProcedures
   !!
   !! Given 2 arrays, it outputs a third array which is a concatenation of them
   !!
-  function concatenateArrays_Real(array1,array2) result(out)
+  pure function concatenateArrays_Real(array1,array2) result(out)
     real(defReal),dimension(:),intent(in)              :: array1
     real(defReal),dimension(:),intent(in)              :: array2
     real(defReal),dimension(size(array1)+size(array2)) :: out
@@ -595,10 +1035,90 @@ module genericProcedures
   end function concatenateArrays_Real
 
   !!
+  !! Returns .true. if two floating point numbers are equal. 
+  !!
+  !! Due to floating point artihmetic and rounding-off errors being slightly different 
+  !! across different architectures (eg, Intel vs ARM), it is necessary to use some small 
+  !! tolerances to assert equality between two floating point numbers. These tolerances 
+  !! are specified in numPrecision.f90.
+  !!
+  elemental function isEqual_defReal(a, b) result(equal)
+    real(defReal), intent(in) :: a, b
+    logical(defBool)          :: equal
+    real(defReal)             :: absDiff
+
+    ! Initialise equal = .true. and check for perfect (to the bit) equality, since we can 
+    ! return early in this case.
+    equal = .true.
+    if (a == b) return
+
+    ! Compute the absolute value of the difference between the two floating point numbers.
+    ! Note that if a and b are both very large and of opposite signs this can cause overflow.
+    absDiff = abs(a - b)
+
+    ! Check if absDiff is less than some absolute very small tolerance first and return if yes.
+    if (absDiff < floatTol) return
+
+    ! Check if a and b are within some small relative tolerance of each other and return if
+    ! yes. Note that if a and b are both very small numbers, then multiplying by a small
+    ! tolerance can cause underflow. This is why we check absolute tolerance first.
+    if (absDiff < max(abs(a), abs(b)) * FP_REL_TOL) return
+
+    ! If reached here, a and b are not within absolute or relative tolerance of each other.
+    ! update equal = .false.
+    equal = .false.
+
+  end function isEqual_defReal
+
+  !!
+  !! Returns .true. if all floating point numbers in an array are equal to a given value. 
+  !!
+  !! Due to floating point artihmetic and rounding-off errors being slightly different 
+  !! across different architectures (eg, Intel vs ARM), it is necessary to use some small 
+  !! tolerances to assert equality between two floating point numbers. These tolerances 
+  !! are specified in numPrecision.f90.
+  !!
+  pure function isEqual_defRealArray(array, b) result(equal)
+    real(defReal), dimension(:), intent(in)     :: array
+    real(defReal), intent(in)                   :: b
+    logical(defBool)                            :: equal
+    integer(shortInt)                           :: i
+    real(defReal)                               :: a, absDiff
+
+    ! Initialise equal = .true. and loop over all element in the array.
+    equal = .true.
+    do i = 1, size(array)
+      ! Retrieve current element of the array and check for perfect (to the bit) equality. 
+      ! Cycle to the next element if yes.
+      a = array(i)
+      if (a == b) cycle
+
+      ! Compute the absolute value of the difference between the two floating point numbers.
+      ! Note that if a and b are both very large and of opposite signs this can cause overflow.
+      absDiff = abs(a - b)
+
+      ! Check if absDiff is less than some absolute very small tolerance first and cycle if yes.
+      if (absDiff < floatTol) cycle
+
+      ! Check if a and b are within some small relative tolerance of each other and cycle if
+      ! yes. Note that if a and b are both very small numbers, then multiplying by a small
+      ! tolerance can cause underflow. This is why we check absolute tolerance first.
+      if (absDiff < max(abs(a), abs(b)) * FP_REL_TOL) cycle
+
+      ! If reached here, a and b are not within absolute or relative tolerance of each other.
+      ! update equal = .false. and return.
+      equal = .false.
+      return
+
+    end do
+
+  end function isEqual_defRealArray
+
+  !!
   !! Concatenate strings from an array into a single long character (tape). Asjusts left and trims
   !! elements of char Array. Adds a blank at the end of a line
   !!
-  function arrayConcat(charArray) result(out)
+  pure function arrayConcat(charArray) result(out)
     character(*),dimension(:),intent(in)       :: charArray
     character(:),allocatable                   :: out
     integer(shortInt)                          :: elementLen, trimLen , i
@@ -627,7 +1147,7 @@ module genericProcedures
   !!
   !! Function that searches counts all occurences of a "symbol" in a "string"
   !!
-  function countSymbol(string,symbol) result(num)
+  pure function countSymbol(string,symbol) result(num)
     character(*),intent(in)  :: string
     character(1),intent(in)  :: symbol
     integer(shortInt)        :: num
@@ -650,7 +1170,7 @@ module genericProcedures
   !! Goes through the string and adds +1 to balance for each leftS and -1 for each rightS. It
   !! terminates and returns -1 when balance becomes -ve.
   !!
-  function symbolBalance(str,leftS,rightS) result (balance)
+  pure function symbolBalance(str,leftS,rightS) result (balance)
     character(*),intent(in)       :: str
     character(1),intent(in)       :: leftS
     character(1),intent(in)       :: rightS
@@ -677,18 +1197,14 @@ module genericProcedures
   !!
   !! Finds index of next character in signs in the string
   !!
-  function indexOfNext(signs,string) result (idx)
+  pure function indexOfNext(signs,string) result (idx)
     character(1),dimension(:),intent(in)     :: signs
     character(*), intent(in)                 :: string
     integer(shortInt)                        :: idx
     integer(shortInt),dimension(size(signs)) :: temp_idx
-    character(100),parameter                 :: here='indexOf (genericProcedures.f90)'
 
     temp_idx = index(string,signs)
-
-
     idx = minval(temp_idx,temp_idx > 0)
-
     if (idx == huge(temp_idx)) idx = 0
 
   end function indexOfNext
@@ -696,7 +1212,7 @@ module genericProcedures
   !!
   !! Replaces all repeated blanks in string with a single blank
   !!
-  subroutine compressBlanks(string)
+  pure subroutine compressBlanks(string)
     character(*), intent(inout)     :: string
     character(len(string))          :: stringCopy
     integer(shortInt)               :: i, j
@@ -731,7 +1247,7 @@ module genericProcedures
   !!
   !! Replaces all symbols "oldS" with "newS" in string
   !!
-  subroutine replaceChar(string,oldS,newS)
+  pure subroutine replaceChar(string,oldS,newS)
     character(*), intent(inout) :: string
     character(1), intent(in)    :: oldS
     character(1), intent(in)    :: newS
@@ -821,7 +1337,7 @@ module genericProcedures
   !!
   !! Function that check if the array is sorted in ascending order (a(i) >= a(i-1) for all i).
   !!
-  function isSorted_defReal(array) result (isIt)
+  pure function isSorted_defReal(array) result (isIt)
     real(defReal),dimension(:),intent(in) :: array
     logical(defBool)                      :: isIt
     integer(shortInt)                     :: i
@@ -840,7 +1356,7 @@ module genericProcedures
   !!
   !! Function that check if the array is sorted in ascending order (a(i) >= a(i-1) for all i).
   !!
-  function isSorted_shortInt(array) result (isIt)
+  pure function isSorted_shortInt(array) result (isIt)
     integer(shortInt),dimension(:),intent(in) :: array
     logical(defBool)                          :: isIt
     integer(shortInt)                         :: i
@@ -859,7 +1375,7 @@ module genericProcedures
   !!
   !! Function that check if the array is sorted in descending order (a(i) <= a(i-1) for all i).
   !!
-  function isDescending_defReal(array) result (isIt)
+  pure function isDescending_defReal(array) result (isIt)
     real(defReal),dimension(:),intent(in) :: array
     logical(defBool)                      :: isIt
     integer(shortInt)                     :: i
@@ -878,7 +1394,7 @@ module genericProcedures
   !!
   !! Function that check if the array is sorted in descending order (a(i) <= a(i-1) for all i).
   !!
-  function isDescending_shortInt(array) result (isIt)
+  pure function isDescending_shortInt(array) result (isIt)
     integer(shortInt),dimension(:),intent(in) :: array
     logical(defBool)                          :: isIt
     integer(shortInt)                         :: i
@@ -896,15 +1412,12 @@ module genericProcedures
 
   !!
   !! Convert shortInt to character
-  !! TODO: tempChar should have a parametrised length - need to come up with a smart way of doing it!
   !!
   function numToChar_shortInt(x) result(c)
-    integer(shortInt),intent(in) :: x
-    character(:), allocatable    :: c
-    character(40)                :: tempChar
+    integer(shortInt),intent(in)  :: x
+    character(countCharacters(x)) :: c
 
-    write(tempChar,'(I0)') x
-    c = trim(tempChar)
+    write(c, '(I0)') x
 
   end function numToChar_shortInt
 
@@ -912,51 +1425,50 @@ module genericProcedures
   !! Convert shortInt array to character
   !!
   function numToChar_shortIntArray(x) result(c)
-    integer(shortInt), dimension(:) ,intent(in) :: x
-    character(:), allocatable                   :: c
-    character(40)                               :: tempChar
-    integer(shortInt)                           :: i
+    integer(shortInt), dimension(:), intent(in) :: x
+    character(:), allocatable                   :: c, tempChar
+    integer(shortInt)                           :: nIntegers, n, i
 
     c = ''
-    if(size(x) == 0) then
-      c = ''
-    else
-      write(tempChar,'(I0)') x(1)
-      c = trim(tempChar)
-    end if
+    nIntegers = size(x)
+    if (nIntegers == 0) return
 
-    do i=2,size(x)
-      write(tempChar,'(I0)') x(i)
-      c = c//' '//trim(tempChar)
+    n = x(1)
+    allocate(character(countCharacters(n)) :: tempChar)
+    write(tempChar,'(I0)') n
+    c = tempChar
+    deallocate(tempChar)
+
+    do i = 2, nIntegers
+      n = x(i)
+      allocate(character(countCharacters(n)) :: tempChar)
+      write(tempChar,'(I0)') n
+      c = c//' '//tempChar
+      deallocate(tempChar)
+
     end do
 
   end function numToChar_shortIntArray
 
   !!
   !! Convert longInt to character
-  !! TODO: tempChar should have a parametrised length - need to come up with a smart way of doing it!
   !!
   function numToChar_longInt(x) result(c)
-    integer(longInt),intent(in) :: x
-    character(:), allocatable   :: c
-    character(40)               :: tempChar
+    integer(longInt), intent(in)  :: x
+    character(countCharacters(x)) :: c
 
-    write(tempChar,'(I0)') x
-    c = trim(tempChar)
+    write(c, '(I0)') x
 
   end function numToChar_longInt
 
   !!
   !! Convert defReal to character
-  !! TODO: tempChar should have a parametrised length - need to come up with a smart way of doing it!
   !!
   function numToChar_defReal(x) result(c)
-    real(defReal),intent(in)  :: x
-    character(:), allocatable :: c
-    character(40)             :: tempChar
+    real(defReal),intent(in)      :: x
+    character(countCharacters(x)) :: c
 
-    write(tempChar,*) x
-    c = trim(tempChar)
+    write(c, *) x
 
   end function numToChar_defReal
 
@@ -964,22 +1476,28 @@ module genericProcedures
   !! Convert defReal array to character
   !!
   function numToChar_defRealArray(x) result(c)
-    real(defReal), dimension(:),intent(in)  :: x
-    character(:), allocatable               :: c
-    character(40)                           :: tempChar
-    integer(shortInt)                       :: i
+    real(defReal), dimension(:),intent(in) :: x
+    character(:), allocatable              :: c, tempChar
+    integer(shortInt)                      :: nReals, i
+    real(defReal)                          :: r
 
     c = ''
-    if(size(x) == 0) then
-      c = ''
-    else
-      write(tempChar,*) x(1)
-      c = trim(tempChar)
-    end if
+    nReals = size(x)
+    if (nReals == 0) return
 
-    do i=2,size(x)
-      write(tempChar,*) x(i)
-      c = c//' '//trim(tempChar)
+    r = x(1)
+    allocate(character(countCharacters(r)) :: tempChar)
+    write(tempChar, *) r
+    c = tempChar
+    deallocate(tempChar)
+
+    do i = 2, nReals
+      r = x(i)
+      allocate(character(countCharacters(r)) :: tempChar)
+      write(tempChar, *) r
+      c = c//' '//tempChar
+      deallocate(tempChar)
+
     end do
 
   end function numToChar_defRealArray
@@ -1123,26 +1641,15 @@ module genericProcedures
   end subroutine rotationMatrix
 
   !!
-  !! Dot product for 3D vector
-  !!
-  pure function dotProduct(a,b) result(x)
-    real(defReal),dimension(3), intent(in) :: a,b
-    real(defReal)                          :: x
-
-    x = a(1)*b(1) + a(2)*b(2) + a(3)*b(3)
-
-  end function dotProduct
-
-  !!
   !! Cross product for 3D vectors
   !!
-  pure function crossProduct(a,b) result(c)
-    real(defReal),dimension(3),intent(in) :: a,b
-    real(defReal),dimension(3)            :: c
+  pure function crossProduct(a, b) result(c)
+    real(defReal), dimension(3), intent(in) :: a, b
+    real(defReal), dimension(3)             :: c
 
-    c = [a(3)*b(2) - a(2)*b(3), &
-         a(1)*b(3) - a(3)*b(1), &
-         a(2)*b(1) - a(1)*b(2) ]
+    c = [a(2)*b(3) - a(3)*b(2), &
+         a(3)*b(1) - a(1)*b(3), &
+         a(1)*b(2) - a(2)*b(1)]
 
   end function crossProduct
 
@@ -1164,6 +1671,36 @@ module genericProcedures
     isIn =  targetNotFound /= linFind(array, key)
 
   end function isIn
+
+  !!
+  !! Returns .true. if string array contains duplicates.
+  !!
+  pure function hasDuplicates_char(array) result(doesIt)
+    character(nameLen), dimension(:), intent(in) :: array
+    integer(shortInt)                            :: nStrings, i, j
+    logical(defBool)                             :: doesIt
+    character(:), allocatable                    :: testString
+    
+    ! Initialise doesIt = .true. and compute number of strings in the array.
+    doesIt = .true.
+    nStrings = size(array)
+
+    ! Loop from first till second last element in the array.
+    do i = 1, nStrings - 1
+      ! Create adjusted and trimmed current string and check for duplicates
+      ! in remaining strings of the array.
+      testString = adjustl(trim(array(i)))
+      do j = i + 1, nStrings
+        if (testString == adjustl(trim(array(j)))) return
+
+      end do
+
+    end do
+    
+    ! If reached here, update doesIt = .false.
+    doesIt = .false.
+
+  end function hasDuplicates_char
 
   !!
   !! Returns true if array contains duplicates
@@ -1337,8 +1874,27 @@ module genericProcedures
 
   end subroutine swap_shortInt
 
+  !! Subroutine 'swap_shortIntArray'
   !!
-  !! Swap to reals
+  !! Basic description:
+  !!   Swaps two entries within a shortInt array.
+  !!
+  !! Error:
+  !!   None.
+  !!
+  pure subroutine swap_shortIntArray(array, idx1, idx2)
+    integer(shortInt), dimension(:), intent(inout) :: array
+    integer(shortInt), intent(in)                  :: idx1, idx2
+    integer(shortInt)                              :: temp
+    
+    temp = array(idx1)
+    array(idx1) = array(idx2)
+    array(idx2) = temp
+  
+  end subroutine swap_shortIntArray
+
+  !!
+  !! Swap two reals
   !!
   elemental subroutine swap_defReal(r1,r2)
     real(defReal), intent(inout) :: r1

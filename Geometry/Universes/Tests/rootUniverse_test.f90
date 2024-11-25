@@ -8,6 +8,7 @@ module rootUniverse_test
   use coord_class,        only : coord
   use surfaceShelf_class, only : surfaceShelf
   use cellShelf_class,    only : cellShelf
+  use meshShelf_class,    only : meshShelf
   use rootUniverse_class, only : rootUniverse
   use funit
 
@@ -24,6 +25,7 @@ module rootUniverse_test
   ! Variables
   type(surfaceShelf) :: surfs
   type(cellShelf)    :: cells
+  type(meshShelf)    :: meshes
   type(charMap)      :: mats
   type(rootUniverse) :: uni
 
@@ -34,7 +36,7 @@ contains
   !!
 @Before
   subroutine setUp()
-    integer(shortInt), dimension(:), allocatable :: fill
+    integer(shortInt), dimension(:), allocatable :: fills
     type(dictionary) :: dict
 
     ! Build surfaces and MATS
@@ -45,14 +47,14 @@ contains
 
     ! Build universe
     call charToDict(dict, UNI_DEF)
-    call uni % init(fill, dict, cells, surfs, mats)
+    call uni % init(dict, mats, fills, cells, surfs, meshes)
     call dict % kill()
 
     ! Set index
     call uni % setIdx(8)
 
     ! Verify fill
-    @assertEqual([-17, OUTSIDE_MAT], fill)
+    @assertEqual([-17, OUTSIDE_MAT], fills)
 
   end subroutine setUp
 
@@ -127,9 +129,9 @@ contains
   !!
 @Test
   subroutine test_distance()
-    real(defReal)     :: d, ref
-    integer(shortInt) :: surfIdx
-    type(coord)       :: pos
+    real(defReal)            :: d, ref
+    integer(shortInt)        :: surfIdx
+    type(coord)              :: pos
     real(defReal), parameter :: TOL = 1.0E-7_defReal
 
     ! Distance from inside -> only relevant
@@ -138,7 +140,7 @@ contains
     pos % uniIdx  = 8
     pos % localID = 1
 
-    call uni % distance(d, surfIdx, pos)
+    call uni % distance(pos, d, surfIdx)
 
     ref = 1.0_defReal
     @assertEqual(ref, d, ref * TOL)
@@ -191,7 +193,5 @@ contains
     @assertEqual([ZERO, ZERO, ZERO], uni % cellOffset(pos))
 
   end subroutine test_cellOffset
-
-
 
 end module rootUniverse_test

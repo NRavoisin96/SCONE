@@ -10,6 +10,7 @@ module latUniverse_class
   use box_class,          only : box
   use cell_inter,         only : cell
   use cellShelf_class,    only : cellShelf
+  use meshShelf_class,    only : meshShelf
   use universe_inter,     only : universe, kill_super => kill, charToFill
 
   implicit none
@@ -27,7 +28,7 @@ module latUniverse_class
   !! lattice is placed at the origin. An additional cell is placed beyond the lattice
   !! called background (or out) cell.
   !!
-  !! Local ID is 1 in bottom X, Y & Z corner. It increases first with X then Y and lastly Z.
+  !! Local ID is 1 in bottom X, Y & Z corner. It increases first with X, then Y, then Z.
   !! Cells inside the lattice can only be filled with a universe (given as integer ID).
   !! Background cell can have any filling given by keyword (material or universe)
   !!
@@ -76,10 +77,8 @@ module latUniverse_class
   !!
   type, public, extends(universe) :: latUniverse
     private
-    real(defReal), dimension(3)     :: pitch = ZERO
+    real(defReal), dimension(3)     :: pitch = ZERO, corner = ZERO, a_bar = ZERO
     integer(shortInt), dimension(3) :: sizeN = 0
-    real(defReal), dimension(3)     :: corner = ZERO
-    real(defReal), dimension(3)     :: a_bar  = ZERO
     type(box)                       :: outline
     integer(shortInt)               :: outLocalID = 0
   contains
@@ -93,7 +92,6 @@ module latUniverse_class
   end type latUniverse
 
 contains
-
   !!
   !! Initialise Universe
   !!
@@ -102,64 +100,56 @@ contains
   !! Errors:
   !!   fatalError if input is invalid.
   !!
-  subroutine init(self, fill, dict, cells, surfs, mats)
+  subroutine init(self, dict, mats, fills, cells, surfs, meshes)
     class(latUniverse), intent(inout)                         :: self
-    integer(shortInt), dimension(:), allocatable, intent(out) :: fill
     class(dictionary), intent(in)                             :: dict
+    type(charMap), intent(in)                                 :: mats
+    integer(shortInt), dimension(:), allocatable, intent(out) :: fills
     type(cellShelf), intent(inout)                            :: cells
     type(surfaceShelf), intent(inout)                         :: surfs
-    type(charMap), intent(in)                                 :: mats
-    real(defReal), dimension(:), allocatable       :: temp
-    integer(shortInt), dimension(:), allocatable   :: tempI
-    integer(shortInt)                              :: N, i, j, outFill
-    type(dictionary)                               :: tempDict
-    integer(shortInt), dimension(:,:), allocatable :: tempMap
-    character(nameLen)                             :: name
-    character(100), parameter :: Here = 'init (latUniverse_class.f90)'
+    type(meshShelf), intent(inout)                            :: meshes
+    real(defReal), dimension(:), allocatable                  :: temp
+    integer(shortInt), dimension(:), allocatable              :: tempI
+    integer(shortInt)                                         :: N, i, j, jPrime, outFill
+    type(dictionary)                                          :: tempDict
+    integer(shortInt), dimension(:,:), allocatable            :: tempMap
+    character(nameLen)                                        :: name
+    character(100), parameter                                 :: Here = 'init (latUniverse_class.f90)'
 
     ! Setup the base class
     ! With: id, origin rotations...
     call self % setupBase(dict)
 
-    ! Load pitch
+    ! Load pitch.
     call dict % get(temp, 'pitch')
     N = size(temp)
-
-    if (N /= 3) then
-      call fatalError(Here, 'Pitch must have size 3. Has: '//numToChar(N))
-    end if
+    if (N /= 3) call fatalError(Here, 'Pitch must have size 3. Has: '//numToChar(N)//'.')
     self % pitch = temp
 
-    ! Load Size
+    ! Load shape.
     call dict % get(tempI, 'shape')
     N = size(tempI)
-
-    if (N /= 3) then
-      call fatalError(Here, 'Shape must have size 3. Has: '//numToChar(N))
-    else if (any(tempI < 0)) then
-      call fatalError(Here, 'Shape contains -ve entries')
-    end if
+    if (N /= 3) call fatalError(Here, 'Shape must have size 3. Has: '//numToChar(N)//'.')
+    if (any(tempI < 0)) call fatalError(Here, 'Shape cannot contain -ve entries.')
     self % sizeN = tempI
 
-    ! Detect reduced Z dimension
+    ! Detect reduced Z dimension and adjust shape and pitch accordingly.
     if (self % sizeN(3) == 0) then
       self % sizeN(3) = 1
       self % pitch(3) = TWO * INF
     end if
 
-    ! Check X & Y for 0 size
-    if (any( self % sizeN == 0)) call fatalError(Here, 'Shape in X and Y axis cannot be 0.')
+    ! Check X & Y for 0 size.
+    if (any(self % sizeN == 0)) call fatalError(Here, 'Shape in X and Y axis cannot be 0.')
 
-    ! Check for invalid pitch
-    if (any(self % pitch < 10 * SURF_TOL)) then
-     call fatalError(Here, 'Pitch size must be larger than: '//numToChar( 10 * SURF_TOL))
-   end if
+    ! Check for invalid pitch.
+    if (any(self % pitch < 10 * SURF_TOL)) call fatalError(Here, 'Pitch size must be larger than: '//numToChar(10 * SURF_TOL)//'.')
 
-    ! Calculate halfwidth and corner
-    self % a_bar = self % pitch * HALF - SURF_TOL
-    self % corner = -(self % sizeN * HALF * self % pitch)
+    ! Calculate reduced halfwidth and corner.
+    self % a_bar = HALF * self % pitch - SURF_TOL
+    self % corner = -HALF * self % sizeN * self % pitch
 
-    ! Calculate local ID of the background
+    ! Calculate local ID of the background cell.
     self % outLocalID = product(self % sizeN) + 1
 
     ! Build outline box
@@ -173,28 +163,31 @@ contains
     ! Construct fill array
     call dict % get(tempI, 'map')
 
-    ! Flip array up-down for more natural input
-    ! Reshape into rank 2 array
+    ! Flip array up-down for more natural input. Reshape into rank 2 array.
     tempMap = reshape(tempI, [self % sizeN(1), self % sizeN(2) * self % sizeN(3)])
     N = size(tempMap, 2)
-    do i = 1, N/2
+    do i = 1, N / 2
       call swap(tempMap(:,i), tempMap(:,N - i + 1))
+
     end do
 
-    ! Find background fill and change to tempMap to uniID
+    ! Find background fill and change to tempMap to uniID.
     tempMap = -tempMap
     call dict % get(name, 'padMat')
     outFill = charToFill(name, mats, Here)
 
-    ! Build fill array
-    allocate(fill( self % outLocalID))
+    ! Build fill array.
+    allocate(fills(self % outLocalID))
     N = size(tempMap, 1)
     do j = 1, size(tempMap, 2)
+      jPrime = (j - 1) * N
       do i = 1, N
-        fill(i + (j-1) * N) = tempMap(i, j)
+        fills(i + jPrime) = tempMap(i, j)
+
       end do
+
     end do
-    fill(self % outLocalID) = outFill
+    fills(self % outLocalID) = outFill
 
   end subroutine init
 
@@ -203,47 +196,40 @@ contains
   !!
   !! See universe_inter for details.
   !!
-  subroutine findCell(self, localID, cellIdx, r, u)
+  pure subroutine findCell(self, r, u, localId, cellIdx, tetrahedronIdx)
     class(latUniverse), intent(inout)       :: self
-    integer(shortInt), intent(out)          :: localID
-    integer(shortInt), intent(out)          :: cellIdx
-    real(defReal), dimension(3), intent(in) :: r
-    real(defReal), dimension(3), intent(in) :: u
+    real(defReal), dimension(3), intent(in) :: r, u
+    integer(shortInt), intent(out)          :: localId, cellIdx, tetrahedronIdx
     integer(shortInt), dimension(3)         :: ijk
     integer(shortInt)                       :: i, inc
-    real(defReal), dimension(3)             :: r_bar
+    real(defReal), dimension(3)             :: corner, pitch, r_bar
+    real(defReal)                           :: r_barComponent, uComponent
 
-    ! Find lattice location in x,y&z
-    ijk = floor((r - self % corner) / self % pitch) + 1
+    ! Initialise cellIdx = 0 and localId = self % outLocalID.
+    cellIdx = 0
+    tetrahedronIdx = 0
+    localId = self % outLocalID
 
-    ! Get position wrt middle of the lattice cell
-    r_bar = r - self % corner - ijk * self % pitch + HALF * self % pitch
+    ! Find lattice location in x, y & z and get position wrt middle of the lattice cell.
+    corner = self % corner
+    pitch = self % pitch
+    ijk = floor((r - corner) / pitch) + 1
+    r_bar = r - corner + pitch * (HALF - ijk)
 
-    ! Check if position is within surface tolerance
-    ! If it is, push it to next cell
+    ! Check if particle is within surface tolerance. Push it to next cell if yes.
     do i = 1, 3
-      if (abs(r_bar(i)) > self % a_bar(i) .and. r_bar(i)*u(i) > ZERO) then
+      r_barComponent = r_bar(i)
+      uComponent = u(i)
+      
+      ! Cycle to next dimension if particle is well within current cell or enters it.
+      if (abs(r_barComponent) <= self % a_bar(i) .or. r_barComponent * uComponent <= ZERO) cycle
+      ijk(i) = ijk(i) + sign(1, floor(uComponent))
 
-        ! Select increment. Ternary expression
-        if (u(i) < ZERO) then
-          inc = -1
-        else
-          inc = 1
-        end if
-
-        ijk(i) = ijk(i) + inc
-      end if
     end do
 
-    ! Set localID & cellIdx
-    if (any(ijk <= 0 .or. ijk > self % sizeN)) then ! Point is outside lattice
-      localID = self % outLocalID
-
-    else
-      localID = ijk(1) + self % sizeN(1) * (ijk(2)-1 + self % sizeN(2) * (ijk(3)-1))
-
-    end if
-    cellIdx = 0
+    ! If particle is outside lattice return early. Else update localId.
+    if (any(ijk < 1 .or. ijk > self % sizeN)) return
+    localId = ijk(1) + self % sizeN(1) * (ijk(2) - 1 + self % sizeN(2) * (ijk(3) - 1))
 
   end subroutine findCell
 
@@ -252,58 +238,57 @@ contains
   !!
   !! See universe_inter for details.
   !!
-  subroutine distance(self, d, surfIdx, coords)
-    class(latUniverse), intent(inout) :: self
+  pure subroutine distance(self, coords, d, surfIdx)
+    class(latUniverse), intent(inout)  :: self
+    type(coord), intent(inout)         :: coords
     real(defReal), intent(out)         :: d
     integer(shortInt), intent(out)     :: surfIdx
-    type(coord), intent(in)            :: coords
-    real(defReal), dimension(3)        :: r_bar, u, bounds
+    real(defReal), dimension(3)        :: pitch, r_bar, u, bounds
     real(defReal)                      :: test_d
-    integer(shortInt)                  :: i, ax
+    integer(shortInt)                  :: localId, i, axis
 
-    ! Catch case if particle is outside the lattice
-    if (coords % localID == self % outLocalID) then
+    ! Catch case if particle is outside the lattice and return early if yes.
+    localId = coords % localId
+    if (localId == self % outLocalID) then
       surfIdx = OUTLINE_SURF
       d = self % outline % distance(coords % r, coords % dir)
       return
 
     end if
 
-    ! Find position wrt lattice cell centre
-    ! Need to use localID to properly handle under and overshoots
+    ! Find position wrt lattice cell centre. Need to use localID to properly handle under and overshoots.
+    pitch = self % pitch
+    r_bar = coords % r - (self % corner + (get_ijk(localId, self % sizeN) - HALF) * pitch)
+
+    ! Select surfaces in the direction of the particle.
     u = coords % dir
-    r_bar = coords % r - self % corner
-    r_bar = r_bar - (get_ijk(coords % localID, self % sizeN) - HALF) * self % pitch
+    bounds = sign(HALF * pitch, u)
 
-    ! Select surfaces in the direction of the particle
-    bounds = sign(self % pitch * HALF, u)
-
-    ! Find minimum distance
-    ! Relay on IEEE 754 standard (for floating point numbers)
+    ! Find minimum distance.
+    ! Relies on IEEE 754 standard for NaN and Infinity.
     ! 0.0/0.0 = NaN and (NaN < A = false; for every A)
     ! A/0.0 = Infinity (if A > 0.0)
     !
     ! Provide default axis to ensure no out of bounds array access if
-    ! all distances happen to be infinite
+    ! all distances happen to be infinite.
     d = INF
-    ax = 1
+    axis = 1
     do i = 1, 3
       ! Nominator and denominator will have the same sign (by earlier bounds selection)
       test_d = (bounds(i) - r_bar(i)) / u(i)
 
       if (test_d < d) then
         d = test_d
-        ax = i
+        axis = i
+
       end if
+
     end do
 
-    ! Cap distance value
-    d = max(ZERO, d)
-    d = min(INF, d)
-
-    ! Generate surface memento
-    surfIdx = ax * 2
-    if (u(ax) < ZERO) surfIdx = surfIdx - 1
+    ! Cap distance value and generate surface memento.
+    d = min(INF, max(ZERO, d))
+    surfIdx = axis * 2
+    if (u(axis) < ZERO) surfIdx = surfIdx - 1
     surfIdx = -surfIdx
 
   end subroutine distance
@@ -313,12 +298,12 @@ contains
   !!
   !! See universe_inter for details.
   !!
-  subroutine cross(self, coords, surfIdx)
+  pure subroutine cross(self, coords, surfIdx)
     class(latUniverse), intent(inout) :: self
     type(coord), intent(inout)        :: coords
     integer(shortInt), intent(in)     :: surfIdx
 
-    call self % findCell(coords % localID, coords % cellIdx, coords % r, coords % dir)
+    call self % findCell(coords % r, coords % dir, coords % localID, coords % cellIdx, coords % tetrahedronIdx)
 
   end subroutine cross
 
@@ -327,18 +312,19 @@ contains
   !!
   !! See universe_inter for details.
   !!
-  function cellOffset(self, coords) result (offset)
+  pure function cellOffset(self, coords) result (offset)
     class(latUniverse), intent(in)  :: self
     type(coord), intent(in)         :: coords
     real(defReal), dimension(3)     :: offset
+    integer(shortInt)               :: localId
 
-    if (coords % localID == self % outLocalID) then
-      offset = ZERO
+    ! Retrieve localId and initialise offset = ZERO.
+    localId = coords % localId
+    offset = ZERO
 
-    else
-      offset = (get_ijk(coords % localID, self % sizeN) - HALF) * self % pitch + self % corner
-
-    end if
+    ! If particle is outside lattice return early. Else update offset.
+    if (localId == self % outLocalID) return
+    offset = (get_ijk(localId, self % sizeN) - HALF) * self % pitch + self % corner
 
   end function cellOffset
 
@@ -365,19 +351,19 @@ contains
   !! Generate ijk from localID and shape
   !!
   !! Args:
-  !!   localID [in] -> Local id of the cell between 1 and product(sizeN)
+  !!   localId [in] -> Local id of the cell between 1 and product(sizeN)
   !!   sizeN [in]   -> Number of cells in each cardinal direction x,y&z
   !!
   !! Result:
   !!   Array ijk which has integer position in each cardinal direction
   !!
-  pure function get_ijk(localID, sizeN) result(ijk)
-    integer(shortInt), intent(in)               :: localID
+  pure function get_ijk(localId, sizeN) result(ijk)
+    integer(shortInt), intent(in)               :: localId
     integer(shortInt), dimension(3), intent(in) :: sizeN
     integer(shortInt), dimension(3)             :: ijk
     integer(shortInt)                           :: temp, base
 
-    temp = localID - 1
+    temp = localId - 1
 
     base = temp / sizeN(1)
     ijk(1) = temp - sizeN(1) * base + 1

@@ -7,10 +7,10 @@ module universe_inter
   use charMap_class,      only : charMap
   use surfaceShelf_class, only : surfaceShelf
   use cellShelf_class,    only : cellShelf
+  use meshShelf_class,    only : meshShelf
 
   implicit none
   private
-
 
   ! Extendable methods
   public :: kill
@@ -60,11 +60,10 @@ module universe_inter
   !!
   type, public, abstract :: universe
     private
-    integer(shortInt)             :: uniId  = 0
-    integer(shortInt)             :: uniIdx = 0
+    integer(shortInt)             :: uniId = 0, uniIdx = 0
     real(defReal), dimension(3)   :: origin = ZERO
     real(defReal), dimension(3,3) :: rotMat = ZERO
-    logical(defBool)              :: rot    = .false.
+    logical(defBool)              :: rot = .false.
   contains
     ! Build procedures
     procedure, non_overridable :: id
@@ -93,22 +92,25 @@ module universe_inter
     !! is +ve matIdx.
     !!
     !! Args:
-    !!   fill [out]    -> Fill array. Each position gives content for each local cell. Negative
-    !!     values are universe IDs (uniID). Positive are material indexes (matIdx)
-    !!   dict [in]     -> Dictionary with the universe definition
-    !!   cells [inout] -> Shelf with all user-defined cells
-    !!   surfs [inout] -> Shelf with all user-defined surfaces
-    !!   mats [in]     -> Map of material names to corresponding matIdx
+    !!   dict [in]                -> Dictionary with the universe definition
+    !!   mats [in]                -> Map of material names to corresponding matIdx
+    !!   fills [out]              -> Array giving content of each local cell. 
+    !!                               Negative values are universe ids (uniId). 
+    !!                               Positive values are material indices (matIdx)
+    !!   cells [inout]            -> Shelf with all user-defined cells
+    !!   surfs [inout]            -> Shelf with all user-defined surfaces
+    !!   meshes [inout], optional -> Shelf with all user-defined meshes
     !!
-    subroutine init(self, fill, dict, cells, surfs, mats)
-      import :: universe, shortInt, dictionary, &
-                cellShelf, surfaceShelf, charMap
+    subroutine init(self, dict, mats, fills, cells, surfs, meshes)
+      import :: universe, dictionary, charMap, shortInt, cellShelf, &
+                surfaceShelf, meshShelf
       class(universe), intent(inout)                            :: self
-      integer(shortInt), dimension(:), allocatable, intent(out) :: fill
       class(dictionary), intent(in)                             :: dict
+      type(charMap), intent(in)                                 :: mats
+      integer(shortInt), dimension(:), allocatable, intent(out) :: fills
       type(cellShelf), intent(inout)                            :: cells
       type(surfaceShelf), intent(inout)                         :: surfs
-      type(charMap), intent(in)                                 :: mats
+      type(meshShelf), intent(inout)                            :: meshes
     end subroutine init
 
     !!
@@ -119,23 +121,24 @@ module universe_inter
     !! cellIdx to 0.
     !!
     !! Args:
-    !!   localID [out] -> Local ID for the given point
-    !!   cellIdx [out] -> cellIdx in cellShelf, if the cell point is in is defined there.
-    !!     If the cell exists only in the universe return 0.
-    !!   r [in]        -> Position of a point
-    !!   u [in]        -> Normalised direction (norm2(u) = 1.0)
+    !!   r [in]                         -> Position of the point
+    !!   u [in]                         -> Normalised direction (norm2(u) = 1.0)
+    !!   localId [out]                  -> Local id for the given point
+    !!   cellIdx [out]                  -> cellIdx in cellShelf, if the cell the point is in is 
+    !!                                     defined there. If the cell exists only in the universe 
+    !!                                     return 0.
+    !!   tetrahedronIdx [out], optional -> tetrahedronIdx in tetrahedronShelf, used for universes
+    !!                                     containing mesh geometries.
     !!
     !! Note: Self is intent(inout), but if a state of the universe is to be changed
     !!   it is necessary to consider issues related to parallel calculations with shared
     !!   memory.
     !!
-    subroutine findCell(self, localID, cellIdx, r, u)
-      import :: universe, shortInt, defReal
-      class(universe), intent(inout)          :: self
-      integer(shortInt), intent(out)          :: localID
-      integer(shortInt), intent(out)          :: cellIdx
-      real(defReal), dimension(3), intent(in) :: r
-      real(defReal), dimension(3), intent(in) :: u
+    subroutine findCell(self, r, u, localId, cellIdx, tetrahedronIdx)
+      import :: universe, defReal, shortInt
+      class(universe), intent(inout)           :: self
+      real(defReal), dimension(3), intent(in)  :: r, u
+      integer(shortInt), intent(out)           :: localId, cellIdx, tetrahedronIdx
     end subroutine findCell
 
     !!
@@ -150,22 +153,23 @@ module universe_inter
     !! processing.
     !!
     !! Args:
-    !!   d [out]       -> Distance to the next surface
-    !!   surfIdx [out] -> Index of the surface that will be crossed. If +ve than surface
-    !!     is defined on surfaceSHelf. If -ve surface is local to this universe.
-    !!   coords [in]   -> Coordinates of the point inside the universe (after transformations
-    !!     and with localID already set)
+    !!   coords [in]            -> Coordinates of the point inside the universe (after 
+    !!                             transformations and with localId already set)
+    !!   d [out]                -> Distance to the next surface
+    !!   surfIdx [out]          -> Index of the surface that will be crossed. If +ve then surface
+    !!                             is defined on surfaceShelf. If -ve surface is local to this 
+    !!                             universe.
     !!
     !! Note: Self is intent(inout), but if a state of the universe is to be changed
     !!   it is necessary to consider issues related to parallel calculations with shared
     !!   memory.
     !!
-    subroutine distance(self, d, surfIdx, coords)
-      import :: universe, defReal, shortInt, coord
-      class(universe), intent(inout)          :: self
-      real(defReal), intent(out)              :: d
-      integer(shortInt), intent(out)          :: surfIdx
-      type(coord), intent(in)                 :: coords
+    subroutine distance(self, coords, d, surfIdx)
+      import :: universe, coord, defReal, shortInt
+      class(universe), intent(inout) :: self
+      type(coord), intent(inout)     :: coords
+      real(defReal), intent(out)     :: d
+      integer(shortInt), intent(out) :: surfIdx
     end subroutine distance
 
     !!
@@ -176,9 +180,9 @@ module universe_inter
     !!
     !! Args:
     !!   coords [inout] -> Coordinates placed in the universe (after transformations and with
-    !!     local ID set). On exit localID will be changed
+    !!                     local Id set). On exit localID will be changed
     !!   surfIdx [in]   -> surfIdx from distance procedure, which hints which surface is being
-    !!     crossed.
+    !!                     crossed.
     !!
     !! Note: Self is intent(inout), but if a state of the universe is to be changed
     !!   it is necessary to consider issues related to parallel calculations with shared
@@ -196,7 +200,7 @@ module universe_inter
     !!
     !! Args:
     !!   coords [in] -> Coordinates placed in the universe (after transformations and with
-    !!     local ID set).
+    !!                  local Id set).
     !!
     !! Result:
     !!   Cell offset (3D position vector). Offset is applied before entering a nested universe
@@ -217,21 +221,18 @@ contains
   !! Set universe ID
   !!
   !! Args:
-  !!   id [in] -> Universe ID (id > 0)
+  !!   uniId [in] -> Universe ID (id > 0)
   !!
   !! Errors:
   !!   fatalError if ID is not +ve
   !!
-  subroutine setId(self, id)
+  subroutine setId(self, uniId)
     class(universe), intent(inout) :: self
-    integer(shortInt), intent(in)  :: id
-    character(100), parameter :: Here = 'setId (universe_inter.f90)'
+    integer(shortInt), intent(in)  :: uniId
+    character(100), parameter      :: Here = 'setId (universe_inter.f90)'
 
-    if (id <= 0) then
-      call fatalError(Here, 'Id must be +ve. Is: '//numToChar(id))
-    end if
-
-    self % uniId = id
+    if (uniId < 1) call fatalError(Here, 'Id must be +ve. Is: '//numToChar(uniId)//'.')
+    self % uniId = uniId
 
   end subroutine setId
 
@@ -248,7 +249,7 @@ contains
     class(universe), intent(in) :: self
     integer(shortInt)           :: id
 
-    id = self % uniID
+    id = self % uniId
 
   end function id
 
@@ -261,16 +262,13 @@ contains
   !! Errors:
   !!   fatalError if index is not +ve.
   !!
-  subroutine setIdx(self, idx)
+  subroutine setIdx(self, uniIdx)
     class(universe), intent(inout) :: self
-    integer(shortInt), intent(in)  :: idx
-    character(100), parameter :: Here = 'setIdx (universe_inter.f90)'
+    integer(shortInt), intent(in)  :: uniIdx
+    character(100), parameter      :: Here = 'setIdx (universe_inter.f90)'
 
-    if (idx <= 0) then
-      call fatalError(Here, 'Idx must be +ve. Is: '//numToChar(idx))
-    end if
-
-    self % uniIdx = idx
+    if (uniIdx < 1) call fatalError(Here, 'Idx must be +ve. Is: '//numToChar(uniIdx)//'.')
+    self % uniIdx = uniIdx
 
   end subroutine setIdx
 
@@ -286,34 +284,30 @@ contains
   subroutine setupBase(self, dict)
     class(universe), intent(inout)           :: self
     type(dictionary), intent(in)             :: dict
-    integer(shortInt)                        :: id
+    integer(shortInt)                        :: uniId, N
     real(defReal), dimension(:), allocatable :: temp
-    character(100), parameter :: Here = 'setupBase (universe_inter.f90)'
+    character(100), parameter                :: Here = 'setupBase (universe_inter.f90)'
 
-    ! Load basic data
-    call dict % get(id, 'id')
-    if (id <= 0) call fatalError(Here, 'Universe ID must be +ve. Is: ' // numToChar(id))
-    call self % setId(id)
+    ! Load id.
+    call dict % get(uniId, 'id')
+    call self % setId(uniId)
 
-    ! Load origin
+    ! Load origin.
     if (dict % isPresent('origin')) then
       call dict % get(temp, 'origin')
-
-      if (size(temp) /= 3) then
-        call fatalError(Here, 'Origin must have size 3. Has: ' // numToChar(size(temp)))
-      end if
+      N = size(temp)
+      if (N /= 3) call fatalError(Here, 'Origin must have size 3. Has: '//numToChar(N)//'.')
       call self % setTransform(origin=temp)
 
     end if
 
-    ! Load rotation
+    ! Load rotation.
     if (dict % isPresent('rotation')) then
       call dict % get(temp, 'rotation')
-
-      if (size(temp) /= 3) then
-        call fatalError(Here, '3 rotation angles must be given. Has only: ' // numToChar(size(temp)))
-      end if
+      N = size(temp)
+      if (N /= 3) call fatalError(Here, 'Rotation must have size 3. Has: '//numToChar(N)//'.')
       call self % setTransform(rotation=temp)
+
     end if
 
   end subroutine setupBase
@@ -332,16 +326,13 @@ contains
     real(defReal), dimension(3), intent(in), optional :: origin
     real(defReal), dimension(3), intent(in), optional :: rotation
 
-    if (present(origin)) then
-      self % origin = origin
-
-    end if
+    if (present(origin)) self % origin = origin
 
     if (present(rotation)) then
-      if (.not.all(rotation == ZERO)) then ! Do not add matrix if there is no rotation
-        self % rot = .true.
-        call rotationMatrix(self % rotMat, rotation(1), rotation(2), rotation(3))
-      end if
+      if (all(rotation == ZERO)) return ! Do not add matrix if there is no rotation
+      self % rot = .true.
+      call rotationMatrix(self % rotMat, rotation(1), rotation(2), rotation(3))
+
     end if
 
   end subroutine setTransform
@@ -372,13 +363,12 @@ contains
   subroutine enter(self, new, r, u)
     class(universe), intent(inout)          :: self
     type(coord), intent(out)                :: new
-    real(defReal), dimension(3), intent(in) :: r
-    real(defReal), dimension(3), intent(in) :: u
+    real(defReal), dimension(3), intent(in) :: r, u
 
     ! Set Info & Position
-    new % r   = r
+    new % r = r
     new % dir = u
-    new % uniIdx    = self % uniIdx
+    new % uniIdx = self % uniIdx
     new % isRotated = self % rot
 
     if (new % isRotated) then
@@ -391,7 +381,7 @@ contains
     new % r = new % r - self % origin
 
     ! Find cell
-    call self % findCell(new % localID, new % cellIdx, new % r, new % dir)
+    call self % findCell(new % r, new % dir, new % localId, new % cellIdx, new % tetrahedronIdx)
 
   end subroutine enter
 
@@ -402,10 +392,10 @@ contains
     class(universe), intent(inout) :: self
 
     self % uniIdx = 0
-    self % uniId  = 0
+    self % uniId = 0
     self % origin = ZERO
     self % rotMat = ZERO
-    self % rot    = .false.
+    self % rot = .false.
 
   end subroutine kill
 
@@ -439,26 +429,24 @@ contains
     character(nameLen)             :: str
     integer(shortInt)              :: pos
     logical(defBool)               :: err
-    integer(shortInt), parameter :: NOT_FOUND = -7
+    integer(shortInt), parameter   :: NOT_FOUND = -7
 
     ! Identify if mat or universe
     str = adjustl(name)
-    if (str(1:2) == 'u<') then
-      pos = index(str, '>', back=.true.)
-    else
-      pos = 0
-    end if
+    pos = 0
+    if (str(1:2) == 'u<') pos = index(str, '>', back = .true.)
 
     ! Convert to fill
-    if (pos /= 0) then
-      fill = charToInt(str(3:pos-1), error=err)
-      if (err) call fatalError(where, 'Failed to convert '//trim(str)//' to universe ID')
-      if (fill <= 0) call fatalError(where, 'Universe ID must be +ve is: '//numToChar(fill))
+    if (pos > 0) then
+      fill = charToInt(str(3:pos - 1), error = err)
+      if (err) call fatalError(where, 'Failed to convert '//trim(str)//' to universe ID.')
+      if (fill < 1) call fatalError(where, 'Universe ID must be +ve. Is: '//numToChar(fill)//'.')
       fill = -fill
 
     else ! Convert to mat
       fill = mats % getOrDefault(name, NOT_FOUND)
-      if (fill == NOT_FOUND) call fatalError(where, 'Unknown material: '//trim(name))
+      if (fill == NOT_FOUND) call fatalError(where, 'Unknown material: '//trim(name)//'.')
+
     end if
 
   end function charToFill

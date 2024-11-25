@@ -45,19 +45,19 @@ contains
     real(defReal), parameter :: TOL = 1.0E-6_defReal
 
     ! Test ID
-    @assertEqual(7, surf % id())
+    @assertEqual(7, surf % getId())
 
     ! Change ID
     call surf % setID(1)
-    @assertEqual(1, surf % id())
+    @assertEqual(1, surf % getId())
 
     ! Bounding box
     ref = [-INF, -INF, -INF, INF, INF, INF]
-    aabb = surf % boundingBox()
+    aabb = surf % getBoundingBox()
     @assertEqual(ref, aabb, TOL)
 
     ! Name
-    @assertEqual('plane', surf % myType())
+    @assertEqual('plane', surf % getType())
 
   end subroutine testMisc
 
@@ -70,7 +70,7 @@ contains
 
     ! Set Boundary conditions
     ! Should ignore extra entries
-    call surf % setBC([VACUUM_BC, REFLECTIVE_BC, REFLECTIVE_BC])
+    call surf % setBCs([VACUUM_BC, REFLECTIVE_BC, REFLECTIVE_BC])
 
     ! Apply BCs
     r = [1.0_defReal, 1.0_defReal, 1.0_defReal]

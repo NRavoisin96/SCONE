@@ -133,11 +133,11 @@ contains
     real(defReal), parameter    :: TOL = 1.0E-6_defReal
 
      ! Test ID
-    @assertEqual(75, this % surf % id())
+    @assertEqual(75, this % surf % getId())
 
     ! Change ID
     call this % surf % setID(1)
-    @assertEqual(1, this % surf % id())
+    @assertEqual(1, this % surf % getId())
 
     ! Name
     select case(this % axis)
@@ -148,13 +148,13 @@ contains
       case(Z_AXIS)
         name = 'zPlane'
     end select
-    @assertEqual(name, this % surf % myType())
+    @assertEqual(name, this % surf % getType())
 
     ! Bounding Box
     ref = [-INF, -INF, -INF, INF, INF, INF]
     ref(this % axis) = 4.3_defReal
     ref( 3 + this % axis) = 4.3_defReal
-    aabb = this % surf % boundingBox()
+    aabb = this % surf % getBoundingBox()
     @assertEqual(ref, aabb, TOL)
 
   end subroutine testMisc
@@ -169,7 +169,7 @@ contains
 
     ! Set Boundary Contidions
     ! Should ignore extra entries
-    call this % surf % setBC([VACUUM_BC, REFLECTIVE_BC, REFLECTIVE_BC])
+    call this % surf % setBCs([VACUUM_BC, REFLECTIVE_BC, REFLECTIVE_BC])
 
     ! Apply BC
     r = [TWO, TWO, TWO]
