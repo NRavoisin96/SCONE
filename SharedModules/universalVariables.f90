@@ -20,7 +20,8 @@ module universalVariables
   ! Define variables which are important for tracking neutrons in the geometry
   real(defReal), parameter, public :: INF    = 2.0_defReal**63, &
                                       SURF_TOL    = 1.0E-12_defReal, & ! Tol. on closeness to surface
-                                      NUDGE       = 1.0e-8_defReal     ! Distance to poke neutrons across boundaries for surface tracking
+                                      NUDGE       = 1.0e-8_defReal, &  ! Distance to poke neutrons across boundaries for surface tracking
+                                      MISS_TOL    = ONE + 10.0_defReal * epsilon(ONE) ! Tol. on corner skims.
 
   ! Flags for different possible events in movement in geometry
   integer(shortINt), parameter, public :: COLL_EV = 1, &

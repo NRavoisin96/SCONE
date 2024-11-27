@@ -3,7 +3,7 @@ module compoundSurface_inter
   use numPrecision
   use universalVariables
   use genericProcedures,  only : fatalError, isEqual, numToChar
-  use universalVariables, only : INF
+  use universalVariables, only : INF, MISS_TOL
   use surface_inter,      only : surface, kill_super => kill
 
   implicit none
@@ -150,7 +150,7 @@ contains
 
     end do
 
-    if (dMax <= dMin * (ONE + 10.0_defReal * epsilon(ONE))) return
+    if (dMax <= dMin * MISS_TOL) return
 
     ! If reached here, ray intersects the halfwidth(s) so update noIntersection = .false.
     noIntersection = .false.
@@ -263,7 +263,7 @@ contains
     integer(shortInt), intent(in)                         :: nRequired
     integer(shortInt), dimension(:), intent(in), optional :: BCs
     integer(shortInt)                                     :: nBCs, i
-    character(*), parameter                               :: here = 'setHalfwidthBCs (compoundSurface_inter.f90)'
+    character(*), parameter                               :: here = 'setCompoundBCs (compoundSurface_inter.f90)'
 
     if (.not. present(BCs)) then
       allocate(self % BCs(nRequired))
