@@ -71,6 +71,7 @@ module mesh_inter
       class(mesh), intent(inout)    :: self
       character(*), intent(in)      :: folderPath
       class(dictionary), intent(in) :: dict
+      
     end subroutine init
     
     !! Function 'getNZones'
@@ -86,6 +87,7 @@ module mesh_inter
       import                  :: mesh, shortInt
       class(mesh), intent(in) :: self
       integer(shortInt)       :: nZones
+
     end function getNZones
     
     !! Subroutine 'findElement'
@@ -107,6 +109,7 @@ module mesh_inter
       class(mesh), intent(in)                 :: self
       real(defReal), dimension(3), intent(in) :: r, u
       integer(shortInt), intent(out)          :: tetrahedronIdx, localId
+
     end subroutine findElement
     
     !! Subroutine 'distance'
@@ -127,8 +130,11 @@ module mesh_inter
       real(defReal), intent(out)    :: dist
       type(coord), intent(inout)    :: coords
       logical(defBool), intent(out) :: isInside
+
     end subroutine distance
+
   end interface
+
 contains
 
   !! Function 'getBoundingBox'
@@ -142,7 +148,9 @@ contains
   pure function getBoundingBox(self) result(boundingBox)
     class(mesh), intent(in)     :: self
     real(defReal), dimension(6) :: boundingBox
+    
     boundingBox = self % boundingBox
+
   end function getBoundingBox
   
   !! Subroutine 'setBoundingBox'
@@ -160,10 +168,13 @@ contains
     class(mesh), intent(inout)              :: self
     real(defReal), dimension(6), intent(in) :: boundingBox
     integer(shortInt)                       :: i
+    
     do i = 1, 3
       self % boundingBox(i) = boundingBox(i) - NUDGE
       self % boundingBox(3 + i) = boundingBox(3 + i) + NUDGE
+
     end do
+
   end subroutine setBoundingBox
   
   !! Subroutine 'setId'
@@ -181,10 +192,11 @@ contains
     class(mesh), intent(inout)    :: self
     integer(shortInt), intent(in) :: meshId
     character(100), parameter     :: Here = 'setId (mesh_inter.f90)'
-    ! Catch invalid IDs.
-    if (meshId < 1) call fatalError(Here, 'Id must be +ve. Is: '//numToChar(meshId))
-    ! Set the mesh Id.
+    
+    ! Catch invalid id and set id.
+    if (meshId < 1) call fatalError(Here, 'Id must be +ve. Is: '//numToChar(meshId)//'.')
     self % meshId = meshId
+
   end subroutine setId
   
   !! Function 'id'
@@ -198,17 +210,22 @@ contains
   elemental function id(self)
     class(mesh), intent(in) :: self
     integer(shortInt)       :: id
+    
     id = self % meshId
+
   end function id
   
-  !! Subroutine 'clear'
+  !! Subroutine 'kill'
   !!
   !! Basic description:
   !!   Returns to an uninitialised state.
   !!
   elemental subroutine kill(self)
     class(mesh), intent(inout) :: self
+   
     self % meshId  = 0
     self % boundingBox = ZERO
+
   end subroutine kill
+
 end module mesh_inter

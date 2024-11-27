@@ -372,12 +372,12 @@ contains
   !!   u [inout]             -> Particle direction.
   !!
   pure subroutine explicitCompoundBCs(self, dimensions, originComponents, r, u)
-    class(compoundSurface), intent(in)                               :: self
-    integer(shortInt), dimension(self % nHalfwidths), intent(in)     :: dimensions
-    real(defReal), dimension(self % nHalfwidths), intent(in)         :: originComponents
-    real(defReal), dimension(3), intent(inout)                       :: r, u
-    integer(shortInt)                                                :: i, dim, bc
-    real(defReal)                                                    :: surfTol, offsetCoord, halfwidth
+    class(compoundSurface), intent(in)                           :: self
+    integer(shortInt), dimension(self % nHalfwidths), intent(in) :: dimensions
+    real(defReal), dimension(self % nHalfwidths), intent(in)     :: originComponents
+    real(defReal), dimension(3), intent(inout)                   :: r, u
+    integer(shortInt)                                            :: i, dim, bc
+    real(defReal)                                                :: surfTol, offsetCoord, halfwidth
 
     ! Retrieve surface tolerance then loop over all surface halfwidths.
     surfTol = self % getSurfTol()
@@ -423,14 +423,14 @@ contains
   !!   u [inout]             -> Particle direction.
   !!
   pure subroutine transformCompoundBCs(self, dimensions, originComponents, r, u)
-    class(compoundSurface), intent(in)                               :: self
-    integer(shortInt), dimension(self % nHalfwidths), intent(in)     :: dimensions
-    real(defReal), dimension(self % nHalfwidths), intent(in)         :: originComponents
-    real(defReal), dimension(3), intent(inout)                       :: r, u
-    real(defReal), dimension(self % nHalfwidths)                     :: halfwidths
-    integer(shortInt), dimension(self % nHalfwidths)                 :: nTransforms
-    integer(shortInt)                                                :: i, dim, j, bc
-    real(defReal)                                                    :: offsetCoord, originComponent, halfwidth
+    class(compoundSurface), intent(in)                           :: self
+    integer(shortInt), dimension(self % nHalfwidths), intent(in) :: dimensions
+    real(defReal), dimension(self % nHalfwidths), intent(in)     :: originComponents
+    real(defReal), dimension(3), intent(inout)                   :: r, u
+    real(defReal), dimension(self % nHalfwidths)                 :: halfwidths
+    integer(shortInt), dimension(self % nHalfwidths)             :: nTransforms
+    integer(shortInt)                                            :: i, dim, j, bc
+    real(defReal)                                                :: offsetCoord, originComponent, halfwidth
 
     ! Calculate number of transforms in each direction. Reduce halfwidths by surface
     ! tolerance to catch particles at the surface.

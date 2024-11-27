@@ -223,6 +223,7 @@ contains
     real(defReal), dimension(3), intent(in) :: r, u
     real(defReal)                           :: d, uAxis, a, c, k, delta
     integer(shortInt), dimension(2)         :: planes
+    logical(defBool)                        :: noIntersection
 
     ! Initialise d = INF, retrieve planes and axial direction component and calculate a, k and c.
     d = INF
@@ -232,25 +233,8 @@ contains
     k = dot_product(r(planes) - self % getOrigin(), u(planes))
     c = self % evaluate(r)
 
-    ! Compute delta (technically, delta / 4).
-    delta = k * k - a * c
-
-    ! If delta < ZERO, the solutions are complex. If a = ZERO, the ray is parallel to the cylinder's
-    ! axis. In any case there is no intersection and we can return early.
-    if (delta < ZERO .or. isEqual(a, ZERO)) return
-
-    ! Check if particle is within surface tolerance of the cylinder.
-    if (abs(c) < self % getSurfTol()) then
-      ! Update d only if k < ZERO (k >= ZERO corresponds to the particle moving away from the cylinder). 
-      ! Choose maximum distance and return.
-      if (k < ZERO) d = (-k + sqrt(delta)) / a
-      return
-
-    end if
-
-    ! If reached here, update d depending on the sign of c and cap distance at infinity.
-    d = -(k + sign(sqrt(delta), c)) / a
-    if (d <= ZERO .or. d > INF) d = INF
+    ! Call quadSurface procedure.
+    call self % distanceQuad(a, k, c, abs(c) < self % getSurfTol(), d, noIntersection, isEqual(a, ZERO))
 
   end function distance
 

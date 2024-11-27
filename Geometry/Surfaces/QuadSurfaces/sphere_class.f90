@@ -158,30 +158,15 @@ contains
     class(sphere), intent(in)               :: self
     real(defReal), dimension(3), intent(in) :: r, u
     real(defReal)                           :: d, c, k, delta
+    logical(defBool)                        :: noIntersection
 
     ! Initialise d = INF and calculate k and c.
     d = INF
     k = dot_product(r - self % getOrigin(), u)
     c = self % evaluate(r)
     
-    ! Compute delta (technically, delta / 4).
-    delta = k * k - c
-
-    ! If delta < ZERO, the solutions are complex. There is no intersection and we can return early.
-    if (delta < ZERO) return
-
-    ! Check if particle is within surface tolerance of the sphere.
-    if (abs(c) < self % getSurfTol()) then
-      ! Update d only if k < ZERO (k >= ZERO corresponds to the particle moving away from the sphere). 
-      ! Choose maximum distance and return.
-      if (k < ZERO) d = -k + sqrt(delta)
-      return
-
-    end if
-
-    ! If reached here, update d depending on the sign of c set d = INF if distance is negative.
-    d = -(k + sign(sqrt(delta), c))
-    if (d <= ZERO) d = INF
+    ! Call quadSurface procedure.
+    call self % distanceQuad(ONE, k, c, abs(c) < self % getSurfTol(), d, noIntersection)
 
   end function distance
 
