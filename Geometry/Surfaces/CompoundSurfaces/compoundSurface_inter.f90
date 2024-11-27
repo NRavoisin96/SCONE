@@ -1,6 +1,7 @@
 module compoundSurface_inter
 
   use numPrecision
+  use universalVariables
   use genericProcedures,  only : fatalError, isEqual, numToChar
   use universalVariables, only : INF
   use surface_inter,      only : surface, kill_super => kill
@@ -32,40 +33,42 @@ module compoundSurface_inter
   type, public, abstract, extends(surface)       :: compoundSurface
     private
     real(defReal), dimension(:), allocatable     :: halfwidths
+    integer(shortInt)                            :: nHalfwidths = 0
+    integer(shortInt), dimension(:), allocatable :: BCs
   contains
     procedure, non_overridable                   :: chooseDistance
-    procedure, non_overridable                   :: closestDist
+    procedure, non_overridable                   :: distancesCompound
     procedure, non_overridable                   :: isHalfspacePositive
-    procedure, non_overridable                   :: evaluateHalfwidths
-    procedure                                    :: killHalfwidths
-    procedure                                    :: getHalfwidths
-    procedure                                    :: setHalfwidths
+    procedure, non_overridable                   :: evaluateCompound
+    procedure, non_overridable                   :: setCompoundBCs
+    procedure, non_overridable                   :: killCompound
+    procedure, non_overridable                   :: getHalfwidths
+    procedure, non_overridable                   :: setHalfwidths
+    procedure, non_overridable                   :: explicitCompoundBCs
+    procedure, non_overridable                   :: transformCompoundBCs
   end type compoundSurface
 
 contains
 
-  pure subroutine chooseDistance(self, dMin, dMax, surfTolCondition, cannotIntersect, d)
+  elemental subroutine chooseDistance(self, dMin, dMax, surfTolCondition, noIntersection, d)
     class(compoundSurface), intent(in)      :: self
     real(defReal), intent(in)               :: dMin, dMax
-    logical(defBool), intent(in)            :: surfTolCondition, cannotIntersect
+    logical(defBool), intent(in)            :: surfTolCondition, noIntersection
     real(defReal), intent(inout)            :: d
 
     ! If there is no intersection we can return.
-    if (cannotIntersect) return
+    if (noIntersection) return
     
-    ! Update d = dMin and retrieve surface tolerance.
+    ! Update d = dMin. Check if particle is on surface or already inside the surface and update d = dMax if yes.
     d = dMin
-    
-    ! Check if particle is on surface or already inside the box and update d = tMax if yes.
     if ((surfTolCondition .and. abs(dMax) >= abs(dMin)) .or. dMin <= ZERO) d = dMax
     
-    ! Cap distance to INF if particle is within surfTol to another surface (eg, particle
-    ! previously entered the box very close to a vertex) or if d > INF.
+    ! Cap distance to INF if particle is within surfTol to another surface or if d > INF.
     if (d < self % getSurfTol() .or. d > INF) d = INF
 
   end subroutine chooseDistance
 
-  !! Function 'closestDist'
+  !! Function 'distancesCompound'
   !!
   !! Basic description:
   !!   Computes the distance to the nearest intersection between a ray of origin r and direction
@@ -115,34 +118,32 @@ contains
   !!   In this case, the ray is parallel to one or more pair(s) of orthogonal planes (eg, the ray only
   !!   moves in the y-direction).
   !!
-  pure subroutine closestDist(self, offsetCoords, uComponents, dMin, dMax, cannotIntersect)
+  pure subroutine distancesCompound(self, offsetCoords, uComponents, dMin, dMax, noIntersection)
     class(compoundSurface), intent(in)                            :: self
     real(defReal), dimension(size(self % halfwidths)), intent(in) :: offsetCoords, uComponents
     real(defReal), intent(inout)                                  :: dMin, dMax
-    logical(defBool), intent(out)                                 :: cannotIntersect
+    logical(defBool), intent(out)                                 :: noIntersection
     integer(shortInt)                                             :: i
     real(defReal)                                                 :: halfwidth, offsetCoord, uComponent, &
                                                                      inverseU
 
-    ! Initialise cannotIntersect = .true.
-    cannotIntersect = .true.
-
-    do i = 1, size(self % halfwidths)
+    ! Initialise noIntersection = .true. then loop over all halfwidths.
+    noIntersection = .true.
+    do i = 1, self % nHalfwidths
       halfwidth = self % halfwidths(i)
       offsetCoord = offsetCoords(i)
       uComponent = uComponents(i)
 
-      ! Perform early check to see if the particle is outside the box and moving 
-      ! away from it along the current dimension. If yes the particle cannot
-      ! intersect the box and we can return early.
+      ! Perform early check to see if the particle is outside the slab and moving away from it along
+      ! the current dimension. If yes the particle cannot intersect the slab and we can return early.
       if ((offsetCoord <= -halfwidth .and. uComponent <= ZERO) .or. &
       (offsetCoord >= halfwidth .and. uComponent >= ZERO)) return
 
-      ! Cycle to next dimension if the current direction component is ZERO, since
-      ! in this case there can be no intersection along the current dimension.
+      ! Cycle to next dimension if the current direction component is ZERO, since in this case there
+      ! can be no intersection along the current dimension.
       if (isEqual(uComponent, ZERO)) cycle
 
-      ! Pre-compute inverse direction and update dMin and dMax.
+      ! Pre-compute inverse direction component and update dMin and dMax.
       inverseU = 1 / uComponent
       dMin = max(dMin, (-sign(halfwidth, uComponent) - offsetCoord) * inverseU)
       dMax = min(dMax, (sign(halfwidth, uComponent) - offsetCoord) * inverseU)
@@ -151,10 +152,10 @@ contains
 
     if (dMax <= dMin * (ONE + 10.0_defReal * epsilon(ONE))) return
 
-    ! If reached here, ray intersects the halfwidth(s) so update cannotIntersect = .false.
-    cannotIntersect = .false.
+    ! If reached here, ray intersects the halfwidth(s) so update noIntersection = .false.
+    noIntersection = .false.
 
-  end subroutine closestDist
+  end subroutine distancesCompound
 
   !! Function 'isHalfspacePositive'
   !!
@@ -220,7 +221,7 @@ contains
 
   end function isHalfspacePositive
 
-  !! Function 'evaluateHalfwidths'
+  !! Function 'evaluateCompound'
   !!
   !! Basic description:
   !!   Evaluates the expression F(r) = c for all dimensions containing halfwidths.
@@ -231,26 +232,84 @@ contains
   !! Result:
   !!   c            -> Evaluated expression F(r).
   !!
-  pure function evaluateHalfwidths(self, offsetCoords) result(c)
+  pure function evaluateCompound(self, offsetCoords) result(c)
     class(compoundSurface), intent(in)                            :: self
     real(defReal), dimension(size(self % halfwidths)), intent(in) :: offsetCoords
     real(defReal)                                                 :: c
 
     c = maxval(abs(offsetCoords) - self % halfwidths)
 
-  end function evaluateHalfwidths
+  end function evaluateCompound
 
-  !! Subroutine 'killHalfwidths'
+  !! Subroutine 'setCompoundBCs'
   !!
   !! Basic description:
-  !!   Returns halfwidths to an unitialised state.
+  !!   Sets boundary conditions of the compound surface according to BCs. If BCs is absent, initialises
+  !!   the boundary conditions to VACUUM_BC.
   !!
-  elemental subroutine killHalfwidths(self)
+  !! Arguments:
+  !!   nRequired [in]      -> Number of required boundary conditions for the compound surface.
+  !!   BCs [in] [optional] -> Integer array containing the boundary condition flags. If absent boundary
+  !!                          conditions are set to VACUUM_BC by default.
+  !!
+  !! Errors:
+  !!   - fatalError if number of required boundary conditions does not match number of supplied boundary
+  !!     conditions.
+  !!   - fatalError if any boundary condition flags are unrecognised.
+  !!   - fatalError if periodic boundary conditions are not applied on opposite surfaces.
+  !!
+  subroutine setCompoundBCs(self, nRequired, BCs)
+    class(compoundSurface), intent(inout)                 :: self
+    integer(shortInt), intent(in)                         :: nRequired
+    integer(shortInt), dimension(:), intent(in), optional :: BCs
+    integer(shortInt)                                     :: nBCs, i
+    character(*), parameter                               :: here = 'setHalfwidthBCs (compoundSurface_inter.f90)'
+
+    if (.not. present(BCs)) then
+      allocate(self % BCs(nRequired))
+      self % BCs = VACUUM_BC
+      return
+
+    end if
+
+    nBCs = size(BCs)
+    if(nBCs < nRequired) call fatalError(Here, &
+    'Boundary conditions must have size '//numToChar(nRequired)//'. Has: '//numToChar(nBCs)//'.')
+
+    ! Verify BC flags.
+    do i = 1, nBCs
+      select case(BCs(i))
+        case (VACUUM_BC, REFLECTIVE_BC, PERIODIC_BC)
+          ! Do nothing, pass
+        case default
+          call fatalError(here, 'Unrecognised BC: '//numToChar(BCs(i))//' in position: '//numToChar(i)//'.')
+
+      end select
+
+    end do
+
+    ! Verify periodic BCs.
+    if (.not. all((BCs([(i, i = 1, nBCs, 2)]) == PERIODIC_BC) .eqv. (BCs([(i, i = 2, nBCs, 2)]) == PERIODIC_BC))) &
+    call fatalError(here, 'Periodic BCs need to be applied on opposite surfaces.')
+
+    ! Load BC flags.
+    self % BCs = BCs(1:nBCs)
+
+  end subroutine setCompoundBCs
+
+  !! Subroutine 'killCompound'
+  !!
+  !! Basic description:
+  !!   Returns compound surface to an unitialised state.
+  !!
+  elemental subroutine killCompound(self)
     class(compoundSurface), intent(inout) :: self
 
+    self % nHalfwidths = 0
     if (allocated(self % halfwidths)) deallocate(self % halfwidths)
+    if (allocated(self % BCs)) deallocate(self % BCs)
 
-  end subroutine killHalfwidths
+  end subroutine killCompound
 
   !! Function 'getHalfwidths'
   !!
@@ -295,7 +354,123 @@ contains
     if (any(halfwidths <= ZERO)) call fatalError(here, 'Halfwidths cannot contain negative entries.')
 
     self % halfwidths = halfwidths
+    self % nHalfwidths = nHalfwidths
 
   end subroutine setHalfwidths
+
+  !! Subroutine 'explicitCompoundBCs'
+  !!
+  !! Basic description:
+  !!   Explicitly applies boundary conditions on particle position and direction for each
+  !!   halfwidth of the compound surface along specified dimensions.
+  !!
+  !! Arguments:
+  !!   dimensions [in]       -> Dimensions along which to apply boundary conditions.
+  !!   originComponents [in] -> Components of the compound surface's origin along the
+  !!                            specified dimensions.
+  !!   r [inout]             -> Particle position.
+  !!   u [inout]             -> Particle direction.
+  !!
+  pure subroutine explicitCompoundBCs(self, dimensions, originComponents, r, u)
+    class(compoundSurface), intent(in)                               :: self
+    integer(shortInt), dimension(self % nHalfwidths), intent(in)     :: dimensions
+    real(defReal), dimension(self % nHalfwidths), intent(in)         :: originComponents
+    real(defReal), dimension(3), intent(inout)                       :: r, u
+    integer(shortInt)                                                :: i, dim, bc
+    real(defReal)                                                    :: surfTol, offsetCoord, halfwidth
+
+    ! Retrieve surface tolerance then loop over all surface halfwidths.
+    surfTol = self % getSurfTol()
+    do i = 1, self % nHalfwidths
+      ! Retrieve halfwidth and offset coordinate with respect to box centre
+      ! for the current dimension.
+      dim = dimensions(i)
+      halfwidth = self % halfwidths(i)
+      offsetCoord = r(dim) - originComponents(i)
+
+      ! Skip if particle is well inside the domain.
+      if (abs(offsetCoord) <= halfwidth - surfTol) cycle
+
+      ! Retrieve appropriate BC based on whether offsetCoord < ZERO and apply it.
+      if (offsetCoord < ZERO) then
+        bc = self % BCs(2 * i - 1)
+
+      else
+        bc = self % BCs(2 * i)
+
+      end if
+      if (bc == REFLECTIVE_BC) then
+        u(dim) = -u(dim)
+        cycle
+
+      end if
+      if (bc == PERIODIC_BC) r(dim) = r(dim) - TWO * sign(halfwidth, offsetCoord)
+
+    end do
+
+  end subroutine explicitCompoundBCs
+
+  !! Subroutine 'transformCompoundBCs'
+  !!
+  !! Basic description:
+  !!   Transforms particle position and direction using boundary conditions.
+  !!
+  !! Arguments:
+  !!   dimensions [in]       -> Dimensions along which to apply boundary conditions.
+  !!   originComponents [in] -> Components of the compound surface's origin along the
+  !!                            specified dimensions.
+  !!   r [inout]             -> Particle position.
+  !!   u [inout]             -> Particle direction.
+  !!
+  pure subroutine transformCompoundBCs(self, dimensions, originComponents, r, u)
+    class(compoundSurface), intent(in)                               :: self
+    integer(shortInt), dimension(self % nHalfwidths), intent(in)     :: dimensions
+    real(defReal), dimension(self % nHalfwidths), intent(in)         :: originComponents
+    real(defReal), dimension(3), intent(inout)                       :: r, u
+    real(defReal), dimension(self % nHalfwidths)                     :: halfwidths
+    integer(shortInt), dimension(self % nHalfwidths)                 :: nTransforms
+    integer(shortInt)                                                :: i, dim, j, bc
+    real(defReal)                                                    :: offsetCoord, originComponent, halfwidth
+
+    ! Calculate number of transforms in each direction. Reduce halfwidths by surface
+    ! tolerance to catch particles at the surface.
+    halfwidths = self % halfwidths
+    nTransforms = ceiling(abs(r(dimensions) - originComponents) / (halfwidths - self % getSurfTol())) / 2
+
+    ! Loop over all dimensions.
+    do i = 1, self % nHalfwidths
+      ! Retrieve origin and halfwidth and apply number of transforms for the current dimension.
+      dim = dimensions(i)
+      originComponent = originComponents(i)
+      halfwidth = halfwidths(i)
+      
+      do j = 1, nTransforms(i)
+        ! Offset coordinates with respect to box centre.
+        offsetCoord = r(dim) - originComponent
+
+        ! Retrieve appropriate BC based on whether offsetCoord < ZERO and apply it.
+        if (offsetCoord < ZERO) then
+          bc = self % BCs(2 * i - 1)
+
+        else
+          bc = self % BCs(2 * i)
+
+        end if
+        if (bc == REFLECTIVE_BC) then
+          ! Perform reflection based on distance to the closest plane to offsetCoord.
+          r(dim) = -r(dim) + TWO * (sign(halfwidth, offsetCoord) + originComponent)
+          u(dim) = -u(dim)
+          cycle
+
+        end if
+
+        ! If periodic BC perform translation.
+        if (bc == PERIODIC_BC) r(dim) = r(dim) - TWO * sign(halfwidth, offsetCoord)
+
+      end do
+
+    end do
+
+  end subroutine transformCompoundBCs
   
 end module compoundSurface_inter

@@ -166,6 +166,9 @@ contains
     ! Tolerance
     @assertEqual(this % surf % getSurfTol(), SURF_TOL*5.50_defReal, TOL)
 
+    ! Halfwidth
+    @assertEqual(this % surf % getHalfwidths(), [4.5_defReal], TOL)
+
   end subroutine testMisc
 
   !!

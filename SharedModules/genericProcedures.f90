@@ -126,14 +126,6 @@ contains
     real(defReal), intent(in)                :: a, b, c, delta
     real(defReal), dimension(:), allocatable :: solutions
     real(defReal)                            :: inverseA
-
-    ! If delta < ZERO, the solutions are complex. In this case there are no solutions.
-    ! Allocate the solutions array to 0-size return.
-    if (delta < ZERO) then
-      allocate(solutions(0))
-      return
-
-    end if
     
     ! Handle special cases first. If a = ZERO, the quadratic equation becomes linear.
     if (isEqual(a, ZERO)) then

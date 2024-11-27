@@ -1,11 +1,11 @@
 module cone_class
 
   use numPrecision
-  use universalVariables, only : SURF_TOL, INF, X_AXIS, Y_AXIS, Z_AXIS
-  use genericProcedures,  only : fatalError, numToChar, isEqual, computeQuadraticSolutions
-  use dictionary_class,   only : dictionary
-  use quadSurface_inter,  only : quadSurface
-  use surface_inter,      only : kill_super => kill
+  use universalVariables,    only : SURF_TOL, HALF, INF, X_AXIS, Y_AXIS, Z_AXIS
+  use genericProcedures,     only : fatalError, numToChar, isEqual, computeQuadraticSolutions
+  use dictionary_class,      only : dictionary
+  use compoundSurface_inter, only : compoundSurface
+  use surface_inter,         only : kill_super => kill
 
   implicit none
   private
@@ -60,20 +60,20 @@ module cone_class
   !! Interface:
   !!   surface interface
   !!
-  type, public, extends(quadSurface) :: cone
+  type, public, extends(compoundSurface) :: cone
     private
-    integer(shortInt)               :: axis = 0
-    integer(shortInt), dimension(2) :: planes = 0
-    real(defReal), dimension(3)     :: vertex = ZERO
-    real(defReal)                   :: tan = ZERO, tanSquared = ZERO, inverseCos = ZERO, hMin = ZERO, hMax = ZERO
+    integer(shortInt)                    :: axis = 0
+    integer(shortInt), dimension(2)      :: planes = 0
+    real(defReal), dimension(3)          :: vertex = ZERO
+    real(defReal)                        :: tan = ZERO, tanSquared = ZERO, inverseCos = ZERO, hMin = ZERO, hMax = ZERO
   contains
     ! Superclass procedures
-    procedure :: init
-    procedure :: kill
-    procedure :: distance
-    procedure :: entersPositiveHalfspace
-    procedure :: evaluate
-    procedure :: isWithinSurfTol
+    procedure                            :: init
+    procedure                            :: kill
+    procedure                            :: distance
+    procedure                            :: entersPositiveHalfspace
+    procedure                            :: evaluate
+    procedure                            :: isWithinSurfTol
   end type cone
 
 contains
@@ -146,6 +146,10 @@ contains
     self % axis = axis
     self % planes = planes
 
+    ! Compute origin along the cone axial dimension and halfwidth.
+    call self % setOrigin([vertex(axis) + HALF * (hMin + hMax)], 1)
+    call self % setHalfwidths([HALF * (hMax - hMin)], 1)
+
     ! Set bounding box. Set along cone axis first.
     boundingBox(axis) = vertex(axis) + hMin
     boundingBox(axis + 3) = vertex(axis) + hMax
@@ -169,7 +173,7 @@ contains
     real(defReal), dimension(3), intent(in) :: r
     real(defReal), dimension(3)             :: offsetCoords
     real(defReal), dimension(2)             :: offsetCoordsPlanes
-    real(defReal)                           :: offsetCoordAxis, radius, c, cMin, cMax
+    real(defReal)                           :: offsetCoordAxis, radius, c
 
     ! Offset coordinates with respect to cone's vertex and retrieve offset coordinates 
     ! components along the cone's axis and planes.
@@ -179,7 +183,7 @@ contains
     
     ! Compute radius along the axis of the cone and evaluate c along the cone's axis.
     radius = self % tan * offsetCoordAxis
-    if (isEqual(radius, ZERO)) then
+    if (radius == ZERO) then
       c = dot_product(offsetCoordsPlanes, offsetCoordsPlanes)
 
     else
@@ -188,9 +192,7 @@ contains
     end if
 
     ! Evaluate c for the two bases of the cone and return the overall maximum.
-    cMin = -offsetCoordAxis + self % hMin
-    cMax = offsetCoordAxis - self % hMax
-    c = max(c, cMin, cMax)
+    c = max(c, self % evaluateCompound([r(self % axis) - self % getOrigin()]))
 
   end function evaluate
 
@@ -211,12 +213,11 @@ contains
     real(defReal), dimension(3)              :: offsetCoords
     real(defReal), dimension(2)              :: offsetCoordsPlanes, uPlanes
     real(defReal)                            :: d, offsetCoordAxis, uAxis, uAxisScaled, radius, &
-                                                a, b, c, delta, hMin, hMax, low, high, inverseUAxis, &
-                                                dMin, dMax, dBase, bound, surfTol
+                                                a, k, c, delta, hMin, dMin, dMax, bound, tangent
     real(defReal), dimension(:), allocatable :: solutions
     integer(shortInt), dimension(2)          :: planes
     integer(shortInt)                        :: axis, nSolutions, i
-    real(defReal), parameter :: FP_MISS_TOL = ONE + 10.0_defReal * epsilon(ONE)
+    logical(defBool)                         :: cannotIntersect
 
     ! Initialise d = INF. Offset coordinates with respect to cone vertex and retrieve offset 
     ! coordinates and direction components along the cone's planes and axis.
@@ -229,59 +230,33 @@ contains
     uPlanes = u(planes)
     uAxis = u(axis)
     hMin = self % hMin
-    hMax = self % hMax
 
-    ! Check if particle is outside the bases of the cone and moves parallel to them, since we can
-    ! return early in this case. Note, here check for perfect equality since if the particle is
-    ! very close to the surface and does not move exactly parallel to it, it may still intersect.
-    if ((offsetCoordAxis < hMin .or. offsetCoordAxis > hMax) .and. uAxis == ZERO) return
-
-    ! Pre-compute uAxisScaled = uAxis / cos(angle) and cone radius, then compute a, b and c.
+    ! Pre-compute uAxisScaled = uAxis / cos(angle) and cone radius, then compute a, k and c.
     uAxisScaled = uAxis * self % inverseCos
-    radius = self % tan * offsetCoordAxis
+    tangent = self % tan
+    radius = tangent * offsetCoordAxis
     a = ONE - uAxisScaled * uAxisScaled
-    b = dot_product(offsetCoordsPlanes , uPlanes) - self % tanSquared * offsetCoordAxis * uAxis
+    k = dot_product(offsetCoordsPlanes , uPlanes) - tangent * radius * uAxis
     c = dot_product(offsetCoordsPlanes, offsetCoordsPlanes) - radius * radius
 
-    ! Compute delta (technically, delta / 4).
-    delta = b * b - a * c
-
-    ! If delta < ZERO, the solutions are complex. There is no intersection with the conic surface
-    ! and there can be no intersection with either base of the cone so we can return early.
+    ! Compute delta (technically, delta / 4). Return early if delta < ZERO.
+    delta = k * k - a * c
     if (delta < ZERO) return
 
-    ! Initialise intersections with the planes of the cone's bases dMin = ZERO and dMax = INF.
+    ! Compute distances to intersection with the cone surface and initialise dMin = ZERO and
+    ! dMax = INF.
+    solutions = computeQuadraticSolutions(a, k, c, delta)
+    nSolutions = size(solutions)
     dMin = ZERO
     dMax = INF
 
-    ! Only update dMin and dMax if uAxis /= ZERO.
-    if (.not. isEqual(uAxis, ZERO)) then
-      ! Pre-compute 1 / uAxis and update dMin and dMax.
-      inverseUAxis = ONE / uAxis
-      low = (hMin - offsetCoordAxis) * inverseUAxis
-      high = (hMax - offsetCoordAxis) * inverseUAxis
-      dMin = min(low, high)
-      dMax = max(low, high)
-
-    end if
-
-    ! If dMin <= ZERO and dMax <= ZERO, the ray is moving away from both planes of the cone's bases
-    ! and we can return early.
-    if (dMin <= ZERO .and. dMax <= ZERO) return
-
-    ! Compute distance to intersection of closest plane of the cone's bases.
-    dBase = dMin
-    if (dMin <= ZERO) dBase = dMax
-
-    ! Compute distances to intersection with the cone surface. If there are no solutions then the ray 
-    ! is parallel to the cone opening and fully contained in its surface. If there is only one solution 
-    ! then the ray is parallel to the cone opening. If this solution is negative and the particle is 
-    ! inside the cone (c < ZERO) then the ray can only intersect with one of the cone bases and we can 
-    ! return early.
-    solutions = computeQuadraticSolutions(a, b, c, delta)
-    nSolutions = size(solutions)
+    ! If there are no solutions then the ray is parallel to the cone opening and fully contained in its 
+    ! surface. If there is only one solution then the ray is parallel to the cone opening. If this solution 
+    ! is negative and the particle is inside the cone (c < ZERO) then the ray can only intersect with one of 
+    ! the cone bases so compute this intersection and return.
     if (nSolutions == 0 .or. (nSolutions == 1 .and. solutions(1) <= ZERO .and. c < ZERO)) then
-      d = dBase
+      call self % distancesCompound([r(axis) - self % getOrigin()], [uAxis], dMin, dMax, cannotIntersect)
+      call self % chooseDistance(dMin, dMax, self % isWithinSurfTol(r), cannotIntersect, d)
       return
 
     end if
@@ -294,24 +269,12 @@ contains
 
     end do
 
-    ! Update dMin and dMax.
+    ! Update dMin and dMax, compute distances to intersection with the cone's halfwidth and choose correct
+    ! distance.
     dMin = max(minval(solutions), dMin)
     dMax = min(maxval(solutions), dMax)
-
-    ! If dMin > dMax, there is no intersection and we can return.
-    if (dMin > dMax) return
-
-    ! If reached here, update d = dMin.
-    d = dMin
-
-    ! Check if particle is on surface or already inside the cone and update d = tMax if yes.
-    surfTol = self % getSurfTol()
-    if ((self % evaluate(r) < surfTol .and. abs(dMax) >= abs(dMin)) .or. dMin <= ZERO) d = dMax
-
-    ! Cap distance to INF if particle is within surfTol to another surface (eg, particle
-    ! previously entered the cone very close to the intersection between a base and the surface) 
-    ! or if d > INF.
-    if (d < surfTol .or. d > INF) d = INF
+    call self % distancesCompound([r(axis) - self % getOrigin()], [uAxis], dMin, dMax, cannotIntersect)
+    call self % chooseDistance(dMin, dMax, self % isWithinSurfTol(r), cannotIntersect, d)
 
   end function distance
 
@@ -320,52 +283,27 @@ contains
   !!
   !! See surface_inter for details
   !!
-  pure function entersPositiveHalfspace(self, r, u) result(isHalfspacePositive)
+  pure function entersPositiveHalfspace(self, r, u) result(positiveHalfspace)
     class(cone), intent(in)                 :: self
     real(defReal), dimension(3), intent(in) :: r, u
-    logical(defBool)                        :: isHalfspacePositive
+    logical(defBool)                        :: positiveHalfspace
     real(defReal), dimension(3)             :: offsetCoords, normal
     integer(shortInt), dimension(2)         :: planes
     integer(shortInt)                       :: axis
     real(defReal), dimension(2)             :: offsetCoordsPlanes, uPlanes
-    real(defReal)                           :: offsetCoordAxis, uAxis, surfTol, radius, &
-                                               cMin, cMax, cCone, proj
+    real(defReal)                           :: offsetCoordAxis, uAxis, radius, c, proj
 
     ! Retrieve offset coordinates with respect to cone vertex and surface tolerance.
     offsetCoords = r - self % vertex
     axis = self % axis
     offsetCoordAxis = offsetCoords(axis)
     uAxis = u(axis)
-    surfTol = self % getSurfTol()
     
-    ! Check cone bases first and return as soon as halfspace is positive.
-    cMin = self % hMin - offsetCoordAxis
-    if (abs(cMin) < surfTol) then
-      if (isEqual(uAxis, ZERO)) then
-        isHalfspacePositive = cMin >= ZERO
+    ! Check cone halfwidth first and return if halfspace is positive.
+    positiveHalfspace = self % isHalfspacePositive([r(axis) - self % getOrigin()], [uAxis])
+    if (positiveHalfspace) return
 
-      else
-        isHalfspacePositive = uAxis < ZERO
-
-      end if
-
-    end if
-    if (isHalfspacePositive) return
-
-    cMax = offsetCoordAxis - self % hMax
-    if (abs(cMax) < surfTol) then
-      if (isEqual(uAxis, ZERO)) then
-        isHalfspacePositive = cMax >= ZERO
-
-      else
-        isHalfspacePositive = uAxis > ZERO
-
-      end if
-
-    end if
-    if (isHalfspacePositive) return
-
-    ! If reached here check cone surface.
+    ! Check cone surface.
     planes = self % planes
     offsetCoordsPlanes = offsetCoords(planes)
     uPlanes = u(planes)
@@ -373,28 +311,28 @@ contains
 
     ! First check if particle location along the cone's axis is exactly (to the bit) on the cone vertex.
     if (radius == ZERO) then
-      ! Compute cCone. If particle is exactly on the cone vertex the cone normal is undefined. Use particle
+      ! Compute c = F(r). If particle is exactly on the cone vertex the cone normal is undefined. Use particle
       ! direction to determine halfspace in this case and return.
-      cCone = dot_product(offsetCoordsPlanes, offsetCoordsPlanes)
-      if (cCone == ZERO) isHalfspacePositive = dot_product(uPlanes, uPlanes) - self % tanSquared * uAxis * uAxis >= ZERO
+      c = dot_product(offsetCoordsPlanes, offsetCoordsPlanes)
+      if (c == ZERO) positiveHalfspace = dot_product(uPlanes, uPlanes) - self % tanSquared * uAxis * uAxis >= ZERO
       return
 
     end if
 
     ! If particle is not exactly on the cone vertex compute cone normal and project direction onto it. Use
     ! particle location to determine halfspace if projection is ZERO.
-    cCone = HALF * (dot_product(offsetCoordsPlanes, offsetCoordsPlanes) / radius - radius)
-    if (abs(cCone) < surfTol) then
+    c = HALF * (dot_product(offsetCoordsPlanes, offsetCoordsPlanes) / radius - radius)
+    if (abs(c) < self % getSurfTol()) then
       normal(axis) = -self % tanSquared * offsetCoordAxis
       normal(planes) = offsetCoordsPlanes
       normal = normal / norm2(normal)
       proj = dot_product(normal, u)
 
       if (isEqual(proj, ZERO)) then
-        isHalfspacePositive = cCone >= ZERO
+        positiveHalfspace = c >= ZERO
         
       else
-        isHalfspacePositive = proj > ZERO
+        positiveHalfspace = proj > ZERO
 
       end if
 
@@ -410,6 +348,9 @@ contains
 
     ! Superclass
     call kill_super(self)
+
+    ! Compound surface.
+    call self % killCompound()
 
     ! Local
     self % axis = 0
@@ -441,9 +382,8 @@ contains
     real(defReal), dimension(3)             :: offsetCoords
     integer(shortInt), dimension(2)         :: planes
     integer(shortInt)                       :: axis
-    real(defReal)                           :: offsetCoordAxis, radius, c, cMin, cMax
+    real(defReal)                           :: offsetCoordAxis, radius, c, cHalfwidth
     real(defReal), dimension(2)             :: offsetCoordsPlanes
-
 
     offsetCoords = r - self % vertex
     planes = self % planes
@@ -454,15 +394,14 @@ contains
     ! If particle's offset coordinate component along the cone's axis is exactly (to the bit)
     ! ZERO, then particle is within surface tolerance if it is exactly on the cone's vertex.
     radius = self % tan * offsetCoordAxis
-    cMin = -offsetCoordAxis + self % hMin
-    cMax = offsetCoordAxis - self % hMax
+    cHalfwidth = self % evaluateCompound([r(axis) - self % getOrigin()])
     if (radius == ZERO) then
-      isIt = dot_product(offsetCoordsPlanes, offsetCoordsPlanes) == ZERO .and. max(cMin, cMax) < self % getSurfTol()
+      isIt = dot_product(offsetCoordsPlanes, offsetCoordsPlanes) == ZERO .and. cHalfwidth < self % getSurfTol()
       return
 
     end if
     c = HALF * (dot_product(offsetCoordsPlanes, offsetCoordsPlanes) / radius - radius)
-    isIt = max(c, cMin, cMax) < self % getSurfTol()
+    isIt = max(c, cHalfwidth) < self % getSurfTol()
 
   end function isWithinSurfTol
 

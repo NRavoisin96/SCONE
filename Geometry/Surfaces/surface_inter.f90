@@ -19,7 +19,7 @@ module surface_inter
   !! All surfaces may be represented by some equation F(r) = 0
   !!
   !! By default all surfaces support only VACUUM boundary conditions given
-  !! by first entry in BC string. OverrIde relevant procedures in subclasses to change
+  !! by first entry in BC string. Override relevant procedures in subclasses to change
   !! this behaviour!
   !!
   !! Magnitude of surface tolerance is a property of the surface. By default it is
@@ -59,11 +59,11 @@ module surface_inter
     character(:), allocatable                    :: type
   contains
     ! Initialisation procedures
-    procedure                                    :: getBoundingBox
-    procedure                                    :: getId
-    procedure                                    :: getOrigin
+    procedure, non_overridable                   :: getBoundingBox
+    procedure, non_overridable                   :: getId
+    procedure, non_overridable                   :: getOrigin
     procedure, non_overridable                   :: getSurfTol
-    procedure                                    :: getType
+    procedure, non_overridable                   :: getType
     procedure(init), deferred                    :: init
     procedure                                    :: kill
     procedure                                    :: setBCs
@@ -301,15 +301,15 @@ contains
 
   end function halfspace
 
-      !!
-    !! Apply explicit BCs
-    !!
-    !! Vacuum by default. Override in a subclass to change it!
-    !!
-    !! Args:
-    !!  r [inout] -> Position pre and post BC. Assume that (F(r) ~= 0)
-    !!  u [inout] -> Direction pre and post BC. Assume that norm2(u) = 1.0
-    !!
+  !!
+  !! Apply explicit BCs
+  !!
+  !! Vacuum by default. Override in a subclass to change it!
+  !!
+  !! Args:
+  !!  r [inout] -> Position pre and post BC. Assume that (F(r) ~= 0)
+  !!  u [inout] -> Direction pre and post BC. Assume that norm2(u) = 1.0
+  !!
   subroutine explicitBC(self, r, u)
     class(surface), intent(in)                 :: self
     real(defReal), dimension(3), intent(inout) :: r, u
@@ -389,6 +389,7 @@ contains
 
     if (id < 1) call fatalError(here, 'Surface Id must be +ve. Is: '//numToChar(id)//'.')
     self % surfId = id
+  
   end subroutine setId
 
   !! Sets origin or offset of the surface.
@@ -399,6 +400,7 @@ contains
   !!
   !! Errors:
   !!   fatalError if number of origin components does not equal the number of required components.
+  !!
   subroutine setOrigin(self, origin, nRequired)
     class(surface), intent(inout)           :: self
     real(defReal), dimension(:), intent(in) :: origin
@@ -422,7 +424,7 @@ contains
   !!   surfTol [in] -> Tolerance of the surface.
   !!
   !! Errors:
-  !!   fatalError is tolerance < ZERO.
+  !!   fatalError if tolerance < ZERO.
   !!
   subroutine setSurfTol(self, surfTol)
     class(surface), intent(inout) :: self
@@ -431,8 +433,17 @@ contains
 
     if (surfTol <= ZERO) call fatalError(here, 'Surface tolerance must be +ve. Is: '//numToChar(surfTol)//'.')
     self % surfTol = surfTol
+
   end subroutine setSurfTol
 
+  !! Sets surface type.
+  !!
+  !! Args:
+  !!   type [in] -> Type of the surface.
+  !!
+  !! Errors:
+  !!   fatalError if type is empty.
+  !!
   subroutine setType(self, type)
     class(surface), intent(inout) :: self
     character(*), intent(in)      :: type
@@ -440,6 +451,7 @@ contains
 
     if (len(type) == 0) call fatalError(here, 'Surface type must contain at least one character.')
     self % type = type
+
   end subroutine setType
 
 end module surface_inter

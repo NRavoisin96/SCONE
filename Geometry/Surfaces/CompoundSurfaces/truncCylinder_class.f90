@@ -49,8 +49,8 @@ module truncCylinder_class
   type, public, extends(compoundSurface) :: truncCylinder
     private
     real(defReal)                   :: radius = ZERO
-    integer(shortInt)               :: axis = 0
-    integer(shortInt), dimension(2) :: planes = 0, BCs = VACUUM_BC
+    integer(shortInt)               :: axis = 0, nBCs = 2
+    integer(shortInt), dimension(2) :: planes = 0
 
   contains
     ! Superclass procedures
@@ -130,6 +130,9 @@ contains
     call self % setBoundingBox(boundingBox)
     call self % setType(type)
 
+    ! Initialise BCs.
+    call self % setCompoundBCs(self % nBCs)
+
   end subroutine init
 
   !!
@@ -158,7 +161,7 @@ contains
 
     ! Evaluate surface expressions and return overall maximum.
     c = HALF * (dot_product(offsetCoordsPlanes, offsetCoordsPlanes) / radius - radius)
-    c = max(c, self % evaluateHalfwidths([offsetCoordAxis]))
+    c = max(c, self % evaluateCompound([offsetCoordAxis]))
 
   end function evaluate
 
@@ -199,6 +202,7 @@ contains
     
     ! Compute delta (technically, delta / 4).
     delta = k * k - a * c
+    if (delta < ZERO) return
 
     ! Compute distances to intersection with the cylinder surface. If there are no solutions (ray is
     ! parallel to the cylindrical surface) and the ray is outside the cylinder return early.
@@ -215,8 +219,8 @@ contains
 
     end if
 
-    call self % closestDist([offsetCoordAxis], [uAxis], dMin, dMax, cannotIntersect)
-    c = max(HALF * c / radius, self % evaluateHalfwidths([offsetCoordAxis]))
+    call self % distancesCompound([offsetCoordAxis], [uAxis], dMin, dMax, cannotIntersect)
+    c = max(HALF * c / radius, self % evaluateCompound([offsetCoordAxis]))
     call self % chooseDistance(dMin, dMax, abs(c) < self % getSurfTol(), cannotIntersect, d)
 
   end function distance
@@ -280,13 +284,12 @@ contains
     call kill_super(self)
 
     ! Compound surface.
-    call self % killHalfwidths()
+    call self % killCompound()
 
     ! Local.
     self % radius = ZERO
     self % axis = 0
     self % planes = 0
-    self % BCs = VACUUM_BC
 
   end subroutine kill
 
@@ -298,30 +301,8 @@ contains
   subroutine setBCs(self, BCs)
     class(truncCylinder), intent(inout)         :: self
     integer(shortInt), dimension(:), intent(in) :: BCs
-    integer(shortInt)                           :: nBCs, i
-    character(100),parameter                    :: Here = 'setBCs (truncCylinder_inter.f90)'
 
-    ! Compute number of boundary conditions supplied and raise error if appropriate.
-    nBCs = size(BCs)
-    if(nBCs < 2) call fatalError(Here, 'Boundary conditions must have at least size 2. Has: '//numToChar(nBCs)//'.')
-
-    ! Verify BC flags.
-    do i = 1, 2
-      select case(BCs(i))
-        case (VACUUM_BC, REFLECTIVE_BC, PERIODIC_BC)
-          ! Do nothing, pass.
-        case default
-          call fatalError(Here,'Unrecognised BC: '//numToChar(BCs(i))//' in position: '//numToChar(i)//'.')
-
-      end select
-    end do
-
-    ! Verify periodic BCs.
-    if ((BCs(1) == PERIODIC_BC) .neqv. (BCs(2) == PERIODIC_BC)) call fatalError(Here, &
-    'Periodic BCs need to be applied on opposite surfaces.')
-
-    ! Load BC flags.
-    self % BCs = BCs(1:2)
+    call self % setCompoundBCs(self % nBCs, BCs)
 
   end subroutine setBCs
 
@@ -332,51 +313,16 @@ contains
   !!
   !! Approach analogous to box_class applied to axial direction only
   !!
-  subroutine explicitBC(self, r, u)
+  pure subroutine explicitBC(self, r, u)
     class(truncCylinder), intent(in)           :: self
     real(defReal), dimension(3), intent(inout) :: r, u
-    integer(shortInt)                          :: axis, bc
-    real(defReal), dimension(1)                :: halfwidths
-    real(defReal)                              :: halfwidth, offsetCoordAxis
-    real(defReal), dimension(3)                :: offsetCoords
-    character(100), parameter                  :: Here = 'explicitBC (truncCylinder_class.f90)'
+    integer(shortInt)                          :: axis
+    real(defReal), dimension(3)                :: origin
 
-    ! Retrieve cylinder axis and halfwidth.
+    ! Retrieve cylinder axis and origin then call parent procedure.
     axis = self % axis
-    halfwidths = self % getHalfwidths()
-    halfwidth = halfwidths(1)
-
-    ! Offset axial coordinate with respect to cylinder's axial origin.
-    offsetCoords = r - self % getOrigin()
-    offsetCoordAxis = offsetCoords(axis)
-
-    ! If particle is well inside the domain return early.
-    if (abs(offsetCoordAxis) <= halfwidth - self % getSurfTol()) return
-
-    ! Retrieve appropriate BC based on whether offsetCoordinate < ZERO and apply it.
-    if (offsetCoordAxis < ZERO) then
-      bc = self % BCs(1)
-
-    else
-      bc = self % BCs(2)
-
-    end if
-
-    select case(bc)
-      case (VACUUM_BC)
-        ! Do nothing. Pass
-
-      case (REFLECTIVE_BC)
-        u(axis) = -u(axis)
-
-      case (PERIODIC_BC)
-        ! Calculate displacement and perform translation.
-        r(axis) = r(axis) - TWO * sign(halfwidth, offsetCoordAxis)
-
-      case default
-        call fatalError(Here, 'Unrecognised BC: '// numToChar(bc)//'.')
-
-    end select
+    origin = self % getOrigin()
+    call self % explicitCompoundBCs([axis], [origin(axis)], r, u)
 
   end subroutine explicitBC
 
@@ -387,57 +333,16 @@ contains
   !!
   !! Approach analogous to box_class applied to axial direction only
   !!
-  subroutine transformBC(self, r, u)
+  pure subroutine transformBC(self, r, u)
     class(truncCylinder), intent(in)           :: self
     real(defReal), dimension(3), intent(inout) :: r, u
-    integer(shortInt)                          :: axis, nTransforms, i, bc
-    real(defReal), dimension(1)                :: halfwidths
-    real(defReal)                              :: halfwidth, offsetCoordAxis
+    integer(shortInt)                          :: axis
     real(defReal), dimension(3)                :: origin
-    character(100), parameter                  :: Here = 'transformBC (truncCylinder_class.f90)'
 
-    ! Retrieve cylinder's axis and halfwidth.
+    ! Retrieve cylinder axis and origin then call parent procedure.
     axis = self % axis
-    halfwidths = self % getHalfwidths()
-    halfwidth = halfwidths(1)
     origin = self % getOrigin()
-
-    ! Calculate number of transforms in each direction. Reduce halfwidths by surface
-    ! tolerance to catch particles at the surface.
-    nTransforms = ceiling(abs(r(axis) - origin(axis)) / (halfwidth - self % getSurfTol())) / 2
-
-    do i = 1, nTransforms
-      ! Offset axial coordinate with respect to cylinger's origin.
-      offsetCoordAxis = r(axis) - origin(axis)
-
-      ! Choose correct BC and apply it.
-      if (offsetCoordAxis < ZERO) then
-        bc = self % BCs(1)
-
-      else
-        bc = self % BCs(2)
-
-      end if
-
-      select case(bc)
-        case (VACUUM_BC)
-          ! Do nothing. Pass
-
-        case (REFLECTIVE_BC)
-          ! Perform reflection based on distance to the closest plane to offsetCoord.
-          r(axis) = -r(axis) + TWO * (sign(halfwidth, offsetCoordAxis) + origin(axis))
-          u(axis) = -u(axis)
-
-        case (PERIODIC_BC)
-          ! Perform translation.
-          r(axis) = r(axis) - TWO * sign(halfwidth, offsetCoordAxis)
-
-        case default
-          call fatalError(Here, 'Unrecognised BC: '// numToChar(bc)//'.')
-
-      end select
-
-    end do
+    call self % transformCompoundBCs([axis], [origin(axis)], r, u)
 
   end subroutine transformBC
 

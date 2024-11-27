@@ -37,18 +37,17 @@ module box_class
   !!
   type, public, extends(compoundSurface) :: box
     private
-    integer(shortInt), dimension(6) :: BCs = VACUUM_BC
-
+    integer(shortInt)                    :: nBCs = 6
   contains
     ! Superclass procedures
-    procedure :: init
-    procedure :: evaluate
-    procedure :: distance
-    procedure :: entersPositiveHalfspace
-    procedure :: kill
-    procedure :: setBCs
-    procedure :: explicitBC
-    procedure :: transformBC
+    procedure                            :: init
+    procedure                            :: evaluate
+    procedure                            :: distance
+    procedure                            :: entersPositiveHalfspace
+    procedure                            :: kill
+    procedure                            :: setBCs
+    procedure                            :: explicitBC
+    procedure                            :: transformBC
   end type box
 
 contains
@@ -84,6 +83,9 @@ contains
     call self % setBoundingBox(boundingBox)
     call self % setType('box')
 
+    ! Initialise BCs.
+    call self % setCompoundBCs(self % nBCs)
+
   end subroutine init
   !!
   !! Evaluate surface expression c = F(r)
@@ -96,7 +98,7 @@ contains
     real(defReal)                           :: c
 
     ! Compute c from origin-centred coordinates and box halfwidths.
-    c = self % evaluateHalfwidths(r - self % getOrigin())
+    c = self % evaluateCompound(r - self % getOrigin())
 
   end function evaluate
 
@@ -111,7 +113,7 @@ contains
     d = INF
     dMin = ZERO
     dMax = INF
-    call self % closestDist(r - self % getOrigin(), u, dMin, dMax, cannotIntersect)
+    call self % distancesCompound(r - self % getOrigin(), u, dMin, dMax, cannotIntersect)
     call self % chooseDistance(dMin, dMax, self % evaluate(r) < self % getSurfTol(), cannotIntersect, d)
   
   end function distance
@@ -161,10 +163,7 @@ contains
      call kill_super(self)
 
     ! Compound.
-    call self % killHalfwidths()
-
-    ! Local.
-    self % BCs = VACUUM_BC
+    call self % killCompound()
 
   end subroutine kill
 
@@ -176,28 +175,9 @@ contains
   subroutine setBCs(self, BCs)
     class(box), intent(inout)                   :: self
     integer(shortInt), dimension(:), intent(in) :: BCs
-    integer(shortInt)                           :: i
-    character(100), parameter                   :: Here = 'setBCs (box_class.f90)'
 
-    if(size(BCs) < 6) call fatalError(Here, 'Boundary conditions must have size 6. Has: '//numToChar(size(BCs))//'.')
-
-    ! Verify BC flags.
-    do i = 1, 6
-      select case(BCs(i))
-        case (VACUUM_BC, REFLECTIVE_BC, PERIODIC_BC)
-          ! Do nothing, pass
-        case default
-          call fatalError(Here,'Unrecognised BC: '//numToChar(BCs(i))//' in position: '//numToChar(i)//'.')
-
-      end select
-    end do
-
-    ! Verify periodic BCs.
-    if(.not. all((BCs([1,3,5]) == PERIODIC_BC) .eqv. (BCs([2,4,6]) == PERIODIC_BC))) call fatalError(Here, &
-                                                  'Periodic BCs need to be applied on opposite surfaces.')
-
-    ! Load BC flags.
-    self % BCs = BCs(1:6)
+    call self % setCompoundBCs(self % nBCs, BCs)
+    
   end subroutine setBCs
 
   !!
@@ -208,46 +188,11 @@ contains
   !! Note:
   !!   - Go through all directions in order to account for corners
   !!
-  subroutine explicitBC(self, r, u)
+  pure subroutine explicitBC(self, r, u)
     class(box), intent(in)                     :: self
     real(defReal), dimension(3), intent(inout) :: r, u
-    integer(shortInt)                          :: i, bc
-    real(defReal)                              :: surfTol, offsetCoord, halfwidth
-    real(defReal), dimension(3)                :: halfwidths, origin
-    character(100), parameter                  :: Here = 'explicitBC (box_class.f90)'
 
-    ! Retrieve surface tolerance then loop over all dimensions.
-    surfTol = self % getSurfTol()
-    halfwidths = self % getHalfwidths()
-    origin = self % getOrigin()
-    do i = 1, 3
-      ! Retrieve halfwidth and offset coordinate with respect to box centre
-      ! for the current dimension.
-      halfwidth = halfwidths(i)
-      offsetCoord = r(i) - origin(i)
-
-      ! Skip if particle is well inside the domain.
-      if (abs(offsetCoord)  <= halfwidth - surfTol) cycle
-
-      ! Retrieve appropriate BC based on whether offsetCoordinate < ZERO and apply it.
-      bc = self % BCs(2 * i + min(0, sign(1, floor(offsetCoord))))
-      select case(bc)
-        case (VACUUM_BC)
-          ! Do nothing. Pass
-
-        case (REFLECTIVE_BC)
-          u(i) = -u(i)
-
-        case (PERIODIC_BC)
-          ! Calculate displacement and perform translation
-          r(i) = r(i) - TWO * sign(halfwidth, offsetCoord)
-
-        case default
-          call fatalError(Here, 'Unrecognised BC: '//numToChar(bc)//'.')
-  
-      end select
-
-    end do
+    call self % explicitCompoundBCs([1, 2, 3], self % getOrigin(), r, u)
 
   end subroutine explicitBC
 
@@ -260,53 +205,11 @@ contains
   !!   - Order of transformations does not matter
   !!   - Calculate distance (in # of transformations) for each direction and apply them
   !!
-  subroutine transformBC(self, r, u)
+  pure subroutine transformBC(self, r, u)
     class(box), intent(in)                     :: self
     real(defReal), dimension(3), intent(inout) :: r, u
-    real(defReal), dimension(3)                :: halfwidths, origin
-    integer(shortInt), dimension(3)            :: nTransforms
-    integer(shortInt)                          :: i, j, bc
-    real(defReal)                              :: offsetCoord, originComponent, halfwidth
-    character(100), parameter                  :: Here = 'transformBC (box_class.f90)'
 
-    ! Calculate number of transforms in each direction. Reduce halfwidths by surface
-    ! tolerance to catch particles at the surface.
-    halfwidths = self % getHalfwidths()
-    origin = self % getOrigin()
-    nTransforms = ceiling(abs(r - origin) / (halfwidths - self % getSurfTol())) / 2
-
-    ! Loop over all dimensions.
-    do i = 1, 3
-      ! Retrieve origin and halfwidth and apply number of transforms for the current dimension.
-      originComponent = origin(i)
-      halfwidth = halfwidths(i)
-      
-      do j = 1, nTransforms(i)
-        ! Offset coordinates with respect to box centre.
-        offsetCoord = r(i) - originComponent
-
-        ! Retrieve appropriate BC based on whether offsetCoordinate < ZERO and apply it.
-        bc = self % BCs(2 * i + min(0, sign(1, floor(offsetCoord))))
-        select case(bc)
-          case (VACUUM_BC)
-            ! Do nothing. Pass
-
-          case (REFLECTIVE_BC)
-            ! Perform reflection based on distance to the closest plane to offsetCoord.
-            r(i) = -r(i) + TWO * (sign(halfwidth, offsetCoord) + originComponent)
-            u(i) = -u(i)
-
-          case (PERIODIC_BC)
-            ! Perform translation.
-            r(i) = r(i) - TWO * sign(halfwidth, offsetCoord)
-
-          case default
-            call fatalError(Here, 'Unrecognised BC: '// numToChar(bc)//'.')
-        end select
-
-      end do
-
-    end do
+    call self % transformCompoundBCs([1, 2, 3], self % getOrigin(), r, u)
 
   end subroutine transformBC
 
