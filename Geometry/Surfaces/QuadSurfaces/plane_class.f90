@@ -2,7 +2,7 @@ module plane_class
 
   use numPrecision
   use universalVariables, only : X_AXIS, Y_AXIS, Z_AXIS, INF
-  use genericProcedures,  only : fatalError, numToChar, isEqual
+  use genericProcedures,  only : fatalError, numToChar, areEqual
   use dictionary_class,   only : dictionary
   use quadSurface_inter,  only : quadSurface
   use surface_inter,      only : kill_super => kill
@@ -68,7 +68,7 @@ contains
     call dict % get(coeffs, 'coeffs')
     N = size(coeffs)
     if (N /= 4) call fatalError(Here, 'Coefficients must have size 4. Has: '//numToChar(N)//'.')
-    if (isEqual(coeffs(1:3), ZERO)) call fatalError(Here, 'Invalid plane normal. Coefficients 1-3 are all 0.')
+    if (areEqual(coeffs(1:3), ZERO)) call fatalError(Here, 'Invalid plane normal. Coefficients 1-3 are all 0.')
 
     ! Set normal vector and offset.
     coeffs = coeffs / norm2(coeffs(1:3))
@@ -152,7 +152,7 @@ contains
     ! If the particle's direction is parallel to the plane (k = ZERO) or if the particle
     ! is within surface tolerance of the plane, there is no intersection and we can return
     ! early.
-    if (isEqual(k, ZERO) .or. abs(c) < self % getSurfTol()) return
+    if (areEqual(k, ZERO) .or. abs(c) < self % getSurfTol()) return
     
     ! If reached here, update d and cap resulting distance at infinity.
     d = -c / k
@@ -177,7 +177,7 @@ contains
     proj = dot_product(u, self % norm)
 
     ! Special case of parallel direction. Particle stays in its current halfspace.
-    if (isEqual(proj, ZERO)) then
+    if (areEqual(proj, ZERO)) then
       halfspace = self % evaluate(r) >= ZERO
       return
       

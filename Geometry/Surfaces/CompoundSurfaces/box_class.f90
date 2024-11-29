@@ -2,7 +2,7 @@ module box_class
 
   use numPrecision
   use universalVariables
-  use genericProcedures,     only : append, fatalError, numToChar, isEqual
+  use genericProcedures,     only : append, fatalError, numToChar, areEqual
   use dictionary_class,      only : dictionary
   use surface_inter,         only : kill_super => kill
   use compoundSurface_inter, only : compoundSurface
@@ -106,15 +106,12 @@ contains
   pure function distance(self, r, u) result(d)
     class(box), intent(in)                  :: self
     real(defReal), dimension(3), intent(in) :: r, u
-    real(defReal)                           :: d, dMin, dMax
-    logical(defBool)                        :: cannotIntersect
+    real(defReal)                           :: d
+    logical(defBool)                        :: surfTolCondition
     
-    ! Initialise d = INF, dMin = ZERO and dMax = INF.
-    d = INF
-    dMin = ZERO
-    dMax = INF
-    call self % distancesCompound(r - self % getOrigin(), u, dMin, dMax, cannotIntersect)
-    call self % chooseDistance(dMin, dMax, self % evaluate(r) < self % getSurfTol(), cannotIntersect, d)
+    ! Compute surfTolCondition then call compoundSurface procedure.
+    surfTolCondition = abs(self % evaluate(r)) < self % getSurfTol()
+    d = self % distancesCompound(r - self % getOrigin(), u, -INF, INF, surfTolCondition)
   
   end function distance
 

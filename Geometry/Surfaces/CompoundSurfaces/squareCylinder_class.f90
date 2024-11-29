@@ -2,7 +2,7 @@ module squareCylinder_class
 
   use numPrecision
   use universalVariables
-  use genericProcedures,     only : fatalError, numToChar, isEqual
+  use genericProcedures,     only : fatalError, numToChar, areEqual
   use dictionary_class,      only : dictionary
   use surface_inter,         only : kill_super => kill
   use compoundSurface_inter, only : compoundSurface
@@ -173,17 +173,14 @@ contains
   pure function distance(self, r, u) result(d)
     class(squareCylinder), intent(in)       :: self
     real(defReal), dimension(3), intent(in) :: r, u
-    real(defReal)                           :: d, dMin, dMax
+    real(defReal)                           :: d
     integer(shortInt), dimension(2)         :: planes
-    logical(defBool)                        :: cannotIntersect
+    logical(defBool)                        :: surfTolCondition
 
-    ! Initialise d = INF, dMin = ZERO and dMax = INF.
-    d = INF
-    dMin = ZERO
-    dMax = INF
+    ! Compute surfTolCondition then call compoundSurface procedure.
     planes = self % planes
-    call self % distancesCompound(r(planes) - self % getOrigin(), u(planes), dMin, dMax, cannotIntersect)
-    call self % chooseDistance(dMin, dMax, self % evaluate(r) < self % getSurfTol(), cannotIntersect, d)
+    surfTolCondition = abs(self % evaluate(r)) < self % getSurfTol()
+    d = self % distancesCompound(r(planes) - self % getOrigin(), u(planes), -INF, INF, surfTolCondition)
 
   end function distance
 

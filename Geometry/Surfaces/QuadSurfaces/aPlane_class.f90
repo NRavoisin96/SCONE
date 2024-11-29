@@ -2,7 +2,7 @@ module aPlane_class
 
   use numPrecision
   use universalVariables, only : X_AXIS, Y_AXIS, Z_AXIS, INF
-  use genericProcedures,  only : fatalError, isEqual
+  use genericProcedures,  only : fatalError, areEqual
   use dictionary_class,   only : dictionary
   use quadSurface_inter,  only : quadSurface
   use surface_inter,      only : kill_super => kill
@@ -129,7 +129,7 @@ contains
 
     ! If particle is within surface tolerance of the plane or parallel to the plane
     ! axis, there is no intersection and we can return early.
-    if (abs(offsetCoord) < self % getSurfTol() .or. isEqual(uAxis, ZERO)) return
+    if (abs(offsetCoord) < self % getSurfTol() .or. areEqual(uAxis, ZERO)) return
     
     ! Update d and cap distance at infinity.
     d = offsetCoord / uAxis
@@ -158,7 +158,7 @@ contains
 
     ! If particle direction is parallel to the plane, halfspace is determined using
     ! position along this plane's axis.
-    if (isEqual(uAxis, ZERO)) then
+    if (areEqual(uAxis, ZERO)) then
       isHalfspacePositive = r(axis) - self % a0 >= ZERO
       return
 

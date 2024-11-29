@@ -2,7 +2,7 @@ module cylinder_class
 
   use numPrecision
   use universalVariables, only : SURF_TOL, INF, X_AXIS, Y_AXIS, Z_AXIS
-  use genericProcedures,  only : fatalError, numToChar, isEqual
+  use genericProcedures,  only : fatalError, numToChar, areEqual
   use dictionary_class,   only : dictionary
   use quadSurface_inter,  only : quadSurface
   use surface_inter,      only : kill_super => kill
@@ -223,10 +223,8 @@ contains
     real(defReal), dimension(3), intent(in) :: r, u
     real(defReal)                           :: d, uAxis, a, c, k, delta
     integer(shortInt), dimension(2)         :: planes
-    logical(defBool)                        :: noIntersection
 
-    ! Initialise d = INF, retrieve planes and axial direction component and calculate a, k and c.
-    d = INF
+    ! Retrieve planes and axial direction component and calculate a, k and c.
     planes = self % planes
     uAxis = u(self % axis)
     a = ONE - uAxis * uAxis
@@ -234,7 +232,7 @@ contains
     c = self % evaluate(r)
 
     ! Call quadSurface procedure.
-    call self % distanceQuad(a, k, c, abs(c) < self % getSurfTol(), d, noIntersection, isEqual(a, ZERO))
+    d = self % distanceQuad(a, k, c, abs(c) < self % getSurfTol())
 
   end function distance
 

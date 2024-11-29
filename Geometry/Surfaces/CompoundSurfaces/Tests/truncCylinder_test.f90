@@ -369,7 +369,7 @@ contains
     real(defReal)                       :: ref, eps
     real(defReal), parameter :: TOL = 1.0E-7
 
-    ! Get axis and diffrent planar directions
+    ! Get axis and different planar directions
     ax = this % axis
     p1 = this % plane(1)
     p2 = this % plane(2)

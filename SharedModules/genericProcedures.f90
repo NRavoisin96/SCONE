@@ -20,7 +20,7 @@ module genericProcedures
     module procedure countCharacters_shortInt
     module procedure countCharacters_longInt
     module procedure countCharacters_defReal
-  end interface countCharacters
+  end interface
   
   interface swap
     module procedure swap_shortInt
@@ -54,7 +54,7 @@ module genericProcedures
 
   interface removeDuplicatesSorted
     module procedure removeDuplicatesSorted_Real
-  end interface removeDuplicatesSorted
+  end interface
 
   interface linFind
     module procedure linFind_Char
@@ -113,25 +113,25 @@ module genericProcedures
     module procedure concatenateArrays_Real
   end interface
 
-  interface isEqual
-    module procedure isEqual_defReal
-    module procedure isEqual_defRealArray
+  interface areEqual
+    module procedure areEqual_defReal
+    module procedure areEqual_defRealArray
   end interface
 
 contains
   !!
-  !! Computes solutions of quadratic equation a * x² + b * x + c = 0
+  !! Computes solutions of quadratic equation a * x² + 2 * b * x + c = 0
   !!
-  pure function computeQuadraticSolutions(a, b, c, delta) result(solutions)
+  pure function solveQuadratic(a, b, c, delta) result(solutions)
     real(defReal), intent(in)                :: a, b, c, delta
     real(defReal), dimension(:), allocatable :: solutions
     real(defReal)                            :: inverseA
     
     ! Handle special cases first. If a = ZERO, the quadratic equation becomes linear.
-    if (isEqual(a, ZERO)) then
+    if (areEqual(a, ZERO)) then
       ! If b = ZERO, this is a degenerate case and there are no solutions. Allocate the 
       ! solutions array to 0-size return.
-      if (isEqual(b, ZERO)) then
+      if (areEqual(b, ZERO)) then
         allocate(solutions(0))
         return
 
@@ -150,7 +150,7 @@ contains
     solutions(1) = -(b + sqrt(delta)) * inverseA
     solutions(2) = -(b - sqrt(delta)) * inverseA
 
-  end function computeQuadraticSolutions
+  end function solveQuadratic
 
   !! Subroutine 'append_shortInt'
   !!
@@ -1034,7 +1034,7 @@ contains
   !! tolerances to assert equality between two floating point numbers. These tolerances 
   !! are specified in numPrecision.f90.
   !!
-  elemental function isEqual_defReal(a, b) result(equal)
+  elemental function areEqual_defReal(a, b) result(equal)
     real(defReal), intent(in) :: a, b
     logical(defBool)          :: equal
     real(defReal)             :: absDiff
@@ -1060,7 +1060,7 @@ contains
     ! update equal = .false.
     equal = .false.
 
-  end function isEqual_defReal
+  end function areEqual_defReal
 
   !!
   !! Returns .true. if all floating point numbers in an array are equal to a given value. 
@@ -1070,7 +1070,7 @@ contains
   !! tolerances to assert equality between two floating point numbers. These tolerances 
   !! are specified in numPrecision.f90.
   !!
-  pure function isEqual_defRealArray(array, b) result(equal)
+  pure function areEqual_defRealArray(array, b) result(equal)
     real(defReal), dimension(:), intent(in)     :: array
     real(defReal), intent(in)                   :: b
     logical(defBool)                            :: equal
@@ -1104,7 +1104,7 @@ contains
 
     end do
 
-  end function isEqual_defRealArray
+  end function areEqual_defRealArray
 
   !!
   !! Concatenate strings from an array into a single long character (tape). Asjusts left and trims

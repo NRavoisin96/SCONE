@@ -2,10 +2,10 @@ module truncCylinder_class
 
   use numPrecision
   use universalVariables
-  use genericProcedures,     only : fatalError, numToChar, swap, isEqual, computeQuadraticSolutions
-  use dictionary_class,      only : dictionary
-  use surface_inter,         only : kill_super => kill
-  use compoundSurface_inter, only : compoundSurface
+  use genericProcedures,      only : fatalError, numToChar, swap, areEqual, solveQuadratic
+  use dictionary_class,       only : dictionary
+  use surface_inter,          only : kill_super => kill
+  use compoundSurface_inter,  only : compoundSurface
 
   implicit none
   private
@@ -48,9 +48,9 @@ module truncCylinder_class
   !!
   type, public, extends(compoundSurface) :: truncCylinder
     private
-    real(defReal)                   :: radius = ZERO
-    integer(shortInt)               :: axis = 0, nBCs = 2
-    integer(shortInt), dimension(2) :: planes = 0
+    real(defReal)                        :: radius = ZERO
+    integer(shortInt)                    :: axis = 0
+    integer(shortInt), dimension(2)      :: planes = 0
 
   contains
     ! Superclass procedures
@@ -96,10 +96,6 @@ contains
     if (radius <= ZERO) call fatalError(Here, 'Radius must be +ve. Is: '//numToChar(radius)//'.')
     self % radius = radius
 
-    ! Load halfwidth.
-    call dict % get(halfwidth, 'halfwidth')
-    call self % setHalfwidths([halfwidth], 1)
-
     ! Load type. Set axis and planes accordingly.
     call dict % get(type, 'type')
     select case (type)
@@ -122,6 +118,10 @@ contains
     self % axis = axis
     self % planes = planes
 
+    ! Load halfwidth.
+    call dict % get(halfwidth, 'halfwidth')
+    call self % setHalfwidths([halfwidth], 1)
+
     ! Set bounding box.
     boundingBox(axis) = origin(axis) - halfwidth
     boundingBox(axis + 3) = origin(axis) + halfwidth
@@ -129,9 +129,6 @@ contains
     boundingBox(planes + 3) = origin(planes) + radius
     call self % setBoundingBox(boundingBox)
     call self % setType(type)
-
-    ! Initialise BCs.
-    call self % setCompoundBCs(self % nBCs)
 
   end subroutine init
 
@@ -176,12 +173,11 @@ contains
   pure function distance(self, r, u) result(d)
     class(truncCylinder), intent(in)         :: self
     real(defReal), dimension(3), intent(in)  :: r, u
-    real(defReal)                            :: d, offsetCoordAxis, uAxis, radius, a, k, c, delta, &
-                                                dMin, dMax, dBase, surfTol
+    real(defReal)                            :: d, uAxis, radius, a, k, c, cNormalised, &
+                                                delta, dMin, dMax, surfTol, offseetCoordAxis
     real(defReal), dimension(3)              :: offsetCoords
     integer(shortInt), dimension(2)          :: planes
     integer(shortInt)                        :: axis, nSolutions
-    logical(defBool)                         :: cannotIntersect
     real(defReal), dimension(2)              :: offsetCoordsPlanes, uPlanes
     real(defReal), dimension(:), allocatable :: solutions
 
@@ -191,7 +187,7 @@ contains
     offsetCoords = r - self % getOrigin()
     axis = self % axis
     planes = self % planes
-    offsetCoordAxis = offsetCoords(axis)
+    offseetCoordAxis = offsetCoords(axis)
     offsetCoordsPlanes = offsetCoords(planes)
     uAxis = u(axis)
     uPlanes = u(planes)
@@ -199,29 +195,35 @@ contains
     a = ONE - uAxis * uAxis
     k = dot_product(offsetCoordsPlanes , uPlanes)
     c = dot_product(offsetCoordsPlanes, offsetCoordsPlanes) - radius * radius
-    
-    ! Compute delta (technically, delta / 4).
+    cNormalised = HALF * c / radius
+    surfTol = self % getSurfTol()
+
+    ! Compute delta (technically, delta / 4). Return early if delta < ZERO.
     delta = k * k - a * c
     if (delta < ZERO) return
 
-    ! Compute distances to intersection with the cylinder surface. If there are no solutions (ray is
-    ! parallel to the cylindrical surface) and the ray is outside the cylinder return early.
-    solutions = computeQuadraticSolutions(a, k, c, delta)
+    ! Compute distances to intersection with the cone surface and initialise dMin = ZERO and
+    ! dMax = INF.
+    solutions = solveQuadratic(a, k, c, delta)
     nSolutions = size(solutions)
-    if (nSolutions == 0 .and. c > ZERO) return
-
-    ! Initialise dMin = ZERO and dMax = INF. If nSolutions > 0 update dMin and dMax.
-    dMin = ZERO
+    if (nSolutions == 0 .and. cNormalised > -surfTol) return
+    dMin = -INF
     dMax = INF
+
+    ! If there are no solutions then the ray is parallel to the cone opening and fully contained in its 
+    ! surface. If there is only one solution then the ray is parallel to the cone opening. If this solution 
+    ! is negative and the particle is inside the cone (c < ZERO) then the ray can only intersect with one of 
+    ! the cone bases so compute this intersection and return.
     if (nSolutions > 0) then
-      dMin = max(minval(solutions), dMin)
-      dMax = min(maxval(solutions), dMax)
+      ! Pre-compute bound and loop over all solutions retrieved.
+      dMin = minval(solutions)
+      dMax = maxval(solutions)
 
     end if
 
-    call self % distancesCompound([offsetCoordAxis], [uAxis], dMin, dMax, cannotIntersect)
-    c = max(HALF * c / radius, self % evaluateCompound([offsetCoordAxis]))
-    call self % chooseDistance(dMin, dMax, abs(c) < self % getSurfTol(), cannotIntersect, d)
+    ! Update dMin and dMax, compute distances to intersection with the cone's halfwidth and choose correct
+    ! distance.
+    d = self % distancesCompound([offseetCoordAxis], [uAxis], dMin, dMax, abs(self % evaluate(r)) < surfTol)
 
   end function distance
 
@@ -249,9 +251,13 @@ contains
     axis = self % axis
     offsetCoordAxis = offsetCoords(axis)
     uAxis = u(axis)
+    surfTol = self % getSurfTol()
 
-    isHalfspacePositive = self % isHalfspacePositive([offsetCoordAxis], [uAxis])
-    if (isHalfspacePositive) return
+    if (abs(self % evaluateCompound([offsetCoordAxis])) < surfTol) then
+      isHalfspacePositive = self % isHalfspacePositive([offsetCoordAxis], [uAxis])
+      if (isHalfspacePositive) return
+
+    end if
 
     planes = self % planes
     offsetCoordsPlanes = offsetCoords(planes)
@@ -259,10 +265,9 @@ contains
     radius = self % radius
 
     cCylinder = HALF * (dot_product(offsetCoordsPlanes, offsetCoordsPlanes) / radius - radius)
-    surfTol = self % getSurfTol()
     if (abs(cCylinder) < surfTol) then
       proj = dot_product(offsetCoordsPlanes, uPlanes)
-      if (isEqual(proj, ZERO)) then
+      if (areEqual(proj, ZERO)) then
         isHalfspacePositive = cCylinder >= ZERO
 
       else
@@ -283,7 +288,7 @@ contains
     ! Superclass
     call kill_super(self)
 
-    ! Compound surface.
+    ! Halfwidth surface.
     call self % killCompound()
 
     ! Local.
@@ -302,7 +307,7 @@ contains
     class(truncCylinder), intent(inout)         :: self
     integer(shortInt), dimension(:), intent(in) :: BCs
 
-    call self % setCompoundBCs(self % nBCs, BCs)
+    call self % setCompoundBCs(2, BCs)
 
   end subroutine setBCs
 
@@ -319,7 +324,7 @@ contains
     integer(shortInt)                          :: axis
     real(defReal), dimension(3)                :: origin
 
-    ! Retrieve cylinder axis and origin then call parent procedure.
+    ! Call compoundSurface procedure.
     axis = self % axis
     origin = self % getOrigin()
     call self % explicitCompoundBCs([axis], [origin(axis)], r, u)
@@ -339,7 +344,7 @@ contains
     integer(shortInt)                          :: axis
     real(defReal), dimension(3)                :: origin
 
-    ! Retrieve cylinder axis and origin then call parent procedure.
+    ! Call compoundSurface procedure.
     axis = self % axis
     origin = self % getOrigin()
     call self % transformCompoundBCs([axis], [origin(axis)], r, u)

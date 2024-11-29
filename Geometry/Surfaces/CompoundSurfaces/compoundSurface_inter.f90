@@ -2,7 +2,7 @@ module compoundSurface_inter
 
   use numPrecision
   use universalVariables
-  use genericProcedures,  only : fatalError, isEqual, numToChar
+  use genericProcedures,  only : fatalError, areEqual, numToChar
   use universalVariables, only : INF, MISS_TOL
   use surface_inter,      only : surface, kill_super => kill
 
@@ -36,7 +36,6 @@ module compoundSurface_inter
     integer(shortInt)                            :: nHalfwidths = 0
     integer(shortInt), dimension(:), allocatable :: BCs
   contains
-    procedure, non_overridable                   :: chooseDistance
     procedure, non_overridable                   :: distancesCompound
     procedure, non_overridable                   :: isHalfspacePositive
     procedure, non_overridable                   :: evaluateCompound
@@ -49,24 +48,6 @@ module compoundSurface_inter
   end type compoundSurface
 
 contains
-
-  elemental subroutine chooseDistance(self, dMin, dMax, surfTolCondition, noIntersection, d)
-    class(compoundSurface), intent(in)      :: self
-    real(defReal), intent(in)               :: dMin, dMax
-    logical(defBool), intent(in)            :: surfTolCondition, noIntersection
-    real(defReal), intent(inout)            :: d
-
-    ! If there is no intersection we can return.
-    if (noIntersection) return
-    
-    ! Update d = dMin. Check if particle is on surface or already inside the surface and update d = dMax if yes.
-    d = dMin
-    if ((surfTolCondition .and. abs(dMax) >= abs(dMin)) .or. dMin <= ZERO) d = dMax
-    
-    ! Cap distance to INF if particle is within surfTol to another surface or if d > INF.
-    if (d < self % getSurfTol() .or. d > INF) d = INF
-
-  end subroutine chooseDistance
 
   !! Function 'distancesCompound'
   !!
@@ -118,17 +99,19 @@ contains
   !!   In this case, the ray is parallel to one or more pair(s) of orthogonal planes (eg, the ray only
   !!   moves in the y-direction).
   !!
-  pure subroutine distancesCompound(self, offsetCoords, uComponents, dMin, dMax, noIntersection)
-    class(compoundSurface), intent(in)                            :: self
-    real(defReal), dimension(size(self % halfwidths)), intent(in) :: offsetCoords, uComponents
-    real(defReal), intent(inout)                                  :: dMin, dMax
-    logical(defBool), intent(out)                                 :: noIntersection
-    integer(shortInt)                                             :: i
-    real(defReal)                                                 :: halfwidth, offsetCoord, uComponent, &
-                                                                     inverseU
+  pure function distancesCompound(self, offsetCoords, uComponents, dMinIn, dMaxIn, surfTolCondition) result(d)
+    class(compoundSurface), intent(in)                       :: self
+    real(defReal), dimension(self % nHalfwidths), intent(in) :: offsetCoords, uComponents
+    real(defReal), intent(in)                                :: dMinIn, dMaxIn
+    logical(defBool), intent(in)                             :: surfTolCondition
+    integer(shortInt)                                        :: i
+    real(defReal)                                            :: d, dMin, dMax, halfwidth, offsetCoord, &
+                                                                uComponent, inverseU
 
-    ! Initialise noIntersection = .true. then loop over all halfwidths.
-    noIntersection = .true.
+    ! Initialise d = INF then loop over all halfwidths.
+    d = INF
+    dMin = dMinIn
+    dMax = dMaxIn
     do i = 1, self % nHalfwidths
       halfwidth = self % halfwidths(i)
       offsetCoord = offsetCoords(i)
@@ -141,7 +124,7 @@ contains
 
       ! Cycle to next dimension if the current direction component is ZERO, since in this case there
       ! can be no intersection along the current dimension.
-      if (isEqual(uComponent, ZERO)) cycle
+      if (areEqual(uComponent, ZERO)) cycle
 
       ! Pre-compute inverse direction component and update dMin and dMax.
       inverseU = 1 / uComponent
@@ -150,12 +133,18 @@ contains
 
     end do
 
+    ! If particle intersects very close to a corner return. TODO: change this in a future update.
     if (dMax <= dMin * MISS_TOL) return
 
-    ! If reached here, ray intersects the halfwidth(s) so update noIntersection = .false.
-    noIntersection = .false.
+    ! If reached here, ray intersects the halfwidth(s). Update d = dMin. Check if particle is on 
+    ! surface or already inside the surface and update d = dMax if yes.
+    d = dMin
+    if ((surfTolCondition .and. abs(dMax) >= abs(dMin)) .or. (.not. surfTolCondition .and. dMin <= ZERO)) d = dMax
+    
+    ! Cap distance to INF if particle is within surfTol to another surface or if d > INF.
+    if (d <= ZERO .or. d > INF) d = INF
 
-  end subroutine distancesCompound
+  end function distancesCompound
 
   !! Function 'isHalfspacePositive'
   !!
@@ -202,7 +191,7 @@ contains
       ! Retrieve direction component for the current dimension. If ray is parallel to current 
       ! dimension update halfspace based on position.
       uComponent = uComponents(i)
-      if (isEqual(uComponent, ZERO)) then
+      if (areEqual(uComponent, ZERO)) then
         ! If dist >= ZERO the particle is in the positive halfspace and we can return early. If not
         ! move onto the next dimension.
         if (dist >= ZERO) return

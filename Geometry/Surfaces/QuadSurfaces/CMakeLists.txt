@@ -1,4 +1,3 @@
-add_subdirectory(TruncQuadSurfaces)
 add_sources(
             ./quadSurface_inter.f90
             ./sphere_class.f90

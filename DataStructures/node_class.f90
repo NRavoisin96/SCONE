@@ -1,6 +1,6 @@
 module node_class
   use coord_class,         only : coord
-  use genericProcedures,   only : append, isEqual, removeDuplicates, swap
+  use genericProcedures,   only : append, areEqual, removeDuplicates, swap
   use numPrecision
   use triangle_class,      only : triangle
   use triangleShelf_class, only : triangleShelf
@@ -367,7 +367,7 @@ contains
       ! Initialise t = INF and compute t, which is the fraction of the line segment necessary to reach
       ! the node's cut plane.
       t = INF
-      if (.not. isEqual(uComponent, ZERO)) t = (cutValue - startPosComponent) / uComponent
+      if (.not. areEqual(uComponent, ZERO)) t = (cutValue - startPosComponent) / uComponent
       isIntersecting = ZERO <= t .and. t < norm2(coords % rEnd - startPos)
 
       if (startPosComponent < cutValue .and. self % hasLeft) then

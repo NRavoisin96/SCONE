@@ -158,15 +158,13 @@ contains
     class(sphere), intent(in)               :: self
     real(defReal), dimension(3), intent(in) :: r, u
     real(defReal)                           :: d, c, k, delta
-    logical(defBool)                        :: noIntersection
 
-    ! Initialise d = INF and calculate k and c.
-    d = INF
+    ! Calculate k and c.
     k = dot_product(r - self % getOrigin(), u)
     c = self % evaluate(r)
     
     ! Call quadSurface procedure.
-    call self % distanceQuad(ONE, k, c, abs(c) < self % getSurfTol(), d, noIntersection)
+    d = self % distanceQuad(ONE, k, c, abs(c) < self % getSurfTol())
 
   end function distance
 

@@ -1,8 +1,9 @@
-module cone_test
+module truncCone_test
+  
   use numPrecision
   use universalVariables
   use dictionary_class,  only : dictionary
-  use cone_class,        only : cone
+  use truncCone_class,   only : truncCone
   use funit
 
   implicit none
@@ -25,7 +26,7 @@ module cone_test
     type, extends(ParameterizedTestCase) :: test_cone
       integer(shortInt)                  :: axis
       integer(shortInt), dimension(2)    :: plane
-      type(cone)                         :: surf
+      type(truncCone)                    :: surf
     contains
       procedure :: tearDown
     end type test_cone
@@ -166,7 +167,7 @@ contains
     ! Tolerance
     @assertEqual(this % surf % getSurfTol(), SURF_TOL*5.50_defReal, TOL)
 
-    ! Halfwidth
+    ! Halfwidth.
     @assertEqual(this % surf % getHalfwidths(), [4.5_defReal], TOL)
 
   end subroutine testMisc
@@ -481,4 +482,4 @@ contains
 
   end subroutine testDistance
 
-end module cone_test
+end module truncCone_test

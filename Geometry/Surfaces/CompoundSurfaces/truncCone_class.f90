@@ -1,11 +1,11 @@
-module cone_class
+module truncCone_class
 
   use numPrecision
-  use universalVariables,    only : SURF_TOL, HALF, INF, X_AXIS, Y_AXIS, Z_AXIS
-  use genericProcedures,     only : fatalError, numToChar, isEqual, computeQuadraticSolutions
-  use dictionary_class,      only : dictionary
-  use compoundSurface_inter, only : compoundSurface
-  use surface_inter,         only : kill_super => kill
+  use universalVariables,     only : SURF_TOL, HALF, INF, X_AXIS, Y_AXIS, Z_AXIS
+  use genericProcedures,      only : fatalError, numToChar, areEqual, solveQuadratic
+  use dictionary_class,       only : dictionary
+  use compoundSurface_inter,  only : compoundSurface
+  use surface_inter,          only : kill_super => kill
 
   implicit none
   private
@@ -60,7 +60,7 @@ module cone_class
   !! Interface:
   !!   surface interface
   !!
-  type, public, extends(compoundSurface) :: cone
+  type, public, extends(compoundSurface) :: truncCone
     private
     integer(shortInt)                    :: axis = 0
     integer(shortInt), dimension(2)      :: planes = 0
@@ -74,17 +74,16 @@ module cone_class
     procedure                            :: entersPositiveHalfspace
     procedure                            :: evaluate
     procedure                            :: isWithinSurfTol
-  end type cone
+  end type truncCone
 
 contains
-
   !!
   !! Initialise cone from a dictionary
   !!
   !! See surface_inter for more details
   !!
   subroutine init(self, dict)
-    class(cone), intent(inout)               :: self
+    class(truncCone), intent(inout)          :: self
     class(dictionary), intent(in)            :: dict
     integer(shortInt)                        :: id, N, axis
     integer(shortInt), dimension(2)          :: planes
@@ -92,7 +91,7 @@ contains
     character(nameLen)                       :: type
     real(defReal)                            :: angle, tangent, hMin, hMax, maxRadius
     real(defReal), dimension(6)              :: boundingBox
-    character(100), parameter                :: Here = 'init (cone_class.f90)'
+    character(100), parameter                :: Here = 'init (truncCone_class.f90)'
 
     ! Load id.
     call dict % get(id, 'id')
@@ -169,7 +168,7 @@ contains
   !! See surface_inter for details
   !!
   pure function evaluate(self, r) result(c)
-    class(cone), intent(in)                 :: self
+    class(truncCone), intent(in)            :: self
     real(defReal), dimension(3), intent(in) :: r
     real(defReal), dimension(3)             :: offsetCoords
     real(defReal), dimension(2)             :: offsetCoordsPlanes
@@ -208,7 +207,7 @@ contains
   !!   a = u1^2 + u2^2 - t^2 * u3^2
   !!
   pure function distance(self, r, u) result(d)
-    class(cone), intent(in)                  :: self
+    class(truncCone), intent(in)             :: self
     real(defReal), dimension(3), intent(in)  :: r, u
     real(defReal), dimension(3)              :: offsetCoords
     real(defReal), dimension(2)              :: offsetCoordsPlanes, uPlanes
@@ -217,7 +216,6 @@ contains
     real(defReal), dimension(:), allocatable :: solutions
     integer(shortInt), dimension(2)          :: planes
     integer(shortInt)                        :: axis, nSolutions, i
-    logical(defBool)                         :: cannotIntersect
 
     ! Initialise d = INF. Offset coordinates with respect to cone vertex and retrieve offset 
     ! coordinates and direction components along the cone's planes and axis.
@@ -245,36 +243,37 @@ contains
 
     ! Compute distances to intersection with the cone surface and initialise dMin = ZERO and
     ! dMax = INF.
-    solutions = computeQuadraticSolutions(a, k, c, delta)
+    solutions = solveQuadratic(a, k, c, delta)
     nSolutions = size(solutions)
-    dMin = ZERO
-    dMax = INF
 
     ! If there are no solutions then the ray is parallel to the cone opening and fully contained in its 
     ! surface. If there is only one solution then the ray is parallel to the cone opening. If this solution 
     ! is negative and the particle is inside the cone (c < ZERO) then the ray can only intersect with one of 
     ! the cone bases so compute this intersection and return.
-    if (nSolutions == 0 .or. (nSolutions == 1 .and. solutions(1) <= ZERO .and. c < ZERO)) then
-      call self % distancesCompound([r(axis) - self % getOrigin()], [uAxis], dMin, dMax, cannotIntersect)
-      call self % chooseDistance(dMin, dMax, self % isWithinSurfTol(r), cannotIntersect, d)
-      return
+    if (nSolutions == 0) then
+      dMin = -INF
+      dMax = INF
+
+    else if (nSolutions == 1 .and. solutions(1) <= ZERO .and. c < ZERO) then
+      dMin = -INF
+      dMax = INF
+
+    else
+      ! Pre-compute bound and loop over all solutions retrieved.
+      bound = sign(INF, uAxis * hMin)
+      do i = 1, nSolutions
+        ! Retrieve current solution and cap it to signed INF if the intersection is in the wrong hemicone.
+        if ((offsetCoordAxis + uAxis * solutions(i)) * hMin < ZERO) solutions(i) = bound
+
+      end do
+      dMin = minval(solutions)
+      dMax = maxval(solutions)
 
     end if
 
-    ! Pre-compute bound and loop over all solutions retrieved.
-    bound = sign(INF, uAxis * hMin)
-    do i = 1, nSolutions
-      ! Retrieve current solution and cap it to signed INF if the intersection is in the wrong hemicone.
-      if ((offsetCoordAxis + uAxis * solutions(i)) * hMin < ZERO) solutions(i) = bound
-
-    end do
-
     ! Update dMin and dMax, compute distances to intersection with the cone's halfwidth and choose correct
     ! distance.
-    dMin = max(minval(solutions), dMin)
-    dMax = min(maxval(solutions), dMax)
-    call self % distancesCompound([r(axis) - self % getOrigin()], [uAxis], dMin, dMax, cannotIntersect)
-    call self % chooseDistance(dMin, dMax, self % isWithinSurfTol(r), cannotIntersect, d)
+    d = self % distancesCompound([r(axis) - self % getOrigin()], [uAxis], dMin, dMax, self % isWithinSurfTol(r))
 
   end function distance
 
@@ -284,24 +283,28 @@ contains
   !! See surface_inter for details
   !!
   pure function entersPositiveHalfspace(self, r, u) result(positiveHalfspace)
-    class(cone), intent(in)                 :: self
+    class(truncCone), intent(in)            :: self
     real(defReal), dimension(3), intent(in) :: r, u
     logical(defBool)                        :: positiveHalfspace
     real(defReal), dimension(3)             :: offsetCoords, normal
     integer(shortInt), dimension(2)         :: planes
     integer(shortInt)                       :: axis
     real(defReal), dimension(2)             :: offsetCoordsPlanes, uPlanes
-    real(defReal)                           :: offsetCoordAxis, uAxis, radius, c, proj
+    real(defReal)                           :: offsetCoordAxis, uAxis, surfTol, radius, c, proj
 
     ! Retrieve offset coordinates with respect to cone vertex and surface tolerance.
     offsetCoords = r - self % vertex
     axis = self % axis
     offsetCoordAxis = offsetCoords(axis)
     uAxis = u(axis)
+    surfTol = self % getSurfTol()
     
     ! Check cone halfwidth first and return if halfspace is positive.
-    positiveHalfspace = self % isHalfspacePositive([r(axis) - self % getOrigin()], [uAxis])
-    if (positiveHalfspace) return
+    if (abs(self % evaluateCompound([r(axis) - self % getOrigin()])) < surfTol) then
+      positiveHalfspace = self % isHalfspacePositive([r(axis) - self % getOrigin()], [uAxis])
+      if (positiveHalfspace) return
+
+    end if
 
     ! Check cone surface.
     planes = self % planes
@@ -322,13 +325,13 @@ contains
     ! If particle is not exactly on the cone vertex compute cone normal and project direction onto it. Use
     ! particle location to determine halfspace if projection is ZERO.
     c = HALF * (dot_product(offsetCoordsPlanes, offsetCoordsPlanes) / radius - radius)
-    if (abs(c) < self % getSurfTol()) then
+    if (abs(c) < surfTol) then
       normal(axis) = -self % tanSquared * offsetCoordAxis
       normal(planes) = offsetCoordsPlanes
       normal = normal / norm2(normal)
       proj = dot_product(normal, u)
 
-      if (isEqual(proj, ZERO)) then
+      if (areEqual(proj, ZERO)) then
         positiveHalfspace = c >= ZERO
         
       else
@@ -344,7 +347,7 @@ contains
   !! Return to uninitialised state
   !!
   elemental subroutine kill(self)
-    class(cone), intent(inout) :: self
+    class(truncCone), intent(inout) :: self
 
     ! Superclass
     call kill_super(self)
@@ -376,7 +379,7 @@ contains
   !!   isIt   -> .true. if particle is within surface tolerance of the cone.
   !!
   pure function isWithinSurfTol(self, r) result(isIt)
-    class(cone), intent(in)                 :: self
+    class(truncCone), intent(in)            :: self
     real(defReal), dimension(3), intent(in) :: r
     logical(defBool)                        :: isIt
     real(defReal), dimension(3)             :: offsetCoords
@@ -401,8 +404,8 @@ contains
 
     end if
     c = HALF * (dot_product(offsetCoordsPlanes, offsetCoordsPlanes) / radius - radius)
-    isIt = max(c, cHalfwidth) < self % getSurfTol()
+    isIt = abs(max(c, cHalfwidth)) < self % getSurfTol()
 
   end function isWithinSurfTol
 
-end module cone_class
+end module truncCone_class
