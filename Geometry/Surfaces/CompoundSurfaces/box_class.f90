@@ -75,7 +75,7 @@ contains
 
     ! Load halfwidths.
     call dict % get(halfwidths, 'halfwidth')
-    call self % setHalfwidths(halfwidths, 3)
+    call self % setHalfwidths(halfwidths, origin, 3)
 
     ! Set bounding box.
     boundingBox(1:3) = origin - halfwidths
@@ -98,7 +98,7 @@ contains
     real(defReal)                           :: c
 
     ! Compute c from origin-centred coordinates and box halfwidths.
-    c = self % evaluateCompound(r - self % getOrigin())
+    c = self % evaluateCompound(r)
 
   end function evaluate
 
@@ -107,11 +107,9 @@ contains
     class(box), intent(in)                  :: self
     real(defReal), dimension(3), intent(in) :: r, u
     real(defReal)                           :: d
-    logical(defBool)                        :: surfTolCondition
     
-    ! Compute surfTolCondition then call compoundSurface procedure.
-    surfTolCondition = abs(self % evaluate(r)) < self % getSurfTol()
-    d = self % distancesCompound(r - self % getOrigin(), u, -INF, INF, surfTolCondition)
+    ! Call compoundSurface procedure.
+    d = self % distancesCompound(r, u, -INF, INF, abs(self % evaluate(r)) < self % getSurfTol())
   
   end function distance
 
@@ -146,7 +144,7 @@ contains
     real(defReal), dimension(3), intent(in) :: r, u
     logical(defBool)                        :: isHalfspacePositive
 
-    isHalfspacePositive = self % isHalfspacePositive(r - self % getOrigin(), u)
+    isHalfspacePositive = self % isHalfspacePositive(r, u)
 
   end function entersPositiveHalfspace
 
@@ -189,7 +187,7 @@ contains
     class(box), intent(in)                     :: self
     real(defReal), dimension(3), intent(inout) :: r, u
 
-    call self % explicitCompoundBCs([1, 2, 3], self % getOrigin(), r, u)
+    call self % explicitCompoundBCs([1, 2, 3], r, u)
 
   end subroutine explicitBC
 
@@ -206,7 +204,7 @@ contains
     class(box), intent(in)                     :: self
     real(defReal), dimension(3), intent(inout) :: r, u
 
-    call self % transformCompoundBCs([1, 2, 3], self % getOrigin(), r, u)
+    call self % transformCompoundBCs([1, 2, 3], r, u)
 
   end subroutine transformBC
 

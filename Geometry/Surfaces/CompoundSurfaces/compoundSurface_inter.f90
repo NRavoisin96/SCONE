@@ -15,8 +15,9 @@ module compoundSurface_inter
   !! (eg, square cylinders) or three (eg, boxes) halfwidths.
   !!
   !! Private members:
-  !!   halfwidths -> Halfwidth(s) of the surface. It is an allocatable array as different compound
-  !!                 surfaces can have different numbers of halfwidths.
+  !!   halfwidths          -> Halfwidth(s) of the surface. It is an allocatable array as different 
+  !!                          compound surfaces can have different numbers of halfwidths.
+  !!   halfwidthsOrigin    -> Origin or offset of the surface's halfwidth(s). Also allocatable.
   !!
   !! Interface:
   !!   closestDist         -> Returns the minimum and maximum distances to the intersected surface 
@@ -28,11 +29,11 @@ module compoundSurface_inter
   !!                          surface.
   !!   killHalfwidths      -> Returns the halfwidths component to an unitialised state.
   !!   getHalfwidths       -> Returns the halfwidth(s) of the surface.
-  !!   setHalfwidths       -> Sets the halfwidth(s) of the surface.
+  !!   setHalfwidths       -> Sets the halfwidth(s) of the surface and their origin.
   !!
   type, public, abstract, extends(surface)       :: compoundSurface
     private
-    real(defReal), dimension(:), allocatable     :: halfwidths
+    real(defReal), dimension(:), allocatable     :: halfwidths, halfwidthsOrigin
     integer(shortInt)                            :: nHalfwidths = 0
     integer(shortInt), dimension(:), allocatable :: BCs
   contains
@@ -99,9 +100,9 @@ contains
   !!   In this case, the ray is parallel to one or more pair(s) of orthogonal planes (eg, the ray only
   !!   moves in the y-direction).
   !!
-  pure function distancesCompound(self, offsetCoords, uComponents, dMinIn, dMaxIn, surfTolCondition) result(d)
+  pure function distancesCompound(self, rComponents, uComponents, dMinIn, dMaxIn, surfTolCondition) result(d)
     class(compoundSurface), intent(in)                       :: self
-    real(defReal), dimension(self % nHalfwidths), intent(in) :: offsetCoords, uComponents
+    real(defReal), dimension(self % nHalfwidths), intent(in) :: rComponents, uComponents
     real(defReal), intent(in)                                :: dMinIn, dMaxIn
     logical(defBool), intent(in)                             :: surfTolCondition
     integer(shortInt)                                        :: i
@@ -114,7 +115,7 @@ contains
     dMax = dMaxIn
     do i = 1, self % nHalfwidths
       halfwidth = self % halfwidths(i)
-      offsetCoord = offsetCoords(i)
+      offsetCoord = rComponents(i) - self % halfwidthsOrigin(i)
       uComponent = uComponents(i)
 
       ! Perform early check to see if the particle is outside the slab and moving away from it along
@@ -167,24 +168,24 @@ contains
   !! Result:
   !!   isIt              -> .true. if particle is in positive halfspace.
   !!
-  pure function isHalfspacePositive(self, offsetCoords, uComponents) result(isIt)
-    class(compoundSurface), intent(in)                            :: self
-    real(defReal), dimension(size(self % halfwidths)), intent(in) :: offsetCoords, uComponents
-    logical(defBool)                                              :: isIt
-    real(defReal)                                                 :: surfTol, halfwidth, offsetCoord, &
-                                                                     dist, uComponent
-    integer(shortInt)                                             :: i
+  pure function isHalfspacePositive(self, rComponents, uComponents) result(isIt)
+    class(compoundSurface), intent(in)                       :: self
+    real(defReal), dimension(self % nHalfwidths), intent(in) :: rComponents, uComponents
+    logical(defBool)                                         :: isIt
+    real(defReal)                                            :: surfTol, halfwidth, offsetCoord, &
+                                                                dist, uComponent
+    integer(shortInt)                                        :: i
 
     ! Initialise isIt = .true., retrieve surface tolerance then loop over all compound dimensions (note, 
     ! we need to do this to properly account for particles close to corners).
     isIt = .true.
     surfTol = self % getSurfTol()
-    do i = 1, size(self % halfwidths)
+    do i = 1, self % nHalfwidths
       ! Retrieve offset coordinates and halfwidth components for the current dimension. Compute
       ! distance to halfwidth along current dimension and cycle to the next dimension if
       ! abs(dist) >= surface tolerance.
       halfwidth = self % halfwidths(i)
-      offsetCoord = offsetCoords(i)
+      offsetCoord = rComponents(i) - self % halfwidthsOrigin(i)
       dist = abs(offsetCoord) - halfwidth
       if (abs(dist) >= surfTol) cycle
       
@@ -221,12 +222,12 @@ contains
   !! Result:
   !!   c            -> Evaluated expression F(r).
   !!
-  pure function evaluateCompound(self, offsetCoords) result(c)
-    class(compoundSurface), intent(in)                            :: self
-    real(defReal), dimension(size(self % halfwidths)), intent(in) :: offsetCoords
-    real(defReal)                                                 :: c
+  pure function evaluateCompound(self, rComponents) result(c)
+    class(compoundSurface), intent(in)                       :: self
+    real(defReal), dimension(self % nHalfwidths), intent(in) :: rComponents
+    real(defReal)                                            :: c
 
-    c = maxval(abs(offsetCoords) - self % halfwidths)
+    c = maxval(abs(rComponents - self % halfwidthsOrigin) - self % halfwidths)
 
   end function evaluateCompound
 
@@ -296,6 +297,7 @@ contains
 
     self % nHalfwidths = 0
     if (allocated(self % halfwidths)) deallocate(self % halfwidths)
+    if (allocated(self % halfwidthsOrigin)) deallocate(self % halfwidthsOrigin)
     if (allocated(self % BCs)) deallocate(self % BCs)
 
   end subroutine killCompound
@@ -330,11 +332,11 @@ contains
   !!     halfwidths.
   !!   - fatalError if any of the supplied halfwidths are negative.
   !!
-  subroutine setHalfwidths(self, halfwidths, nRequired)
+  subroutine setHalfwidths(self, halfwidths, origin, nRequired)
     class(compoundSurface), intent(inout)   :: self
-    real(defReal), dimension(:), intent(in) :: halfwidths
+    real(defReal), dimension(:), intent(in) :: halfwidths, origin
     integer(shortInt), intent(in)           :: nRequired
-    integer(shortInt)                       :: nHalfwidths
+    integer(shortInt)                       :: nHalfwidths, nOrigin
     character(*), parameter                 :: here = 'setHalfwidths (compoundSurface_inter.f90)'
 
     nHalfwidths = size(halfwidths)
@@ -342,7 +344,12 @@ contains
     'Halfwidths must have size: '//numToChar(nRequired)//'. Has: '//numToChar(nHalfwidths)//'.')
     if (any(halfwidths <= ZERO)) call fatalError(here, 'Halfwidths cannot contain negative entries.')
 
+    nOrigin = size(origin)
+    if (nOrigin /= nRequired) call fatalError(here, &
+    'Halfwidths origin must have size: '//numToChar(nRequired)//'. Has: '//numToChar(nOrigin)//'.')
+
     self % halfwidths = halfwidths
+    self % halfwidthsOrigin = origin
     self % nHalfwidths = nHalfwidths
 
   end subroutine setHalfwidths
@@ -354,16 +361,13 @@ contains
   !!   halfwidth of the compound surface along specified dimensions.
   !!
   !! Arguments:
-  !!   dimensions [in]       -> Dimensions along which to apply boundary conditions.
-  !!   originComponents [in] -> Components of the compound surface's origin along the
-  !!                            specified dimensions.
-  !!   r [inout]             -> Particle position.
-  !!   u [inout]             -> Particle direction.
+  !!   dimensions [in] -> Dimensions along which to apply boundary conditions.
+  !!   r [inout]       -> Particle position.
+  !!   u [inout]       -> Particle direction.
   !!
-  pure subroutine explicitCompoundBCs(self, dimensions, originComponents, r, u)
+  pure subroutine explicitCompoundBCs(self, dimensions, r, u)
     class(compoundSurface), intent(in)                           :: self
     integer(shortInt), dimension(self % nHalfwidths), intent(in) :: dimensions
-    real(defReal), dimension(self % nHalfwidths), intent(in)     :: originComponents
     real(defReal), dimension(3), intent(inout)                   :: r, u
     integer(shortInt)                                            :: i, dim, bc
     real(defReal)                                                :: surfTol, offsetCoord, halfwidth
@@ -375,7 +379,7 @@ contains
       ! for the current dimension.
       dim = dimensions(i)
       halfwidth = self % halfwidths(i)
-      offsetCoord = r(dim) - originComponents(i)
+      offsetCoord = r(dim) - self % halfwidthsOrigin(i)
 
       ! Skip if particle is well inside the domain.
       if (abs(offsetCoord) <= halfwidth - surfTol) cycle
@@ -405,18 +409,15 @@ contains
   !!   Transforms particle position and direction using boundary conditions.
   !!
   !! Arguments:
-  !!   dimensions [in]       -> Dimensions along which to apply boundary conditions.
-  !!   originComponents [in] -> Components of the compound surface's origin along the
-  !!                            specified dimensions.
-  !!   r [inout]             -> Particle position.
-  !!   u [inout]             -> Particle direction.
+  !!   dimensions [in] -> Dimensions along which to apply boundary conditions.
+  !!   r [inout]       -> Particle position.
+  !!   u [inout]       -> Particle direction.
   !!
-  pure subroutine transformCompoundBCs(self, dimensions, originComponents, r, u)
+  pure subroutine transformCompoundBCs(self, dimensions, r, u)
     class(compoundSurface), intent(in)                           :: self
     integer(shortInt), dimension(self % nHalfwidths), intent(in) :: dimensions
-    real(defReal), dimension(self % nHalfwidths), intent(in)     :: originComponents
     real(defReal), dimension(3), intent(inout)                   :: r, u
-    real(defReal), dimension(self % nHalfwidths)                 :: halfwidths
+    real(defReal), dimension(self % nHalfwidths)                 :: halfwidths, halfwidthsOrigin
     integer(shortInt), dimension(self % nHalfwidths)             :: nTransforms
     integer(shortInt)                                            :: i, dim, j, bc
     real(defReal)                                                :: offsetCoord, originComponent, halfwidth
@@ -424,13 +425,14 @@ contains
     ! Calculate number of transforms in each direction. Reduce halfwidths by surface
     ! tolerance to catch particles at the surface.
     halfwidths = self % halfwidths
-    nTransforms = ceiling(abs(r(dimensions) - originComponents) / (halfwidths - self % getSurfTol())) / 2
+    halfwidthsOrigin = self % halfwidthsOrigin
+    nTransforms = ceiling(abs(r(dimensions) - halfwidthsOrigin) / (halfwidths - self % getSurfTol())) / 2
 
     ! Loop over all dimensions.
     do i = 1, self % nHalfwidths
       ! Retrieve origin and halfwidth and apply number of transforms for the current dimension.
       dim = dimensions(i)
-      originComponent = originComponents(i)
+      originComponent = halfwidthsOrigin(i)
       halfwidth = halfwidths(i)
       
       do j = 1, nTransforms(i)

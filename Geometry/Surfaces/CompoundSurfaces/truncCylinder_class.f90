@@ -2,7 +2,7 @@ module truncCylinder_class
 
   use numPrecision
   use universalVariables
-  use genericProcedures,      only : fatalError, numToChar, swap, areEqual, solveQuadratic
+  use genericProcedures,      only : fatalError, numToChar, areEqual, solveQuadratic
   use dictionary_class,       only : dictionary
   use surface_inter,          only : kill_super => kill
   use compoundSurface_inter,  only : compoundSurface
@@ -120,7 +120,7 @@ contains
 
     ! Load halfwidth.
     call dict % get(halfwidth, 'halfwidth')
-    call self % setHalfwidths([halfwidth], 1)
+    call self % setHalfwidths([halfwidth], [origin(axis)], 1)
 
     ! Set bounding box.
     boundingBox(axis) = origin(axis) - halfwidth
@@ -141,24 +141,19 @@ contains
     class(truncCylinder), intent(in)        :: self
     real(defReal), dimension(3), intent(in) :: r
     real(defReal), dimension(3)             :: offsetCoords
-    real(defReal)                           :: offsetCoordAxis, radius, c
-    integer(shortInt), dimension(2)         :: planes
-    integer(shortInt)                       :: axis
+    real(defReal)                           :: radius, c
     real(defReal), dimension(2)             :: offsetCoordsPlanes
 
     ! Offset coordinates with respect to cylinder's origin, retrieve indices of the
     ! planes and axis of the cylinder then retrieve offset coordinates components
     ! along the planes and axis of the cylinder and cylinder radius.
     offsetCoords = r - self % getOrigin()
-    planes = self % planes
-    axis = self % axis
-    offsetCoordsPlanes = offsetCoords(planes)
-    offsetCoordAxis = offsetCoords(axis)
+    offsetCoordsPlanes = offsetCoords(self % planes)
     radius = self % radius
 
     ! Evaluate surface expressions and return overall maximum.
     c = HALF * (dot_product(offsetCoordsPlanes, offsetCoordsPlanes) / radius - radius)
-    c = max(c, self % evaluateCompound([offsetCoordAxis]))
+    c = max(c, self % evaluateCompound(r(self % axis)))
 
   end function evaluate
 
@@ -173,13 +168,14 @@ contains
   pure function distance(self, r, u) result(d)
     class(truncCylinder), intent(in)         :: self
     real(defReal), dimension(3), intent(in)  :: r, u
-    real(defReal)                            :: d, uAxis, radius, a, k, c, cNormalised, &
-                                                delta, dMin, dMax, surfTol, offseetCoordAxis
+    real(defReal)                            :: d, uAxis, radius, a, k, c, delta, &
+                                                dMin, dMax, surfTol
     real(defReal), dimension(3)              :: offsetCoords
     integer(shortInt), dimension(2)          :: planes
     integer(shortInt)                        :: axis, nSolutions
     real(defReal), dimension(2)              :: offsetCoordsPlanes, uPlanes
     real(defReal), dimension(:), allocatable :: solutions
+    logical(defBool)                         :: surfTolCondition
 
     ! Initialise d = INF.
     d = INF
@@ -187,7 +183,6 @@ contains
     offsetCoords = r - self % getOrigin()
     axis = self % axis
     planes = self % planes
-    offseetCoordAxis = offsetCoords(axis)
     offsetCoordsPlanes = offsetCoords(planes)
     uAxis = u(axis)
     uPlanes = u(planes)
@@ -195,8 +190,6 @@ contains
     a = ONE - uAxis * uAxis
     k = dot_product(offsetCoordsPlanes , uPlanes)
     c = dot_product(offsetCoordsPlanes, offsetCoordsPlanes) - radius * radius
-    cNormalised = HALF * c / radius
-    surfTol = self % getSurfTol()
 
     ! Compute delta (technically, delta / 4). Return early if delta < ZERO.
     delta = k * k - a * c
@@ -206,7 +199,9 @@ contains
     ! dMax = INF.
     solutions = solveQuadratic(a, k, c, delta)
     nSolutions = size(solutions)
-    if (nSolutions == 0 .and. cNormalised > -surfTol) return
+    c = HALF * c / radius
+    surfTol = self % getSurfTol()
+    if (nSolutions == 0 .and. c > -surfTol) return
     dMin = -INF
     dMax = INF
 
@@ -223,7 +218,8 @@ contains
 
     ! Update dMin and dMax, compute distances to intersection with the cone's halfwidth and choose correct
     ! distance.
-    d = self % distancesCompound([offseetCoordAxis], [uAxis], dMin, dMax, abs(self % evaluate(r)) < surfTol)
+    surfTolCondition = abs(max(c, self % evaluateCompound([r(axis)]))) < surfTol
+    d = self % distancesCompound([r(axis)], [uAxis], dMin, dMax, surfTolCondition)
 
   end function distance
 
@@ -243,32 +239,23 @@ contains
     real(defReal), dimension(3)             :: offsetCoords
     integer(shortInt), dimension(2)         :: planes
     integer(shortInt)                       :: axis
-    real(defReal), dimension(2)             :: offsetCoordsPlanes, uPlanes
-    real(defReal)                           :: offsetCoordAxis, uAxis, radius, surfTol, &
-                                               cCylinder, proj
+    real(defReal), dimension(2)             :: offsetCoordsPlanes
+    real(defReal)                           :: radius, c, proj
     
-    offsetCoords = r - self % getOrigin()
     axis = self % axis
-    offsetCoordAxis = offsetCoords(axis)
-    uAxis = u(axis)
-    surfTol = self % getSurfTol()
+    isHalfspacePositive = self % isHalfspacePositive([r(axis)], [u(axis)])
+    if (isHalfspacePositive) return
 
-    if (abs(self % evaluateCompound([offsetCoordAxis])) < surfTol) then
-      isHalfspacePositive = self % isHalfspacePositive([offsetCoordAxis], [uAxis])
-      if (isHalfspacePositive) return
-
-    end if
-
+    offsetCoords = r - self % getOrigin()
     planes = self % planes
     offsetCoordsPlanes = offsetCoords(planes)
-    uPlanes = u(planes)
     radius = self % radius
 
-    cCylinder = HALF * (dot_product(offsetCoordsPlanes, offsetCoordsPlanes) / radius - radius)
-    if (abs(cCylinder) < surfTol) then
-      proj = dot_product(offsetCoordsPlanes, uPlanes)
+    c = HALF * (dot_product(offsetCoordsPlanes, offsetCoordsPlanes) / radius - radius)
+    if (abs(c) < self % getSurfTol()) then
+      proj = dot_product(offsetCoordsPlanes, u(planes))
       if (areEqual(proj, ZERO)) then
-        isHalfspacePositive = cCylinder >= ZERO
+        isHalfspacePositive = c >= ZERO
 
       else
         isHalfspacePositive = proj > ZERO
@@ -321,13 +308,9 @@ contains
   pure subroutine explicitBC(self, r, u)
     class(truncCylinder), intent(in)           :: self
     real(defReal), dimension(3), intent(inout) :: r, u
-    integer(shortInt)                          :: axis
-    real(defReal), dimension(3)                :: origin
 
     ! Call compoundSurface procedure.
-    axis = self % axis
-    origin = self % getOrigin()
-    call self % explicitCompoundBCs([axis], [origin(axis)], r, u)
+    call self % explicitCompoundBCs([self % axis], r, u)
 
   end subroutine explicitBC
 
@@ -341,13 +324,9 @@ contains
   pure subroutine transformBC(self, r, u)
     class(truncCylinder), intent(in)           :: self
     real(defReal), dimension(3), intent(inout) :: r, u
-    integer(shortInt)                          :: axis
-    real(defReal), dimension(3)                :: origin
 
     ! Call compoundSurface procedure.
-    axis = self % axis
-    origin = self % getOrigin()
-    call self % transformCompoundBCs([axis], [origin(axis)], r, u)
+    call self % transformCompoundBCs([self % axis], r, u)
 
   end subroutine transformBC
 

@@ -121,7 +121,7 @@ contains
     ! Load halfwidths.
     call dict % get(temp,'halfwidth')
     halfwidths = temp(planes)
-    call self % setHalfwidths(halfwidths, 2)
+    call self % setHalfwidths(halfwidths, origin, 2)
 
     ! Set bounding box.
     boundingBox(planes) = origin - halfwidths
@@ -148,7 +148,7 @@ contains
 
     ! Compute c from origin-centred coordinates and cylinder halfwidths along the
     ! bounding planes.
-    c = self % evaluateCompound(r(self % planes) - self % getOrigin())
+    c = self % evaluateCompound(r(self % planes))
 
   end function evaluate
 
@@ -175,12 +175,10 @@ contains
     real(defReal), dimension(3), intent(in) :: r, u
     real(defReal)                           :: d
     integer(shortInt), dimension(2)         :: planes
-    logical(defBool)                        :: surfTolCondition
 
-    ! Compute surfTolCondition then call compoundSurface procedure.
+    ! Call compoundSurface procedure.
     planes = self % planes
-    surfTolCondition = abs(self % evaluate(r)) < self % getSurfTol()
-    d = self % distancesCompound(r(planes) - self % getOrigin(), u(planes), -INF, INF, surfTolCondition)
+    d = self % distancesCompound(r(planes), u(planes), -INF, INF, abs(self % evaluate(r)) < self % getSurfTol())
 
   end function distance
 
@@ -207,7 +205,7 @@ contains
     integer(shortInt), dimension(2)         :: planes
 
     planes = self % planes
-    isHalfspacePositive = self % isHalfspacePositive(r(planes) - self % getOrigin(), u(planes))
+    isHalfspacePositive = self % isHalfspacePositive(r(planes), u(planes))
 
   end function entersPositiveHalfspace
 
@@ -260,7 +258,7 @@ contains
     class(squareCylinder), intent(in)          :: self
     real(defReal), dimension(3), intent(inout) :: r, u
 
-    call self % explicitCompoundBCs(self % planes, self % getOrigin(), r, u)
+    call self % explicitCompoundBCs(self % planes, r, u)
 
   end subroutine explicitBC
 
@@ -277,7 +275,7 @@ contains
     class(squareCylinder), intent(in)          :: self
     real(defReal), dimension(3), intent(inout) :: r, u
 
-    call self % transformCompoundBCs(self % planes, self % getOrigin(), r, u)
+    call self % transformCompoundBCs(self % planes, r, u)
 
   end subroutine transformBC
 

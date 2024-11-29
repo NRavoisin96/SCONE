@@ -51,7 +51,6 @@ module truncCone_class
   !! Private Members:
   !!   axis       -> Index of an alignment axis in {X_AXIS, Y_AXIS, Z_AXIS}
   !!   planes     -> Indices of axis in planes of cone {X_AXIS, Y_AXIS, Z_AXIS}\{axis}
-  !!   vertex     -> Location of the vertex of the cone
   !!   tan        -> Tangent of the opening angle
   !!   tanSquared -> Square of the tangent of the opening angle
   !!   hMin       -> Cone lower boundary
@@ -64,7 +63,6 @@ module truncCone_class
     private
     integer(shortInt)                    :: axis = 0
     integer(shortInt), dimension(2)      :: planes = 0
-    real(defReal), dimension(3)          :: vertex = ZERO
     real(defReal)                        :: tan = ZERO, tanSquared = ZERO, inverseCos = ZERO, hMin = ZERO, hMax = ZERO
   contains
     ! Superclass procedures
@@ -97,11 +95,11 @@ contains
     call dict % get(id, 'id')
     call self % setId(id)
 
-    ! Load vertex.
+    ! Load origin.
     call dict % get(vertex, 'vertex')
     N = size(vertex)
-    if (N /= 3) call fatalError(Here,'Vertex must have size 3. Has: '//numToChar(N)//'.')
-    self % vertex = vertex
+    if (N /= 3) call fatalError(Here, 'Vertex must have size 3. Has: '//numToChar(N)//'.')
+    call self % setOrigin(vertex, 3)
 
     ! Load angle.
     call dict % get(angle, 'angle')
@@ -146,8 +144,7 @@ contains
     self % planes = planes
 
     ! Compute origin along the cone axial dimension and halfwidth.
-    call self % setOrigin([vertex(axis) + HALF * (hMin + hMax)], 1)
-    call self % setHalfwidths([HALF * (hMax - hMin)], 1)
+    call self % setHalfwidths([HALF * (hMax - hMin)], [vertex(axis) + HALF * (hMin + hMax)], 1)
 
     ! Set bounding box. Set along cone axis first.
     boundingBox(axis) = vertex(axis) + hMin
@@ -176,7 +173,7 @@ contains
 
     ! Offset coordinates with respect to cone's vertex and retrieve offset coordinates 
     ! components along the cone's axis and planes.
-    offsetCoords = r - self % vertex
+    offsetCoords = r - self % getOrigin()
     offsetCoordAxis = offsetCoords(self % axis)
     offsetCoordsPlanes = offsetCoords(self % planes)
     
@@ -191,7 +188,7 @@ contains
     end if
 
     ! Evaluate c for the two bases of the cone and return the overall maximum.
-    c = max(c, self % evaluateCompound([r(self % axis) - self % getOrigin()]))
+    c = max(c, self % evaluateCompound([r(self % axis)]))
 
   end function evaluate
 
@@ -216,11 +213,12 @@ contains
     real(defReal), dimension(:), allocatable :: solutions
     integer(shortInt), dimension(2)          :: planes
     integer(shortInt)                        :: axis, nSolutions, i
+    logical(defBool)                         :: surfTolCondition
 
     ! Initialise d = INF. Offset coordinates with respect to cone vertex and retrieve offset 
     ! coordinates and direction components along the cone's planes and axis.
     d = INF
-    offsetCoords = r - self % vertex
+    offsetCoords = r - self % getOrigin()
     planes = self % planes
     axis = self % axis
     offsetCoordsPlanes = offsetCoords(planes)
@@ -273,7 +271,14 @@ contains
 
     ! Update dMin and dMax, compute distances to intersection with the cone's halfwidth and choose correct
     ! distance.
-    d = self % distancesCompound([r(axis) - self % getOrigin()], [uAxis], dMin, dMax, self % isWithinSurfTol(r))
+    if (radius == ZERO) then
+      surfTolCondition = c == ZERO .and. self % evaluateCompound([r(axis)]) < self % getSurfTol()
+
+    else
+      surfTolCondition = abs(max(HALF * c / radius, self % evaluateCompound([r(axis)]))) < self % getSurfTol()
+
+    end if
+    d = self % distancesCompound([r(axis)], [uAxis], dMin, dMax, surfTolCondition)
 
   end function distance
 
@@ -290,23 +295,19 @@ contains
     integer(shortInt), dimension(2)         :: planes
     integer(shortInt)                       :: axis
     real(defReal), dimension(2)             :: offsetCoordsPlanes, uPlanes
-    real(defReal)                           :: offsetCoordAxis, uAxis, surfTol, radius, c, proj
+    real(defReal)                           :: offsetCoordAxis, uAxis, radius, c, proj
 
     ! Retrieve offset coordinates with respect to cone vertex and surface tolerance.
-    offsetCoords = r - self % vertex
+    offsetCoords = r - self % getOrigin()
     axis = self % axis
-    offsetCoordAxis = offsetCoords(axis)
     uAxis = u(axis)
-    surfTol = self % getSurfTol()
     
     ! Check cone halfwidth first and return if halfspace is positive.
-    if (abs(self % evaluateCompound([r(axis) - self % getOrigin()])) < surfTol) then
-      positiveHalfspace = self % isHalfspacePositive([r(axis) - self % getOrigin()], [uAxis])
-      if (positiveHalfspace) return
-
-    end if
+    positiveHalfspace = self % isHalfspacePositive([r(axis)], [uAxis])
+    if (positiveHalfspace) return
 
     ! Check cone surface.
+    offsetCoordAxis = offsetCoords(axis)
     planes = self % planes
     offsetCoordsPlanes = offsetCoords(planes)
     uPlanes = u(planes)
@@ -325,7 +326,7 @@ contains
     ! If particle is not exactly on the cone vertex compute cone normal and project direction onto it. Use
     ! particle location to determine halfspace if projection is ZERO.
     c = HALF * (dot_product(offsetCoordsPlanes, offsetCoordsPlanes) / radius - radius)
-    if (abs(c) < surfTol) then
+    if (abs(c) < self % getSurfTol()) then
       normal(axis) = -self % tanSquared * offsetCoordAxis
       normal(planes) = offsetCoordsPlanes
       normal = normal / norm2(normal)
@@ -358,7 +359,6 @@ contains
     ! Local
     self % axis = 0
     self % planes = 0
-    self % vertex = ZERO
     self % tan = ZERO
     self % tanSquared = ZERO
     self % inverseCos = ZERO
@@ -388,7 +388,7 @@ contains
     real(defReal)                           :: offsetCoordAxis, radius, c, cHalfwidth
     real(defReal), dimension(2)             :: offsetCoordsPlanes
 
-    offsetCoords = r - self % vertex
+    offsetCoords = r - self % getOrigin()
     planes = self % planes
     axis = self % axis
     offsetCoordAxis = offsetCoords(axis)
@@ -397,7 +397,7 @@ contains
     ! If particle's offset coordinate component along the cone's axis is exactly (to the bit)
     ! ZERO, then particle is within surface tolerance if it is exactly on the cone's vertex.
     radius = self % tan * offsetCoordAxis
-    cHalfwidth = self % evaluateCompound([r(axis) - self % getOrigin()])
+    cHalfwidth = self % evaluateCompound([r(axis)])
     if (radius == ZERO) then
       isIt = dot_product(offsetCoordsPlanes, offsetCoordsPlanes) == ZERO .and. cHalfwidth < self % getSurfTol()
       return
