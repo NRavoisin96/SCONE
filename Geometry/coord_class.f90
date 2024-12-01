@@ -15,28 +15,28 @@ module coord_class
   !!   * uniIdx, uniRootId & localId are set to +ve values
   !!
   !! Public Members:
-  !!   r              -> Position
-  !!   rEnd           -> Pre-computed end position (reserved for mesh tracking)
-  !!   dir            -> Direction
-  !!   isRotated      -> Is rotated wrt previous (higher by 1) level
-  !!   isLeaving      -> Is leaving 
-  !!   rotMat         -> Rotation matrix wrt previous level
-  !!   uniIdx         -> Index of the occupied universe
-  !!   uniRootId      -> Location of the occupied universe in geometry graph
-  !!   localId        -> Local cell in the occupied universe
-  !!   cellIdx        -> Index of the occupied cell in cellShelf. 0 is cell is local to the universe
-  !!   tetrahedronIdx -> Index of the occupied tetrahedron in meshShelf (for mesh universe)
+  !!   r          -> Position
+  !!   rEnd       -> Pre-computed end position (reserved for mesh tracking)
+  !!   dir        -> Direction
+  !!   isRotated  -> Is rotated wrt previous (higher by 1) level
+  !!   isLeaving  -> Is leaving 
+  !!   rotMat     -> Rotation matrix wrt previous level
+  !!   uniIdx     -> Index of the occupied universe
+  !!   uniRootId  -> Location of the occupied universe in geometry graph
+  !!   localId    -> Local cell in the occupied universe
+  !!   cellIdx    -> Index of the occupied cell in cellShelf. 0 is cell is local to the universe
+  !!   elementIdx -> Index of the occupied element in meshShelf (for mesh universe).
   !!
   !! Interface:
-  !!   isValid        -> Returns .true. if coordinates are valid
-  !!   display        -> Prints coordinates to the console
-  !!   kill        -> Returns to uninitialised state
+  !!   isValid    -> Returns .true. if coordinates are valid
+  !!   display    -> Prints coordinates to the console
+  !!   kill       -> Returns to uninitialised state
   !!
   type, public :: coord
     real(defReal), dimension(3)   :: r = ZERO, rEnd = ZERO, dir = ZERO
     logical(defBool)              :: isRotated = .false., isLeaving = .false.
     real(defReal), dimension(3,3) :: rotMat = ZERO
-    integer(shortInt)             :: uniIdx = 0, uniRootId = 0, localId = 0, cellIdx = 0, tetrahedronIdx = 0
+    integer(shortInt)             :: uniIdx = 0, uniRootId = 0, localId = 0, cellIdx = 0, elementIdx = 0
   contains
     procedure :: isValid => isValid_coord
     procedure :: display => display_coord

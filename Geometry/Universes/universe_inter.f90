@@ -381,7 +381,7 @@ contains
     new % r = new % r - self % origin
 
     ! Find cell
-    call self % findCell(new % r, new % dir, new % localId, new % cellIdx, new % tetrahedronIdx)
+    call self % findCell(new % r, new % dir, new % localId, new % cellIdx, new % elementIdx)
 
   end subroutine enter
 

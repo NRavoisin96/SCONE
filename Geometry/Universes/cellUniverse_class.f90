@@ -181,7 +181,7 @@ contains
 
     ! Find cell
     ! TODO: Some cell neighbour list
-    call self % findCell(coords % r, coords % dir, coords % localId, coords % cellIdx, coords % tetrahedronIdx)
+    call self % findCell(coords % r, coords % dir, coords % localId, coords % cellIdx, coords % elementIdx)
 
   end subroutine cross
 

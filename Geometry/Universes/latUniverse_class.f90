@@ -303,7 +303,7 @@ contains
     type(coord), intent(inout)        :: coords
     integer(shortInt), intent(in)     :: surfIdx
 
-    call self % findCell(coords % r, coords % dir, coords % localID, coords % cellIdx, coords % tetrahedronIdx)
+    call self % findCell(coords % r, coords % dir, coords % localID, coords % cellIdx, coords % elementIdx)
 
   end subroutine cross
 

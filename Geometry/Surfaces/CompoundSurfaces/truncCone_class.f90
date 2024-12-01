@@ -225,7 +225,6 @@ contains
     offsetCoordAxis = offsetCoords(axis)
     uPlanes = u(planes)
     uAxis = u(axis)
-    hMin = self % hMin
 
     ! Pre-compute uAxisScaled = uAxis / cos(angle) and cone radius, then compute a, k and c.
     uAxisScaled = uAxis * self % inverseCos
@@ -258,6 +257,7 @@ contains
 
     else
       ! Pre-compute bound and loop over all solutions retrieved.
+      hMin = self % hMin
       bound = sign(INF, uAxis * hMin)
       do i = 1, nSolutions
         ! Retrieve current solution and cap it to signed INF if the intersection is in the wrong hemicone.
@@ -350,13 +350,13 @@ contains
   elemental subroutine kill(self)
     class(truncCone), intent(inout) :: self
 
-    ! Superclass
+    ! Superclass.
     call kill_super(self)
 
     ! Compound surface.
     call self % killCompound()
 
-    ! Local
+    ! Local.
     self % axis = 0
     self % planes = 0
     self % tan = ZERO

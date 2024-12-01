@@ -144,45 +144,45 @@ contains
     coords % rEnd = coords % r + coords % dir * maxDist
     
     ! Identify where the point is first.
-    coords % tetrahedronIdx = mesh % findTetrahedron(coords % r, coords % dir)
+    coords % elementIdx = mesh % findTetrahedron(coords % r, coords % dir)
     call mesh % distanceToNextTriangle(distance, coords)
     @assertEqual(0.02_defReal, distance, 0.02_defReal * TOL)
     
     coords % r = [-0.65_defReal, 0.33_defReal, -0.47_defReal]
     coords % rEnd = coords % r + coords % dir * maxDist
-    coords % tetrahedronIdx = mesh % findTetrahedron(coords % r, coords % dir)
+    coords % elementIdx = mesh % findTetrahedron(coords % r, coords % dir)
     call mesh % distanceToNextTriangle(distance, coords)
     @assertEqual(0.385_defReal, distance, 0.385_defReal * TOL)    
     
     ! Few points outside the mesh but entering.
     coords % r = [-1.13_defReal, -0.8_defReal, 0.3_defReal]
     coords % rEnd = coords % r + coords % dir * maxDist
-    coords % tetrahedronIdx = mesh % findTetrahedron(coords % r, coords % dir)
+    coords % elementIdx = mesh % findTetrahedron(coords % r, coords % dir)
     call mesh % checkForEntry(distance, coords)
-    @assertTrue(coords % tetrahedronIdx > 0)
+    @assertTrue(coords % elementIdx > 0)
     @assertEqual(0.13_defReal, distance, 0.13_defReal * TOL)
     
     coords % r = [0.65_defReal, 0.0_defReal, 1.25_defReal]
     coords % dir = [ZERO, ZERO, -ONE]
     coords % rEnd = coords % r + coords % dir * maxDist
-    coords % tetrahedronIdx = mesh % findTetrahedron(coords % r, coords % dir)
+    coords % elementIdx = mesh % findTetrahedron(coords % r, coords % dir)
     call mesh % checkForEntry(distance, coords)
-    @assertTrue(coords % tetrahedronIdx > 0)
+    @assertTrue(coords % elementIdx > 0)
     @assertEqual(0.25_defReal, distance, 0.25_defReal * TOL)
     
     ! Few points outside the mesh and not entering.
     coords % r = [-1.13_defReal, -0.8_defReal, 0.3_defReal]
     coords % dir = [-ONE, ZERO, ZERO]
     coords % rEnd = coords % r + coords % dir * maxDist
-    coords % tetrahedronIdx = 0
+    coords % elementIdx = 0
     call mesh % checkForEntry(distance, coords)
-    @assertTrue(coords % tetrahedronIdx == 0)
+    @assertTrue(coords % elementIdx == 0)
     @assertEqual(INF, distance)
     coords % r = [0.65_defReal, 0.0_defReal, 1.25_defReal]
     coords % dir = [ZERO, ZERO, ONE]
     coords % rEnd = coords % r + coords % dir * maxDist
     call mesh % checkForEntry(distance, coords)
-    @assertTrue(coords % tetrahedronIdx == 0)
+    @assertTrue(coords % elementIdx == 0)
     @assertEqual(INF, distance)    
   
   end subroutine test_distance

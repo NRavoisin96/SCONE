@@ -161,7 +161,7 @@ contains
     character(100), parameter          :: Here = 'cross (rootUniverse_class.f90)'
 
     ! Cross by cell finding in case of significant undershoots
-    call self % findCell(coords % r, coords % dir, coords % localID, coords % cellIdx, coords % tetrahedronIdx)
+    call self % findCell(coords % r, coords % dir, coords % localID, coords % cellIdx, coords % elementIdx)
 
   end subroutine cross
 

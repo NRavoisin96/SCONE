@@ -153,9 +153,9 @@ contains
   !!
   !! See mesh_inter for details.
   !!
-  pure subroutine distance(self, dist, coords, isInside)
+  pure subroutine distance(self, d, coords, isInside)
     class(OpenFOAMMesh), intent(in) :: self
-    real(defReal), intent(out)      :: dist
+    real(defReal), intent(out)      :: d
     type(coord), intent(inout)      :: coords
     logical(defBool), intent(out)   :: isInside
 
@@ -163,18 +163,18 @@ contains
     isInside = .true.
     
     ! If particle is already inside a tetrahedron, simply compute the distance to the next mesh triangle and return.
-    if (coords % tetrahedronIdx > 0) then
-      call self % distanceToNextTriangle(dist, coords)
+    if (coords % elementIdx > 0) then
+      call self % distanceToNextTriangle(d, coords)
       return
 
     end if
 
     ! If not, we need to check if the particle enters the mesh.
-    call self % checkForEntry(dist, coords)
+    call self % checkForEntry(d, coords)
 
     ! If the particle enters the mesh retrieve the localId based on the element associated with the entry tetrahedron and return.
-    if (coords % tetrahedronIdx > 0) then
-      coords % localId = self % cellZones % findCellZone(self % tetrahedra % shelf(coords % tetrahedronIdx) % getElement())
+    if (coords % elementIdx > 0) then
+      coords % localId = self % cellZones % findCellZone(self % tetrahedra % shelf(coords % elementIdx) % getElement())
       return
 
     end if
@@ -187,20 +187,22 @@ contains
   !!
   !! See mesh_inter for details.
   !!
-  pure subroutine findElement(self, r, u, tetrahedronIdx, localId)
+  pure subroutine findElement(self, r, u, elementIdx, localId)
     class(OpenFOAMMesh), intent(in)         :: self
     real(defReal), dimension(3), intent(in) :: r, u
-    integer(shortInt), intent(out)          :: tetrahedronIdx, localId
+    integer(shortInt), intent(out)          :: elementIdx, localId
     
-    ! Initialise localId and find the index of the tetrahedron in which the particle resides.
-    localId = 1 ! Corresponds to particle being in CSG cell.
-    tetrahedronIdx = self % findTetrahedron(r, u)
+    ! Initialise localId = 1 (corresponds to the particle being in the CSG cell) and find the index of the tetrahedron
+    ! in which the particle resides.
+    localId = 1
+    elementIdx = self % findTetrahedron(r, u)
 
     ! If tetrahedronIdx = 0 the particle is in the CSG cell. Return early in this case.
-    if (tetrahedronIdx == 0) return
+    if (elementIdx == 0) return
 
     ! Update localId based on the element associated with the tetrahedron.
-    localId = self % cellZones % findCellZone(self % tetrahedra % shelf(tetrahedronIdx) % getElement())
+    localId = self % cellZones % findCellZone(self % tetrahedra % shelf(elementIdx) % getElement())
+
   end subroutine findElement
   
   !! Subroutine 'getMeshInfo'
@@ -473,15 +475,18 @@ contains
           nHexahedra = nHexahedra + 1
         case default
           nOthers = nOthers + 1
+
       end select
+
     end do
     
     ! Print to screen.
     print *, 'Displaying OpenFOAM mesh composition:'
-    print *, '  Number of tetrahedra     : '//numToChar(nTetrahedra)
-    print *, '  Number of pentahedra     : '//numToChar(nPentahedra)
-    print *, '  Number of hexahedra      : '//numToChar(nHexahedra)
-    print *, '  Number of other polyhedra: '//numToChar(nOthers)
+    print *, '  Number of tetrahedra     : '//numToChar(nTetrahedra)//'.'
+    print *, '  Number of pentahedra     : '//numToChar(nPentahedra)//'.'
+    print *, '  Number of hexahedra      : '//numToChar(nHexahedra)//'.'
+    print *, '  Number of other polyhedra: '//numToChar(nOthers)//'.'
+
   end subroutine printComposition
   
   !! Subroutine 'split'
@@ -808,7 +813,7 @@ contains
     ! Initialise dist to INF, retrieve the tetrahedron currently occupied 
     ! by the particle and compute potential triangle intersections.
     dist = INF
-    currentTetrahedron = self % tetrahedra % shelf(coords % tetrahedronIdx)
+    currentTetrahedron = self % tetrahedra % shelf(coords % elementIdx)
     rEnd = coords % rEnd
     call currentTetrahedron % computePotentialTriangles(rEnd, self % triangles, potentialTriangles)
     
@@ -825,7 +830,7 @@ contains
     ! If the intersected triangle is a boundary triangle then the particle is leaving the mesh.
     intersectedTriangle = self % triangles % shelf(intersectedTriangleIdx)
     if (intersectedTriangle % getIsBoundary()) then
-      coords % tetrahedronIdx = 0
+      coords % elementIdx = 0
       coords % localId = 1
       return
 
@@ -834,9 +839,9 @@ contains
     ! Else, retrieve the tetrahedra sharing the intersected triangle from mesh connectivity then
     ! update tetrahedronIdx and localId (if necessary).
     triangleToTetrahedra = intersectedTriangle % getTetrahedra()
-    coords % tetrahedronIdx = findDifferent(triangleToTetrahedra, currentTetrahedron % getIdx())
+    coords % elementIdx = findDifferent(triangleToTetrahedra, currentTetrahedron % getIdx())
     oldElement = currentTetrahedron % getElement()
-    newElement = self % tetrahedra % shelf(coords % tetrahedronIdx) % getElement()
+    newElement = self % tetrahedra % shelf(coords % elementIdx) % getElement()
     if (newElement /= oldElement) coords % localId = self % cellZones % findCellZone(newElement)
 
   end subroutine distanceToNextTriangle
@@ -922,7 +927,9 @@ contains
       return
 
     end do searchLoop
+
   end function findTetrahedron
+
   !! Function 'findTetrahedronFromEdge'
   !!
   !! Basic description:

@@ -375,7 +375,7 @@ contains
         
         ! If intersection has been found, or if the line segment does not intersect the node's cut plane,
         ! return early.
-        if (coords % tetrahedronIdx > 0 .or. (.not. isIntersecting)) return
+        if (coords % elementIdx > 0 .or. (.not. isIntersecting)) return
         
         ! Visit the right child node if it exists and look for an intersection.
         newStartPos = startPos + coords % dir * t
@@ -387,7 +387,7 @@ contains
         
         ! If intersection has been found, or if the line segment does not intersect the node's cut plane,
         ! return early.
-        if (coords % tetrahedronIdx > 0 .or. (.not. isIntersecting)) return
+        if (coords % elementIdx > 0 .or. (.not. isIntersecting)) return
         
         ! Visit the left child node if it exists and look for an intersection.
         newStartPos = startPos + coords % dir * t
@@ -434,7 +434,7 @@ contains
       if (isIntersecting .and. update < d .and. update > SURF_TOL) then
         d = update
         triangleToTetrahedra = currentTriangle % getTetrahedra()
-        coords % tetrahedronIdx = triangleToTetrahedra(1)
+        coords % elementIdx = triangleToTetrahedra(1)
 
       end if
 

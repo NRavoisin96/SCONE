@@ -15,8 +15,7 @@ module mesh_inter
   !!
   !! Abstract interface for all meshes.
   !!
-  !! Mesh represents a subdivision of the entire space into local elements defined by faces 
-  !! themselves divided into vertices.
+  !! A mesh represents a subdivision of the entire space into small 2- or 3-D elements.
   !!
   !! Private Members:
   !!   meshId          -> Id of the mesh.
@@ -25,14 +24,12 @@ module mesh_inter
   !! Interface:
   !!   checkMeshFolder -> Checks the existence of folder containing the mesh files.
   !!   getBoundingBox  -> Gets bounding box of the mesh.
-  !!   getName         -> Gets name of the mesh.
   !!   getNZones       -> Gets the number of element zones in the mesh.
   !!   id              -> Gets Id of the mesh.
   !!   setBoundingBox  -> Sets bounding box of the mesh.
   !!   setId           -> Sets Id of the mesh.
-  !!   setName         -> Sets name of the mesh.
   !!   init            -> Initialises mesh from input files.
-  !!   kill         -> Returns to uninitialised state.
+  !!   kill            -> Returns to uninitialised state.
   !!   findElement     -> Returns local cellId and cellIdx in cellShelf for a given position.
   !!   distance        -> Calculates the distance to the next face in the mesh.
   !!
@@ -42,14 +39,14 @@ module mesh_inter
     real(defReal), dimension(6)      :: boundingBox = ZERO
   contains
     ! Build procedures.
-    procedure, non_overridable       :: getBoundingBox
-    procedure(getNZones), deferred   :: getNZones
-    procedure, non_overridable       :: id
     procedure, non_overridable       :: setBoundingBox
     procedure, non_overridable       :: setId
     procedure(init), deferred        :: init
     procedure                        :: kill
     ! Runtime procedures.
+    procedure, non_overridable       :: getBoundingBox
+    procedure(getNZones), deferred   :: getNZones
+    procedure, non_overridable       :: id
     procedure(findElement), deferred :: findElement
     procedure(distance), deferred    :: distance
   end type mesh
@@ -97,18 +94,16 @@ module mesh_inter
     !!   which the tetrahedron belongs.
     !!
     !! Arguments:
-    !!   r [in]               -> Position of the particle.
-    !!   u [in]               -> Direction of the particle.
-    !!   tetrahedronIdx [out] -> Index of the tetrahedron in which the particle is.
-    !!   localId [out]        -> Local Id for the given particle.
+    !!   r [in]           -> Position of the particle.
+    !!   u [in]           -> Direction of the particle.
+    !!   elementIdx [out] -> Index of the tetrahedron in which the particle is.
+    !!   localId [out]    -> Local Id for the given particle.
     !!
-    !! TODO: Change tetrahedronIdx to elementIdx.
-    !!
-    pure subroutine findElement(self, r, u, tetrahedronIdx, localId)
+    pure subroutine findElement(self, r, u, elementIdx, localId)
       import                                  :: mesh, shortInt, defReal
       class(mesh), intent(in)                 :: self
       real(defReal), dimension(3), intent(in) :: r, u
-      integer(shortInt), intent(out)          :: tetrahedronIdx, localId
+      integer(shortInt), intent(out)          :: elementIdx, localId
 
     end subroutine findElement
     
@@ -118,16 +113,16 @@ module mesh_inter
     !!   Returns the distance to the next mesh face intersected by a particle's path.
     !!
     !! Arguments:
-    !!   dist [out]     -> Distance to the surface intersected by the particle's path.
+    !!   d [out]        -> Distance to the surface intersected by the particle's path.
     !!   coords [inout] -> Coordinates of the particle within the universe (after transformations
     !!                     and with tetrahedronIdx already set).
-    !!   isInside [out] -> Is the particle inside / entering the mesh? Needed as if this is false
-    !!                     then CSG tracking resumes.
+    !!   isInside [out] -> .true. if the particle is inside or entering the mesh. If .false. then 
+    !!                     CSG tracking resumes.
     !!
-    pure subroutine distance(self, dist, coords, isInside)
+    pure subroutine distance(self, d, coords, isInside)
       import                        :: mesh, coord, defBool, defReal
       class(mesh), intent(in)       :: self
-      real(defReal), intent(out)    :: dist
+      real(defReal), intent(out)    :: d
       type(coord), intent(inout)    :: coords
       logical(defBool), intent(out) :: isInside
 

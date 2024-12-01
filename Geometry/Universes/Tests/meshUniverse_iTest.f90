@@ -177,7 +177,7 @@ contains
     pos % uniIdx  = 18
     pos % cellIdx = cells % getIdx(1)
     pos % localId = 1
-    pos % tetrahedronIdx = 0
+    pos % elementIdx = 0
     call uni % distance(pos, d, surfIdx)
     ref = 0.2_defReal
     @assertEqual(ref, d, TOL * ref)
@@ -190,7 +190,7 @@ contains
     pos % uniIdx = 18
     pos % cellIdx = cells % getIdx(1)
     pos % localId = 1
-    pos % tetrahedronIdx = 0
+    pos % elementIdx = 0
     call uni % distance(pos, d, surfIdx)
     ref = ONE
     @assertEqual(ref, d, TOL * d)

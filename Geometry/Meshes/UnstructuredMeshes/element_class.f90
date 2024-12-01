@@ -550,7 +550,7 @@ contains
       ! Check if the coordinates actually lie on the current face (the condition for this is that
       ! the absolute value of dotProduct is less than or equal to the surface tolerance), and if so 
       ! append zeroDotProductFaces.
-      if (abs(dotProduct) <= SURF_TOL) call append(surfTolFaceIdxs, faceIdx)
+      if (abs(dotProduct) < SURF_TOL) call append(surfTolFaceIdxs, faceIdx)
 
     end do
 
