@@ -147,14 +147,14 @@ contains
   !!
   !! See universe_inter for details.
   !!
-  pure subroutine findCell(self, r, u, localId, cellIdx, tetrahedronIdx)
+  pure subroutine findCell(self, r, u, localId, cellIdx, elementIdx)
     class(meshUniverse), intent(inout)       :: self
-    integer(shortInt), intent(out)           :: localId, cellIdx, tetrahedronIdx
+    integer(shortInt), intent(out)           :: localId, cellIdx, elementIdx
     real(defReal), dimension(3), intent(in)  :: r, u
     
-    ! Set cellIdx to the index of the CSG cell, then find tetrahedronIdx and localId within mesh.
+    ! Set cellIdx to the index of the CSG cell, then find elementIdx and localId within mesh.
     cellIdx = self % cell % idx
-    call self % mesh % ptr % findElement(r, u, tetrahedronIdx, localId)
+    call self % mesh % ptr % findElement(r, u, elementIdx, localId)
 
   end subroutine findCell
   

@@ -196,10 +196,10 @@ contains
   !!
   !! See universe_inter for details.
   !!
-  pure subroutine findCell(self, r, u, localId, cellIdx, tetrahedronIdx)
+  pure subroutine findCell(self, r, u, localId, cellIdx, elementIdx)
     class(latUniverse), intent(inout)       :: self
     real(defReal), dimension(3), intent(in) :: r, u
-    integer(shortInt), intent(out)          :: localId, cellIdx, tetrahedronIdx
+    integer(shortInt), intent(out)          :: localId, cellIdx, elementIdx
     integer(shortInt), dimension(3)         :: ijk
     integer(shortInt)                       :: i, inc
     real(defReal), dimension(3)             :: corner, pitch, r_bar
@@ -207,7 +207,7 @@ contains
 
     ! Initialise cellIdx = 0 and localId = self % outLocalID.
     cellIdx = 0
-    tetrahedronIdx = 0
+    elementIdx = 0
     localId = self % outLocalID
 
     ! Find lattice location in x, y & z and get position wrt middle of the lattice cell.

@@ -23,7 +23,6 @@ module vertexShelf_class
     real(defReal), dimension(3)                     :: offset = ZERO
     real(defReal), dimension(6)                     :: extremalCoordinates = ZERO
   contains
-    procedure                                       :: setOffset
     procedure                                       :: collapse
     procedure                                       :: getAllCoordinates
     procedure                                       :: getExtremalCoordinates
@@ -31,6 +30,7 @@ module vertexShelf_class
     procedure                                       :: getSize
     procedure                                       :: kill
     procedure                                       :: setExtremalCoordinates
+    procedure                                       :: setOffset
   end type
 
 contains

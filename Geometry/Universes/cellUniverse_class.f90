@@ -114,12 +114,12 @@ contains
   !!
   !! See universe_inter for details.
   !!
-  pure subroutine findCell(self, r, u, localId, cellIdx, tetrahedronIdx)
+  pure subroutine findCell(self, r, u, localId, cellIdx, elementIdx)
     class(cellUniverse), intent(inout)      :: self
     real(defReal), dimension(3), intent(in) :: r, u
-    integer(shortInt), intent(out)          :: localId, cellIdx, tetrahedronIdx
+    integer(shortInt), intent(out)          :: localId, cellIdx, elementIdx
 
-    tetrahedronIdx = 0
+    elementIdx = 0
     ! Search all cells
     do localId = 1, size(self % cells)
       if (self % cells(localId) % ptr % inside(r, u)) then

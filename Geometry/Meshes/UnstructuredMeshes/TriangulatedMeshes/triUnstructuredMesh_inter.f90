@@ -4,12 +4,14 @@ module triUnstructuredMesh_inter
   use universalVariables,     only : INF
   use genericProcedures,      only : append, findCommon, findDifferent, hasDuplicates, removeDuplicates
   use coord_class,            only : coord
+  use dictionary_class,       only : dictionary
   use pyramidShelf_class,     only : pyramidShelf
   use tetrahedron_class,      only : tetrahedron
   use tetrahedronShelf_class, only : tetrahedronShelf
   use triangle_class,         only : triangle
   use triangleShelf_class,    only : triangleShelf
   use unstructuredMesh_inter, only : unstructuredMesh, kill_super => kill
+  use vertex_class,           only : vertex
 
   implicit none
   private
@@ -39,28 +41,29 @@ module triUnstructuredMesh_inter
   !!
   type, public, abstract, extends(unstructuredMesh) :: triUnstructuredMesh
     private
-    type(pyramidShelf), public                      :: pyramids
-    type(tetrahedronShelf), public                  :: tetrahedra
-    type(triangleShelf), public                     :: triangles
+    type(pyramidShelf), public          :: pyramids
+    type(tetrahedronShelf), public      :: tetrahedra
+    type(triangleShelf), public         :: triangles
   contains
-    procedure, non_overridable                      :: checkForEntry
-    procedure, non_overridable                      :: computePrimitives
-    procedure, non_overridable                      :: distance
-    procedure, non_overridable                      :: distanceToNextFace
-    procedure, non_overridable                      :: findElement
-    procedure, non_overridable                      :: findTetrahedron
-    procedure, non_overridable                      :: findTetrahedronFromEdge
-    procedure, non_overridable                      :: findTetrahedronFromFace
-    procedure, non_overridable                      :: findTetrahedronFromVertex
-    procedure, non_overridable                      :: kill
-    procedure, non_overridable                      :: split
-    procedure, non_overridable                      :: splitElements
-    procedure, non_overridable                      :: splitPyramids
+    procedure, non_overridable          :: checkForEntryTriUnstructured
+    procedure, non_overridable          :: computePrimitives
+    procedure, non_overridable          :: distanceTriUnstructured
+    procedure, non_overridable          :: distanceToNextFaceTriUnstructured
+    procedure, non_overridable          :: findElementTriUnstructured
+    procedure, non_overridable          :: findTetrahedron
+    procedure, non_overridable          :: findTetrahedronFromEdge
+    procedure, non_overridable          :: findTetrahedronFromFace
+    procedure, non_overridable          :: findTetrahedronFromVertex
+    procedure, non_overridable          :: kill
+    procedure, non_overridable          :: replaceVertexShelf
+    procedure, non_overridable          :: split
+    procedure, non_overridable          :: splitElements
+    procedure, non_overridable          :: splitPyramids
   end type triUnstructuredMesh
 
 contains
 
-  !! Subroutine 'checkForEntry'
+  !! Subroutine 'checkForEntryTriUnstructured'
   !!
   !! Basic description:
   !!   Checks whether a given particle enters from the CSG cell into the mesh. Returns the distance
@@ -71,7 +74,7 @@ contains
   !!   d [out]        -> Distance to the intersected triangle.
   !!   coords [inout] -> Particle's coordinates.
   !!
-  pure subroutine checkForEntry(self, d, coords)
+  pure subroutine checkForEntryTriUnstructured(self, d, coords)
     class(triUnstructuredMesh), intent(in) :: self
     real(defReal), intent(out)             :: d
     type(coord), intent(inout)             :: coords
@@ -95,7 +98,7 @@ contains
     ! If reached here, search the tree for the vertices contained in potential intersected triangles.
     call self % tree % findIntersectedTriangle(d, coords, self % vertices, self % triangles)
 
-  end subroutine checkForEntry
+  end subroutine checkForEntryTriUnstructured
 
   !! Subroutine 'computePrimitives'
   !!
@@ -133,7 +136,7 @@ contains
     nPyramids = 0
     nTetrahedra = 0
     nTriangles = 0
-    do i = 1, self % getElementsNumber()
+    do i = 1, self % nElements
       ! Retrieve the number of vertices and indices of the faces in the current element.
       nVertices = size(self % elements % shelf(i) % getVertices())
       faceIdxs = self % elements % shelf(i) % getFaces()
@@ -181,11 +184,11 @@ contains
 
   end subroutine computePrimitives
 
-  !! Subroutine 'distance'
+  !! Subroutine 'distanceTriUnstructured'
   !!
   !! See mesh_inter for details.
   !!
-  pure subroutine distance(self, d, coords, isInside)
+  pure subroutine distanceTriUnstructured(self, d, coords, isInside)
     class(triUnstructuredMesh), intent(in) :: self
     real(defReal), intent(out)             :: d
     type(coord), intent(inout)             :: coords
@@ -196,13 +199,13 @@ contains
     
     ! If particle is already inside a tetrahedron, simply compute the distance to the next mesh triangle and return.
     if (coords % elementIdx > 0) then
-      call self % distanceToNextFace(d, coords)
+      call self % distanceToNextFaceTriUnstructured(d, coords)
       return
 
     end if
 
     ! If not, we need to check if the particle enters the mesh.
-    call self % checkForEntry(d, coords)
+    call self % checkForEntryTriUnstructured(d, coords)
 
     ! If the particle enters the mesh retrieve the localId based on the element associated with the entry tetrahedron and return.
     if (coords % elementIdx > 0) then
@@ -214,9 +217,9 @@ contains
     ! If reached here, the particle does not enter the mesh and CSG tracking resumes.
     isInside = .false.
 
-  end subroutine distance
+  end subroutine distanceTriUnstructured
 
-  !! Subroutine 'distanceToNextFace'
+  !! Subroutine 'distanceToNextFaceTriUnstructured'
   !!
   !! Basic description:
   !!   Returns the distance to the next triangle intersected by the particle's path. Returns
@@ -229,7 +232,7 @@ contains
   !!   coords [inout] -> Particle's coordinates.
   !!
   !! TODO: Optimise this.
-  pure subroutine distanceToNextFace(self, d, coords)
+  pure subroutine distanceToNextFaceTriUnstructured(self, d, coords)
     class(triUnstructuredMesh), intent(in)       :: self
     real(defReal), intent(out)                   :: d
     type(coord), intent(inout)                   :: coords
@@ -274,13 +277,13 @@ contains
     newElement = self % tetrahedra % shelf(coords % elementIdx) % getElement()
     if (newElement /= oldElement) coords % localId = self % cellZones % findCellZone(newElement)
 
-  end subroutine distanceToNextFace
+  end subroutine distanceToNextFaceTriUnstructured
 
-  !! Subroutine 'findElement'
+  !! Subroutine 'findElementTriUnstructured'
   !!
   !! See mesh_inter for details.
   !!
-  pure subroutine findElement(self, r, u, elementIdx, localId)
+  pure subroutine findElementTriUnstructured(self, r, u, elementIdx, localId)
     class(triUnstructuredMesh), intent(in)  :: self
     real(defReal), dimension(3), intent(in) :: r, u
     integer(shortInt), intent(out)          :: elementIdx, localId
@@ -296,7 +299,7 @@ contains
     ! Update localId based on the element associated with the tetrahedron.
     localId = self % cellZones % findCellZone(self % tetrahedra % shelf(elementIdx) % getElement())
 
-  end subroutine findElement
+  end subroutine findElementTriUnstructured
 
   !! Function 'findTetrahedron'
   !!
@@ -652,11 +655,30 @@ contains
     call kill_super(self)
 
     ! Local.
-    if (allocated(self % pyramids % shelf)) deallocate(self % pyramids % shelf)
-    if (allocated(self % tetrahedra % shelf)) deallocate(self % tetrahedra % shelf)
-    if (allocated(self % triangles % shelf)) deallocate(self % triangles % shelf)
+    call self % pyramids % kill()
+    call self % tetrahedra % kill()
+    call self % triangles % kill()
 
   end subroutine kill
+
+  !! Subroutine 'replaceVertexShelf'
+  !!
+  !! Basic description:
+  !!   Replaces the current vertexShelf of the mesh with a new shelf containing more vertices.
+  !!   The new number of vertices is equal to the number of base mesh vertices plus the number
+  !!   of mesh elements (since the elements are split from their centroids).
+  !!
+  elemental subroutine replaceVertexShelf(self)
+    class(triUnstructuredMesh), intent(inout) :: self
+    type(vertex), dimension(self % nVertices) :: shelf
+
+    ! Allocate memory in the new shelf then copy elements from the original shelf.
+    shelf = self % vertices % shelf
+    if(allocated(self % vertices % shelf)) deallocate(self % vertices % shelf)
+    allocate(self % vertices % shelf(self % nVertices + self % nElements))
+    self % vertices % shelf(1:self % nVertices) = shelf
+
+  end subroutine replaceVertexShelf
 
   !! Subroutine 'split'
   !!
@@ -690,7 +712,7 @@ contains
     
     ! Initialise lastVertexIdx, lastPyramidIdx, lastTetrahedronIdx and lastTriangleIdx then
     ! split all elements into pyramids and all pyramids into tetrahedra.
-    lastVertexIdx = self % getVerticesNumber()
+    lastVertexIdx = self % nVertices
     lastPyramidIdx = 0
     lastTetrahedronIdx = 0
     lastTriangleIdx = 0
@@ -719,7 +741,7 @@ contains
     real(defReal), dimension(3)                  :: centroid
                                         
     ! Loop through all elements.
-    do i = 1, self % getElementsNumber()
+    do i = 1, self % nElements
       ! Retrieve the indices of the vertices and the faces in the current element as well as the centroid
       ! of the element.
       vertices = self % elements % shelf(i) % getVertices()

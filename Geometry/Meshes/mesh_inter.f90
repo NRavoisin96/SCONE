@@ -19,41 +19,43 @@ module mesh_inter
   !! A mesh represents a subdivision of the entire space into small 2- or 3-D elements.
   !!
   !! Private Members:
-  !!   meshId                -> Id of the mesh.
+  !!   id                    -> Id of the mesh.
   !!   nElementZones         -> Number of element zones in the mesh.
   !!   boundingBox           -> Axis-aligned bounding box (AABB) of the mesh.
   !!   cellZonesFile         -> .true. if a file is present to explicitly assign element zones.
   !!   cellZones             -> Shelf that stores element zones.
   !!
   !! Interface:
-  !!   getBoundingBox        -> Gets bounding box of the mesh.
-  !!   getElementZonesNumber -> Gets the number of element zones in the mesh.
-  !!   id                    -> Gets Id of the mesh.
+  !!   getBoundingBox        -> Returns the bounding box of the mesh.
+  !!   getElementZonesNumber -> Returns the number of element zones in the mesh.
+  !!   getId                 -> Returns the id of the mesh.
   !!   setBoundingBox        -> Sets bounding box of the mesh.
   !!   setId                 -> Sets Id of the mesh.
   !!   init                  -> Initialises mesh from input files.
   !!   kill                  -> Returns to uninitialised state.
   !!   findElement           -> Returns local cellId and cellIdx in cellShelf for a given position.
-  !!   distance              -> Calculates the distance to the next face in the mesh.
+  !!   distance              -> Calculates the distance travelled by a particle within the mesh.
+  !!   distanceToNextFace    -> Calculates the distance to the next face in the mesh.
   !!
   type, public, abstract :: mesh
     private
-    integer(shortInt), public        :: meshId = 0, nElementZones = 0
-    real(defReal), dimension(6)      :: boundingBox = ZERO
-    logical(defBool), public         :: cellZonesFile = .false.
-    type(cellZoneShelf), public      :: cellZones
+    integer(shortInt), public               :: id = 0, nElementZones = 0
+    real(defReal), dimension(6)             :: boundingBox = ZERO
+    logical(defBool), public                :: cellZonesFile = .false.
+    type(cellZoneShelf), public             :: cellZones
   contains
     ! Build procedures.
-    procedure, non_overridable       :: setBoundingBox
-    procedure, non_overridable       :: setId
-    procedure(init), deferred        :: init
-    procedure                        :: kill
+    procedure, non_overridable              :: setBoundingBox
+    procedure, non_overridable              :: setId
+    procedure(init), deferred               :: init
+    procedure                               :: kill
     ! Runtime procedures.
-    procedure, non_overridable       :: getBoundingBox
-    procedure, non_overridable       :: getElementZonesNumber
-    procedure, non_overridable       :: id
-    procedure(findElement), deferred :: findElement
-    procedure(distance), deferred    :: distance
+    procedure, non_overridable              :: getBoundingBox
+    procedure, non_overridable              :: getElementZonesNumber
+    procedure, non_overridable              :: getId
+    procedure(findElement), deferred        :: findElement
+    procedure(distance), deferred           :: distance
+    procedure(distanceToNextFace), deferred :: distanceToNextFace
   end type mesh
   
   abstract interface
@@ -104,7 +106,7 @@ module mesh_inter
     !! Arguments:
     !!   d [out]        -> Distance to the surface intersected by the particle's path.
     !!   coords [inout] -> Coordinates of the particle within the universe (after transformations
-    !!                     and with tetrahedronIdx already set).
+    !!                     and with elementIdx already set).
     !!   isInside [out] -> .true. if the particle is inside or entering the mesh. If .false. then 
     !!                     CSG tracking resumes.
     !!
@@ -116,6 +118,25 @@ module mesh_inter
       logical(defBool), intent(out) :: isInside
 
     end subroutine distance
+
+    !! Subroutine 'distanceToNextFace'
+    !!
+    !! Basic description:
+    !!   Returns the distance to the next mesh face intersected by the particle's path. Returns
+    !!   INF if the particle does not intersect any face (i.e., if its path is entirely
+    !!   contained in the element the particle currently is).
+    !!
+    !! Arguments:
+    !!   d [out]        -> Distance to the next intersected face.
+    !!   coords [inout] -> Particle's coordinates.
+    !!
+    pure subroutine distanceToNextFace(self, d, coords)
+      import                     :: mesh, defReal, coord
+      class(mesh), intent(in)    :: self
+      real(defReal), intent(out) :: d
+      type(coord), intent(inout) :: coords
+
+    end subroutine distanceToNextFace
 
   end interface
 
@@ -181,40 +202,40 @@ contains
   !! Subroutine 'setId'
   !!
   !! Basic description:
-  !!   Sets the 'meshId' component of the mesh.
+  !!   Sets the id of the mesh.
   !!
   !! Arguments:
-  !!   meshId [in] -> Id of the mesh.
+  !!   id [in] -> Id of the mesh.
   !!
   !! Errors:
-  !!   fatalError if meshId < 1.
+  !!   fatalError if id < 1.
   !!
-  subroutine setId(self, meshId)
+  subroutine setId(self, id)
     class(mesh), intent(inout)    :: self
-    integer(shortInt), intent(in) :: meshId
+    integer(shortInt), intent(in) :: id
     character(100), parameter     :: Here = 'setId (mesh_inter.f90)'
     
     ! Catch invalid id and set id.
-    if (meshId < 1) call fatalError(Here, 'Id must be +ve. Is: '//numToChar(meshId)//'.')
-    self % meshId = meshId
+    if (id < 1) call fatalError(Here, 'Id must be +ve. Is: '//numToChar(id)//'.')
+    self % id = id
 
   end subroutine setId
   
-  !! Function 'id'
+  !! Function 'getId'
   !!
   !! Basic description:
-  !!   Returns the Id of the mesh.
+  !!   Returns the id of the mesh.
   !!
   !! Result:
-  !!   'id' component of the 'mesh' structure.
+  !!   id -> Id of the mesh.
   !!
-  elemental function id(self)
+  elemental function getId(self) result(id)
     class(mesh), intent(in) :: self
     integer(shortInt)       :: id
     
-    id = self % meshId
+    id = self % id
 
-  end function id
+  end function getId
   
   !! Subroutine 'kill'
   !!
@@ -224,8 +245,11 @@ contains
   elemental subroutine kill(self)
     class(mesh), intent(inout) :: self
    
-    self % meshId  = 0
+    self % id = 0
+    self % nElementZones = 0
     self % boundingBox = ZERO
+    self % cellZonesFile = .false.
+    call self % cellZones % kill()
 
   end subroutine kill
 

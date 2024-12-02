@@ -1,6 +1,7 @@
 module triOpenFOAMMesh_class
 
   use numPrecision
+  use coord_class,               only : coord
   use dictionary_class,          only : dictionary
   use OpenFOAMFunctions,         only : importMesh
   use triUnstructuredMesh_inter, only : triUnstructuredMesh
@@ -11,10 +12,45 @@ module triOpenFOAMMesh_class
   type, public, extends(triUnstructuredMesh) :: triOpenFOAMMesh
     private
   contains
-    procedure, non_overridable               :: init
+    ! Superclass procedures.
+    procedure                                :: distance
+    procedure                                :: distanceToNextFace
+    procedure                                :: findElement
+    procedure                                :: init
   end type triOpenFOAMMesh
 
 contains
+
+  pure subroutine distance(self, d, coords, isInside)
+    class(triOpenFOAMMesh), intent(in) :: self
+    real(defReal), intent(out)         :: d
+    type(coord), intent(inout)         :: coords
+    logical(defBool), intent(out)      :: isInside
+
+    call self % distanceTriUnstructured(d, coords, isInside)
+
+  end subroutine distance
+
+  pure subroutine distanceToNextFace(self, d, coords)
+    class(triOpenFOAMMesh), intent(in) :: self
+    real(defReal), intent(out)         :: d
+    type(coord), intent(inout)         :: coords
+
+    call self % distanceToNextFaceTriUnstructured(d, coords)
+
+  end subroutine distanceToNextFace
+
+  !!
+  !!
+  !!
+  pure subroutine findElement(self, r, u, elementIdx, localId)
+    class(triOpenFOAMMesh), intent(in)      :: self
+    real(defReal), dimension(3), intent(in) :: r, u
+    integer(shortInt), intent(out)          :: elementIdx, localId
+
+    call self % findElementTriUnstructured(r, u, elementIdx, localId)
+
+  end subroutine findElement
 
   !! Subroutine 'init'
   !!
@@ -44,17 +80,20 @@ contains
   !!   - fatalError if the mesh contains concave elements.
   !!
   subroutine init(self, folderPath, dict)
-    class(triOpenFOAMMesh), intent(inout)        :: self
-    character(*), intent(in)                     :: folderPath
-    class(dictionary), intent(in)                :: dict
-    integer(shortInt)                            :: freeVertexIdx
+    class(triOpenFOAMMesh), intent(inout) :: self
+    character(*), intent(in)              :: folderPath
+    class(dictionary), intent(in)         :: dict
+    integer(shortInt)                     :: lastVertexIdx
     
-    ! Import OpenFOAM mesh and split non-tetrahedral mesh elements into tetrahedra.
+    ! Import OpenFOAM mesh.
     call importMesh(self, folderPath, dict)
-    call self % split(freeVertexIdx)
+
+    ! Split non-tetrahedral mesh elements into tetrahedra
+    call self % replaceVertexShelf()
+    call self % split(lastVertexIdx)
     
     ! Collapse the 'vertices' structure to save memory and initialise kd-tree for the mesh.
-    call self % vertices % collapse(freeVertexIdx)
+    call self % vertices % collapse(lastVertexIdx)
     call self % tree % init(self % vertices % getAllCoordinates(), .true.)
 
   end subroutine init

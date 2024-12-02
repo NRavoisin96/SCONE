@@ -74,14 +74,16 @@ contains
       self % meshes(i) % name = names(i)
       tempDict => dict % getDictPtr(names(i))
       self % meshes(i) % ptr => new_mesh_ptr(tempDict)
-      id = self % meshes(i) % ptr % id()
+      id = self % meshes(i) % ptr % getId()
       ! Add Id to the map detecting any conflicts.
       idx = self % idMap % getOrDefault(id, NOT_PRESENT)
       if (idx /= NOT_PRESENT) call fatalError(Here,'Mesh geometries '//trim(names(i))// ' & '//&
                                               trim(self % meshes(idx) % name)//' have the same Id: '&
                                               //numToChar(id)//'.')
       call self % idMap % add(id, i)
+
     end do
+
   end subroutine init
   
   !! Subroutine 'kill'
@@ -104,6 +106,7 @@ contains
         
     end if
     call self % idMap % kill()
+
   end subroutine kill
   
   !! Function 'getId'
@@ -130,7 +133,8 @@ contains
     size = self % getSize()
     if (idx < 1 .or. idx > size) call fatalError(Here, 'Requested index: '//numToChar(idx)//' is not valid. Must be between &
                                                  &1 and '//numToChar(size))
-    id = self % meshes(idx) % ptr % id()
+    id = self % meshes(idx) % ptr % getId()
+
   end function getId
   
   !! Function 'getIdx'
@@ -156,6 +160,7 @@ contains
     
     idx = self % idMap % getOrDefault(id, NOT_PRESENT)
     if (idx == NOT_PRESENT) call fatalError(Here, 'There is no mesh with Id: '//numToChar(id)//'.')
+
   end function getIdx
   
   !! Function 'getPtr'

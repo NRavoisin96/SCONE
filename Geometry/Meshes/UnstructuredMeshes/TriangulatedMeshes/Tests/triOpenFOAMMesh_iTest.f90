@@ -50,9 +50,9 @@ contains
   subroutine test_misc()
     
     ! Test id.
-    @assertEqual(2, mesh % id())
+    @assertEqual(2, mesh % getId())
     call mesh % setId(7)
-    @assertEqual(7, mesh % id())
+    @assertEqual(7, mesh % getId())
 
   end subroutine test_misc
   
@@ -64,13 +64,13 @@ contains
     real(defReal) :: TOL = 1.0E-6
     
     ! Test number of vertices.
-    @assertEqual(18, mesh % getVerticesNumber())
+    @assertEqual(18, mesh % nVertices)
     ! Test number of faces.
-    @assertEqual(20, mesh % getFacesNumber())
+    @assertEqual(20, mesh % nFaces)
     ! Test number of elements.
-    @assertEqual(4, mesh % getElementsNumber())
+    @assertEqual(4, mesh % nElements)
     ! Test number of internal faces.
-    @assertEqual(4, mesh % getInternalFacesNumber())
+    @assertEqual(4, mesh % nInternalFaces)
     ! Test area of two faces.
     @assertEqual(2.0_defReal, mesh % faces % shelf(1) % getArea(), 2.0_defReal * TOL)
     @assertEqual(1.0_defReal, mesh % faces % shelf(11) % getArea(), 1.0_defReal * TOL)
@@ -174,7 +174,7 @@ contains
     coords % r = [-1.13_defReal, -0.8_defReal, 0.3_defReal]
     coords % rEnd = coords % r + coords % dir * maxDist
     coords % elementIdx = mesh % findTetrahedron(coords % r, coords % dir)
-    call mesh % checkForEntry(distance, coords)
+    call mesh % checkForEntryTriUnstructured(distance, coords)
     @assertTrue(coords % elementIdx > 0)
     @assertEqual(0.13_defReal, distance, 0.13_defReal * TOL)
     
@@ -182,7 +182,7 @@ contains
     coords % dir = [ZERO, ZERO, -ONE]
     coords % rEnd = coords % r + coords % dir * maxDist
     coords % elementIdx = mesh % findTetrahedron(coords % r, coords % dir)
-    call mesh % checkForEntry(distance, coords)
+    call mesh % checkForEntryTriUnstructured(distance, coords)
     @assertTrue(coords % elementIdx > 0)
     @assertEqual(0.25_defReal, distance, 0.25_defReal * TOL)
     
@@ -191,13 +191,13 @@ contains
     coords % dir = [-ONE, ZERO, ZERO]
     coords % rEnd = coords % r + coords % dir * maxDist
     coords % elementIdx = 0
-    call mesh % checkForEntry(distance, coords)
+    call mesh % checkForEntryTriUnstructured(distance, coords)
     @assertTrue(coords % elementIdx == 0)
     @assertEqual(INF, distance)
     coords % r = [0.65_defReal, 0.0_defReal, 1.25_defReal]
     coords % dir = [ZERO, ZERO, ONE]
     coords % rEnd = coords % r + coords % dir * maxDist
-    call mesh % checkForEntry(distance, coords)
+    call mesh % checkForEntryTriUnstructured(distance, coords)
     @assertTrue(coords % elementIdx == 0)
     @assertEqual(INF, distance)    
   

@@ -1,6 +1,7 @@
 module OpenFOAMMesh_class
 
   use numPrecision
+  use coord_class,            only : coord
   use dictionary_class,       only : dictionary
   use OpenFOAMFunctions,      only : importMesh
   use unstructuredMesh_inter, only : unstructuredMesh
@@ -11,10 +12,45 @@ module OpenFOAMMesh_class
   type, public, extends(unstructuredMesh) :: OpenFOAMMesh
     private
   contains
-    procedure, non_overridable            :: init
+    ! Superclass procedures.
+    procedure                             :: distance
+    procedure                             :: distanceToNextFace
+    procedure                             :: findElement
+    procedure                             :: init
   end type OpenFOAMMesh
 
 contains
+
+  pure subroutine distance(self, d, coords, isInside)
+    class(OpenFOAMMesh), intent(in) :: self
+    real(defReal), intent(out)      :: d
+    type(coord), intent(inout)      :: coords
+    logical(defBool), intent(out)   :: isInside
+
+    call self % distanceUnstructured(d, coords, isInside)
+
+  end subroutine distance
+
+  pure subroutine distanceToNextFace(self, d, coords)
+    class(OpenFOAMMesh), intent(in) :: self
+    real(defReal), intent(out)      :: d
+    type(coord), intent(inout)      :: coords
+
+    call self % distanceToNextFaceUnstructured(d, coords)
+
+  end subroutine distanceToNextFace
+
+  !!
+  !!
+  !!
+  pure subroutine findElement(self, r, u, elementIdx, localId)
+    class(OpenFOAMMesh), intent(in)         :: self
+    real(defReal), dimension(3), intent(in) :: r, u
+    integer(shortInt), intent(out)          :: elementIdx, localId
+
+    call self % findElementUnstructured(r, u, elementIdx, localId)
+
+  end subroutine findElement
 
   !! Subroutine 'init'
   !!

@@ -430,7 +430,7 @@ contains
       ! If the line segment intersects the triangle and the distance is less than the lowest 
       ! distance known and the distance is greater than a small tolerance (this is to avoid 
       ! particles leaving the mesh becoming stuck in an infinite exit loop) then update d and the
-      ! particle's tetrahedronIdx.
+      ! particle's elementIdx.
       if (isIntersecting .and. update < d .and. update > SURF_TOL) then
         d = update
         triangleToTetrahedra = currentTriangle % getTetrahedra()

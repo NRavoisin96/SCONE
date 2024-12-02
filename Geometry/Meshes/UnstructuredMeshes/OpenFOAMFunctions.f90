@@ -47,10 +47,10 @@ contains
 
     ! Check the existence of the 'points' and 'faces' files and report errors if they are not found.
     inquire(file = folderPath//'points', exist = pointsFile)
-    if (.not. pointsFile) call fatalError(Here, "Missing 'points' file for OpenFOAM mesh with Id: "//numToChar(mesh % id())//'.')
+    if (.not. pointsFile) call fatalError(Here, "Missing 'points' file for OpenFOAM mesh with Id: "//numToChar(mesh % getId())//'.')
     
     inquire(file = folderPath//'faces', exist = facesFile)
-    if (.not. facesFile) call fatalError(Here, "Missing 'faces' file for OpenFOAM mesh with Id: "//numToChar(mesh % id())//'.')
+    if (.not. facesFile) call fatalError(Here, "Missing 'faces' file for OpenFOAM mesh with Id: "//numToChar(mesh % getId())//'.')
     
     ! If nInternal = 0, return early.
     if (nInternalFaces == 0) return
@@ -58,7 +58,7 @@ contains
     ! If reached here check that the 'neighbour' file exists and report error if not.
     inquire(file = folderPath//'neighbour', exist = neighbourFile)
     if (.not. neighbourFile) call fatalError(Here, &
-    "Missing 'neighbour' file for OpenFOAM mesh with Id: "//numToChar(mesh % id())//'.')
+    "Missing 'neighbour' file for OpenFOAM mesh with Id: "//numToChar(mesh % getId())//'.')
 
     ! Check that the 'cellZones' file exists and register information into mesh.
     inquire(file = folderPath//'cellZones', exist = mesh % cellZonesFile)
@@ -92,7 +92,7 @@ contains
     ! Initialise ownerPath and perform a first check for the existence of the 'owner' file. Call fatalError if not found.
     ownerPath = folderPath//'owner'
     inquire(file = ownerPath, exist = ownerFile)
-    if (.not. ownerFile) call fatalError(Here, "Missing 'owner' file for OpenFOAM mesh with Id: "//numToChar(mesh % id())//'.')
+    if (.not. ownerFile) call fatalError(Here, "Missing 'owner' file for OpenFOAM mesh with Id: "//numToChar(mesh % getId())//'.')
     
     ! Open the 'owner' file and read it. Skip lines until the line with the keyword 'note' is encountered.
     call openToRead(unit, ownerPath)
@@ -184,7 +184,7 @@ contains
     call getMeshInfo(mesh, folderPath)
     
     ! Allocate memory to the 'vertices', 'faces' and 'elements' structures.
-    allocate(mesh % vertices % shelf(mesh % nVertices + mesh % nElements))
+    allocate(mesh % vertices % shelf(mesh % nVertices))
     allocate(mesh % faces % shelf(mesh % nFaces))
     allocate(mesh % elements % shelf(mesh % nElements))
     

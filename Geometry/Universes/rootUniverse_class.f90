@@ -116,14 +116,14 @@ contains
   !!
   !! See universe_inter for details.
   !!
-  subroutine findCell(self, r, u, localId, cellIdx, tetrahedronIdx)
+  pure subroutine findCell(self, r, u, localId, cellIdx, elementIdx)
     class(rootUniverse), intent(inout)      :: self
     real(defReal), dimension(3), intent(in) :: r, u
-    integer(shortInt), intent(out)          :: localId, cellIdx, tetrahedronIdx
+    integer(shortInt), intent(out)          :: localId, cellIdx, elementIdx
 
     ! Set cellIdx = 0, initialise localId = INSIDE_ID then check halfspace.
     cellIdx = 0
-    tetrahedronIdx = 0
+    elementIdx = 0
     localId = INSIDE_ID
     if (self % surf % halfspace(r, u)) localId = OUTSIDE_ID
 

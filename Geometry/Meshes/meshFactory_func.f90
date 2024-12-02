@@ -48,6 +48,7 @@ module meshFactory_func
     character(:), allocatable     :: trimmedPath
     logical(defBool)              :: pathExists
     character(100), parameter     :: Here = 'new_mesh_ptr (meshFactory_func.f90)'
+    
     ! Retrieve type of the mesh.
     call dict % get(type, 'type')
     ! Retrieve path to the mesh folder.
@@ -70,8 +71,10 @@ module meshFactory_func
         call fatalError(Here, 'Unrecognised mesh type: '//trim(type)//'.')
 
     end select
+
     ! Initialise the mesh geometry.
     call new % init(trimmedPath, dict)
+    
   end function new_mesh_ptr
   
   !! Subroutine 'new_mesh'
@@ -87,6 +90,7 @@ module meshFactory_func
     class(mesh), allocatable, intent(out) :: new
     class(dictionary), intent(in)         :: dict
     class(mesh), pointer                  :: temp
+    
     ! Obtain pointer to temporary mesh.
     temp => new_mesh_ptr(dict)
     ! Now copy the temporary mesh into the new mesh.
@@ -94,5 +98,7 @@ module meshFactory_func
     ! Clear the temporary mesh and deallocate pointer to prevent memory leaks.
     call temp % kill()
     deallocate(temp)
+
   end subroutine new_mesh
+
 end module meshFactory_func

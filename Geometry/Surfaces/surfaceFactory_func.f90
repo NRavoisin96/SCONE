@@ -1,11 +1,11 @@
 module surfaceFactory_func
 
   use numPrecision
-  use genericProcedures, only : fatalError
-  use dictionary_class,  only : dictionary
+  use genericProcedures,    only : fatalError
+  use dictionary_class,     only : dictionary
 
   ! Surface interface
-  use surface_inter,     only : surface
+  use surface_inter,        only : surface
 
   ! Surfaces
   use aPlane_class,         only : aPlane

@@ -121,24 +121,23 @@ module universe_inter
     !! cellIdx to 0.
     !!
     !! Args:
-    !!   r [in]                         -> Position of the point
-    !!   u [in]                         -> Normalised direction (norm2(u) = 1.0)
-    !!   localId [out]                  -> Local id for the given point
-    !!   cellIdx [out]                  -> cellIdx in cellShelf, if the cell the point is in is 
-    !!                                     defined there. If the cell exists only in the universe 
-    !!                                     return 0.
-    !!   tetrahedronIdx [out], optional -> tetrahedronIdx in tetrahedronShelf, used for universes
-    !!                                     containing mesh geometries.
+    !!   r [in]           -> Position of the point
+    !!   u [in]           -> Normalised direction (norm2(u) = 1.0)
+    !!   localId [out]    -> Local id for the given point
+    !!   cellIdx [out]    -> cellIdx in cellShelf, if the cell the point is in is defined 
+    !!                       there. If the cell exists only in the universe return 0.
+    !!   elementIdx [out] -> index of the mesh element containing the point, used for 
+    !!                       universes containing mesh geometries.
     !!
     !! Note: Self is intent(inout), but if a state of the universe is to be changed
     !!   it is necessary to consider issues related to parallel calculations with shared
     !!   memory.
     !!
-    subroutine findCell(self, r, u, localId, cellIdx, tetrahedronIdx)
+    pure subroutine findCell(self, r, u, localId, cellIdx, elementIdx)
       import :: universe, defReal, shortInt
       class(universe), intent(inout)           :: self
       real(defReal), dimension(3), intent(in)  :: r, u
-      integer(shortInt), intent(out)           :: localId, cellIdx, tetrahedronIdx
+      integer(shortInt), intent(out)           :: localId, cellIdx, elementIdx
     end subroutine findCell
 
     !!

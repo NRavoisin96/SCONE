@@ -12,7 +12,7 @@ module meshShelf_iTest
   ! Parameters.
   character(*), parameter :: MESHES_DEF = &
   " testMesh1 { id 11; type OpenFOAMMesh; path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/testMesh1/;} &
-   &testMesh2 { id 21; type OpenFOAMMesh; path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/testMesh2/;}"
+   &testMesh2 { id 21; type triOpenFOAMMesh; path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/testMesh2/;}"
   
   ! Variables.
   type(meshShelf) :: meshes
@@ -47,12 +47,12 @@ contains
     ! Mesh ID 11.
     idx = meshes % getIdx(11)
     ptr => meshes % getPtr(idx)
-    @assertEqual(11, ptr % id())
+    @assertEqual(11, ptr % getId())
     @assertEqual(11, meshes % getID(idx))
     ! Mesh ID 21.
     idx = meshes % getIdx(21)
     ptr => meshes % getPtr(idx)
-    @assertEqual(21, ptr % id())
+    @assertEqual(21, ptr % getId())
     @assertEqual(21, meshes % getID(idx))    
   end subroutine test_get
 end module meshShelf_iTest

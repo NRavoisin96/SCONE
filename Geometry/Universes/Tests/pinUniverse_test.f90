@@ -256,7 +256,7 @@ contains
 @Test
   subroutine test_edgeCases()
     type(coord)       :: pos
-    integer(shortInt) :: idx, localID, cellIdx, tetrahedronIdx
+    integer(shortInt) :: idx, localID, cellIdx, elementIdx
     real(defReal)     :: eps, d
     real(defReal), parameter :: TOL = 1.0E-7_defReal
 
@@ -270,7 +270,7 @@ contains
 
     ! Should find particle in cell 1
     ! And return very small distance -> MOVING OUT
-    call uni % findCell(pos % r, pos % dir, localID, cellIDx, tetrahedronIdx)
+    call uni % findCell(pos % r, pos % dir, localID, cellIDx, elementIdx)
     @assertEqual(1, localID)
 
     pos % localID = 1

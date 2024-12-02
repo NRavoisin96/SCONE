@@ -35,12 +35,13 @@ module sphere_class
     private
     real(defReal) :: radius = ZERO, radiusSquared = ZERO
   contains
-    ! Superclass procedures
+    ! Superclass procedures.
     procedure :: init
     procedure :: evaluate
     procedure :: distance
     procedure :: entersPositiveHalfspace
     procedure :: kill
+    ! Local procedures.
     procedure :: getRadius
     procedure :: getRadiusSquared
   end type sphere

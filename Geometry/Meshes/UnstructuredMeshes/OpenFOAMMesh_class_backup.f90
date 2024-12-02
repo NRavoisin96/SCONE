@@ -1,4 +1,4 @@
-module OpenFOAMMesh_class
+module OpenFOAMMesh_class_backup
   
   use numPrecision
   use universalVariables
@@ -1240,4 +1240,4 @@ contains
     
     nInternalFaces = self % nInternalFaces
   end function getNInternalFaces
-end module OpenFOAMMesh_class
+end module OpenFOAMMesh_class_backup

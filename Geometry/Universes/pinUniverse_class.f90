@@ -136,10 +136,10 @@ contains
   !!
   !! See universe_inter for details.
   !!
-  subroutine findCell(self, r, u, localId, cellIdx, tetrahedronIdx)
+  pure subroutine findCell(self, r, u, localId, cellIdx, elementIdx)
     class(pinUniverse), intent(inout)       :: self
     real(defReal), dimension(3), intent(in) :: r, u
-    integer(shortInt), intent(out)          :: localId, cellIdx, tetrahedronIdx
+    integer(shortInt), intent(out)          :: localId, cellIdx, elementIdx
     real(defReal), dimension(2)             :: rPlanes, uPlanes
     real(defReal)                           :: rPlanesSquared, mul, surfTol
 
@@ -147,7 +147,7 @@ contains
     ! cylinders' planes (all cylinders are zCylinders so these components are 1 and 2) and
     ! compute rPlanesSquared.
     cellIdx = 0
-    tetrahedronIdx = 0
+    elementIdx = 0
     rPlanes = r(1:2)
     uPlanes = u(1:2)
     rPlanesSquared = dot_product(rPlanes, rPlanes)

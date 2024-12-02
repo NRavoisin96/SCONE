@@ -6,7 +6,6 @@ module unstructuredMesh_inter
   use coord_class,         only : coord
   use dictionary_class,    only : dictionary
   use mesh_inter,          only : mesh, kill_super => kill
-  use cellZoneShelf_class, only : cellZoneShelf
   use element_class,       only : element
   use elementShelf_class,  only : elementShelf
   use face_class,          only : face
@@ -17,7 +16,7 @@ module unstructuredMesh_inter
   implicit none
   private
 
-  ! Extendable methods.
+  ! Extendable procedures.
   public :: kill
   
   !! Abstract interface to group all unstructured meshes. An unstructured mesh uses a vertex -> face 
@@ -71,14 +70,10 @@ module unstructuredMesh_inter
     procedure                           :: kill
     procedure, non_overridable          :: printComposition
     ! Runtime procedures.
-    procedure                           :: checkForEntry
-    procedure                           :: distanceToNextFace
-    procedure                           :: distance
-    procedure                           :: findElement
-    procedure, non_overridable          :: getVerticesNumber
-    procedure, non_overridable          :: getFacesNumber
-    procedure, non_overridable          :: getElementsNumber
-    procedure, non_overridable          :: getInternalFacesNumber
+    procedure, non_overridable          :: checkForEntryUnstructured
+    procedure, non_overridable          :: distanceToNextFaceUnstructured
+    procedure, non_overridable          :: distanceUnstructured
+    procedure, non_overridable          :: findElementUnstructured
   end type unstructuredMesh
 
 contains
@@ -100,12 +95,9 @@ contains
     self % nInternalFaces = 0
     self % nElements = 0
     self % nEdges = 0
-    self % nElementZones = 0
-    self % cellZonesFile = .false.
-    if (allocated(self % vertices % shelf)) call self % vertices % kill()
-    if (allocated(self % faces % shelf)) call self % faces % kill()
-    if (allocated(self % elements % shelf)) call self % elements % kill()
-    if (allocated(self % cellZones % shelf)) call self % cellZones % kill()
+    call self % vertices % kill()
+    call self % faces % kill()
+    call self % elements % kill()
     call self % tree % kill()
 
   end subroutine kill
@@ -168,7 +160,7 @@ contains
   !!   coords [inout] -> Particle's coordinates.
   !!
   !! TODO: finish this.
-  pure subroutine checkForEntry(self, d, coords)
+  pure subroutine checkForEntryUnstructured(self, d, coords)
     class(unstructuredMesh), intent(in) :: self
     real(defReal), intent(out)          :: d
     type(coord), intent(inout)          :: coords
@@ -191,7 +183,7 @@ contains
     
     ! TODO: find intersected face from tree.
 
-  end subroutine checkForEntry
+  end subroutine checkForEntryUnstructured
 
   !! Subroutine 'distanceToNextFace'
   !!
@@ -207,7 +199,7 @@ contains
   !!
   !! TODO: finish this.
   !!
-  pure subroutine distanceToNextFace(self, d, coords)
+  pure subroutine distanceToNextFaceUnstructured(self, d, coords)
     class(unstructuredMesh), intent(in)          :: self
     real(defReal), intent(out)                   :: d
     type(coord), intent(inout)                   :: coords
@@ -221,7 +213,7 @@ contains
     currentElement = self % elements % shelf(coords % elementIdx)
     rEnd = coords % rEnd
 
-  end subroutine distanceToNextFace
+  end subroutine distanceToNextFaceUnstructured
 
   !! Subroutine 'distance'
   !!
@@ -234,7 +226,7 @@ contains
   !!   coords [inout] -> Particle's coordinates.
   !!   isInside [out] -> .true. if particle intersects a face of the mesh.
   !!
-  pure subroutine distance(self, d, coords, isInside)
+  pure subroutine distanceUnstructured(self, d, coords, isInside)
     class(unstructuredMesh), intent(in) :: self
     real(defReal), intent(out)          :: d
     type(coord), intent(inout)          :: coords
@@ -251,7 +243,7 @@ contains
     end if
 
     ! If not, we need to check if the particle enters the mesh.
-    call self % checkForEntry(d, coords)
+    call self % checkForEntryUnstructured(d, coords)
 
     ! If the particle enters the mesh retrieve the localId based on the element associated with the entry tetrahedron and return.
     if (coords % elementIdx > 0) then
@@ -263,7 +255,7 @@ contains
     ! If reached here, the particle does not enter the mesh and CSG tracking resumes.
     isInside = .false.
 
-  end subroutine distance
+  end subroutine distanceUnstructured
 
   !! Subroutine 'findElement'
   !!
@@ -276,7 +268,7 @@ contains
   !!   elementIdx [out] -> Index of the mesh element occupied by the particle. 0 if particle is outside the mesh.
   !!   localId [out]    -> Local id of the element zone containing the element occupied by the particle.
   !!
-  pure subroutine findElement(self, r, u, elementIdx, localId)
+  pure subroutine findElementUnstructured(self, r, u, elementIdx, localId)
     class(unstructuredMesh), intent(in)          :: self
     real(defReal), dimension(3), intent(in)      :: r, u
     integer(shortInt), intent(out)               :: elementIdx, localId
@@ -354,58 +346,6 @@ contains
     ! Update localId based on the element associated with the element.
     localId = self % cellZones % findCellZone(elementIdx)
 
-  end subroutine findElement
-
-  !! Function 'getVeticesNumber'
-  !!
-  !! Basic description:
-  !!   Returns the number of vertices in the mesh.
-  !!
-  elemental function getVerticesNumber(self) result(nVertices)
-    class(unstructuredMesh), intent(in) :: self
-    integer(shortInt)                   :: nVertices
-
-    nVertices = self % nVertices
-
-  end function getVerticesNumber
-
-  !! Function 'getFacesNumber'
-  !!
-  !! Basic description:
-  !!   Returns the number of faces in the mesh.
-  !!
-  elemental function getFacesNumber(self) result(nFaces)
-    class(unstructuredMesh), intent(in) :: self
-    integer(shortInt)                   :: nFaces
-
-    nFaces = self % nFaces
-
-  end function getFacesNumber
-
-  !! Function 'getElementsNumber'
-  !!
-  !! Basic description:
-  !!   Returns the number of elements in the mesh.
-  !!
-  elemental function getElementsNumber(self) result(nElements)
-    class(unstructuredMesh), intent(in) :: self
-    integer(shortInt)                   :: nElements
-
-    nElements = self % nElements
-
-  end function getElementsNumber
-
-  !! Function 'getInternalFacesNumber'
-  !!
-  !! Basic description:
-  !!   Returns the number of internal faces in the mesh.
-  !!
-  elemental function getInternalFacesNumber(self) result(nInternalFaces)
-    class(unstructuredMesh), intent(in) :: self
-    integer(shortInt)                   :: nInternalFaces
-
-    nInternalFaces = self % nInternalFaces
-
-  end function getInternalFacesNumber
+  end subroutine findElementUnstructured
 
 end module unstructuredMesh_inter
