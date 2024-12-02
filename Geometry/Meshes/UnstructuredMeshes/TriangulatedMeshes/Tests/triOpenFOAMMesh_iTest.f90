@@ -1,11 +1,11 @@
-module OpenFOAMMesh_iTest
+module triOpenFOAMMesh_iTest
   
-  use coord_class,        only : coord
-  use OpenFOAMMesh_class, only : OpenFOAMMesh
+  use coord_class,           only : coord
+  use triOpenFOAMMesh_class, only : triOpenFOAMMesh
   use numPrecision
   use genericProcedures
-  use dictionary_class,   only : dictionary
-  use dictParser_func,    only : charToDict
+  use dictionary_class,      only : dictionary
+  use dictParser_func,       only : charToDict
   use funit
   use universalVariables
   
@@ -13,10 +13,10 @@ module OpenFOAMMesh_iTest
   
   ! Parameters.
   character(*), parameter :: MESH_DEF = &
-  " id 2; type OpenFOAMMesh; path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/testMesh/;"
+  " id 2; type triOpenFOAMMesh; path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/testMesh/;"
   ! Variables.
-  type(OpenFOAMMesh) :: mesh
-  type(coord)  :: coords
+  type(triOpenFOAMMesh)   :: mesh
+  type(coord)             :: coords
 
 contains
   
@@ -27,9 +27,11 @@ contains
   subroutine setUp()
     type(dictionary)   :: dict
     character(pathLen) :: path
+    
     call charToDict(dict, MESH_DEF)
     call dict % get(path, 'path')
     call mesh % init(trim(path), dict)
+  
   end subroutine setUp
   
   !!
@@ -38,6 +40,7 @@ contains
 @After
   subroutine cleanUp()
     call mesh % kill()
+
   end subroutine cleanUp
   
   !!
@@ -45,10 +48,12 @@ contains
   !!
 @Test
   subroutine test_misc()
+    
     ! Test id.
     @assertEqual(2, mesh % id())
     call mesh % setId(7)
     @assertEqual(7, mesh % id())
+
   end subroutine test_misc
   
   !!
@@ -57,19 +62,21 @@ contains
 @Test
   subroutine test_info()
     real(defReal) :: TOL = 1.0E-6
+    
     ! Test number of vertices.
-    @assertEqual(18, mesh % getNVertices())
+    @assertEqual(18, mesh % getVerticesNumber())
     ! Test number of faces.
-    @assertEqual(20, mesh % getNFaces())
+    @assertEqual(20, mesh % getFacesNumber())
     ! Test number of elements.
-    @assertEqual(4, mesh % getNElements())
+    @assertEqual(4, mesh % getElementsNumber())
     ! Test number of internal faces.
-    @assertEqual(4, mesh % getNInternalFaces())
+    @assertEqual(4, mesh % getInternalFacesNumber())
     ! Test area of two faces.
     @assertEqual(2.0_defReal, mesh % faces % shelf(1) % getArea(), 2.0_defReal * TOL)
     @assertEqual(1.0_defReal, mesh % faces % shelf(11) % getArea(), 1.0_defReal * TOL)
     ! Test volume of one element.
     @assertEqual(2.0_defReal, mesh % elements % shelf(3) % getVolume(), 2.0_defReal * TOL)
+
   end subroutine test_info
   
   !!
@@ -77,12 +84,14 @@ contains
   !!
 @Test
   subroutine test_decomposition()
+    
     ! Test number of vertices after decomposition.
     @assertEqual(22, size(mesh % vertices % shelf))
     ! Test number of triangles after decomposition.
     @assertEqual(112, size(mesh % triangles % shelf))
     ! Test number of tetrahedra after decomposition.
     @assertEqual(48, size(mesh % tetrahedra % shelf))
+
   end subroutine test_decomposition
   
   !!
@@ -91,6 +100,7 @@ contains
 @Test
   subroutine test_inside()
     real(defReal), dimension(3) :: r, u
+    
     ! Few points inside.
     r = [0.31_defReal, 0.42_defReal, 0.13_defReal]
     u = [ONE, ZERO, ZERO]
@@ -98,6 +108,7 @@ contains
     r = [0.02_defReal, 0.97_defReal, -0.5_defReal]
     u = [ZERO, ONE, ZERO]
     @assertEqual(35, mesh % findTetrahedron(r, u))
+    
     ! Few points outside.
     r = [1.2_defReal, 0.8_defReal, 0.0_defReal]
     u = [ZERO, ONE, ZERO]
@@ -105,14 +116,17 @@ contains
     r = [0.1_defReal, 0.1_defReal, 1.13_defReal]
     u = [ZERO, ZERO, -ONE]
     @assertEqual(0, mesh % findTetrahedron(r, u))
+    
     ! Few more difficult points.
     ! A point on a face. Points into the mesh.
     r = [-1.0_defReal, 0.1_defReal, 0.1_defReal]
     u = [ONE, ZERO, ZERO]
     @assertEqual(15, mesh % findTetrahedron(r, u))
+    
     ! Same point but points away from the mesh.
     u = [-ONE, ZERO, ZERO]
     @assertEqual(0, mesh % findTetrahedron(r, u))
+    
     ! A point on an internal vertex. Different directions.
     r = [0.0_defReal, 0.0_defReal, 0.0_defReal]
     u = [ONE, ZERO, ZERO]
@@ -127,6 +141,7 @@ contains
     @assertEqual(45, mesh % findTetrahedron(r, u))
     u = [ZERO, ZERO, -ONE]
     @assertEqual(45, mesh % findTetrahedron(r, u))
+
   end subroutine test_inside
   
   !!
@@ -138,6 +153,7 @@ contains
     integer(shortInt)           :: oldElement, newElement
     real(defReal), parameter    :: TOL = 1.0E-6
     maxDist = 0.5_defReal
+    
     ! Few points inside mesh.
     coords % r = [0.98_defReal, 0.1_defReal, 0.1_defReal]
     coords % dir = [ONE, ZERO, ZERO]
@@ -145,13 +161,13 @@ contains
     
     ! Identify where the point is first.
     coords % elementIdx = mesh % findTetrahedron(coords % r, coords % dir)
-    call mesh % distanceToNextTriangle(distance, coords)
+    call mesh % distanceToNextFace(distance, coords)
     @assertEqual(0.02_defReal, distance, 0.02_defReal * TOL)
     
     coords % r = [-0.65_defReal, 0.33_defReal, -0.47_defReal]
     coords % rEnd = coords % r + coords % dir * maxDist
     coords % elementIdx = mesh % findTetrahedron(coords % r, coords % dir)
-    call mesh % distanceToNextTriangle(distance, coords)
+    call mesh % distanceToNextFace(distance, coords)
     @assertEqual(0.385_defReal, distance, 0.385_defReal * TOL)    
     
     ! Few points outside the mesh but entering.
@@ -186,4 +202,5 @@ contains
     @assertEqual(INF, distance)    
   
   end subroutine test_distance
-end module OpenFOAMMesh_iTest
+
+end module triOpenFOAMMesh_iTest

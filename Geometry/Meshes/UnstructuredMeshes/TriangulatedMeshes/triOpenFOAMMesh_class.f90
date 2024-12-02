@@ -1,18 +1,18 @@
-module OpenFOAMMesh_class
+module triOpenFOAMMesh_class
 
   use numPrecision
-  use dictionary_class,       only : dictionary
-  use OpenFOAMFunctions,      only : importMesh
-  use unstructuredMesh_inter, only : unstructuredMesh
+  use dictionary_class,          only : dictionary
+  use OpenFOAMFunctions,         only : importMesh
+  use triUnstructuredMesh_inter, only : triUnstructuredMesh
 
   implicit none
   private
 
-  type, public, extends(unstructuredMesh) :: OpenFOAMMesh
+  type, public, extends(triUnstructuredMesh) :: triOpenFOAMMesh
     private
   contains
-    procedure, non_overridable            :: init
-  end type OpenFOAMMesh
+    procedure, non_overridable               :: init
+  end type triOpenFOAMMesh
 
 contains
 
@@ -39,15 +39,24 @@ contains
   !!   folderPath [in] -> Path of the folder containing the files for the mesh geometry.
   !!   dict [in]       -> Input dictionary.
   !!
+  !! Errors:
+  !!   - fatalError if id < 1.
+  !!   - fatalError if the mesh contains concave elements.
+  !!
   subroutine init(self, folderPath, dict)
-    class(OpenFOAMMesh), intent(inout) :: self
-    character(*), intent(in)           :: folderPath
-    class(dictionary), intent(in)      :: dict
+    class(triOpenFOAMMesh), intent(inout)        :: self
+    character(*), intent(in)                     :: folderPath
+    class(dictionary), intent(in)                :: dict
+    integer(shortInt)                            :: freeVertexIdx
     
-    ! Import OpenFOAM mesh and initialise kd-tree.
+    ! Import OpenFOAM mesh and split non-tetrahedral mesh elements into tetrahedra.
     call importMesh(self, folderPath, dict)
+    call self % split(freeVertexIdx)
+    
+    ! Collapse the 'vertices' structure to save memory and initialise kd-tree for the mesh.
+    call self % vertices % collapse(freeVertexIdx)
     call self % tree % init(self % vertices % getAllCoordinates(), .true.)
 
   end subroutine init
 
-end module OpenFOAMMesh_class
+end module triOpenFOAMMesh_class

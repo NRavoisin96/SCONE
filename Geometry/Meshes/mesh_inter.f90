@@ -1,10 +1,11 @@
 module mesh_inter
   
   use numPrecision
-  use universalVariables, only : NUDGE
-  use genericProcedures,  only : fatalError, numToChar, openToRead
-  use dictionary_class,   only : dictionary
-  use coord_class,        only : coord
+  use universalVariables,  only : NUDGE
+  use genericProcedures,   only : fatalError, numToChar, openToRead
+  use cellZoneShelf_class, only : cellZoneShelf
+  use dictionary_class,    only : dictionary
+  use coord_class,         only : coord
   
   implicit none
   private
@@ -18,25 +19,29 @@ module mesh_inter
   !! A mesh represents a subdivision of the entire space into small 2- or 3-D elements.
   !!
   !! Private Members:
-  !!   meshId          -> Id of the mesh.
-  !!   boundingBox     -> Axis-aligned bounding box (AABB) of the mesh.
+  !!   meshId                -> Id of the mesh.
+  !!   nElementZones         -> Number of element zones in the mesh.
+  !!   boundingBox           -> Axis-aligned bounding box (AABB) of the mesh.
+  !!   cellZonesFile         -> .true. if a file is present to explicitly assign element zones.
+  !!   cellZones             -> Shelf that stores element zones.
   !!
   !! Interface:
-  !!   checkMeshFolder -> Checks the existence of folder containing the mesh files.
-  !!   getBoundingBox  -> Gets bounding box of the mesh.
-  !!   getNZones       -> Gets the number of element zones in the mesh.
-  !!   id              -> Gets Id of the mesh.
-  !!   setBoundingBox  -> Sets bounding box of the mesh.
-  !!   setId           -> Sets Id of the mesh.
-  !!   init            -> Initialises mesh from input files.
-  !!   kill            -> Returns to uninitialised state.
-  !!   findElement     -> Returns local cellId and cellIdx in cellShelf for a given position.
-  !!   distance        -> Calculates the distance to the next face in the mesh.
+  !!   getBoundingBox        -> Gets bounding box of the mesh.
+  !!   getElementZonesNumber -> Gets the number of element zones in the mesh.
+  !!   id                    -> Gets Id of the mesh.
+  !!   setBoundingBox        -> Sets bounding box of the mesh.
+  !!   setId                 -> Sets Id of the mesh.
+  !!   init                  -> Initialises mesh from input files.
+  !!   kill                  -> Returns to uninitialised state.
+  !!   findElement           -> Returns local cellId and cellIdx in cellShelf for a given position.
+  !!   distance              -> Calculates the distance to the next face in the mesh.
   !!
   type, public, abstract :: mesh
     private
-    integer(shortInt)                :: meshId = 0
+    integer(shortInt), public        :: meshId = 0, nElementZones = 0
     real(defReal), dimension(6)      :: boundingBox = ZERO
+    logical(defBool), public         :: cellZonesFile = .false.
+    type(cellZoneShelf), public      :: cellZones
   contains
     ! Build procedures.
     procedure, non_overridable       :: setBoundingBox
@@ -45,7 +50,7 @@ module mesh_inter
     procedure                        :: kill
     ! Runtime procedures.
     procedure, non_overridable       :: getBoundingBox
-    procedure(getNZones), deferred   :: getNZones
+    procedure, non_overridable       :: getElementZonesNumber
     procedure, non_overridable       :: id
     procedure(findElement), deferred :: findElement
     procedure(distance), deferred    :: distance
@@ -70,22 +75,6 @@ module mesh_inter
       class(dictionary), intent(in) :: dict
       
     end subroutine init
-    
-    !! Function 'getNZones'
-    !!
-    !! Basic description:
-    !!   Returns the number of element zones in the mesh. This can be (for instance) cell zones in
-    !!   OpenFOAM meshes, or other element subdivisions.
-    !!
-    !! Result:
-    !!   nZones: an integer corresponding to the number of element zones in the mesh.
-    !!
-    elemental function getNZones(self) result(nZones)
-      import                  :: mesh, shortInt
-      class(mesh), intent(in) :: self
-      integer(shortInt)       :: nZones
-
-    end function getNZones
     
     !! Subroutine 'findElement'
     !!
@@ -147,6 +136,23 @@ contains
     boundingBox = self % boundingBox
 
   end function getBoundingBox
+
+  !! Function 'getElementZonesNumber'
+  !!
+  !! Basic description:
+  !!   Returns the number of element zones in the mesh. This can be (for instance) cell zones in
+  !!   OpenFOAM meshes, or other element subdivisions.
+  !!
+  !! Result:
+  !!   nZones: an integer corresponding to the number of element zones in the mesh.
+  !!
+  elemental function getElementZonesNumber(self) result(nElementZones)
+    class(mesh), intent(in) :: self
+    integer(shortInt)       :: nElementZones
+
+    nElementZones = self % nElementZones
+
+  end function getElementZonesNumber
   
   !! Subroutine 'setBoundingBox'
   !!

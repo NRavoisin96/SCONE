@@ -30,5 +30,7 @@ contains
     class(pyramidShelf), intent(inout) :: self
     
     if (allocated(self % shelf)) deallocate(self % shelf)
+
   end subroutine kill
+  
 end module pyramidShelf_class

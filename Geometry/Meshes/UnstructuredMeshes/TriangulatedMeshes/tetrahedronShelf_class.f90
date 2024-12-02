@@ -30,5 +30,7 @@ contains
     class(tetrahedronShelf), intent(inout) :: self
     
     if (allocated(self % shelf)) deallocate(self % shelf)
+
   end subroutine kill
+  
 end module tetrahedronShelf_class

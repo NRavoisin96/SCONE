@@ -30,5 +30,7 @@ contains
     class(triangleShelf), intent(inout) :: self
     
     if (allocated(self % shelf)) deallocate(self % shelf)
+
   end subroutine kill
+  
 end module triangleShelf_class

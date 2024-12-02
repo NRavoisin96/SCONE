@@ -9,7 +9,7 @@ module triUnstructuredMesh_inter
   use tetrahedronShelf_class, only : tetrahedronShelf
   use triangle_class,         only : triangle
   use triangleShelf_class,    only : triangleShelf
-  use unstructuredMesh_inter, only : unstructuredMesh
+  use unstructuredMesh_inter, only : unstructuredMesh, kill_super => kill
 
   implicit none
   private
@@ -648,8 +648,8 @@ contains
   elemental subroutine kill(self)
     class(triUnstructuredMesh), intent(inout) :: self
 
-    ! Superclass.
-    call self % killUnstructured()
+    ! Unstructured mesh.
+    call kill_super(self)
 
     ! Local.
     if (allocated(self % pyramids % shelf)) deallocate(self % pyramids % shelf)

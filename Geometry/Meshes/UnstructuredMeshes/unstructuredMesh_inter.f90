@@ -16,6 +16,9 @@ module unstructuredMesh_inter
 
   implicit none
   private
+
+  ! Extendable methods.
+  public :: kill
   
   !! Abstract interface to group all unstructured meshes. An unstructured mesh uses a vertex -> face 
   !! -> element representation of space. Each element is composed by a set of faces which are themselves 
@@ -53,15 +56,11 @@ module unstructuredMesh_inter
   !!   getFacesNumber         -> Returns the number of faces in the mesh.
   !!   getElementsNumber      -> Returns the number of elements in the mesh.
   !!   getInternalFacesNumber -> Returns the number of internal faces in the mesh.
-  !!   getElementZonesNumber  -> Returns the number of element zones in the mesh.
   !!
   type, public, abstract, extends(mesh) :: unstructuredMesh
     private
-    integer(shortInt)                   :: nVertices = 0, nFaces = 0, nEdges = 0, &
-                                           nElements = 0, nInternalFaces = 0, &
-                                           nElementZones = 0
-    logical(defBool)                    :: cellZonesFile = .false.
-    type(cellZoneShelf), public         :: cellZones
+    integer(shortInt), public           :: nVertices = 0, nFaces = 0, nEdges = 0, &
+                                           nElements = 0, nInternalFaces = 0
 !    type(edgeShelf), public            :: edges
     type(elementShelf), public          :: elements
     type(faceShelf), public             :: faces
@@ -69,9 +68,7 @@ module unstructuredMesh_inter
     type(kdTree), public                :: tree
   contains
     ! Build procedures.
-    procedure(checkFiles), deferred     :: checkFiles
-    procedure(getMeshInfo), deferred    :: getMeshInfo
-    procedure, non_overridable          :: killUnstructured
+    procedure                           :: kill
     procedure, non_overridable          :: printComposition
     ! Runtime procedures.
     procedure                           :: checkForEntry
@@ -82,44 +79,7 @@ module unstructuredMesh_inter
     procedure, non_overridable          :: getFacesNumber
     procedure, non_overridable          :: getElementsNumber
     procedure, non_overridable          :: getInternalFacesNumber
-    procedure, non_overridable          :: getElementZonesNumber
   end type unstructuredMesh
-
-  abstract interface
-  
-    !! Subroutine 'checkFiles'
-    !!
-    !! Basic description:
-    !!   Checks the existence of vital mesh data files.
-    !!
-    !! Arguments:
-    !!   folderPath [in]     -> Path of the folder containing the files for the mesh.
-    !!   nInternalFaces [in] -> Number of internal faces in the mesh.
-    !!
-    subroutine checkFiles(self, folderPath, nInternalFaces)
-      import :: unstructuredMesh, shortInt
-      class(unstructuredMesh), intent(in) :: self
-      character(*), intent(in)            :: folderPath
-      integer(shortInt), intent(in)       :: nInternalFaces
-
-    end subroutine checkFiles
-
-    !! Subroutine 'getMeshInfo'
-    !!
-    !! Basic description:
-    !!   Retrieves some preliminary information about the mesh (number of vertices, faces, etc.).
-    !!
-    !! Arguments:
-    !!   folderPath [in] -> Path of the folder containing the files of the mesh.
-    !!
-    subroutine getMeshInfo(self, folderPath)
-      import :: unstructuredMesh
-      class(unstructuredMesh), intent(in) :: self
-      character(*), intent(in)            :: folderPath
-
-    end subroutine getMeshInfo
-
-  end interface
 
 contains
 
@@ -128,7 +88,7 @@ contains
   !! Basic description:
   !!   Returns to an unitialised state.
   !!
-  elemental subroutine killUnstructured(self)
+  elemental subroutine kill(self)
     class(unstructuredMesh), intent(inout) :: self
 
     ! Superclass.
@@ -148,7 +108,7 @@ contains
     if (allocated(self % cellZones % shelf)) call self % cellZones % kill()
     call self % tree % kill()
 
-  end subroutine killUnstructured
+  end subroutine kill
 
   !! Subroutine 'printComposition'
   !!
@@ -447,18 +407,5 @@ contains
     nInternalFaces = self % nInternalFaces
 
   end function getInternalFacesNumber
-
-  !! Function 'getElementZonesNumber'
-  !!
-  !! Basic description:
-  !!   Returns the number of element zones in the mesh.
-  !!
-  elemental function getElementZonesNumber(self) result(nElementZones)
-    class(unstructuredMesh), intent(in) :: self
-    integer(shortInt)                   :: nElementZones
-
-    nElementZones = self % nElementZones
-
-  end function getElementZonesNumber
 
 end module unstructuredMesh_inter

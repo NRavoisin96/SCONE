@@ -1,14 +1,15 @@
 module meshFactory_func
   
   use numPrecision
-  use genericProcedures,  only : fatalError
-  use dictionary_class,   only : dictionary
+  use genericProcedures,     only : fatalError
+  use dictionary_class,      only : dictionary
   
   ! Interface mesh.
-  use mesh_inter,         only : mesh
+  use mesh_inter,            only : mesh
   
   ! Meshes.
-  use OpenFOAMMesh_class, only : OpenFOAMMesh
+  use OpenFOAMMesh_class,    only : OpenFOAMMesh
+  use triOpenFOAMMesh_class, only : triOpenFOAMMesh
   
   implicit none
   private
@@ -16,7 +17,8 @@ module meshFactory_func
   ! ** ADD NAME OF NEW MESH TO THE LIST **!
   ! List that contains acceptable types of meshes
   ! NOTE: It is necessary to adjust trailing blanks so all entries have the same length
-  character(nameLen), dimension(*), parameter :: AVAILABLE_MESHES = ['OpenFOAMMesh']
+  character(nameLen), dimension(*), parameter :: AVAILABLE_MESHES = ['OpenFOAMMesh   ', &
+                                                                     'triOpenFOAMMesh']
   ! Public interface.
   public :: new_mesh, new_mesh_ptr
 
@@ -60,10 +62,13 @@ module meshFactory_func
     select case(type)
       case('OpenFOAMMesh')
         allocate(OpenFOAMMesh :: new)
+      case('triOpenFOAMMesh')
+        allocate(triOpenFOAMMesh :: new)
       case default
         print '(A)', 'AVAILABLE MESHES: '
         print '(A)', AVAILABLE_MESHES
         call fatalError(Here, 'Unrecognised mesh type: '//trim(type)//'.')
+
     end select
     ! Initialise the mesh geometry.
     call new % init(trimmedPath, dict)

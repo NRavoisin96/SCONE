@@ -27,9 +27,10 @@ module vertexShelf_class
     procedure                                       :: collapse
     procedure                                       :: getAllCoordinates
     procedure                                       :: getExtremalCoordinates
+    procedure                                       :: getOffset
     procedure                                       :: getSize
-    procedure                                       :: init
     procedure                                       :: kill
+    procedure                                       :: setExtremalCoordinates
   end type
 
 contains
@@ -48,6 +49,7 @@ contains
     real(defReal), dimension(3), intent(in) :: offset
     
     self % offset = offset
+
   end subroutine setOffset
   
   !! Subroutine 'collapse'
@@ -119,81 +121,16 @@ contains
     real(defReal), dimension(6)                   :: extremalCoordinates
     
     extremalCoordinates = self % extremalCoordinates
+
   end function getExtremalCoordinates
-  
-  !! Subroutine 'init'
-  !!
-  !! Basic description:
-  !!   Initialises the shelf from the 'points' file.
-  !!
-  !! Arguments:
-  !!   folderPath [in] -> Path to the folder containing the mesh files.
-  !!   nVertices [in]  -> Number of vertices in the mesh.
-  !!
-  subroutine init(self, folderPath, nVertices)
-    class(vertexShelf), intent(inout) :: self
-    character(*), intent(in)          :: folderPath
-    integer(shortInt), intent(in)     :: nVertices
-    integer(shortInt)                 :: i, j, leftBracketIdx, rightBracketIdx
-    integer(shortInt), parameter      :: unit = 10
-    real(defReal), dimension(3)       :: coordinates
-    logical(defBool)                  :: singleLine
-    character(150)                    :: string ! Note: here the string is longer than usual to deal
-                                                ! with cases when all vertices are written on a
-                                                ! single line.
 
-    ! Open the 'points' file and read it until a line containing the symbol ')' is encountered.
-    call openToRead(unit, folderPath//'points')
-    read(unit, "(a)") string
-    do while (index(string(1:len_trim(string)), ")") == 0)
-      read(unit, "(a)") string
+  pure function getOffset(self) result(offset)
+    class(vertexShelf), intent(in) :: self
+    real(defReal), dimension(3)    :: offset
 
-    end do
+    offset = self % offset
 
-    ! Initialise singleLine = .false. and check if all vertices are written on a single line.
-    ! If yes, update singleLine and erase the leftmost bracket from the string.
-    singleLine = .false.
-    if (string(2:2) == '(') then
-      singleLine = .true.
-      string(1:1) = ''
-
-    end if
-
-    ! Loop over all vertices.
-    do i = 1, nVertices
-      if (singleLine) then
-        ! Locate the leftmost and rightmost brackets. Read the coordinates between the
-        ! brackets and remove them from the string.
-        leftBracketIdx = index(string, '(')
-        rightBracketIdx = index(string, ')')
-        read(string(leftBracketIdx + 1:rightBracketIdx - 1), *) coordinates
-        string(leftBracketIdx:leftBracketIdx) = ''
-        string(rightBracketIdx:rightBracketIdx) = ''
-
-      else
-        ! Read the coordinates of the current vertex and move onto the next line.
-        read(string(2:len_trim(string) - 1), *) coordinates
-        read(unit, "(a)") string
-
-      end if
-
-      ! Set the index and coordinates of the current vertex. Apply offset in the process.
-      call self % shelf(i) % setIdx(i)
-      coordinates = coordinates + self % offset
-      call self % shelf(i) % setCoordinates(coordinates)
-
-      ! Update extremal coordinates in the shelf if necessary.
-      do j = 1, 3
-        if (coordinates(j) < self % extremalCoordinates(j)) self % extremalCoordinates(j) = coordinates(j)
-        if (coordinates(j) > self % extremalCoordinates(j + 3)) self % extremalCoordinates(j + 3) = coordinates(j)
-
-      end do
-
-    end do
-
-    ! Close the 'points' file.
-    close(unit)
-  end subroutine init
+  end function getOffset
   
   !! Function 'getSize'
   !!
@@ -208,6 +145,7 @@ contains
     integer(shortInt)              :: nVertices
     
     nVertices = size(self % shelf)
+
   end function getSize
   
   !! Subroutine 'kill'
@@ -221,5 +159,15 @@ contains
     self % offset = ZERO
     self % extremalCoordinates = ZERO
     if (allocated(self % shelf)) deallocate(self % shelf)
+
   end subroutine kill
+
+  pure subroutine setExtremalCoordinates(self, coords)
+    class(vertexShelf), intent(inout)       :: self
+    real(defReal), dimension(6), intent(in) :: coords
+
+    self % extremalCoordinates = coords
+
+  end subroutine setExtremalCoordinates
+
 end module vertexShelf_class

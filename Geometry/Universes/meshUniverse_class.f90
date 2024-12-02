@@ -14,7 +14,6 @@ module meshUniverse_class
   use cellShelf_class,        only : cellShelf
   use simpleCell_class,       only : simpleCell
   use mesh_inter,             only : mesh
-  use OpenFOAMMesh_class,     only : OpenFOAMMesh
   use meshShelf_class,        only : meshShelf
   use universe_inter,         only : universe, kill_super => kill, charToFill
   
@@ -126,19 +125,13 @@ contains
     ! Check that the CSG cell does not crop the mesh.
     call self % checkForCropping(surfs)
     
-    ! Retrieve fills in the dict and get local pointer to the mesh.
+    ! Retrieve fills in the dict and get local pointer to the mesh. Call fatalError if the number 
+    ! of fills does not match the number of element zones in the mesh.
     call dict % get(fillNames, 'fills')
     nFills = size(fillNames)
     meshPtr => self % mesh % ptr
-    
-    select type(meshPtr)
-      type is (OpenFOAMMesh)
-        ! Call fatalError if the number of fills does not match the number of cell zones in the 
-        ! mesh.
-        if (size(meshPtr % cellZones % shelf) /= nFills) call fatalError(Here, &
-        'The number of fills does not match the number of cell zones in mesh geometry with id: '//numToChar(meshId)//'.')
-  
-    end select
+    if (meshPtr % nElementZones /= nFills) call fatalError(Here, &
+    'The number of fills does not match the number of element zones in mesh geometry with id: '//numToChar(meshId)//'.')
     
     ! Create fill array. First entry is fill of the CSG cell, remaining entries are the fills for 
     ! the pseudo-cells.
