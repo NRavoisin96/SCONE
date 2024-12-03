@@ -100,47 +100,60 @@ contains
 @Test
   subroutine test_inside()
     real(defReal), dimension(3) :: r, u
+    integer(shortInt)           :: elementIdx, parentIdx
     
     ! Few points inside.
     r = [0.31_defReal, 0.42_defReal, 0.13_defReal]
     u = [ONE, ZERO, ZERO]
-    @assertEqual(36, mesh % findTetrahedron(r, u))
+    call mesh % findElementAndParentIdxs(r, u, elementIdx, parentIdx)
+    @assertEqual(36, elementIdx)
     r = [0.02_defReal, 0.97_defReal, -0.5_defReal]
     u = [ZERO, ONE, ZERO]
-    @assertEqual(35, mesh % findTetrahedron(r, u))
+    call mesh % findElementAndParentIdxs(r, u, elementIdx, parentIdx)
+    @assertEqual(35, elementIdx)
     
     ! Few points outside.
     r = [1.2_defReal, 0.8_defReal, 0.0_defReal]
     u = [ZERO, ONE, ZERO]
-    @assertEqual(0, mesh % findTetrahedron(r, u))
+    call mesh % findElementAndParentIdxs(r, u, elementIdx, parentIdx)
+    @assertEqual(0, elementIdx)
     r = [0.1_defReal, 0.1_defReal, 1.13_defReal]
     u = [ZERO, ZERO, -ONE]
-    @assertEqual(0, mesh % findTetrahedron(r, u))
+    call mesh % findElementAndParentIdxs(r, u, elementIdx, parentIdx)
+    @assertEqual(0, elementIdx)
     
     ! Few more difficult points.
     ! A point on a face. Points into the mesh.
     r = [-1.0_defReal, 0.1_defReal, 0.1_defReal]
     u = [ONE, ZERO, ZERO]
-    @assertEqual(15, mesh % findTetrahedron(r, u))
+    call mesh % findElementAndParentIdxs(r, u, elementIdx, parentIdx)
+    @assertEqual(15, elementIdx)
     
     ! Same point but points away from the mesh.
     u = [-ONE, ZERO, ZERO]
-    @assertEqual(0, mesh % findTetrahedron(r, u))
+    call mesh % findElementAndParentIdxs(r, u, elementIdx, parentIdx)
+    @assertEqual(0, elementIdx)
     
     ! A point on an internal vertex. Different directions.
     r = [0.0_defReal, 0.0_defReal, 0.0_defReal]
     u = [ONE, ZERO, ZERO]
-    @assertEqual(48, mesh % findTetrahedron(r, u))
+    call mesh % findElementAndParentIdxs(r, u, elementIdx, parentIdx)
+    @assertEqual(48, elementIdx)
     u = [-ONE, ZERO, ZERO]
-    @assertEqual(2, mesh % findTetrahedron(r, u))
+    call mesh % findElementAndParentIdxs(r, u, elementIdx, parentIdx)
+    @assertEqual(2, elementIdx)
     u = [ZERO, ONE, ZERO]
-    @assertEqual(14, mesh % findTetrahedron(r, u))
+    call mesh % findElementAndParentIdxs(r, u, elementIdx, parentIdx)
+    @assertEqual(14, elementIdx)
     u = [ZERO, -ONE, ZERO]
-    @assertEqual(45, mesh % findTetrahedron(r, u))
+    call mesh % findElementAndParentIdxs(r, u, elementIdx, parentIdx)
+    @assertEqual(45, elementIdx)
     u = [ZERO, ZERO, ONE]
-    @assertEqual(45, mesh % findTetrahedron(r, u))
+    call mesh % findElementAndParentIdxs(r, u, elementIdx, parentIdx)
+    @assertEqual(45, elementIdx)
     u = [ZERO, ZERO, -ONE]
-    @assertEqual(45, mesh % findTetrahedron(r, u))
+    call mesh % findElementAndParentIdxs(r, u, elementIdx, parentIdx)
+    @assertEqual(45, elementIdx)
 
   end subroutine test_inside
   
@@ -150,7 +163,7 @@ contains
 @Test
   subroutine test_distance()
     real(defReal)               :: maxDist, distance
-    integer(shortInt)           :: oldElement, newElement
+    integer(shortInt)           :: parentIdx
     real(defReal), parameter    :: TOL = 1.0E-6
     maxDist = 0.5_defReal
     
@@ -160,29 +173,29 @@ contains
     coords % rEnd = coords % r + coords % dir * maxDist
     
     ! Identify where the point is first.
-    coords % elementIdx = mesh % findTetrahedron(coords % r, coords % dir)
+    call mesh % findElementAndParentIdxs(coords % r, coords % dir, coords % elementIdx, parentIdx)
     call mesh % distanceToNextFace(distance, coords)
     @assertEqual(0.02_defReal, distance, 0.02_defReal * TOL)
     
     coords % r = [-0.65_defReal, 0.33_defReal, -0.47_defReal]
     coords % rEnd = coords % r + coords % dir * maxDist
-    coords % elementIdx = mesh % findTetrahedron(coords % r, coords % dir)
+    call mesh % findElementAndParentIdxs(coords % r, coords % dir, coords % elementIdx, parentIdx)
     call mesh % distanceToNextFace(distance, coords)
     @assertEqual(0.385_defReal, distance, 0.385_defReal * TOL)    
     
     ! Few points outside the mesh but entering.
     coords % r = [-1.13_defReal, -0.8_defReal, 0.3_defReal]
     coords % rEnd = coords % r + coords % dir * maxDist
-    coords % elementIdx = mesh % findTetrahedron(coords % r, coords % dir)
-    call mesh % checkForEntryTriUnstructured(distance, coords)
+    call mesh % findElementAndParentIdxs(coords % r, coords % dir, coords % elementIdx, parentIdx)
+    call mesh % distanceToBoundary(distance, coords, parentIdx)
     @assertTrue(coords % elementIdx > 0)
     @assertEqual(0.13_defReal, distance, 0.13_defReal * TOL)
     
     coords % r = [0.65_defReal, 0.0_defReal, 1.25_defReal]
     coords % dir = [ZERO, ZERO, -ONE]
     coords % rEnd = coords % r + coords % dir * maxDist
-    coords % elementIdx = mesh % findTetrahedron(coords % r, coords % dir)
-    call mesh % checkForEntryTriUnstructured(distance, coords)
+    call mesh % findElementAndParentIdxs(coords % r, coords % dir, coords % elementIdx, parentIdx)
+    call mesh % distanceToBoundary(distance, coords, parentIdx)
     @assertTrue(coords % elementIdx > 0)
     @assertEqual(0.25_defReal, distance, 0.25_defReal * TOL)
     
@@ -191,13 +204,14 @@ contains
     coords % dir = [-ONE, ZERO, ZERO]
     coords % rEnd = coords % r + coords % dir * maxDist
     coords % elementIdx = 0
-    call mesh % checkForEntryTriUnstructured(distance, coords)
+    call mesh % distanceToBoundary(distance, coords, parentIdx)
     @assertTrue(coords % elementIdx == 0)
     @assertEqual(INF, distance)
+    
     coords % r = [0.65_defReal, 0.0_defReal, 1.25_defReal]
     coords % dir = [ZERO, ZERO, ONE]
     coords % rEnd = coords % r + coords % dir * maxDist
-    call mesh % checkForEntryTriUnstructured(distance, coords)
+    call mesh % distanceToBoundary(distance, coords, parentIdx)
     @assertTrue(coords % elementIdx == 0)
     @assertEqual(INF, distance)    
   

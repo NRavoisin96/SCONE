@@ -17,7 +17,7 @@ module unstructuredMesh_inter
   private
 
   ! Extendable procedures.
-  public :: kill
+  public :: kill, distanceToNextFace, distanceToBoundaryFace, findElementAndParentIdxs
   
   !! Abstract interface to group all unstructured meshes. An unstructured mesh uses a vertex -> face 
   !! -> element representation of space. Each element is composed by a set of faces which are themselves 
@@ -26,35 +26,27 @@ module unstructuredMesh_inter
   !! definition.
   !!
   !! Public members:
-  !!   cellZones              -> Shelf that stores cell zones.
-  !!   edges                  -> Shelf that stores edges.
-  !!   elements               -> Shelf that stores elements.
-  !!   faces                  -> Shelf that stores faces.
-  !!   vertices               -> Shelf that stores vertices.
-  !!
-  !! Private members:
-  !!   nVertices              -> Number of vertices in the mesh.
-  !!   nFaces                 -> Number of faces in the mesh.
-  !!   nEdges                 -> Number of edges in the mesh.
-  !!   nElements              -> Number of elements in the mesh.
-  !!   nInternalFaces         -> Number of internal faces in the mesh.
-  !!   cellZonesFile          -> .true. if a file is present to detail the different cell zones.
-  !!   tree                   -> kd-tree used for nearest-neighbour searches and entry checks.
+  !!   cellZones                -> Shelf that stores cell zones.
+  !!   edges                    -> Shelf that stores edges.
+  !!   elements                 -> Shelf that stores elements.
+  !!   faces                    -> Shelf that stores faces.
+  !!   vertices                 -> Shelf that stores vertices.
+  !!   nVertices                -> Number of vertices in the mesh.
+  !!   nFaces                   -> Number of faces in the mesh.
+  !!   nEdges                   -> Number of edges in the mesh.
+  !!   nElements                -> Number of elements in the mesh.
+  !!   nInternalFaces           -> Number of internal faces in the mesh.
+  !!   tree                     -> kd-tree used for nearest-neighbour searches and entry checks.
   !!
   !! Interface:
-  !!   checkFiles             -> Checks the existence of required files to import the mesh.
-  !!   getMeshInfo            -> Retrieves preleminary information about mesh composition.
-  !!   kill                   -> Returns to an unitialised state.
-  !!   printComposition       -> Displays mesh composition to the user.
-  !!   checkForEntry          -> Checks if a particle enters the mesh and returns distance to entry 
-  !!                             intersection.
-  !!   distanceToNextFace     -> Returns the distance to the next mesh face.
-  !!   distance               -> Returns the distance travelled by a particle within the mesh.
-  !!   findElement            -> Returns the index of the mesh element occupied by a particle.
-  !!   getVerticesNumber      -> Returns the number of vertices in the mesh.
-  !!   getFacesNumber         -> Returns the number of faces in the mesh.
-  !!   getElementsNumber      -> Returns the number of elements in the mesh.
-  !!   getInternalFacesNumber -> Returns the number of internal faces in the mesh.
+  !!   kill                     -> Returns to an unitialised state.
+  !!   printComposition         -> Displays mesh composition to the user.
+  !!   distanceToBoundaryFace   -> Checks if a particle enters the mesh and returns distance to entry 
+  !!                               intersection.
+  !!   distanceToNextFace       -> Returns the distance to the next mesh face.
+  !!   findElementAndParentIdxs -> Returns the index of the mesh element occupied by a particle. Also
+  !!                               returns the index of the parent mesh element containing the occupied
+  !!                               element.
   !!
   type, public, abstract, extends(mesh) :: unstructuredMesh
     private
@@ -70,10 +62,9 @@ module unstructuredMesh_inter
     procedure                           :: kill
     procedure, non_overridable          :: printComposition
     ! Runtime procedures.
-    procedure, non_overridable          :: checkForEntryUnstructured
-    procedure, non_overridable          :: distanceToNextFaceUnstructured
-    procedure, non_overridable          :: distanceUnstructured
-    procedure, non_overridable          :: findElementUnstructured
+    procedure                           :: distanceToBoundaryFace
+    procedure                           :: distanceToNextFace
+    procedure                           :: findElementAndParentIdxs
   end type unstructuredMesh
 
 contains
@@ -149,57 +140,35 @@ contains
 
   end subroutine printComposition
 
-  !! Subroutine 'checkForEntry'
+  !! Subroutine 'distanceToBoundaryFace'
   !!
   !! Basic description:
-  !!   Checks whether a given particle enters from the CSG cell into the mesh. Returns the distance
-  !!   to the face of intersection in case the particle enters the mesh. Returns INF otherwise.
+  !!   Returns the distance to the mesh boundary face intersected by a particle's path. Also returns the index
+  !!   of the parent element containing the intersected boundary face.
   !!
-  !! Arguments:
-  !!   d [out]        -> Distance to the intersected triangle.
-  !!   coords [inout] -> Particle's coordinates.
-  !!
+  !! See mesh_inter for details.
   !! TODO: finish this.
-  pure subroutine checkForEntryUnstructured(self, d, coords)
+  pure subroutine distanceToBoundaryFace(self, d, coords, parentIdx)
     class(unstructuredMesh), intent(in) :: self
     real(defReal), intent(out)          :: d
     type(coord), intent(inout)          :: coords
-    real(defReal)                       :: rComponent, rEndComponent
-    real(defReal), dimension(6)         :: boundingBox
-    integer(shortInt)                   :: i
-    
-    ! Initialise d = INF and check that the particle's path intersects the mesh's bounding box.
-    d = INF
-    boundingBox = self % getBoundingBox()
-    do i = 1, 3
-      ! If both the particle's initial and end locations are on the same side of the plane of the
-      ! bounding box return early.
-      rComponent = coords % r(i)
-      rEndComponent = coords % rEnd(i)
-      if ((rComponent < boundingBox(i) .and. rEndComponent < boundingBox(i)) .or. &
-          (rComponent > boundingBox(i + 3) .and. rEndComponent > boundingBox(i + 3))) return
-
-    end do
+    integer(shortInt), intent(out)      :: parentIdx
     
     ! TODO: find intersected face from tree.
 
-  end subroutine checkForEntryUnstructured
+  end subroutine distanceToBoundaryFace
 
   !! Subroutine 'distanceToNextFace'
   !!
   !! Basic description:
-  !!   Returns the distance to the next triangle intersected by the particle's path. Returns
-  !!   INF if the particle does not intersect any triangle (i.e., if its path is entirely
-  !!   contained in the tetrahedron the particle currently is). Algorithm adapted from Macpherson, 
-  !!   et al. (2009). DOI: 10.1002/cnm.1128.
+  !!   Returns the distance to the next face intersected by the particle's path. Returns INF if the particle
+  !!   does not intersect any face (i.e., if its path is entirely contained in the element the particle 
+  !!   currently is). Algorithm adapted from Macpherson, et al. (2009). DOI: 10.1002/cnm.1128.
   !!
-  !! Arguments:
-  !!   d [out]        -> Distance to the next intersected triangle.
-  !!   coords [inout] -> Particle's coordinates.
-  !!
+  !! See mesh_inter for details.
   !! TODO: finish this.
   !!
-  pure subroutine distanceToNextFaceUnstructured(self, d, coords)
+  pure subroutine distanceToNextFace(self, d, coords)
     class(unstructuredMesh), intent(in)          :: self
     real(defReal), intent(out)                   :: d
     type(coord), intent(inout)                   :: coords
@@ -213,76 +182,30 @@ contains
     currentElement = self % elements % shelf(coords % elementIdx)
     rEnd = coords % rEnd
 
-  end subroutine distanceToNextFaceUnstructured
+  end subroutine distanceToNextFace
 
-  !! Subroutine 'distance'
+  !! Subroutine 'findElementAndParentIdxs'
   !!
   !! Basic description:
-  !!   Computes the distance of intersection between a particle and the mesh. Also updates the element of the mesh
-  !!   occupied by the particle and the associated local id.
+  !!   Returns the index of the mesh element occupied by a particle. Also returns the index of the parent mesh
+  !!   element containing the occupied element.
   !!
-  !! Arguments:
-  !!   d [out]        -> Distance to next intersection.
-  !!   coords [inout] -> Particle's coordinates.
-  !!   isInside [out] -> .true. if particle intersects a face of the mesh.
+  !! See mesh_inter for details.
   !!
-  pure subroutine distanceUnstructured(self, d, coords, isInside)
-    class(unstructuredMesh), intent(in) :: self
-    real(defReal), intent(out)          :: d
-    type(coord), intent(inout)          :: coords
-    logical(defBool), intent(out)       :: isInside
-
-    ! Initialise isInside and compute the particle's end position.
-    isInside = .true.
-    
-    ! If particle is already inside a tetrahedron, simply compute the distance to the next mesh triangle and return.
-    if (coords % elementIdx > 0) then
-      call self % distanceToNextFace(d, coords)
-      return
-
-    end if
-
-    ! If not, we need to check if the particle enters the mesh.
-    call self % checkForEntryUnstructured(d, coords)
-
-    ! If the particle enters the mesh retrieve the localId based on the element associated with the entry tetrahedron and return.
-    if (coords % elementIdx > 0) then
-      coords % localId = self % cellZones % findCellZone(coords % elementIdx)
-      return
-
-    end if
-      
-    ! If reached here, the particle does not enter the mesh and CSG tracking resumes.
-    isInside = .false.
-
-  end subroutine distanceUnstructured
-
-  !! Subroutine 'findElement'
-  !!
-  !! Basic description:
-  !!   Returns the index of the mesh element occupied by a particle as well as the associated local id.
-  !!
-  !! Arguments:
-  !!   r [in]           -> Particle's location.
-  !!   u [in]           -> Particle's direction.
-  !!   elementIdx [out] -> Index of the mesh element occupied by the particle. 0 if particle is outside the mesh.
-  !!   localId [out]    -> Local id of the element zone containing the element occupied by the particle.
-  !!
-  pure subroutine findElementUnstructured(self, r, u, elementIdx, localId)
+  pure subroutine findElementAndParentIdxs(self, r, u, elementIdx, parentIdx)
     class(unstructuredMesh), intent(in)          :: self
     real(defReal), dimension(3), intent(in)      :: r, u
-    integer(shortInt), intent(out)               :: elementIdx, localId
+    integer(shortInt), intent(out)               :: elementIdx, parentIdx
     real(defReal), dimension(6)                  :: boundingBox
     integer(shortInt), dimension(:), allocatable :: potentialElements, faceToElements, zeroDotProductFaceIdxs
     type(element)                                :: currentElement
     integer(shortInt)                            :: i, nearestVertexIdx, failedFaceIdx
     type(face)                                   :: failedFace
     
-    ! Initialise localId = 1 (corresponds to the particle being in the CSG cell) and elementIdx = 0.
-    localId = 1
+    ! Initialise elementIdx = 0 and parentIdx = 0. Retrieve the mesh's bounding box. If the particle is outside the
+    ! bounding box we can return early.
     elementIdx = 0
-
-    ! Retrieve the mesh's bounding box. If the particle is outside the bounding box we can return early.
+    parentIdx = 0
     boundingBox = self % getBoundingBox()
     do i = 1, 3
       if (r(i) <= boundingBox(i) .or. boundingBox(i + 3) <= r(i)) return
@@ -334,18 +257,13 @@ contains
         exit
       
       end if
-      ! If reached this point the particle is in the current element. Retrieve its index and exit.
+      ! If reached this point the particle is in the current element. Update elementIdx and parentIdx and return.
       elementIdx = currentElement % getIdx()
-      exit
+      parentIdx = elementIdx
+      return
 
     end do searchLoop
 
-    ! If elementIdx = 0 the particle is in the CSG cell. Return early in this case.
-    if (elementIdx == 0) return
-
-    ! Update localId based on the element associated with the element.
-    localId = self % cellZones % findCellZone(elementIdx)
-
-  end subroutine findElementUnstructured
+  end subroutine findElementAndParentIdxs
 
 end module unstructuredMesh_inter

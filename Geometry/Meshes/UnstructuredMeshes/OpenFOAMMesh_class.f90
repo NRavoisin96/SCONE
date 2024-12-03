@@ -4,7 +4,10 @@ module OpenFOAMMesh_class
   use coord_class,            only : coord
   use dictionary_class,       only : dictionary
   use OpenFOAMFunctions,      only : importMesh
-  use unstructuredMesh_inter, only : unstructuredMesh
+  use unstructuredMesh_inter, only : unstructuredMesh, &
+                                     distanceToBoundaryFace_super => distanceToBoundaryFace, &
+                                     distanceToNextFace_super => distanceToNextFace, &
+                                     findElementAndParentIdxs_super => findElementAndParentIdxs
 
   implicit none
   private
@@ -13,63 +16,69 @@ module OpenFOAMMesh_class
     private
   contains
     ! Superclass procedures.
-    procedure                             :: distance
+    procedure                             :: distanceToBoundaryFace
     procedure                             :: distanceToNextFace
-    procedure                             :: findElement
+    procedure                             :: findElementAndParentIdxs
     procedure                             :: init
   end type OpenFOAMMesh
 
 contains
 
-  pure subroutine distance(self, d, coords, isInside)
+  !! Subroutine 'distanceToBoundaryFace'
+  !!
+  !! Basic description:
+  !!   Returns the distance to the mesh boundary face intersected by a particle's path. Also returns the index
+  !!   of the parent element containing the intersected boundary face.
+  !!
+  !! See unstructuredMesh_inter for details.
+  !!
+  pure subroutine distanceToBoundaryFace(self, d, coords, parentIdx)
     class(OpenFOAMMesh), intent(in) :: self
     real(defReal), intent(out)      :: d
     type(coord), intent(inout)      :: coords
-    logical(defBool), intent(out)   :: isInside
+    integer(shortInt), intent(out)  :: parentIdx
 
-    call self % distanceUnstructured(d, coords, isInside)
+    call distanceToBoundaryFace_super(self, d, coords, parentIdx)
 
-  end subroutine distance
+  end subroutine distanceToBoundaryFace
 
+  !! Subroutine 'distanceToNextFace'
+  !!
+  !! Basic description:
+  !!   Returns the distance to the next face intersected by the particle's path.
+  !!
+  !! See unstructuredMesh_inter for details.
+  !!
   pure subroutine distanceToNextFace(self, d, coords)
     class(OpenFOAMMesh), intent(in) :: self
     real(defReal), intent(out)      :: d
     type(coord), intent(inout)      :: coords
 
-    call self % distanceToNextFaceUnstructured(d, coords)
+    call distanceToNextFace_super(self, d, coords)
 
   end subroutine distanceToNextFace
 
+  !! Subroutine 'findElementAndParentIdxs'
   !!
+  !! Basic description:
+  !!   Returns the index of the mesh element occupied by a particle. Also returns the index of the parent mesh
+  !!   element containing the occupied element.
   !!
+  !! See unstructuredMesh_inter for details.
   !!
-  pure subroutine findElement(self, r, u, elementIdx, localId)
+  pure subroutine findElementAndParentIdxs(self, r, u, elementIdx, parentIdx)
     class(OpenFOAMMesh), intent(in)         :: self
     real(defReal), dimension(3), intent(in) :: r, u
-    integer(shortInt), intent(out)          :: elementIdx, localId
+    integer(shortInt), intent(out)          :: elementIdx, parentIdx
 
-    call self % findElementUnstructured(r, u, elementIdx, localId)
+    call findElementAndParentIdxs_super(self, r, u, elementIdx, parentIdx)
 
-  end subroutine findElement
+  end subroutine findElementAndParentIdxs
 
   !! Subroutine 'init'
   !!
   !! Basic description:
-  !!   Imports an OpenFOAM mesh from the path of the folder containing the mesh files and sets the 
-  !!   mesh Id from the dictionary.
-  !!
-  !! Detailed description:
-  !!   'init' first sets the mesh Id from the supplied dictionary. It then checks the existence and 
-  !!   consistency of files located in the appropriate mesh folder and allocates memory to the 
-  !!   'vertices', 'faces' and 'elements' structures of the 'mesh' structure. It then imports data 
-  !!   from the 'points' file into the 'vertices' structures and builds a kd-tree for the mesh from 
-  !!   the various vertices' coordinates. The subroutine then proceeds to import data from the 
-  !!   'faces', 'owner' and 'neighbour' files and stores it into the appropriate 'faces' and 
-  !!   'elements' structure. 'init' also computes the area, centroid and normal vector for each 
-  !!   face, as well as the centroid and volume of each element. From the 'faces', 'owner' and 
-  !!   'neighbour' files, mesh connectivity information is also assigned to the various structures. 
-  !!   The subroutine then imports data from the 'cellZones' file (if it exists) into the 
-  !!   'cellZones' structures.
+  !!   Imports an OpenFOAM mesh from the path of the folder containing the mesh files.
   !!
   !! Arguments:
   !!   folderPath [in] -> Path of the folder containing the files for the mesh geometry.

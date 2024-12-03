@@ -154,7 +154,7 @@ contains
     
     ! Set cellIdx to the index of the CSG cell, then find elementIdx and localId within mesh.
     cellIdx = self % cell % idx
-    call self % mesh % ptr % findElement(r, u, elementIdx, localId)
+    call self % mesh % ptr % findOccupiedElementIdx(r, u, elementIdx, localId)
 
   end subroutine findCell
   
