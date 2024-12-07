@@ -1,7 +1,7 @@
 module tetrahedron_class
   
   use numPrecision
-  use genericProcedures,   only : append, crossProduct, linFind
+  use genericProcedures,   only : append, areEqual, crossProduct, linFind
   use triangle_class,      only : triangle
   use triangleShelf_class, only : triangleShelf
   use universalVariables,  only : INF, ONE, SURF_TOL, ZERO
@@ -199,6 +199,8 @@ contains
 
     end do
 
+    if (.not. allocated(potentialTriangleIdxs)) allocate(potentialTriangleIdxs(0))
+
   end subroutine computePotentialTriangles
   
   !! Subroutine 'computeVolume'
@@ -391,7 +393,6 @@ contains
   !!                                a tetrahedron to the coordinates in case the coordinates are on
   !!                                one or more triangle(s).
   !!
-  !! TODO: Check if surfTolTriangleIdxs needs to be made absolute later on.
   pure subroutine testForInclusion(self, triangles, r, failedTriangleIdx, surfTolTriangleIdxs)
     class(tetrahedron), intent(in)                            :: self
     type(triangleShelf), intent(in)                           :: triangles
@@ -419,17 +420,22 @@ contains
       ! compute the dot product between the test vector and the current triangle's normal vector.
       dotProduct = dot_product(triangles % shelf(absTriangleIdx) % getCentre() - r, normal)
 
+      ! If the coordinates lie on the triangle, update surfTolTriangleIdxs.
+      if (areEqual(dotProduct, ZERO)) then
+        call append(surfTolTriangleIdxs, triangleIdx)
+        cycle
+      
+      end if
+
       ! If dotProduct < ZERO update failedTriangleIdx and return.
       if (dotProduct < ZERO) then
         failedTriangleIdx = absTriangleIdx
         return
 
       end if
-      
-      ! If the coordinates lie on the triangle, update surfTolTriangleIdxs.
-      if (abs(dotProduct) <= SURF_TOL) call append(surfTolTriangleIdxs, triangleIdx)
 
     end do
+    
   end subroutine testForInclusion
   
 end module tetrahedron_class

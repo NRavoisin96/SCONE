@@ -1,8 +1,8 @@
 module triangle_class
   
   use numPrecision
-  use genericProcedures,  only : append, crossProduct
-  use universalVariables, only : ONE, ZERO, THIRD
+  use genericProcedures,  only : append, areEqual, crossProduct
+  use universalVariables, only : ONE, ZERO, THIRD, INF
   
   implicit none
   private
@@ -99,31 +99,32 @@ contains
   !!   See http://geomalgorithms.com/a06-_intersect-2.html.
   !!
   !! Arguments:
-  !!   startPos [in]               -> 3-D coordinates of the line segment's origin.
-  !!   endPos [in]                 -> 3-D coordinates of the line segment's end.
-  !!   firstVertexCoordinates [in] -> 3-D coordinates of the first vertex (could be any) of the 
-  !!                                  triangle.
-  !!   isIntersecting [out]        -> .true. if the line segment intersects the triangle.
-  !!   dist [out]                  -> Distance from the line segment's origin to the point of 
-  !!                                  intersection.
+  !!   startPos [in]          -> 3-D coordinates of the line segment's origin.
+  !!   endPos [in]            -> 3-D coordinates of the line segment's end.
+  !!   firstVertexCoords [in] -> 3-D coordinates of the triangle's first vertex.
+  !!   isIntersecting [out]   -> .true. if the line segment intersects the triangle.
+  !!   dist [out]             -> Distance from the line segment's origin to the point of intersection.
   !!
   pure subroutine computeIntersection(self, startPos, endPos, firstVertexCoords, isIntersecting, d)
     class(triangle), intent(in)             :: self
     real(defReal), dimension(3), intent(in) :: startPos, endPos, firstVertexCoords 
     logical(defBool), intent(out)           :: isIntersecting
     real(defReal), intent(out)              :: d
-    real(defReal)                           :: inverseDenominator, s, t, AB_dot_AC, AB_dot_AB, &
-                                               AC_dot_AC, inPlane_dot_AB, inPlane_dot_AC
     real(defReal), dimension(3)             :: normal, diff, intersectionCoords, inPlaneVector, AB, AC
+    real(defReal)                           :: denominator, inverseDenominator, s, t, AB_dot_AC, AB_dot_AB, &
+                                               AC_dot_AC, inPlane_dot_AB, inPlane_dot_AC
     
-    ! Initialise isIntersecting = false.
+    ! Initialise isIntersecting = .false. and d = INF.
     isIntersecting = .false.
+    d = INF
     
     ! Retrieve the triangle's normal vector and compute s to check if the line segment intersects
     ! the triangle's plane. Return early if not (s < ZERO or s > ONE).
     normal = self % normal
     diff = endPos - startPos
-    s = -dot_product(normal, startPos - firstVertexCoords) / dot_product(normal, diff)
+    denominator = dot_product(normal, diff)
+    if (areEqual(denominator, ZERO)) return
+    s = dot_product(normal, firstVertexCoords - startPos) / denominator
     if (s < ZERO .or. s > ONE) return
       
     ! Compute the coordinates of the intersection point and create a vector in the plane of the 

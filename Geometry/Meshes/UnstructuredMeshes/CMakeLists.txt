@@ -1,6 +1,5 @@
 # Add Source Files to the global list
 add_subdirectory(TriangulatedMeshes)
-
 add_sources(
             ./edge_class.f90
             ./edgeShelf_class.f90
@@ -14,3 +13,7 @@ add_sources(
             ./vertex_class.f90
             ./vertexShelf_class.f90
            )
+
+add_integration_tests(
+                      ./Tests/OpenFOAMMesh_iTest.f90
+                     )

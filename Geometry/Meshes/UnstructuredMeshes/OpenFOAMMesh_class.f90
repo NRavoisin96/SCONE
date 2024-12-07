@@ -7,7 +7,8 @@ module OpenFOAMMesh_class
   use unstructuredMesh_inter, only : unstructuredMesh, &
                                      distanceToBoundaryFace_super => distanceToBoundaryFace, &
                                      distanceToNextFace_super => distanceToNextFace, &
-                                     findElementAndParentIdxs_super => findElementAndParentIdxs
+                                     findElementAndParentIdxs_super => findElementAndParentIdxs, &
+                                     kill_super => kill
 
   implicit none
   private
@@ -20,6 +21,8 @@ module OpenFOAMMesh_class
     procedure                             :: distanceToNextFace
     procedure                             :: findElementAndParentIdxs
     procedure                             :: init
+    ! Local procedures.
+    procedure                             :: kill
   end type OpenFOAMMesh
 
 contains
@@ -94,5 +97,18 @@ contains
     call self % tree % init(self % vertices % getAllCoordinates(), .true.)
 
   end subroutine init
+
+  !! Subroutine 'kill'
+  !!
+  !! Basic description:
+  !!   Returns to an unitialised state.
+  !!
+  elemental subroutine kill(self)
+    class(OpenFOAMMesh), intent(inout) :: self
+
+    ! Call unstructuredMesh procedure.
+    call kill_super(self)
+
+  end subroutine kill
 
 end module OpenFOAMMesh_class

@@ -7,7 +7,8 @@ module triOpenFOAMMesh_class
   use triUnstructuredMesh_inter, only : triUnstructuredMesh, &
                                         distanceToBoundaryFace_super => distanceToBoundaryFace, &
                                         distanceToNextFace_super => distanceToNextFace, &
-                                        findElementAndParentIdxs_super => findElementAndParentIdxs
+                                        findElementAndParentIdxs_super => findElementAndParentIdxs, &
+                                        kill_super => kill
 
   implicit none
   private
@@ -20,6 +21,8 @@ module triOpenFOAMMesh_class
     procedure                                :: distanceToNextFace
     procedure                                :: findElementAndParentIdxs
     procedure                                :: init
+    ! Local procedures.
+    procedure                                :: kill
   end type triOpenFOAMMesh
 
 contains
@@ -102,5 +105,18 @@ contains
     call self % tree % init(self % vertices % getAllCoordinates(), .true.)
 
   end subroutine init
+
+  !! Subroutine 'kill'
+  !!
+  !! Basic description:
+  !!   Returns to an unitialised state.
+  !!
+  elemental subroutine kill(self)
+    class(triOpenFOAMMesh), intent(inout) :: self
+
+    ! Call triUnstructuredMesh procedure.
+    call kill_super(self)
+
+  end subroutine kill
 
 end module triOpenFOAMMesh_class

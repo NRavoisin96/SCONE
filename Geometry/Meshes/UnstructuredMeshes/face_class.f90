@@ -1,12 +1,11 @@
 module face_class
   
   use numPrecision,
-  use universalVariables,  only : HALF, THIRD
-  use genericProcedures,   only : append, computeTriangleArea, computeTriangleCentre, computeTriangleNormal, &
-                                  fatalError, numToChar
+  use universalVariables,  only : HALF, THIRD, SURF_TOL
+  use genericProcedures,   only : append, areEqual, computeTriangleArea, computeTriangleCentre, &
+                                  computeTriangleNormal, fatalError, numToChar
   use vertex_class,        only : vertex
   use vertexShelf_class,   only : vertexShelf
-  use triangle_class,      only : triangle
   use triangleShelf_class, only : triangleShelf
   use universalVariables,  only : ZERO, INF
   
@@ -28,7 +27,7 @@ module face_class
   !!   centroid       -> Vector pointing to the centroid of the face.
   !!   normal         -> Normal vector of the face.
   !!
-  type, public :: face
+  type, public                                   :: face
     private
     integer(shortInt)                            :: idx = 0
     integer(shortInt), dimension(:), allocatable :: vertices, faceToElements, triangles
@@ -40,6 +39,7 @@ module face_class
     procedure                                    :: addTriangle
     procedure                                    :: addVertexToFace
     procedure                                    :: computeAreaAndNormal
+    procedure                                    :: computeIntersection
     procedure                                    :: getArea
     procedure                                    :: getCentroid
     procedure                                    :: getFaceToElements
@@ -47,7 +47,7 @@ module face_class
     procedure                                    :: getNormal
     procedure                                    :: getTriangles
     procedure                                    :: getVertices
-    procedure                                    :: isBoundary
+    procedure                                    :: getIsBoundary
     procedure                                    :: kill
     procedure                                    :: setBoundaryFace
     procedure                                    :: setIdx
@@ -69,6 +69,7 @@ contains
     integer(shortInt), intent(in) :: idx
     
     call append(self % triangles, idx)
+
   end subroutine addTriangle
   
   !! Subroutine 'addElementToFace'
@@ -84,6 +85,7 @@ contains
     integer(shortInt), intent(in) :: idx
     
     call append(self % faceToElements, idx)
+
   end subroutine addElementToFace
   
   !! Subroutine 'addVertexToFace'
@@ -99,6 +101,7 @@ contains
     integer(shortInt), intent(in) :: idx
     
     call append(self % vertices, idx)
+
   end subroutine addVertexToFace
   
   !! Subroutine 'computeAreaAndNormal'
@@ -186,7 +189,105 @@ contains
     ! Check that the area is valid.
     if (self % area <= ZERO) call fatalError(Here, 'Negative area for face with index: '//numToChar(self % idx)//'.')
     if (self % area >= INF) call fatalError(Here, 'Infinite area for face with index: '//numToChar(self % idx)//'.')
+
   end subroutine computeAreaAndNormal
+
+  !! Subroutine 'computeIntersection'
+  !!
+  !! Basic description:
+  !!   Checks whether a line segment intersects the face and if so, computes the distance from
+  !!   the segment's origin to the point of intersection.
+  !!
+  !! Detailed description:
+  !!
+  !! Arguments:
+  !!   startPos [in]          -> 3-D coordinates of the line segment's origin.
+  !!   endPos [in]            -> 3-D coordinates of the line segment's end.
+  !!   firstVertexCoords [in] -> 3-D coordinates of the face's first vertex.
+  !!   isIntersecting [out]   -> .true. if the line segment intersects the triangle.
+  !!   d [out]                -> Distance from the line segment's origin to the point of intersection.
+  !!
+  pure subroutine computeIntersection(self, startPos, endPos, vertices, isIntersecting, d)
+    class(face), intent(in)                                    :: self
+    real(defReal), dimension(3), intent(in)                    :: startPos, endPos
+    type(vertex), dimension(size(self % vertices)), intent(in) :: vertices
+    logical(defBool), intent(out)                              :: isIntersecting
+    real(defReal), intent(out)                                 :: d
+    real(defReal), dimension(3)                                :: normal, diff, intersectionCoords
+    real(defReal)                                              :: denominator, s, crossProduct, sign
+    integer(shortInt)                                          :: discardDimension, i, nVertices, nextIdx
+    integer(shortInt), dimension(2)                            :: dimensions
+    real(defReal), dimension(size(self % vertices), 3)         :: vertexCoords
+    real(defReal), dimension(size(self % vertices), 2)         :: projVertexCoords
+    real(defReal), dimension(2)                                :: projIntersectionCoords, diffEdgeCoords, &
+                                                                  diffIntersectionCoords
+
+    ! Initialise isIntersecting = .false. and d = INF.
+    isIntersecting = .false.
+    d = INF
+    
+    ! Retrieve the face's normal vector and compute s to check if the line segment intersects the
+    ! face's plane. Return early if not (s < ZERO or s > ONE).
+    normal = self % normal
+    diff = endPos - startPos
+    denominator = dot_product(normal, diff)
+    if (areEqual(denominator, ZERO)) return
+    s = dot_product(normal, self % centroid - startPos) / denominator
+    if (s < ZERO .or. s > ONE) return
+
+    ! Compute the coordinates of the intersection point.
+    diff = s * diff
+    intersectionCoords = startPos + diff
+
+    ! Compute dimension to discard and project vertices coordinates.
+    discardDimension = maxloc(abs(normal), 1)
+    dimensions = pack((/(i, i = 1, 3)/), (/(i, i = 1, 3)/) /= discardDimension)
+    nVertices = size(self % vertices)
+    do i = 1, nVertices
+      vertexCoords(i, :) = vertices(i) % getCoordinates()
+
+    end do
+    projVertexCoords = vertexCoords(:, dimensions)
+    projIntersectionCoords = intersectionCoords(dimensions)
+
+    ! Loop through all edges of the projected polygon and check that the projected intersection coordinates
+    ! are on the same side of each edge. Note: this works because the polygon is convex.
+    do i = 1, nVertices
+      ! Check if intersection point lies on the current vertex and exit the loop if yes.
+      diffIntersectionCoords = projIntersectionCoords - projVertexCoords(i, :)
+      if (areEqual(diffIntersectionCoords, ZERO)) exit
+
+      ! Compute cross product.
+      nextIdx = mod(i, nVertices) + 1
+      diffEdgeCoords = projVertexCoords(nextIdx, :) - projVertexCoords(i, :)
+      crossProduct = diffIntersectionCoords(1) * diffEdgeCoords(2) - diffIntersectionCoords(2) * diffEdgeCoords(1)
+
+      ! If crossProduct is ZERO, the point may lie on the edge.
+      if (areEqual(crossProduct, ZERO)) then
+        ! Check if point actually lies on the edge and exit loop immediately if yes. Return if not.
+        if (min(projVertexCoords(i, 1), projVertexCoords(nextIdx, 1)) < projIntersectionCoords(1) .and. &
+            projIntersectionCoords(2) <= max(projVertexCoords(i, 2), projVertexCoords(nextIdx, 2))) exit
+        return
+
+      end if
+
+      ! Initialise sign.
+      if (i == 1) then
+        sign = crossProduct
+        cycle
+
+      end if
+
+      ! If the cross product changes sign the intersection point is outside the polygon and we can return early.
+      if (crossProduct * sign < ZERO) return
+
+    end do
+
+    ! If reached here, the intersection point is inside the polygon. Update isIntersecting and d.
+    isIntersecting = .true.
+    d = norm2(diff)
+
+  end subroutine computeIntersection
   
   !! Function 'getArea'
   !!
@@ -201,6 +302,7 @@ contains
     real(defReal)           :: area
     
     area = self % area
+
   end function getArea
   
   !! Function 'getCentroid'
@@ -216,6 +318,7 @@ contains
     real(defReal), dimension(3) :: centroid
     
     centroid = self % centroid
+
   end function getCentroid
   
   !! Function 'getFaceToElements'
@@ -231,6 +334,7 @@ contains
     integer(shortInt), dimension(size(self % faceToElements)) :: faceToElements
     
     faceToElements = self % faceToElements
+
   end function getFaceToElements
   
   !! Function 'getIdx'
@@ -246,7 +350,21 @@ contains
     integer(shortInt)       :: idx
     
     idx = self % idx
+
   end function getIdx
+
+  !! Function 'getIsBoundary'
+  !!
+  !! Basic description:
+  !!   Returns .true. if face is a boundary face.
+  !!
+  elemental function getIsBoundary(self) result(isIt)
+    class(face), intent(in) :: self
+    logical(defBool)        :: isIt
+
+    isIt = self % boundaryFace
+
+  end function getIsBoundary 
   
   !! Function 'getNormal'
   !!
@@ -265,6 +383,7 @@ contains
     
     if (.not. present(idx)) return
     if (idx < 0) normal = -normal
+
   end function getNormal
   
   !! Function 'getTriangles'
@@ -280,6 +399,7 @@ contains
     integer(shortInt), dimension(size(self % triangles)) :: triangleIdxs
     
     triangleIdxs = self % triangles
+
   end function getTriangles
   
   !! Function 'getVertices'
@@ -295,20 +415,8 @@ contains
     integer(shortInt), dimension(size(self % vertices)) :: vertexIdxs
     
     vertexIdxs = self % vertices
+
   end function getVertices
-
-  !! Function 'isBoundary'
-  !!
-  !! Basic description:
-  !!   Returns .true. if face is a boundary face.
-  !!
-  elemental function isBoundary(self) result(isIt)
-    class(face), intent(in) :: self
-    logical(defBool)        :: isIt
-
-    isIt = self % boundaryFace
-
-  end function isBoundary 
   
   !! Subroutine 'kill'
   !!
@@ -326,6 +434,7 @@ contains
     if (allocated(self % vertices)) deallocate(self % vertices)
     if (allocated(self % triangles)) deallocate(self % triangles)
     if (allocated(self % faceToElements)) deallocate(self % faceToElements)
+
   end subroutine kill
   
   !! Subroutine 'setBoundaryFace'
@@ -337,6 +446,7 @@ contains
     class(face), intent(inout) :: self
     
     self % boundaryFace = .true.
+
   end subroutine setBoundaryFace
   
   !! Subroutine 'setIdx'
@@ -358,6 +468,7 @@ contains
     ! Catch invalid index.
     if (idx < 1) call fatalError(Here, 'Face index must be +ve. Is: '//numToChar(idx)//'.')
     self % idx = idx
+
   end subroutine setIdx
   
   !! Subroutine 'split'

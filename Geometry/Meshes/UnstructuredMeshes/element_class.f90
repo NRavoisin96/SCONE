@@ -2,7 +2,7 @@ module element_class
   
   use face_class,          only : face
   use faceShelf_class,     only : faceShelf
-  use genericProcedures,   only : append, computePyramidCentre, computePyramidVolume, &
+  use genericProcedures,   only : append, areEqual, computePyramidCentre, computePyramidVolume, &
                                   computeTetrahedronCentre, computeTetrahedronVolume, &
                                   findCommon, linFind, swap, fatalError, numToChar
   use numPrecision
@@ -44,6 +44,8 @@ module element_class
     procedure                                    :: setIdx
     procedure                                    :: split
     ! Runtime procedures.
+    procedure                                    :: computeIntersectedFace
+    procedure                                    :: computePotentialFaces
     procedure                                    :: getCentroid
     procedure                                    :: getFaces
     procedure                                    :: getIdx
@@ -68,6 +70,7 @@ contains
     integer(shortInt), intent(in) :: faceIdx
     
     call append(self % faceIdxs, faceIdx)
+
   end subroutine addFaceToElement
   
   !! Subroutine 'addVertexToElement'
@@ -93,7 +96,109 @@ contains
     end if
     
     if (linFind(self % vertexIdxs, vertexIdx) == targetNotFound) self % vertexIdxs = [self % vertexIdxs, vertexIdx]
+
   end subroutine addVertexToElement
+
+  !! Subroutine 'computeIntersectedFace'
+  !!
+  !! Basic description:
+  !!   Computes the element's face which is intersected by a line segment.
+  !!
+  !! Detailed description:
+  !!   See Macpherson, et al. (2009). DOI: 10.1002/cnm.1128.
+  !!
+  !! Arguments:
+  !!   startPos [in]            -> Beginning of the line segment.
+  !!   endPos [in]              -> End of the line segment.
+  !!   potentialFaceIdxs [in]   -> Array of potential faces intersected by the line segment.
+  !!   intersectedFaceIdx [out] -> Index of the face intersected by the line segment.
+  !!   lambda [out]             -> Fraction of the line segment to be traversed before reaching the
+  !!                               intersection point.
+  !!   faces [in]               -> A faceShelf.
+  !!
+  !! TODO: Review this. Especially for cases where a particle may end up on an edge or at a vertex.
+  pure subroutine computeIntersectedFace(self, startPos, endPos, potentialFaceIdxs, &
+                                         intersectedFaceIdx, lambda, faces)
+    class(element), intent(in)                               :: self
+    real(defReal), dimension(3), intent(in)                  :: startPos, endPos
+    integer(shortInt), dimension(:), allocatable, intent(in) :: potentialFaceIdxs
+    integer(shortInt), intent(out)                           :: intersectedFaceIdx
+    real(defReal), intent(out)                               :: lambda
+    type(faceShelf), intent(in)                              :: faces
+    integer(shortInt)                                        :: i
+    integer(shortInt), dimension(:), allocatable             :: absPotentialFaceIdxs
+    real(defReal), dimension(3)                              :: centroid, normal
+    real(defReal)                                            :: faceLambda
+    
+    ! Create absolute triangle indices and initialise lambda = INF.
+    absPotentialFaceIdxs = abs(potentialFaceIdxs)
+    lambda = INF
+    
+    ! Loop over all potentially intersected triangles.
+    do i = 1, size(potentialFaceIdxs)
+      ! Retrieve the current triangle's normal vector and flip it if necessary.
+      normal = faces % shelf(absPotentialFaceIdxs(i)) % getNormal(potentialFaceIdxs(i))
+      
+      ! Retrieve the current triangle's centre and compute triangleLambda.
+      centroid = faces % shelf(absPotentialFaceIdxs(i)) % getCentroid()
+      faceLambda = dot_product(centroid - startPos, normal) / dot_product(endPos - startPos, normal)
+      
+      ! If triangleLambda < lambda, update lambda and intersectedTriangleIdx.
+      if (faceLambda < lambda) then
+        lambda = faceLambda
+        intersectedFaceIdx = absPotentialFaceIdxs(i)
+
+      end if
+
+    end do
+
+  end subroutine computeIntersectedFace
+
+  !! Subroutine 'computePotentialFaces'
+  !!
+  !! Basic description:
+  !!   Computes a list of indices of the potentially intersected faces using the element's 
+  !!   centroid and the end of a line segment.
+  !!
+  !! Detailed description:
+  !!   See Macpherson, et al. (2009). DOI: 10.1002/cnm.1128.
+  !!
+  !! Arguments:
+  !!   endPos [in]             -> End of the line segment.
+  !!   faces [in]              -> A faceShelf.
+  !!   potentialFaceIdxs [out] -> Array of indices of the potential faces intersected by the line segment.
+  !!
+  pure subroutine computePotentialFaces(self, endPos, faces, potentialFaceIdxs)
+    class(element), intent(in)                                :: self
+    real(defReal), dimension(3), intent(in)                   :: endPos
+    type(faceShelf), intent(in)                               :: faces
+    integer(shortInt), dimension(:), allocatable, intent(out) :: potentialFaceIdxs
+    integer(shortInt)                                         :: i, faceIdx, absFaceIdx
+    real(defReal)                                             :: lambda
+    real(defReal), dimension(3)                               :: centroid, faceCentroid, normal
+    
+    ! Retrieve element's centroid then loop over all faces in the tetrahedron.
+    centroid = self % centroid
+    do i = 1, size(self % faceIdxs)
+      ! Retrieve current triangle index and create its absolute index.
+      faceIdx = self % faceIdxs(i)
+      absFaceIdx = abs(faceIdx)
+      
+      ! Retrieve the signed normal vector of the current triangle.
+      normal = faces % shelf(absFaceIdx) % getNormal(faceIdx)
+      
+      ! Retrieve the centre of the current triangle and compute lambda.
+      faceCentroid = faces % shelf(absFaceIdx) % getCentroid()
+      lambda = dot_product(faceCentroid - centroid, normal) / dot_product(endPos - centroid, normal)
+      
+      ! If ZERO <= lambda <= ONE, append the current triangle to the list of potentially intersected triangles.
+      if (ZERO <= lambda .and. lambda <= ONE) call append(potentialFaceIdxs, faceIdx)
+
+    end do
+
+    if (.not. allocated(potentialFaceIdxs)) allocate(potentialFaceIdxs(0))
+
+  end subroutine computePotentialFaces
   
   !! Subroutine 'computeVolumeAndCentroid'
   !!
@@ -187,6 +292,7 @@ contains
     ! Check that the volume is valid.
     if (self % volume <= ZERO) call fatalError(Here, 'Negative volume for element with index: '//numToChar(self % idx)//'.')
     if (self % volume >= INF) call fatalError(Here, 'Infinite volume for element with index: '//numToChar(self % idx)//'.')
+
   end subroutine computeVolumeAndCentroid
   
   !! Function 'isConvex'
@@ -272,6 +378,7 @@ contains
     real(defReal), dimension(3) :: centroid
     
     centroid = self % centroid
+
   end function getCentroid
   
   !! Function 'getFaces'
@@ -287,6 +394,7 @@ contains
     integer(shortInt), dimension(size(self % faceIdxs)) :: faceIdxs
     
     faceIdxs = self % faceIdxs
+
   end function getFaces
   
   !! Function 'getIdx'
@@ -302,6 +410,7 @@ contains
     integer(shortInt)          :: idx
     
     idx = self % idx
+
   end function getIdx
   
   !! Function 'getVertices'
@@ -317,6 +426,7 @@ contains
     integer(shortInt), dimension(size(self % vertexIdxs)) :: vertexIdxs
     
     vertexIdxs = self % vertexIdxs
+
   end function getVertices
   
   !! Function 'getVolume'
@@ -332,6 +442,7 @@ contains
     real(defReal)              :: volume
     
     volume = self % volume
+
   end function getVolume
   
   !! Subroutine 'kill'
@@ -348,6 +459,7 @@ contains
     if (allocated(self % vertexIdxs)) deallocate(self % vertexIdxs)
     if (allocated(self % faceIdxs)) deallocate(self % faceIdxs)
     if (allocated(self % tetrahedronIdxs)) deallocate(self % tetrahedronIdxs)
+
   end subroutine kill
   
   !! Subroutine 'setIdx'
@@ -363,6 +475,7 @@ contains
     integer(shortInt), intent(in) :: idx
     
     self % idx = idx
+
   end subroutine setIdx
   
   !! Subroutine 'split'
@@ -489,6 +602,7 @@ contains
     end do
   
   end subroutine split
+  
   !! Subroutine 'testForInclusion'
   !!
   !! Basic description:
@@ -540,17 +654,19 @@ contains
       ! product between this vector and the face's normal vector.
       dotProduct = dot_product(centroid - r, normal)
 
-      ! If dotProduct is negative, update failedFace and return early.
+      ! Check if the coordinates actually lie on the current face, and if so append zeroDotProductFaces.
+      if (areEqual(dotProduct, ZERO)) then
+        call append(surfTolFaceIdxs, faceIdx)
+        cycle
+
+      end if
+
+      ! If dotProduct < ZERO, update failedFace and return early.
       if (dotProduct < ZERO) then 
         failedFace = absFaceIdx
         return
 
       end if
-      
-      ! Check if the coordinates actually lie on the current face (the condition for this is that
-      ! the absolute value of dotProduct is less than or equal to the surface tolerance), and if so 
-      ! append zeroDotProductFaces.
-      if (abs(dotProduct) < SURF_TOL) call append(surfTolFaceIdxs, faceIdx)
 
     end do
 

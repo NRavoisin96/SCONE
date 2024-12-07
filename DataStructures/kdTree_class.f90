@@ -1,6 +1,7 @@
 module kdTree_class
   
   use coord_class,         only : coord
+  use faceShelf_class,     only : faceShelf
   use numPrecision
   use universalVariables,  only : INF
   use node_class,          only : node
@@ -38,6 +39,7 @@ module kdTree_class
     procedure :: kill
     ! Runtime procedures.
     procedure :: findNearestVertex
+    procedure :: findIntersectedFace
     procedure :: findIntersectedTriangle
   end type kdTree
 
@@ -130,6 +132,29 @@ contains
     vertexIdx = self % verticesIdxs(idx)
 
   end function findNearestVertex
+
+  !! Subroutine 'findIntersectedFace'
+  !!
+  !! Basic description:
+  !!   Returns the index of the closest face intersected by a line segment.
+  !!
+  !! Arguments:
+  !!   d [inout]      -> Distance from the line segment's origin to the point of intersection.
+  !!   coords [inout] -> Particle's coordinates.
+  !!   vertices [in]  -> A vertexShelf.
+  !!   faces [in]     -> A triangleShelf.
+  !!
+  pure subroutine findIntersectedFace(self, d, coords, vertices, faces)
+    class(kdTree), intent(in)     :: self
+    real(defReal), intent(inout)  :: d
+    type(coord), intent(inout)    :: coords
+    type(vertexShelf), intent(in) :: vertices
+    type(faceShelf), intent(in)   :: faces
+    
+    ! Start searching the root node for potential face intersections.
+    call self % root % findIntersectedFace(d, coords % r, coords, vertices, faces, self % verticesIdxs)
+
+  end subroutine findIntersectedFace
   
   !! Subroutine 'findIntersectedTriangle'
   !!

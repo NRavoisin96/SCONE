@@ -882,7 +882,8 @@ contains
     integer(shortInt), dimension(size(array2))   :: array2Copy
     integer(shortInt)                            :: i, j
     
-    ! Copy the two input arrays and sort them.
+    ! Initialise common array to 0-size, copy the two input arrays and sort them.
+    allocate(commons(0))
     array1Copy = array1
     array2Copy = array2
     call quickSort(array1Copy)

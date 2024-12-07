@@ -143,7 +143,7 @@ module geometry_inter
     !!
     !! Args:
     !!   coords [inout]  -> Coordinate list of the particle to be moved through the geometry
-    !!   maxDict [inout] -> Maximum distance to move the position. If movment is stopped
+    !!   maxDist [inout] -> Maximum distance to move the position. If movment is stopped
     !!     prematurely (e.g. hitting boundary), maxDist is set to the distance the particle has
     !!     moved by.
     !!   event [out] -> Event flag that specifies what finished the movement.
@@ -177,7 +177,7 @@ module geometry_inter
     !!
     !! Args:
     !!   coords [inout]  -> Coordinate list of the particle to be moved through the geometry
-    !!   maxDict [inout] -> Maximum distance to move the position. If movment is stopped
+    !!   maxDist [inout] -> Maximum distance to move the position. If movment is stopped
     !!     prematurely (e.g. hitting boundary), maxDist is set to the distance the particle has
     !!     moved by.
     !!   event [out] -> Event flag that specifies what finished the movement.

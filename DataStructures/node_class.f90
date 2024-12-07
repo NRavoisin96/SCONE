@@ -1,13 +1,17 @@
 module node_class
   use coord_class,         only : coord
+  use face_class,          only : face
+  use faceShelf_class,     only : faceShelf
   use genericProcedures,   only : append, areEqual, removeDuplicates, swap
   use numPrecision
   use triangle_class,      only : triangle
   use triangleShelf_class, only : triangleShelf
   use universalVariables,  only : ZERO, HALF, SURF_TOL, INF
   use vertexShelf_class,   only : vertexShelf
+  
   implicit none
   private
+  
   !!
   !! Node of a kd-tree. Used to recursively subdivide space into smaller and smaller numbers of
   !! vertices. Each node subdivides space along an axis-aligned dimension known as the cut
@@ -32,7 +36,7 @@ module node_class
   !!   right          -> Right child node.
   !!   boundingBox    -> Axis-aligned bounding box (AABB) of the node.
   !!
-  type, public :: node
+  type, public                     :: node
     private
     integer(shortInt)              :: cutDimension = 0, lowerBound = 0, upperBound = 0, &
                                       bucketSize = 2
@@ -47,12 +51,14 @@ module node_class
     procedure                      :: init
     procedure                      :: kill
     ! Runtime procedures.
+    procedure                      :: findIntersectedFace
     procedure                      :: findIntersectedTriangle
     procedure                      :: getVertices
     procedure                      :: process
     procedure                      :: search
   end type node
 contains
+  
   !! Subroutine 'computeBoundingBox'
   !!
   !! Basic description:
@@ -125,13 +131,14 @@ contains
   !!   cutVertexIdx -> Index of the vertex used to split the node into children nodes.
   !!
   function computeCutVertexIdx(self, coordinates, verticesIdxs, average, lowerBound, upperBound) &
-           result(cutVertexIdx)
+  result(cutVertexIdx)
     class(node), intent(in)                        :: self
     real(defReal), dimension(:), intent(in)        :: coordinates
     integer(shortInt), dimension(:), intent(inout) :: verticesIdxs
     integer(shortInt), intent(in)                  :: lowerBound, upperBound
     real(defReal), intent(in)                      :: average
     integer(shortInt)                              :: counterUp, counterDown, tempIdx, cutVertexIdx
+    
     ! Initialise counters to the values of the supplied lower and upper bounds.
     counterUp = lowerBound
     counterDown = upperBound
@@ -151,7 +158,9 @@ contains
         verticesIdxs(counterDown) = tempIdx
         ! Update counterDown.
         counterDown = counterDown - 1
+
       end if
+
     end do
     ! If the vertex coordinate along the cut dimension at the current value of counterUp is less 
     ! than or equal to the supplied average value of the vertices' coordinates along said dimension,
@@ -161,8 +170,11 @@ contains
     ! Else, the vertex immediately before is chosen as the cut vertex.
     else
       CutVertexIdx = counterUp - 1
+
     end if
+
   end function computeCutVertexIdx
+  
   !! Subroutine 'kill'
   !!
   !! Basic description:
@@ -170,15 +182,20 @@ contains
   !!
   pure recursive subroutine kill(self)
     class(node), intent(inout) :: self
+    
     ! Recursively kill children nodes.
     if (allocated(self % left)) then
       call self % left % kill()
       deallocate(self % left)
+
     end if
+    
     if (allocated(self % right)) then
       call self % right % kill()
       deallocate(self % right)
+
     end if
+    
     ! Kill local.
     self % boundingBox = ZERO
     self % cutDimension = 0
@@ -189,7 +206,9 @@ contains
     self % cutValue_right = ZERO
     self % hasLeft = .false.
     self % hasRight = .false.
+
   end subroutine kill
+  
   !! Subroutine 'init'
   !!
   !! Basic description:
@@ -312,6 +331,126 @@ contains
     end if
 
   end subroutine init
+
+  !! Subroutine 'findIntersectedFace'
+  !!
+  !! Basic description:
+  !!   Recursively searches a node and its children nodes and returns the index of the first 
+  !!   triangle intersected by a line segment.
+  !!
+  !! Detailed description:
+  !!   Starts at the root node. Then, depending on which side of the cut plane the segment's origin
+  !!   is, the subroutine descends into either the left or right child node. Repeats the process
+  !!   until a terminal node is encountered, at which point all the triangles containing the 
+  !!   vertices in the node are tested for an intersection. If an intersection is found at this 
+  !!   point we are guaranteed that it is the closest possible intersection and the subroutine ends
+  !!   early. If not, the recursion goes up one level and checks if the line segment intersects the
+  !!   cut plane of the parent node. If it does, the other child node of the parent node is visited
+  !!   until another terminal node is found. The process is then repeated until either an
+  !!   intersection is found or the entire tree has been visited.
+  !!
+  !! Arguments:
+  !!   d [inout]         -> Distance to the closest intersected triangle.
+  !!   startPos [in]     -> Origin of the line segment.
+  !!   endPos [in]       -> End of the line segment.
+  !!   coords [inout]    -> Particle's coordinates.
+  !!   vertices [in]     -> A vertexShelf.
+  !!   faces [in]        -> A faceShelf.
+  !!   verticesIdxs [in] -> Internal re-ordering of the vertices in the tree.
+  !!
+  pure recursive subroutine findIntersectedFace(self, d, startPos, coords, vertices, faces, verticesIdxs)
+    class(node), intent(in)                      :: self
+    real(defReal), intent(inout)                 :: d
+    real(defReal), dimension(3), intent(in)      :: startPos
+    type(coord), intent(inout)                   :: coords
+    type(vertexShelf), intent(in)                :: vertices
+    type(faceShelf), intent(in)                  :: faces
+    integer(shortInt), dimension(:), intent(in)  :: verticesIdxs
+    integer(shortInt)                            :: cutDimension, i
+    integer(shortInt), dimension(:), allocatable :: nodeVertices, potentialFaces, faceToElements
+    logical(defBool)                             :: isIntersecting
+    real(defReal)                                :: cutValue, uComponent, startPosComponent, t, update
+    real(defReal), dimension(3)                  :: newStartPos
+    type(face)                                   :: currentFace
+
+    ! If the node has left or right children, we need to descend deeper into the tree.
+    if (self % hasLeft .or. self % hasRight) then
+      ! Retrieve the cut dimension and cut value of the current node.
+      cutDimension = self % cutDimension
+      cutValue = self % cutValue
+      uComponent = coords % dir(cutDimension)
+      startPosComponent = startPos(cutDimension)
+
+      ! Initialise t = INF and compute t, which is the fraction of the line segment necessary to reach
+      ! the node's cut plane.
+      t = INF
+      if (.not. areEqual(uComponent, ZERO)) t = (cutValue - startPosComponent) / uComponent
+      isIntersecting = ZERO <= t .and. t < norm2(coords % rEnd - startPos)
+
+      if (startPosComponent < cutValue .and. self % hasLeft) then
+        call self % left % findIntersectedFace(d, startPos, coords, vertices, faces, verticesIdxs)
+        
+        ! If intersection has been found, or if the line segment does not intersect the node's cut plane,
+        ! return early.
+        if (coords % elementIdx > 0 .or. (.not. isIntersecting)) return
+        
+        ! Visit the right child node if it exists and look for an intersection.
+        newStartPos = startPos + coords % dir * t
+        if (self % hasRight) call self % right % findIntersectedFace(d, newStartPos, coords, vertices, faces, verticesIdxs)
+
+      else if (self % hasRight) then
+        call self % right % findIntersectedFace(d, startPos, coords, vertices, faces, verticesIdxs)
+        
+        ! If intersection has been found, or if the line segment does not intersect the node's cut plane,
+        ! return early.
+        if (coords % elementIdx > 0 .or. (.not. isIntersecting)) return
+        
+        ! Visit the left child node if it exists and look for an intersection.
+        newStartPos = startPos + coords % dir * t
+        if (self % hasLeft) call self % left % findIntersectedFace(d, newStartPos, coords, vertices, faces, verticesIdxs)
+
+      end if
+      return
+
+    end if
+
+    ! If reached here, we are at a terminal node. Retrieve the vertices in the node and use the tree cache
+    ! to re-order the vertices.
+    nodeVertices = self % getVertices()
+    nodeVertices = verticesIdxs(nodeVertices)
+    
+    ! Retrieve the triangles containing the node vertices from mesh connectivity and remove duplicates.
+    do i = 1, size(nodeVertices)
+      call append(potentialFaces, vertices % shelf(nodeVertices(i)) % getVertexToFaces())
+
+    end do
+    potentialFaces = removeDuplicates(potentialFaces)
+    
+    ! Loop over all potentially intersected triangles.
+    do i = 1, size(potentialFaces)
+      currentFace = faces % shelf(potentialFaces(i))
+      
+      ! If the current triangle is not a boundary triangle we can cycle to the next triangle.
+      if (.not. currentFace % getIsBoundary()) cycle
+      
+      ! Test the current triangle for an intersection.
+      call currentFace % computeIntersection(coords % r, coords % rEnd, vertices % shelf(currentFace % getVertices()), &
+                                             isIntersecting, update)
+      
+      ! If the line segment intersects the triangle and the distance is less than the lowest 
+      ! distance known and the distance is greater than a small tolerance (this is to avoid 
+      ! particles leaving the mesh becoming stuck in an infinite exit loop) then update d and the
+      ! particle's elementIdx.
+      if (isIntersecting .and. update < d .and. update > SURF_TOL) then
+        d = update
+        faceToElements = currentFace % getFaceToElements()
+        coords % elementIdx = faceToElements(1)
+
+      end if
+
+    end do
+    
+  end subroutine findIntersectedFace
   
   !! Subroutine 'findIntersectedTriangle'
   !!
@@ -348,12 +487,12 @@ contains
     type(vertexShelf), intent(in)                :: vertices
     type(triangleShelf), intent(in)              :: triangles
     integer(shortInt), dimension(:), intent(in)  :: verticesIdxs
-    integer(shortInt)                            :: cutDimension, firstVertex, i
+    integer(shortInt)                            :: cutDimension, firstVertexIdx, i
     integer(shortInt), dimension(:), allocatable :: nodeVertices, potentialTriangles, &
                                                     triangleToTetrahedra
     logical(defBool)                             :: isIntersecting
     real(defReal)                                :: cutValue, uComponent, startPosComponent, t, update
-    real(defReal), dimension(3)                  :: newStartPos, firstVertexCoordinates
+    real(defReal), dimension(3)                  :: newStartPos, firstVertexCoords
     type(triangle)                               :: currentTriangle
     
     ! If the node has left or right children, we need to descend deeper into the tree.
@@ -420,11 +559,11 @@ contains
       
       ! Retrieve the vertex of smallest index in the triangle (could be any vertex in reality but
       ! at least this method is consistent) and retrieve the corresponding vertex's coordinates.
-      firstVertex = minval(currentTriangle % getVertices())
-      firstVertexCoordinates = vertices % shelf(firstVertex) % getCoordinates()
+      firstVertexIdx = minval(currentTriangle % getVertices())
+      firstVertexCoords = vertices % shelf(firstVertexIdx) % getCoordinates()
       
       ! Test the current triangle for an intersection.
-      call currentTriangle % computeIntersection(coords % r, coords % rEnd, firstVertexCoordinates, &
+      call currentTriangle % computeIntersection(coords % r, coords % rEnd, firstVertexCoords, &
                                                  isIntersecting, update)
       
       ! If the line segment intersects the triangle and the distance is less than the lowest 
@@ -457,7 +596,9 @@ contains
     integer(shortInt)                                                       :: i
     do i = 0, self % upperBound - self % lowerBound
       vertices(i + 1) = self % lowerBound + i
+
     end do
+
   end function getVertices
   
   !! Subroutine 'process'
@@ -480,6 +621,7 @@ contains
     integer(shortInt), intent(out)             :: idx
     integer(shortInt)                          :: i, j
     real(defReal)                              :: distanceSquared
+    
     ! Loop over all vertices in the terminal node.
     mainLoop: do i = self % lowerBound, self % upperBound
       ! Set the square of the distance between the current vertex and the supplied coordinates to 
@@ -491,16 +633,18 @@ contains
         distanceSquared = distanceSquared + (treeData(j, i) - coordinates(j)) ** 2
         ! If distanceSquared is greater than the current lowest distance, move on to the next vertex
         ! in the node.
-        if (distanceSquared > ballSize) then
-          cycle mainLoop
-        end if
+        if (distanceSquared > ballSize) cycle mainLoop
+
       end do
       ! Set idx to the index of the vertex corresponding to the current lowest distance and ballSize
       ! to said lowest distance.
       idx = i
       ballSize = distanceSquared
+
     end do mainLoop
+
   end subroutine process
+  
   !! Subroutine 'search'
   !!
   !! Basic description:
@@ -551,10 +695,7 @@ contains
         ! cut dimension.
         distanceSquared = (self % cutValue_right - coordinate) ** 2
         ! If the 'closer' node is allocated then search it.
-        if (allocated(self % left)) then
-          call self % left % search(treeData, coordinates, ballSize, idx)
-          
-        end if
+        if (allocated(self % left)) call self % left % search(treeData, coordinates, ballSize, idx)
         ! In some cases, the 'further' node away may actually contain vertices which are closer to 
         ! the supplied coordinates. However, if it is allocated it only makes sense to search this 
         ! node if distanceSquared is less than the current ballSize.
@@ -578,20 +719,19 @@ contains
               end if
               ! Now if at this point the updated distanceSquared is larger than ballSize, there is 
               ! no need to search the node.
-              if (distanceSquared > ballSize) then
-                return
-              end if
+              if (distanceSquared > ballSize) return
+
             end if
+
           end do
           ! If reached this point search the node.
           call self % right % search(treeData, coordinates, ballSize, idx)
+
         end if
       ! Same as above except that the 'closer' and 'further' nodes are swapped.
       else
         distanceSquared = (self % cutValue_left - coordinate) ** 2
-        if (allocated(self % right)) then
-          call self % right % search(treeData, coordinates, ballSize, idx)
-        end if
+        if (allocated(self % right)) call self % right % search(treeData, coordinates, ballSize, idx)
         if (allocated(self % left) .and. distanceSquared <= ballSize) then
           boundingBox = self % boundingBox
           do i = 1, 3
@@ -600,15 +740,21 @@ contains
                 distanceSquared = distanceSquared + (coordinates(i) - boundingBox(i, 2)) ** 2
               else if (coordinates(i) < boundingBox(i, 1)) then
                 distanceSquared = distanceSquared + (boundingBox(i, 1) - coordinates(i)) ** 2
+
               end if
-              if (distanceSquared > ballSize) then
-                return
-              end if
+              if (distanceSquared > ballSize) return
+
             end if
+
           end do
           call self % left % search(treeData, coordinates, ballSize, idx)
+
         end if
+
       end if
+
     end if
+
   end subroutine search
+  
 end module node_class

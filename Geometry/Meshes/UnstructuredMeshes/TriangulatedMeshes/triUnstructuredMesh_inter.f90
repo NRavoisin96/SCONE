@@ -17,7 +17,7 @@ module triUnstructuredMesh_inter
   private
 
   ! Extendable procedures.
-  public :: distanceToNextFace, distanceToBoundaryFace, findElementAndParentIdxs
+  public :: distanceToBoundaryFace, distanceToNextFace, findElementAndParentIdxs, kill
 
   !! Abstract interface to group all triangulated unstructured meshes. A triangulated unstructured mesh is an
   !! unstructured mesh whose faces have been decomposed into triangles and elements into tetrahedra.
@@ -62,7 +62,7 @@ module triUnstructuredMesh_inter
     procedure, non_overridable                      :: findTetrahedronFromEdge
     procedure, non_overridable                      :: findTetrahedronFromFace
     procedure, non_overridable                      :: findTetrahedronFromVertex
-    procedure, non_overridable                      :: kill
+    procedure                                       :: kill
     procedure, non_overridable                      :: replaceVertexShelf
     procedure, non_overridable                      :: split
     procedure, non_overridable                      :: splitElements
@@ -169,7 +169,8 @@ contains
     type(coord), intent(inout)             :: coords
     integer(shortInt), intent(out)         :: parentIdx
 
-    ! Search the tree for the vertices contained in potential intersected triangles.
+    ! Initialise parentIdx = 0 then search the tree for the intersected boundary triangle. Update parentIdx only
+    ! if boundary intersection has been found.
     parentIdx = 0
     call self % tree % findIntersectedTriangle(d, coords, self % vertices, self % triangles)
     if (coords % elementIdx > 0) parentIdx = self % tetrahedra % shelf(coords % elementIdx) % getElement()
@@ -206,9 +207,9 @@ contains
     call currentTetrahedron % computePotentialTriangles(rEnd, self % triangles, potentialTriangles)
     
     ! If no potential intersections are detected return early.
-    if (.not. allocated(potentialTriangles)) return
+    if (size(potentialTriangles) == 0) return
     
-    ! If reached here, compute which triangle is actually intersected and update dist.
+    ! If reached here, compute which triangle is actually intersected and update d.
     r = coords % r
     call currentTetrahedron % computeIntersectedTriangle(r, rEnd, potentialTriangles, &
                                                          intersectedTriangleIdx, lambda, &
@@ -295,9 +296,8 @@ contains
         select case (size(zeroDotProductTriangles))
           ! Particle is on a tetrahedron's face.
           case(1)
-            elementIdx = self % findTetrahedronFromFace(u, &
-                                                            currentTetrahedron % getIdx(), &
-                                                            zeroDotProductTriangles)
+            elementIdx = self % findTetrahedronFromFace(u, currentTetrahedron % getIdx(), &
+                                                        zeroDotProductTriangles)
           ! Particle is on a tetrahedron's edge.
           case(2)
             elementIdx = self % findTetrahedronFromEdge(u, zeroDotProductTriangles)
@@ -306,7 +306,7 @@ contains
             elementIdx = self % findTetrahedronFromVertex(u, zeroDotProductTriangles)  
 
         end select
-        parentIdx = self % tetrahedra % shelf(elementIdx) % getElement()
+        if (elementIdx > 0) parentIdx = self % tetrahedra % shelf(elementIdx) % getElement()
         return
       
       end if
@@ -350,92 +350,82 @@ contains
     class(triUnstructuredMesh), intent(in)                   :: self
     real(defReal), dimension(3), intent(in)                  :: u
     integer(shortInt), dimension(:), allocatable, intent(in) :: zeroDotProductTriangles
-    integer(shortInt)                                        :: i, j, tetrahedronIdx
-    integer(shortInt), dimension(:), allocatable             :: absZeroDotProductTriangles, &
-                                                                edgeVertices, nTriangles, &
-                                                                potentialTetrahedra, &
-                                                                absTetrahedronTriangles, &
-                                                                tetrahedronTriangles, commonVertices, &
-                                                                verticesTriangle1, verticesTriangle2
+    integer(shortInt)                                        :: i, j, tetrahedronIdx, count, maxCount, maxIdx
+    integer(shortInt), dimension(:), allocatable             :: testTriangleIdxs, edgeVertices, &
+                                                                potentialTetrahedra, absTriangleIdxs, triangleIdxs
     type(tetrahedron)                                        :: currentTetrahedron
     type(triangle)                                           :: currentTriangle
     real(defReal), dimension(3)                              :: normal
-    ! First create absolute indices.
-    absZeroDotProductTriangles = abs(zeroDotProductTriangles)
-    ! Now retrieve the vertices making each triangle up.
-    verticesTriangle1 = self % triangles % shelf(absZeroDotProductTriangles(1)) % getVertices()
-    verticesTriangle2 = self % triangles % shelf(absZeroDotProductTriangles(2)) % getVertices()
-    ! Retrieve the vertices making the common edge up.
-    edgeVertices = findCommon(verticesTriangle1, verticesTriangle2)
+    
+    ! Initialise tetrahedronIdx = 0 and retrieve the vertices in the common edge.
+    tetrahedronIdx = 0
+    testTriangleIdxs = abs(zeroDotProductTriangles)
+    edgeVertices = findCommon(self % triangles % shelf(testTriangleIdxs(1)) % getVertices(), &
+                              self % triangles % shelf(testTriangleIdxs(2)) % getVertices())
+    
     ! Loop through all triangles.
     do i = 1, size(self % triangles % shelf)
       ! If the index of the 'do' loop corresponds to one of the triangles sharing the common edge
       ! there is no need to search and we cycle.
-      if (any(absZeroDotProductTriangles == i)) cycle
-      currentTriangle = self % triangles % shelf(i)
-      ! Check if the current face contains the common edge. The implementation below is a bit ugly:
-      ! conceptually one could do away with the first if-loop and only retain the if (size(...)).
-      ! However this causes problems for reasons which are unkill.
-      if (hasDuplicates([currentTriangle % getVertices(), edgeVertices])) then
-        ! Retrieve the common vertices between the current triangle and the common edge.
-        commonVertices = findCommon(currentTriangle % getVertices(), edgeVertices)
-        ! Check if the current triangle contains the common edge.
-        if (size(findCommon(currentTriangle % getVertices(), edgeVertices)) == 2) then
-          ! If so, append the current face's index to the list of faces.
-          call append(absZeroDotProductTriangles, i)
+      if (any(testTriangleIdxs == i)) cycle
+      
+      ! Check if the current triangle contains the common edge and if so append the index to testFaceIdxs.
+      if (size(findCommon(self % triangles % shelf(i) % getVertices(), edgeVertices)) == 2) call append(testTriangleIdxs, i)
+
+    end do
+    
+    ! Loop through all the triangles that contain the common edge and retrieve their associated
+    ! tetrahedra. We might introduce duplicates in the list of potential tetrahedra so remove them.
+    do i = 1, size(testTriangleIdxs)
+      currentTriangle = self % triangles % shelf(testTriangleIdxs(i))
+      call append(potentialTetrahedra, currentTriangle % getTetrahedra()) 
+
+    end do
+    potentialTetrahedra = removeDuplicates(potentialTetrahedra)
+    
+    ! Initialise maxCount = 0 then loop through all potential tetrahedra.
+    maxCount = 0
+    do i = 1, size(potentialTetrahedra)
+      ! Retrieve the triangles making the current tetrahedron and convert them to absolute indices.
+      currentTetrahedron = self % tetrahedra % shelf(potentialTetrahedra(i))
+      triangleIdxs = currentTetrahedron % getTriangles()
+      absTriangleIdxs = abs(triangleIdxs)
+      
+      ! Initialise count = 0 then loop through all the triangles in the current tetrahedron.
+      count = 0
+      do j = 1, 4
+
+        ! If the current triangle does not contain the common edge cycle to the next triangle.
+        if (.not. any(testTriangleIdxs == absTriangleIdxs(j))) cycle
+
+        ! Retrieve the current triangle's signed normal vector.
+        currentTriangle = self % triangles % shelf(absTriangleIdxs(j))
+        normal = currentTriangle % getNormal(triangleIdxs(j))
+        
+        ! If the dot product is negative increment count and cycle to the next triangle.
+        if (dot_product(u, normal) <= ZERO) then
+          count = count + 1
+          cycle
 
         end if
+
+        ! If the test fails and the current triangle is a boundary triangle, the particle is outside the mesh
+        ! and we can return early.
+        if (currentTriangle % getIsBoundary()) return
+
+      end do
+
+      ! If count > maxCount, update maxCount and maxIdx.
+      if (count > maxCount) then
+        maxCount = count
+        maxIdx = i
 
       end if
 
     end do
-    ! Loop through all the triangles that contain the common edge and retrieve their associated
-    ! tetrahedra.
-    do i = 1, size(absZeroDotProductTriangles)
-      currentTriangle = self % triangles % shelf(absZeroDotProductTriangles(i))
-      call append(potentialTetrahedra, currentTriangle % getTetrahedra()) 
 
-    end do
-    ! We might introduce duplicates in the list of potential tetrahedra so remove them.
-    potentialTetrahedra = removeDuplicates(potentialTetrahedra)
-    ! Allocate nTriangles and initialise the array to zero.
-    allocate(nTriangles(size(potentialTetrahedra)))
-    nTriangles = 0
-    ! Loop through all potential tetrahedra.
-    do i = 1, size(potentialTetrahedra)
-      ! Retrieve the triangles making the current tetrahedron and convert them to absolute indices.
-      currentTetrahedron = self % tetrahedra % shelf(potentialTetrahedra(i))
-      tetrahedronTriangles = currentTetrahedron % getTriangles()
-      absTetrahedronTriangles = abs(tetrahedronTriangles)
-      ! Loop through all triangles.
-      do j = 1, 4
-      
-        ! Check if the current triangle contains the common edge.
-        if(any(absZeroDotProductTriangles == absTetrahedronTriangles(j))) then
-        
-          currentTriangle = self % triangles % shelf(absTetrahedronTriangles(j))
-          ! If so, create the triangle's normal vector.
-          normal = currentTriangle % getNormal(tetrahedronTriangles(j))
-          ! Check whether the direction of the particle points inwards with respect to the current
-          ! triangle.
-          if (dot_product(u, normal) <= ZERO) then
-            ! Update nFaces for the current tetrahedron.
-            nTriangles(i) = nTriangles(i) + 1
-          ! If the current triangle is a boundary triangle, set tetrahedronIdx to zero and return.
-          else if (size(currentTriangle % getTetrahedra()) == 1) then
-            tetrahedronIdx = 0
-            return
-
-          end if
-
-        end if
-
-      end do
-
-    end do
-    ! if reached this point, the tetrahedron the particle resides in is the one for which nTriangles 
-    ! is the greatest.
-    tetrahedronIdx = potentialTetrahedra(maxloc(nTriangles, 1))
+    ! If reached here, update tetrahedronIdx.
+    tetrahedronIdx = potentialTetrahedra(maxIdx)
 
   end function findTetrahedronFromEdge
 
@@ -470,8 +460,7 @@ contains
     integer(shortInt), dimension(:), allocatable             :: triangleToTetrahedra
     real(defReal), dimension(3)                              :: normal
     
-    ! Initialise tetrahedronIdx = currentTetrahedronIdx then create absolute indices and retrieve the 
-    ! triangle's normal vector.
+    ! Initialise tetrahedronIdx = currentTetrahedronIdx then retrieve the triangle's signed normal vector.
     tetrahedronIdx = currentTetrahedronIdx
     absZeroDotProductTriangle = abs(zeroDotProductTriangles(1))
     normal = self % triangles % shelf(absZeroDotProductTriangle) % getNormal(zeroDotProductTriangles(1))
@@ -511,55 +500,47 @@ contains
     class(triUnstructuredMesh), intent(in)                   :: self
     real(defReal), dimension(3), intent(in)                  :: u
     integer(shortInt), dimension(:), allocatable, intent(in) :: zeroDotProductTriangles
-    integer(shortInt)                                        :: commonVertex, i, j, tetrahedronIdx
-    integer(shortInt), dimension(:), allocatable             :: absTriangles, &
-                                                                absZeroDotProductTriangles, &
-                                                                commonVertices, nTriangles, &
-                                                                potentialTetrahedra, triangles, &
-                                                                verticesTriangle1, &
-                                                                verticesTriangle2, &
-                                                                verticesTriangle3
+    integer(shortInt)                                        :: commonVertex, i, j, tetrahedronIdx, count, &
+                                                                maxCount, maxIdx
+    integer(shortInt), dimension(:), allocatable             :: absTrianglesIdxs, &
+                                                                absZeroDotProductTriangles, commonVertices, &
+                                                                potentialTetrahedra, trianglesIdxs
     type(triangle)                                           :: currentTriangle
     real(defReal), dimension(3)                              :: normal
     
-    ! Initialise tetrahedronIdx = 0. This corresponds to the particle being outside the mesh.
+    ! Initialise tetrahedronIdx = 0. Find the common vertex between the triangles and retrieve all 
+    ! tetrahedra sharing this vertex.
     tetrahedronIdx = 0
-
-    ! First create absolute indices and retrieve the vertices making each of the triangles.
     absZeroDotProductTriangles = abs(zeroDotProductTriangles)
-    verticesTriangle1 = self % triangles % shelf(absZeroDotProductTriangles(1)) % getVertices()
-    verticesTriangle2 = self % triangles % shelf(absZeroDotProductTriangles(2)) % getVertices()
-    verticesTriangle3 = self % triangles % shelf(absZeroDotProductTriangles(3)) % getVertices()
-    
-    ! Find the common vertex between the three triangles. Retrieve all tetrahedra sharing this vertex.
-    commonVertices = findCommon(verticesTriangle1, verticesTriangle2)
-    commonVertices = findCommon(commonVertices, verticesTriangle3)
+    commonVertices = self % triangles % shelf(absZeroDotProductTriangles(1)) % getVertices()
+    do i = 2, size(absZeroDotProductTriangles)
+      commonVertices = findCommon(commonVertices, self % triangles % shelf(absZeroDotProductTriangles(i)) % getVertices())
+
+    end do
     commonVertex = commonVertices(1)
     potentialTetrahedra = self % vertices % shelf(commonVertex) % getVertexToTetrahedra()
     
-    ! Allocate nTriangles and initialise the array to zero.
-    allocate(nTriangles(size(potentialTetrahedra)))
-    nTriangles = 0
-    
-    ! Loop through all potential tetrahedra.
+    ! Initialise maxCount = 0 then loop through all potential tetrahedra.
+    maxCount = 0
     do i = 1, size(potentialTetrahedra)
       ! Retrieve the triangles in the current tetrahedron and create absolute indices.
-      triangles = self % tetrahedra % shelf(potentialTetrahedra(i)) % getTriangles()
-      absTriangles = abs(triangles)
+      trianglesIdxs = self % tetrahedra % shelf(potentialTetrahedra(i)) % getTriangles()
+      absTrianglesIdxs = abs(trianglesIdxs)
       
-      ! Loop through all triangles.
+      ! Initialise count = 0 then loop through all triangles.
+      count = 0
       do j = 1, 4
-        currentTriangle = self % triangles % shelf(absTriangles(j))
+        currentTriangle = self % triangles % shelf(absTrianglesIdxs(j))
         ! Cycle if the current triangle does not contain the common vertex.
         if (.not. any(currentTriangle % getVertices() == commonVertex)) cycle
         
         ! Retrieve the current triangle's normal vector and flip it if necessary.
-        normal = currentTriangle % getNormal(triangles(j))
+        normal = currentTriangle % getNormal(trianglesIdxs(j))
         
         ! If the dot product is negative increment the number of triangles for the current 
         ! tetrahedron and cycle to the next triangle.
         if (dot_product(u, normal) <= ZERO) then
-          nTriangles(i) = nTriangles(i) + 1
+          count = count + 1
           cycle
   
         end if
@@ -570,10 +551,17 @@ contains
 
       end do
 
+      ! If count > maxCount, update maxCount and maxIdx.
+      if (count > maxCount) then
+        maxCount = count
+        maxIdx = i
+
+      end if
+
     end do
-    
-    ! If reached here, the tetrahedron occupied by the particle is that for which nTriangles is the greatest.
-    tetrahedronIdx = potentialTetrahedra(maxloc(nTriangles, 1))
+
+    ! If reached here, update tetrahedronIdx.
+    tetrahedronIdx = potentialTetrahedra(maxIdx)
 
   end function findTetrahedronFromVertex
 

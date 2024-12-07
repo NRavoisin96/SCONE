@@ -163,7 +163,7 @@ contains
   !!
   !! See universe_inter for details.
   !!
-  subroutine distance(self, coords, d, surfIdx)
+  pure subroutine distance(self, coords, d, surfIdx)
     class(meshUniverse), intent(inout) :: self
     type(coord), intent(inout)         :: coords
     real(defReal), intent(out)         :: d

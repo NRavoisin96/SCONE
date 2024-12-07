@@ -35,7 +35,7 @@ module transportOperator_inter
   !! Public interface:
   !!   transport(p, tally, thisCycle, nextCycle) -> given particle, tally and particle dungeons
   !!     for particles in this and next cycle performs movement of a particle in the geometry.
-  !!     Sends transistion report to the tally. Sends history report as well if particle dies.
+  !!     Sends transition report to the tally. Sends history report as well if particle dies.
   !!   init(dict, geom) -> initialises transport operator from a dictionary and pointer to a
   !!                       geometry
   !!
