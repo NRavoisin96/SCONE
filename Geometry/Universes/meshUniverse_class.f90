@@ -101,12 +101,10 @@ contains
     type(cellShelf), intent(inout)                            :: cells
     type(surfaceShelf), intent(inout)                         :: surfs
     type(meshShelf), intent(inout)                            :: meshes
-    integer(shortInt)                                         :: cellId, i, id, meshId, nFills
+    integer(shortInt)                                         :: cellId, i, meshId, nFills
     class(mesh), pointer                                      :: meshPtr
-    real(defReal), dimension(:), allocatable                  :: temp
     character(nameLen), dimension(:), allocatable             :: fillNames
-    character(100), parameter                                 :: Here = 'init &
-                                                                         &(meshUniverse_class.f90)'
+    character(100), parameter                                 :: Here = 'init (meshUniverse_class.f90)'
     
     ! Setup the base class
     ! With: id, origin rotations...

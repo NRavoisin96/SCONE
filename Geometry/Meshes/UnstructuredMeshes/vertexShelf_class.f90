@@ -1,7 +1,7 @@
 module vertexShelf_class
   
   use numPrecision
-  use genericProcedures, only : fatalError, numToChar, openToRead
+  use genericProcedures, only : findCommon
   use vertex_class,      only : vertex
   
   implicit none
@@ -23,7 +23,7 @@ module vertexShelf_class
     real(defReal), dimension(3)                     :: offset = ZERO
     real(defReal), dimension(6)                     :: extremalCoordinates = ZERO
   contains
-    procedure                                       :: collapse
+    procedure                                       :: findCommonEdgeIdx
     procedure                                       :: getAllCoordinates
     procedure                                       :: getExtremalCoordinates
     procedure                                       :: getOffset
@@ -51,41 +51,34 @@ contains
     self % offset = offset
 
   end subroutine setOffset
-  
-  !! Subroutine 'collapse'
+
+  !! Function 'findCommonEdgeIdx'
   !!
   !! Basic description:
-  !!   Reduces the size of the shelf to lastVertexIdx.
+  !!   Finds the index of the edge containing two vertices.
   !!
   !! Arguments:
-  !!   lastVertexIdx [in] -> Index of the last vertex in the collapsed shelf.
+  !!   firstVertexIdx [in]  -> Index of the first vertex in the edge.
+  !!   secondVertexIdx [in] -> Index of the second vertex in the edge.
   !!
-  !! Errors:
-  !!   fatalError if lastVertexIdx < 1.
+  !! Result:
+  !!   edgeIdx              -> Index of the edge containing the two vertices.
   !!
-  subroutine collapse(self, lastVertexIdx)
-    class(vertexShelf), intent(inout) :: self
-    integer(shortInt), intent(in)     :: lastVertexIdx
-    type(vertexShelf)                 :: tempShelf
-    character(100), parameter         :: Here = 'collapse (vertexShelf_class.f90)'
+  elemental function findCommonEdgeIdx(self, firstVertexIdx, secondVertexIdx) result(edgeIdx)
+    class(vertexShelf), intent(in)               :: self
+    integer(shortInt), intent(in)                :: firstVertexIdx, secondVertexIdx
+    integer(shortInt)                            :: edgeIdx
+    integer(shortInt), dimension(:), allocatable :: commonIdxs
+
+    ! Initialise edgeIdx = 0 and return immediately if either vertex are not associated with edges.
+    edgeIdx = 0
+    if (.not. self % shelf(firstVertexIdx) % hasEdges() .or. .not. self % shelf(secondVertexIdx) % hasEdges()) return
     
-    ! Catch invalid idx.
-    if (lastVertexIdx < 1) call fatalError(Here, 'vertexShelf size must be +ve. Is: '//numToChar(lastVertexIdx)//'.')
-    
-    ! Create a temporary shelf and copy all the elements up to lastVertexIdx from the 
-    ! original shelf into the temporary one.
-    allocate(tempShelf % shelf(lastVertexIdx))
-    tempShelf % shelf = self % shelf(1:lastVertexIdx)
-    
-    ! kill the original shelf and reallocate memory.
-    call self % kill()
-    allocate(self % shelf(lastVertexIdx))
-    
-    ! Copy back and kill the temporary shelf.
-    self % shelf = tempShelf % shelf
-    call tempShelf % kill()
-  
-  end subroutine collapse
+    ! Find common edge indices. Update edgeIdx only if common indices have been found.
+    commonIdxs = findCommon(self % shelf(firstVertexIdx) % getEdgeIdxs(), self % shelf(secondVertexIdx) % getEdgeIdxs())
+    if (size(commonIdxs) > 0) edgeIdx = commonIdxs(1)
+
+  end function findCommonEdgeIdx
 
   !! Function 'getAllCoordinates'
   !!
@@ -124,6 +117,14 @@ contains
 
   end function getExtremalCoordinates
 
+  !! Function 'getOffset'
+  !!
+  !! Basic description:
+  !!   Returns the offset of the vertices in the shelf.
+  !!
+  !! Result:
+  !!   offset -> Offset of all the vertices in the shelf.
+  !!
   pure function getOffset(self) result(offset)
     class(vertexShelf), intent(in) :: self
     real(defReal), dimension(3)    :: offset

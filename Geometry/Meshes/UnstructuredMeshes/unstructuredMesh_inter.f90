@@ -6,6 +6,7 @@ module unstructuredMesh_inter
   use coord_class,         only : coord
   use dictionary_class,    only : dictionary
   use mesh_inter,          only : mesh, kill_super => kill
+  use edgeShelf_class,     only : edgeShelf
   use element_class,       only : element
   use elementShelf_class,  only : elementShelf
   use face_class,          only : face
@@ -52,7 +53,7 @@ module unstructuredMesh_inter
     private
     integer(shortInt), public           :: nVertices = 0, nFaces = 0, nEdges = 0, &
                                            nElements = 0, nInternalFaces = 0
-!    type(edgeShelf), public            :: edges
+    type(edgeShelf), public             :: edges
     type(elementShelf), public          :: elements
     type(faceShelf), public             :: faces
     type(vertexShelf), public           :: vertices
@@ -65,9 +66,7 @@ module unstructuredMesh_inter
     procedure                           :: distanceToBoundaryFace
     procedure                           :: distanceToNextFace
     procedure                           :: findElementAndParentIdxs
-    procedure                           :: findElementFromEdge
-    procedure                           :: findElementFromFace
-    procedure                           :: findElementFromVertex
+    procedure                           :: findElementFromDirection
   end type unstructuredMesh
 
 contains
@@ -91,6 +90,7 @@ contains
     self % nEdges = 0
     call self % vertices % kill()
     call self % faces % kill()
+    call self % edges % kill()
     call self % elements % kill()
     call self % tree % kill()
 
@@ -151,16 +151,45 @@ contains
   !!
   !! See mesh_inter for details.
   !!
-  pure subroutine distanceToBoundaryFace(self, d, coords, parentIdx)
-    class(unstructuredMesh), intent(in) :: self
-    real(defReal), intent(out)          :: d
-    type(coord), intent(inout)          :: coords
-    integer(shortInt), intent(out)      :: parentIdx
+  elemental subroutine distanceToBoundaryFace(self, d, coords, parentIdx)
+    class(unstructuredMesh), intent(in)          :: self
+    real(defReal), intent(out)                   :: d
+    type(coord), intent(inout)                   :: coords
+    integer(shortInt), intent(out)               :: parentIdx
+    integer(shortInt)                            :: edgeIdx, vertexIdx
+    integer(shortInt), dimension(:), allocatable :: testFaceIdxs, elementIdxs
     
-    ! Initialise parentIdx = 0 then search the tree for the intersected boundary face. Update parentIdx only
-    ! if boundary intersection has been found.
+    ! Initialise parentIdx = 0, edgeIdx = 0 and vertexIdx = 0 then search the tree for the intersected boundary face.
     parentIdx = 0
-    call self % tree % findIntersectedFace(d, coords, self % vertices, self % faces)
+    edgeIdx = 0
+    vertexIdx = 0
+    call self % tree % findIntersectedFace(self % vertices, self % faces, d, coords, edgeIdx, vertexIdx)
+
+    ! If edgeIdx > 0 or vertexIdx > 0 then the particle intersects a boundary face through and edge or a vertex. In this
+    ! case assign element occupation from particle direction.
+    if (edgeIdx > 0 .or. vertexIdx > 0) then
+      if (edgeIdx > 0) then
+        testFaceIdxs = self % edges % shelf(edgeIdx) % getFaceIdxs()
+        elementIdxs = self % edges % shelf(edgeIdx) % getElementIdxs()
+
+      elseif (vertexIdx > 0) then
+        testFaceIdxs = self % vertices % shelf(vertexIdx) % getVertexToFaces()
+        elementIdxs = self % vertices % shelf(vertexIdx) % getVertexToElements()
+
+      end if
+      coords % elementIdx = self % findElementFromDirection(coords % dir, elementIdxs, testFaceIdxs)
+      
+      ! If the particle's elementIdx is 0 (e.g., particle enters the mesh via a boundary vertex but still points outside)
+      ! then update d = INF and return.
+      if (coords % elementIdx == 0) then
+        d = INF
+        return
+
+      end if
+
+    end if
+
+    ! Update parentIdx only if particle enters the mesh.
     if (coords % elementIdx > 0) parentIdx = coords % elementIdx
 
   end subroutine distanceToBoundaryFace
@@ -174,7 +203,7 @@ contains
   !!
   !! See mesh_inter for details.
   !!
-  pure subroutine distanceToNextFace(self, d, coords)
+  elemental subroutine distanceToNextFace(self, d, coords)
     class(unstructuredMesh), intent(in)          :: self
     real(defReal), intent(out)                   :: d
     type(coord), intent(inout)                   :: coords
@@ -231,9 +260,10 @@ contains
     real(defReal), dimension(3), intent(in)      :: r, u
     integer(shortInt), intent(out)               :: elementIdx, parentIdx
     real(defReal), dimension(6)                  :: boundingBox
-    integer(shortInt), dimension(:), allocatable :: potentialElements, faceToElements, zeroDotProductFaceIdxs
+    integer(shortInt), dimension(:), allocatable :: potentialElements, faceToElements, zeroDotProductFaceIdxs, &
+                                                    commonVertexIdxs, testFaceIdxs
     type(element)                                :: currentElement
-    integer(shortInt)                            :: i, nearestVertexIdx, failedFaceIdx
+    integer(shortInt)                            :: i, nearestVertexIdx, failedFaceIdx, commonEdgeIdx
     type(face)                                   :: failedFace
     
     ! Initialise elementIdx = 0 and parentIdx = 0. Retrieve the mesh's bounding box. If the particle is outside the
@@ -282,15 +312,27 @@ contains
         select case (size(zeroDotProductFaceIdxs))
           ! Particle is on a element's face.
           case(1)
-            elementIdx = self % findElementFromFace(u, currentElement % getIdx(), zeroDotProductFaceIdxs)
+            potentialElements = self % faces % shelf(zeroDotProductFaceIdxs(1)) % getFaceToElements()
+            testFaceIdxs = zeroDotProductFaceIdxs
           ! Particle is on a element's edge.
           case(2)
-            elementIdx = self % findElementFromEdge(u, zeroDotProductFaceIdxs)
+            ! Find the common edge and retrieve elements sharing this edge.
+            commonEdgeIdx = self % faces % findCommonEdgeIdx(zeroDotProductFaceIdxs(1), zeroDotProductFaceIdxs(2))
+            potentialElements = self % edges % shelf(commonEdgeIdx) % getElementIdxs()
+            testFaceIdxs = self % edges % shelf(commonEdgeIdx) % getFaceIdxs()
           ! Particle is on a element's vertex.
           case default
-            elementIdx = self % findElementFromVertex(u, zeroDotProductFaceIdxs)
+            ! Find the common vertex and retrieve all elements sharing this vertex.
+            commonVertexIdxs = self % faces % shelf(zeroDotProductFaceIdxs(1)) % getVertices()
+            do i = 2, size(zeroDotProductFaceIdxs)
+              commonVertexIdxs = findCommon(commonVertexIdxs, self % faces % shelf(zeroDotProductFaceIdxs(i)) % getVertices())
+
+            end do
+            potentialElements = self % vertices % shelf(commonVertexIdxs(1)) % getVertexToElements()
+            testFaceIdxs = self % vertices % shelf(commonVertexIdxs(1)) % getVertexToFaces()
 
         end select
+        elementIdx = self % findElementFromDirection(u, potentialElements, testFaceIdxs)
         parentIdx = elementIdx
         return
       
@@ -304,70 +346,43 @@ contains
 
   end subroutine findElementAndParentIdxs
 
-  !! Function 'findElementFromEdge'
+  !! Function 'findElementFromDirection'
   !!
   !! Basic description:
-  !!   Returns the index of the element occupied by a particle in case the particle lies on an
-  !!   element edge.
+  !!   Returns the index of the element occupied by a particle in case the particle lies on one or more
+  !!   element face(s).
   !!
   !! Detailed description:
-  !!   Generalisation of 'findTetrahedronFromFace' applied to an edge. In this case the element
-  !!   assigned to the particle is that for which the number of negative dot products between the
-  !!   element's faces containing the edge and the particle's direction is the greatest.
+  !!   When the particle lies on one or more element face(s), it is technically in more than one element
+  !!   at once. In this case element occupation can be assigned by using the particle's direction vector.
+  !!   The idea is to take all the faces on which the particle lies and perform the dot product of the
+  !!   particle's direction with each of the face's (signed) normal vector. The element actually occupied
+  !!   by the partice is then that for which the number of negative dot products is the greatest.
   !!
   !! Arguments:
-  !!   u [in]                   -> Particle's direction.
-  !!   zeroDotProductFaces [in] -> Indices of the faces on which the particle lies.
+  !!   u [in]            -> Particle's direction.
+  !!   elementIdxs [in]  -> Indices of the elements to be tested.
+  !!   testFaceIdxs [in] -> Indices of the faces to be tested.
   !!
   !! Result:
-  !!   elementIdx               -> Index of the tetrahedron occupied by the particle.
+  !!   elementIdx        -> Index of the element occupied by the particle.
   !!
-  !! Notes:
-  !!   TODO: Rework this. Import edges during mesh construction.
-  !!
-  pure function findElementFromEdge(self, u, zeroDotProductFaces) result(elementIdx)
-    class(unstructuredMesh), intent(in)                      :: self
-    real(defReal), dimension(3), intent(in)                  :: u
-    integer(shortInt), dimension(:), allocatable, intent(in) :: zeroDotProductFaces
-    integer(shortInt)                                        :: i, j, elementIdx, count, maxCount, maxIdx
-    integer(shortInt), dimension(:), allocatable             :: testFaceIdxs, edgeVertices, &
-                                                                potentialElements, &
-                                                                absFaceIdxs, faceIdxs
-    type(element)                                            :: currentElement
-    type(face)                                               :: currentFace
-    real(defReal), dimension(3)                              :: normal
-    
-    ! Initialise elementIdx = 0 and retrieve the vertices in the common edge.
+  pure function findElementFromDirection(self, u, elementIdxs, testFaceIdxs) result(elementIdx)
+    class(unstructuredMesh), intent(in)          :: self
+    real(defReal), dimension(3), intent(in)      :: u
+    integer(shortInt), dimension(:), intent(in)  :: elementIdxs, testFaceIdxs
+    integer(shortInt)                            :: elementIdx, i, j, count, maxCount, maxIdx
+    integer(shortInt), dimension(:), allocatable :: faceIdxs, absFaceIdxs
+    type(element)                                :: currentElement
+    type(face)                                   :: currentFace
+    real(defReal), dimension(3)                  :: normal
+
+    ! Initialise elementIdx = 0 and maxCount = 0 then loop over all elements.
     elementIdx = 0
-    testFaceIdxs = abs(zeroDotProductFaces)
-    edgeVertices = findCommon(self % faces % shelf(testFaceIdxs(1)) % getVertices(), &
-                              self % faces % shelf(testFaceIdxs(2)) % getVertices())
-    
-    ! Loop through all faces and retrieve the indices of all faces sharing the common edge.
-    do i = 1, self % nFaces
-      ! If the index of the 'do' loop corresponds to one of the original faces sharing the common edge
-      ! there is no need to search so cycle to the next face.
-      if (any(testFaceIdxs == i)) cycle
-      
-      ! Check if the current face contains the common edge and if so append the index to testFaceIdxs.
-      if (size(findCommon(self % faces % shelf(i) % getVertices(), edgeVertices)) == 2) call append(testFaceIdxs, i)
-
-    end do
-    
-    ! Loop through all the faces containing the common edge and retrieve their associated elements.
-    ! We might introduce duplicates in the list of potential elements so remove them.
-    do i = 1, size(testFaceIdxs)
-      currentFace = self % faces % shelf(testFaceIdxs(i))
-      call append(potentialElements, currentFace % getFaceToElements()) 
-
-    end do
-    potentialElements = removeDuplicates(potentialElements)
-    
-    ! Initialise maxCount = 0 then loop through all potential elements.
     maxCount = 0
-    do i = 1, size(potentialElements)
+    do i = 1, size(elementIdxs)
       ! Retrieve the faces making the current element and convert them to absolute indices.
-      currentElement = self % elements % shelf(potentialElements(i))
+      currentElement = self % elements % shelf(elementIdxs(i))
       faceIdxs = currentElement % getFaces()
       absFaceIdxs = abs(faceIdxs)
       
@@ -375,10 +390,10 @@ contains
       count = 0
       do j = 1, size(faceIdxs)
 
-        ! If the current face does not contain the common edge cycle to the next face.
+        ! Cycle to the next face if it is not a face on which the particle is.
         if (.not. any(testFaceIdxs == absFaceIdxs(j))) cycle
 
-        ! Retrieve the current face's signed normal vector and 
+        ! Retrieve the current face's signed normal vector.
         currentFace = self % faces % shelf(absFaceIdxs(j))
         normal = currentFace % getNormal(faceIdxs(j))
 
@@ -405,146 +420,8 @@ contains
     end do
 
     ! If reached here, update elementIdx.
-    elementIdx = potentialElements(maxIdx)
+    elementIdx = elementIdxs(maxIdx)
 
-  end function findElementFromEdge
-
-  !! Function 'findElementFromFace'
-  !!
-  !! Basic description:
-  !!   Returns the index of the element occupied by the particle in case the particle lies on an
-  !!   element face.
-  !!
-  !! Detailed description:
-  !!   When a particle is on an element face it is not as straightforward to assign an element to
-  !!   a particle (it is actually in both elements at the same time). The workaround here is to
-  !!   use the particle's direction to determine into which element the particle's direction 
-  !!   points. This is given by the dot product of the direction and the face's normal being
-  !!   negative.
-  !!
-  !! Arguments:
-  !!   u [in]                   -> Particle's direction.
-  !!   currentElementIdx [in]   -> Index of the current element being searched.
-  !!   zeroDotProductFaces [in] -> Indices of the triangles on which the particle lies.
-  !!
-  !! Result:
-  !!   elementIdx               -> Index of the element occupied by the particle.
-  !!
-  pure function findElementFromFace(self, u, currentElementIdx, zeroDotProductFaces) result(elementIdx)
-    class(unstructuredMesh), intent(in)                      :: self
-    real(defReal), dimension(3), intent(in)                  :: u
-    integer(shortInt), intent(in)                            :: currentElementIdx
-    integer(shortInt), dimension(:), allocatable, intent(in) :: zeroDotProductFaces
-    integer(shortInt)                                        :: absZeroDotProductFace, elementIdx
-    integer(shortInt), dimension(:), allocatable             :: faceToElements
-    real(defReal), dimension(3)                              :: normal
-    type(face)                                               :: currentFace
-    
-    ! Initialise elementIdx = currentElementIdx then create absolute indices and retrieve the 
-    ! face's normal vector.
-    elementIdx = currentElementIdx
-    absZeroDotProductFace = abs(zeroDotProductFaces(1))
-    currentFace = self % faces % shelf(absZeroDotProductFace)
-    normal = currentFace % getNormal(zeroDotProductFaces(1))
-    
-    ! Check the sign of the dot product between the particle's direction and the face's normal.
-    ! If negative it is in the current tetrahedron and we can return early.
-    if (dot_product(u, normal) <= ZERO) return
-
-    ! If not, the particle's in the neighbouring element. Update elementIdx = 0.
-    elementIdx = 0
-
-    ! If the current face is a boundary face return. Else, retrieve the elements sharing the face
-    ! from mesh connectivity information and update elementIdx to the neighbouring element.
-    if (currentFace % getIsBoundary()) return
-    faceToElements = currentFace % getFaceToElements()
-    elementIdx = findDifferent(faceToElements, currentElementIdx)
-
-  end function findElementFromFace
-
-  !! Function 'findElementFromVertex'
-  !!
-  !! Basic description:
-  !!   Returns the index of the element occupied by a particle in case the particle lies on an
-  !!   element's vertex.
-  !!
-  !! Detailed description:
-  !!   Generalisation of 'findElementFromFace' applied to a vertex. In this case the element
-  !!   assigned to the particle is that for which the number of negative dot products between the
-  !!   element's faces containing the vertex and the particle's direction is the greatest.
-  !!
-  !! Arguments:
-  !!   direction [in]           -> Particle's direction.
-  !!   zeroDotProductFaces [in] -> Indices of the faces on which the particle lies.
-  !!
-  !! Result:
-  !!   elementIdx               -> Index of the element occupied by the particle.
-  !!
-  pure function findElementFromVertex(self, u, zeroDotProductFaces) result(elementIdx)
-    class(unstructuredMesh), intent(in)                      :: self
-    real(defReal), dimension(3), intent(in)                  :: u
-    integer(shortInt), dimension(:), allocatable, intent(in) :: zeroDotProductFaces
-    integer(shortInt)                                        :: commonVertex, i, j, count, maxCount, maxIdx, elementIdx
-    integer(shortInt), dimension(:), allocatable             :: absFaces, absZeroDotProductFaces, &
-                                                                commonVertices, potentialElements, faces
-    type(face)                                               :: currentFace
-    real(defReal), dimension(3)                              :: normal
-    
-    ! Initialise elementIdx = 0. Find the common vertex between the faces and retrieve all 
-    ! elements sharing this vertex.
-    elementIdx = 0
-    absZeroDotProductFaces = abs(zeroDotProductFaces)
-    commonVertices = self % faces % shelf(absZeroDotProductFaces(1)) % getVertices()
-    do i = 2, size(zeroDotProductFaces)
-      commonVertices = findCommon(commonVertices, self % faces % shelf(absZeroDotProductFaces(i)) % getVertices())
-
-    end do
-    commonVertex = commonVertices(1)
-    potentialElements = self % vertices % shelf(commonVertex) % getVertexToElements()
-    
-    ! Initialise maxCount = 0 then loop through all potential elements.
-    maxCount = 0
-    do i = 1, size(potentialElements)
-      ! Retrieve the faces in the current element and create absolute indices.
-      faces = self % elements % shelf(potentialElements(i)) % getFaces()
-      absFaces = abs(faces)
-      
-      ! Initialise count = 0 then loop through all the faces in the current element.
-      count = 0
-      do j = 1, size(faces)
-        currentFace = self % faces % shelf(absFaces(j))
-        ! Cycle if the current face does not contain the common vertex.
-        if (.not. any(currentFace % getVertices() == commonVertex)) cycle
-        
-        ! Retrieve the current face's signed normal vector.
-        normal = currentFace % getNormal(faces(j))
-        
-        ! If the dot product is negative increment the number of faces for the current 
-        ! element and cycle to the next face.
-        if (dot_product(u, normal) <= ZERO) then
-          count = count + 1
-          cycle
-  
-        end if
-        
-        ! If the test fails and the current face is a boundary face, the particle is outside the mesh
-        ! and we can return early.
-        if (currentFace % getIsBoundary()) return
-
-      end do
-
-      ! If count > maxCount, update maxCount and maxIdx.
-      if (count > maxCount) then
-        maxCount = count
-        maxIdx = i
-
-      end if
-
-    end do
-
-    ! If reached here, update elementIdx.
-    elementIdx = potentialElements(maxIdx)
-    
-  end function findElementFromVertex
+  end function findElementFromDirection
 
 end module unstructuredMesh_inter

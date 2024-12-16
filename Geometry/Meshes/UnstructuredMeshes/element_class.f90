@@ -1,17 +1,18 @@
 module element_class
   
+  use edgeShelf_class,     only : edgeShelf
   use face_class,          only : face
   use faceShelf_class,     only : faceShelf
   use genericProcedures,   only : append, areEqual, computePyramidCentre, computePyramidVolume, &
                                   computeTetrahedronCentre, computeTetrahedronVolume, &
-                                  findCommon, linFind, swap, fatalError, numToChar
+                                  findCommon, swap, fatalError, numToChar
   use numPrecision
   use pyramid_class,       only : pyramid
   use pyramidShelf_class,  only : pyramidShelf
   use tetrahedron_class,   only : tetrahedron
   use triangle_class,      only : triangle
   use triangleShelf_class, only : triangleShelf
-  use universalVariables,  only : targetNotFound, SURF_TOL, INF, ZERO
+  use universalVariables,  only : SURF_TOL, INF, ZERO
   use vertex_class,        only : vertex
   use vertexShelf_class,   only : vertexShelf
   
@@ -32,11 +33,12 @@ module element_class
   type, public :: element
     private
     integer(shortInt)                            :: idx = 0
-    integer(shortInt), dimension(:), allocatable :: faceIdxs, vertexIdxs, tetrahedronIdxs
+    integer(shortInt), dimension(:), allocatable :: edgeIdxs, faceIdxs, vertexIdxs, tetrahedronIdxs
     real(defReal)                                :: volume = ZERO
     real(defReal), dimension(3)                  :: centroid = ZERO
   contains
     ! Build procedures.
+    procedure                                    :: addEdgeIdx
     procedure                                    :: addFaceToElement
     procedure                                    :: addVertexToElement
     procedure                                    :: computeVolumeAndCentroid
@@ -47,6 +49,7 @@ module element_class
     procedure                                    :: computeIntersectedFace
     procedure                                    :: computePotentialFaces
     procedure                                    :: getCentroid
+    procedure                                    :: getEdgeIdxs
     procedure                                    :: getFaces
     procedure                                    :: getIdx
     procedure                                    :: getVertices
@@ -56,6 +59,22 @@ module element_class
   end type element
 
 contains
+
+  !! Subroutine 'addEdgeIdx'
+  !!
+  !! Basic description:
+  !!   Adds the index of an edge sharing the element.
+  !!
+  !! Arguments:
+  !!   idx [in] -> Index of the edge.
+  !!
+  elemental subroutine addEdgeIdx(self, idx)
+    class(element), intent(inout)  :: self
+    integer(shortInt), intent(in)  :: idx
+
+    call append(self % edgeIdxs, idx, .true.)
+
+  end subroutine addEdgeIdx
   
   !! Subroutine 'addFaceToElement'
   !!
@@ -86,16 +105,7 @@ contains
     class(element), intent(inout) :: self
     integer(shortInt), intent(in) :: vertexIdx
 
-    ! If array is not already allocated, allocate it and add the index of the vertex.
-    ! Return early in this case.
-    if (.not. allocated(self % vertexIdxs)) then
-      allocate(self % vertexIdxs(1))
-      self % vertexIdxs(1) = vertexIdx
-      return
-
-    end if
-    
-    if (linFind(self % vertexIdxs, vertexIdx) == targetNotFound) self % vertexIdxs = [self % vertexIdxs, vertexIdx]
+    call append(self % vertexIdxs, vertexIdx, .true.)
 
   end subroutine addVertexToElement
 
@@ -380,6 +390,22 @@ contains
     centroid = self % centroid
 
   end function getCentroid
+
+  !! Function 'getEdgeIdxs'
+  !!
+  !! Basic description:
+  !!   Returns the indices of the edges in the element.
+  !!
+  !! Result:
+  !!   edgeIdxs -> Indices of the edges in the element.
+  !!
+  pure function getEdgeIdxs(self) result(edgeIdxs)
+    class(element), intent(in)                          :: self
+    integer(shortInt), dimension(size(self % edgeIdxs)) :: edgeIdxs
+
+    edgeIdxs = self % edgeIdxs
+
+  end function getEdgeIdxs
   
   !! Function 'getFaces'
   !!
@@ -456,6 +482,7 @@ contains
     self % idx = 0
     self % volume = ZERO
     self % centroid = ZERO
+    if (allocated(self % edgeIdxs)) deallocate(self % edgeIdxs)
     if (allocated(self % vertexIdxs)) deallocate(self % vertexIdxs)
     if (allocated(self % faceIdxs)) deallocate(self % faceIdxs)
     if (allocated(self % tetrahedronIdxs)) deallocate(self % tetrahedronIdxs)
@@ -493,111 +520,149 @@ contains
   !!
   !! Arguments:
   !!   faces [in]              -> A faceShelf.
-  !!   vertices [in]           -> A vertexShelf.
+  !!   edges [inout]           -> An edgeShelf.
+  !!   vertices [inout]        -> A vertexShelf.
   !!   triangles [inout]       -> A triangleShelf.
   !!   pyramids [inout]        -> A pyramidShelf.
-  !!   freeTriangleIdx [inout] -> Index of the first free item in the triangleShelf.
-  !!   freePyramidIdx [inout]  -> Index of the first free item in the pyramidShelf.
-  !!   freeVertexIdx [in]      -> Index of the first free item in the vertexShelf.
+  !!   lastEdgeIdx [inout]     -> Index of the first free item in the edgeShelf.
+  !!   lastTriangleIdx [inout] -> Index of the first free item in the triangleShelf.
+  !!   lastPyramidIdx [inout]  -> Index of the first free item in the pyramidShelf.
+  !!   lastVertexIdx [in]      -> Index of the first free item in the vertexShelf.
   !!
-  pure subroutine split(self, faces, vertices, triangles, pyramids, freeTriangleIdx, &
-                        freePyramidIdx, freeVertexIdx)
+  subroutine split(self, faces, edges, vertices, triangles, pyramids, &
+                   lastEdgeIdx, lastTriangleIdx, lastPyramidIdx, lastVertexIdx)
     class(element), intent(inout)                    :: self
     type(faceShelf), intent(in)                      :: faces
+    type(edgeShelf), intent(inout)                   :: edges
     type(vertexShelf), intent(inout)                 :: vertices
     type(triangleShelf), intent(inout)               :: triangles
     type(pyramidShelf), intent(inout)                :: pyramids
-    integer(shortInt), intent(inout)                 :: freeTriangleIdx, freePyramidIdx
-    integer(shortInt), intent(in)                    :: freeVertexIdx
+    integer(shortInt), intent(inout)                 :: lastEdgeIdx, lastTriangleIdx, lastPyramidIdx
+    integer(shortInt), intent(in)                    :: lastVertexIdx
     integer(shortInt)                                :: i, j, k, faceIdx, absFaceIdx, nVertices, &
-                                                        initialFreeTriangleIdx
-    integer(shortInt), dimension(:), allocatable     :: faceVertices
+                                                        edgeIdx
+    integer(shortInt), dimension(:), allocatable     :: faceVertices, commonIdxs
     integer(shortInt), dimension(3)                  :: testVertices
     real(defReal), dimension(3)                      :: apexCoords, testCoords, firstVertexCoords, &
                                                         secondVertexCoords, tempCoords
+    logical(defBool)                                 :: createNewEdge
     
-    ! Initialise initialFreeTriangleIdx = freeTriangleIdx + 1, retrieve the apex coordinates and
-    ! loop over all element faces.
-    initialFreeTriangleIdx = freeTriangleIdx + 1
-    apexCoords = vertices % shelf(freeVertexIdx) % getCoordinates()
+    ! Retrieve the apex coordinates and loop over all element faces.
+    apexCoords = vertices % shelf(lastVertexIdx) % getCoordinates()
     do i = 1, size(self % faceIdxs)
-      ! Increment freePyramidIdx, retrieve current face index and create absolute face index.
-      freePyramidIdx = freePyramidIdx + 1
+      ! Increment lastPyramidIdx, retrieve current face index and create absolute face index.
+      lastPyramidIdx = lastPyramidIdx + 1
       faceIdx = self % faceIdxs(i)
       absFaceIdx = abs(faceIdx)
 
       ! Create a new pyramid. Set its index, parent element index (the current element's index),
       ! base face index, vertex indices and centroid.
       faceVertices = faces % shelf(absFaceIdx) % getVertices()
-      call pyramids % shelf(freePyramidIdx) % setIdx(freePyramidIdx)
-      call pyramids % shelf(freePyramidIdx) % setElement(self % idx)
-      call pyramids % shelf(freePyramidIdx) % setFace(faceIdx)
-      call pyramids % shelf(freePyramidIdx) % setVertices([faceVertices, freeVertexIdx])
-      call pyramids % shelf(freePyramidIdx) % computeCentroid(faces % shelf(absFaceIdx), apexCoords)
+      call pyramids % shelf(lastPyramidIdx) % setIdx(lastPyramidIdx)
+      call pyramids % shelf(lastPyramidIdx) % setElement(self % idx)
+      call pyramids % shelf(lastPyramidIdx) % setFace(faceIdx)
+      call pyramids % shelf(lastPyramidIdx) % setVertices([faceVertices, lastVertexIdx])
+      call pyramids % shelf(lastPyramidIdx) % computeCentroid(faces % shelf(absFaceIdx), apexCoords)
       
       ! Compute the number of vertices and loop through all the vertices in the current face to 
       ! see if we need to create new triangles.
       nVertices = size(faceVertices)
-      vertexLoop: do j = 1, nVertices
+      do j = 1, nVertices
         ! Check if there are no triangles already containing the same vertices as this one. Create the three 
         ! vertices in the triangle to be tested.
-        testVertices = [faceVertices(j), faceVertices(mod(j, nVertices) + 1), freeVertexIdx]
+        testVertices = [faceVertices(j), faceVertices(mod(j, nVertices) + 1), lastVertexIdx]
 
         ! Note: skip the first face because none of the triangles can already be present. 
-        if (i > 1) then
-          
-          ! Loop through all generated triangles. TODO: Import edges and refactor this to avoid long loop.
-          do k = initialFreeTriangleIdx, freeTriangleIdx
-            ! If the triangle already exists then the current pyramid is its neighbour. In this case
-            ! we simply update mesh connectivity information and we move onto the next vertex.
-            if (size(findCommon(triangles % shelf(k) % getVertices(), testVertices)) == 3) then
-                call pyramids % shelf(freePyramidIdx) % addTriangle(-triangles % shelf(k) % getIdx())
-                cycle vertexLoop
-
-            end if
+        if (i > 1 .and. all(vertices % shelf(testVertices) % hasTriangles())) then
+          commonIdxs = vertices % shelf(testVertices(1)) % getVertexToTriangles()
+          do k = 2, 3
+            commonIdxs = findCommon(commonIdxs, vertices % shelf(testVertices(k)) % getVertexToTriangles())
 
           end do
+          if (size(commonIdxs) > 0) then
+            call pyramids % shelf(lastPyramidIdx) % addTriangle(-triangles % shelf(commonIdxs(1)) % getIdx())
+            cycle
+
+          end if
 
         end if
         
         ! If the triangle is not already present in the shelf the pyramid owns it.
         ! Create a new triangle. Create vectors pointing to the first and second vertices and
         ! compute the new triangle's centre and normal vector.
-        freeTriangleIdx = freeTriangleIdx + 1
-        call triangles % shelf(freeTriangleIdx) % setIdx(freeTriangleIdx)
+        lastTriangleIdx = lastTriangleIdx + 1
+        call triangles % shelf(lastTriangleIdx) % setIdx(lastTriangleIdx)
         firstVertexCoords = vertices % shelf(testVertices(1)) % getCoordinates()
         secondVertexCoords = vertices % shelf(testVertices(2)) % getCoordinates()
-        call triangles % shelf(freeTriangleIdx) % computeCentre(firstVertexCoords, &
-                                                                secondVertexCoords, apexCoords)
-        call triangles % shelf(freeTriangleIdx) % computeNormal(firstVertexCoords, &
-                                                                secondVertexCoords, apexCoords)
+        call triangles % shelf(lastTriangleIdx) % computeCentre(firstVertexCoords, secondVertexCoords, apexCoords)
+        call triangles % shelf(lastTriangleIdx) % computeNormal(firstVertexCoords, secondVertexCoords, apexCoords)
         
         ! Now compute the triangle's area and normalise its normal vector. Check that the normal
         ! vector points away from the current face. If not, flip two of its vertices and negate it.
-        call triangles % shelf(freeTriangleIdx) % computeArea()
-        call triangles % shelf(freeTriangleIdx) % normaliseNormal()
-        testCoords = triangles % shelf(freeTriangleIdx) % getCentre() - pyramids % shelf(freePyramidIdx) % getCentroid()
+        call triangles % shelf(lastTriangleIdx) % computeArea()
+        call triangles % shelf(lastTriangleIdx) % normaliseNormal()
+        testCoords = triangles % shelf(lastTriangleIdx) % getCentre() - pyramids % shelf(lastPyramidIdx) % getCentroid()
         
-        if (dot_product(testCoords, triangles % shelf(freeTriangleIdx) % getNormal()) <= ZERO) then
+        if (dot_product(testCoords, triangles % shelf(lastTriangleIdx) % getNormal()) <= ZERO) then
           call swap(testVertices, 1, 2)
           tempCoords = firstVertexCoords
           firstVertexCoords = secondVertexCoords
           secondVertexCoords = tempCoords
-          call triangles % shelf(freeTriangleIdx) % negateNormal()
+          call triangles % shelf(lastTriangleIdx) % negateNormal()
 
         end if
         
         ! Set the new triangle's vertices and edge vectors.
-        call triangles % shelf(freeTriangleIdx) % setVertices(testVertices)
+        call triangles % shelf(lastTriangleIdx) % setVertices(testVertices)
+        call triangles % shelf(lastTriangleIdx) % setAB(secondVertexCoords - firstVertexCoords)
+        call triangles % shelf(lastTriangleIdx) % setAC(apexCoords - firstVertexCoords)
         
         ! Update mesh connectivity information.
-        call pyramids % shelf(freePyramidIdx) % addTriangle(freeTriangleIdx)
+        call pyramids % shelf(lastPyramidIdx) % addTriangle(lastTriangleIdx)
         do k = 1, 3
-          call vertices % shelf(testVertices(k)) % addTriangleIdx(freeTriangleIdx)
+          call vertices % shelf(testVertices(k)) % addTriangleIdx(lastTriangleIdx)
+
+        end do
+
+        ! Find the common edge between the first two vertices of the new triangle (this edge was
+        ! already created during the initial importation process) and update mesh connectivity.
+        edgeIdx = vertices % findCommonEdgeIdx(testVertices(1), testVertices(2))
+        call edges % shelf(edgeIdx) % addTriangleIdx(lastTriangleIdx)
+        call triangles % shelf(lastTriangleIdx) % addEdgeIdx(edgeIdx)
+
+        ! Now check if new edges need to be created for the remaining two pairs of vertices in the
+        ! new triangle.
+        do k = 1, 2
+          ! Initialise createNew = .true.; if we are on the very first iteration it is guaranteed that
+          ! a new edge must be created so skip below check.
+          createNewEdge = .true.
+          if (i > 1 .or. j > 1) then
+            ! Find the common edge between the two vertices and update createNewEdge depending on
+            ! whether this common edge exists.
+            edgeIdx = vertices % findCommonEdgeIdx(testVertices(k), lastVertexIdx)
+            createNewEdge = edgeIdx == 0
+
+          end if
+
+          if (createNewEdge) then
+            ! Create a new edge, set its index and vertices then add this edge to each vertex and
+            ! update edgeIdx = lastEdgeIdx.
+            lastEdgeIdx = lastEdgeIdx + 1
+            call edges % shelf(lastEdgeIdx) % setIdx(lastEdgeIdx)
+            call edges % shelf(lastEdgeIdx) % setVertexIdxs([testVertices(k), lastVertexIdx])
+            call vertices % shelf(testVertices(k)) % addEdgeIdx(lastEdgeIdx)
+            call vertices % shelf(lastVertexIdx) % addEdgeIdx(lastEdgeIdx)
+            edgeIdx = lastEdgeIdx
+
+          end if
+
+          ! Update mesh connectivity information.
+          call edges % shelf(edgeIdx) % addTriangleIdx(lastTriangleIdx)
+          call triangles % shelf(lastTriangleIdx) % addEdgeIdx(edgeIdx)
 
         end do
       
-      end do vertexLoop
+      end do
     
     end do
   
@@ -631,18 +696,18 @@ contains
   !!                            used in the main tracking routine to assign an element to the
   !!                            coordinates in case the coordinates are on one or more face(s).
   !!
-  pure subroutine testForInclusion(self, faces, r, failedFace, surfTolFaceIdxs)
+  pure subroutine testForInclusion(self, faces, r, failedFaceIdx, surfTolFaceIdxs)
     class(element), intent(in)                                :: self
     type(faceShelf), intent(in)                               :: faces
     real(defReal), dimension(3), intent(in)                   :: r
-    integer(shortInt), intent(out)                            :: failedFace
+    integer(shortInt), intent(out)                            :: failedFaceIdx
     integer(shortInt), dimension(:), allocatable, intent(out) :: surfTolFaceIdxs
     integer(shortInt)                                         :: i, faceIdx, absFaceIdx
     real(defReal), dimension(3)                               :: normal, centroid
     real(defReal)                                             :: dotProduct
     
     ! Initialise failedFace = 0 and loop over all element faces.
-    failedFace = 0
+    failedFaceIdx = 0
     do i = 1, size(self % faceIdxs)
       ! Create an absolute face index retrieve the face's normal and centroid vectors.
       faceIdx = self % faceIdxs(i)
@@ -656,14 +721,14 @@ contains
 
       ! Check if the coordinates actually lie on the current face, and if so append zeroDotProductFaces.
       if (areEqual(dotProduct, ZERO)) then
-        call append(surfTolFaceIdxs, faceIdx)
+        call append(surfTolFaceIdxs, absFaceIdx)
         cycle
 
       end if
 
       ! If dotProduct < ZERO, update failedFace and return early.
       if (dotProduct < ZERO) then 
-        failedFace = absFaceIdx
+        failedFaceIdx = absFaceIdx
         return
 
       end if

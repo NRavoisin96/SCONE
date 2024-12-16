@@ -2,7 +2,7 @@ module vertex_class
   
   use numPrecision
   use universalVariables
-  use genericProcedures, only : append, linFind
+  use genericProcedures, only : append
   
   implicit none
   private
@@ -22,19 +22,23 @@ module vertex_class
     private
     integer(shortInt)                            :: idx = 0
     real(defReal), dimension(3)                  :: coordinates = ZERO
-    integer(shortInt), dimension(:), allocatable :: faceIdxs, elementIdxs, &
+    integer(shortInt), dimension(:), allocatable :: faceIdxs, edgeIdxs, elementIdxs, &
                                                     tetrahedronIdxs, triangleIdxs
   contains
     procedure                                    :: addFaceIdx
+    procedure                                    :: addEdgeIdx
     procedure                                    :: addElementIdx
     procedure                                    :: addTetrahedronIdx
     procedure                                    :: addTriangleIdx
     procedure                                    :: getCoordinates
+    procedure                                    :: getEdgeIdxs
     procedure                                    :: getIdx
     procedure                                    :: getVertexToElements
     procedure                                    :: getVertexToFaces
     procedure                                    :: getVertexToTetrahedra
     procedure                                    :: getVertexToTriangles
+    procedure                                    :: hasEdges
+    procedure                                    :: hasTriangles
     procedure                                    :: kill
     procedure                                    :: setCoordinates
     procedure                                    :: setIdx
@@ -86,6 +90,22 @@ contains
     
     call append(self % faceIdxs, faceIdx)
   end subroutine addFaceIdx
+
+  !! Subroutine 'addEdgeIdx'
+  !!
+  !! Basic description:
+  !!   Adds the index of an edge sharing the vertex.
+  !!
+  !! Arguments:
+  !!   edgeIdx [in] -> Index of the edge.
+  !!
+  elemental subroutine addEdgeIdx(self, edgeIdx)
+    class(vertex), intent(inout)  :: self
+    integer(shortInt), intent(in) :: edgeIdx
+
+    call append(self % edgeIdxs, edgeIdx)
+
+  end subroutine addEdgeIdx
   
   !! Subroutine 'addElementIdx'
   !!
@@ -104,14 +124,7 @@ contains
     class(vertex), intent(inout)  :: self
     integer(shortInt), intent(in) :: elementIdx
     
-    if (.not. allocated(self % elementIdxs)) then
-      allocate(self % elementIdxs(1))
-      self % elementIdxs(1) = elementIdx
-      return 
-
-    end if
-
-    if (linFind(self % elementIdxs, elementIdx) == targetNotFound) call append(self % elementIdxs, elementIdx)
+    call append(self % elementIdxs, elementIdx, .true.)
 
   end subroutine addElementIdx
   
@@ -129,6 +142,22 @@ contains
     
     coordinates = self % coordinates
   end function getCoordinates
+
+  !! Function 'getEdgeIdxs'
+  !!
+  !! Basic description:
+  !!   Returns the edges containing the vertex.
+  !!
+  !! Result:
+  !!   edgeIdxs -> Array listing the indices of the edges containing the vertex.
+  !!
+  pure function getEdgeIdxs(self) result(edgeIdxs)
+    class(vertex), intent(in)                           :: self
+    integer(shortInt), dimension(size(self % edgeIdxs)) :: edgeIdxs
+
+    edgeIdxs = self % edgeIdxs
+
+  end function getEdgeIdxs
   
   !! Function 'getIdx'
   !!
@@ -203,6 +232,32 @@ contains
     
     triangleIdxs = self % triangleIdxs
   end function getVertexToTriangles
+
+  !! Function 'hasEdges'
+  !!
+  !! Basic description:
+  !!   Returns .true. if edgeIdxs is allocated.
+  !!
+  elemental function hasEdges(self) result(doesIt)
+    class(vertex), intent(in) :: self
+    logical(defBool)          :: doesIt
+
+    doesIt = allocated(self % edgeIdxs)
+
+  end function hasEdges
+
+  !! Function 'hasTriangles'
+  !!
+  !! Basic description:
+  !!   Returns .true. if triangleIdxs is allocated.
+  !!
+  elemental function hasTriangles(self) result(doesIt)
+    class(vertex), intent(in) :: self
+    logical(defBool)          :: doesIt
+
+    doesIt = allocated(self % triangleIdxs)
+
+  end function hasTriangles
   
   !! Subroutine 'kill'
   !!
@@ -215,6 +270,7 @@ contains
     self % idx = 0
     self % coordinates = ZERO
     if (allocated(self % faceIdxs)) deallocate(self % faceIdxs)
+    if (allocated(self % edgeIdxs)) deallocate(self % edgeIdxs)
     if (allocated(self % elementIdxs)) deallocate(self % elementIdxs)
     if (allocated(self % triangleIdxs)) deallocate(self % triangleIdxs)
     if (allocated(self % tetrahedronIdxs)) deallocate(self % tetrahedronIdxs)

@@ -77,7 +77,7 @@ module mesh_inter
     !!   d [out]        -> Distance to the next intersected face.
     !!   coords [inout] -> Particle's coordinates.
     !!
-    pure subroutine distanceToNextFace(self, d, coords)
+    elemental subroutine distanceToNextFace(self, d, coords)
       import                     :: mesh, defReal, coord
       class(mesh), intent(in)    :: self
       real(defReal), intent(out) :: d
@@ -96,7 +96,7 @@ module mesh_inter
     !!   coords [inout]  -> Particle's coordinates.
     !!   parentIdx [out] -> Index of the parent element containing the boundary face.
     !!
-    pure subroutine distanceToBoundaryFace(self, d, coords, parentIdx)
+    elemental subroutine distanceToBoundaryFace(self, d, coords, parentIdx)
       import                         :: mesh, defReal, coord, shortInt
       class(mesh), intent(in)        :: self
       real(defReal), intent(out)     :: d

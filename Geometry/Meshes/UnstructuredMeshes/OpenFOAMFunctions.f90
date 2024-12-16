@@ -3,10 +3,12 @@ module OpenFOAMFunctions
   use numPrecision
   use cellZoneShelf_class,    only : cellZoneShelf
   use dictionary_class,       only : dictionary
+  use edgeShelf_class,        only : edgeShelf
+  use element_class,          only : element
   use elementShelf_class,     only : elementShelf
   use face_class,             only : face
   use faceShelf_class,        only : faceShelf
-  use genericProcedures,      only : fatalError, numToChar, openToRead
+  use genericProcedures,      only : fatalError, findCommon, numToChar, openToRead, quickSort
   use unstructuredMesh_inter, only : unstructuredMesh
   use vertex_class,           only : vertex
   use vertexShelf_class,      only : vertexShelf
@@ -17,6 +19,102 @@ module OpenFOAMFunctions
   public :: importMesh
 
 contains
+
+  !! Subroutine 'buildEdges'
+  !!
+  !! Basic description:
+  !!   Constructs edges from mesh elements, faces and vertices.
+  !!
+  subroutine buildEdges(mesh)
+    class(unstructuredMesh), intent(inout)       :: mesh
+    integer(shortInt)                            :: i, j, k, lastIdx, nVertices, vertexIdx, nextVertexIdx, &
+                                                    elementIdx, edgeIdx
+    type(element)                                :: currentElement
+    type(face)                                   :: currentFace
+    integer(shortInt), dimension(:), allocatable :: vertexIdxs, elementIdxs, commonIdxs
+    integer(shortInt), dimension(2)              :: edgeVertexIdxs
+    logical(defBool)                             :: createNew
+
+    ! Do a first pass over all elements and allocate memory. This will overshoot the actual number of
+    ! edges to be created.
+    lastIdx = 0
+    do i = 1, mesh % nElements
+      currentElement = mesh % elements % shelf(i)
+      lastIdx = lastIdx + size(currentElement % getFaces()) + size(currentElement % getVertices()) - 2
+
+    end do
+    allocate(mesh % edges % shelf(lastIdx))
+
+    ! Reset lastIdx = 0 then loop through all the faces in the mesh and construct edges.
+    lastIdx = 0
+    do i = 1, mesh % nFaces
+      ! Retrieve the vertices in the current face then loop through all vertices in the current face.
+      currentFace = mesh % faces % shelf(i)
+      vertexIdxs = currentFace % getVertices()
+      nVertices = size(vertexIdxs)
+      do j = 1, nVertices
+        ! Initialise createNew = .false. then retrieve the indices of the two vertices in the edge.
+        createNew = .false.
+        vertexIdx = vertexIdxs(j)
+        nextVertexIdx = vertexIdxs(mod(j, nVertices) + 1)
+        edgeVertexIdxs = [vertexIdx, nextVertexIdx]
+        call quickSort(edgeVertexIdxs)
+
+        ! If either of the two vertices do not have an edge yet update createNew = .true.
+        if (.not. mesh % vertices % shelf(vertexIdx) % hasEdges() .or. &
+            .not. mesh % vertices % shelf(nextVertexIdx) % hasEdges()) createNew = .true.
+
+        ! If both vertices already have edges we need to check if there already is an edge which contains
+        ! the two vertices.
+        if (.not. createNew) then
+          ! If the two vertices do not share a common edge update createNew = .true.
+          commonIdxs = findCommon(mesh % vertices % shelf(vertexIdx) % getEdgeIdxs(), &
+                                  mesh % vertices % shelf(nextVertexIdx) % getEdgeIdxs())
+          if (size(commonIdxs) == 0) createNew = .true.
+
+        end if
+
+        if (createNew) then
+          ! If we need to create a new edge, increment lastIdx, set the indices of the vertices in 
+          ! the new edge and add the new edge to the pair of vertices.
+          lastIdx = lastIdx + 1
+          call mesh % edges % shelf(lastIdx) % setIdx(lastIdx) 
+          call mesh % edges % shelf(lastIdx) % setVertexIdxs(edgeVertexIdxs)
+          call mesh % vertices % shelf(vertexIdx) % addEdgeIdx(lastIdx)
+          call mesh % vertices % shelf(nextVertexIdx) % addEdgeIdx(lastIdx)
+          
+          ! Set edgeIdx = lastIdx.
+          edgeIdx = lastIdx
+
+        else
+          ! If the edge already exists, simply set edgeIdx to the index of the existing edge.
+          edgeIdx = commonIdxs(1)
+
+        end if
+
+        ! Add the index of the current face to the edge and add the edge to the current face.
+        call mesh % edges % shelf(edgeIdx) % addFaceIdx(i)
+        call mesh % faces % shelf(i) % addEdgeIdx(edgeIdx)
+        
+        ! Retrieve all elements sharing the current face and update connectivity information.
+        elementIdxs = currentFace % getFaceToElements()
+        do k = 1, size(elementIdxs)
+          elementIdx = elementIdxs(k)
+          call mesh % edges % shelf(edgeIdx) % addElementIdx(elementIdx)
+          call mesh % elements % shelf(elementIdx) % addEdgeIdx(edgeIdx)
+
+        end do
+
+      end do
+
+    end do
+
+    ! Now collapse the edgeShelf to the number of edges actually created and set number of edges
+    ! in the mesh.
+    call mesh % edges % collapse(lastIdx)
+    mesh % nEdges = lastIdx
+
+  end subroutine buildEdges
 
   !! Subroutine 'checkFiles'
   !!
@@ -168,9 +266,7 @@ contains
     class(unstructuredMesh), intent(inout)       :: mesh
     character(*), intent(in)                     :: folderPath
     class(dictionary), intent(in)                :: dict
-    integer(shortInt)                            :: i, j, k, id, nConcaveElements, faceIdx, &
-                                                    vertexIdx, nElementZones
-    integer(shortInt), dimension(:), allocatable :: vertexIdxs, faceIdxs
+    integer(shortInt)                            :: i, id, nConcaveElements, nElementZones
     type(vertex), dimension(:), allocatable      :: vertices
     type(face), dimension(:), allocatable        :: faces
     character(*), parameter                      :: Here = 'initOpenFOAM (OpenFOAMFunctions.f90)'
@@ -192,45 +288,18 @@ contains
     call initVertexShelf(mesh % vertices, folderPath, mesh % nVertices)
     call mesh % setBoundingBox(mesh % vertices % getExtremalCoordinates())
 
-    ! Import faces.
-    call initFaceShelf(mesh % faces, folderPath, mesh % nInternalFaces)
-    
-    ! Set vertex-to-face connectivity information and compute the area and normal of each face.
-    do i = 1, mesh % nFaces
-      vertexIdxs = mesh % faces % shelf(i) % getVertices()
-      do j = 1, size(vertexIdxs)
-        call mesh % vertices % shelf(vertexIdxs(j)) % addFaceIdx(i)
-
-      end do
-      call mesh % faces % shelf(i) % computeAreaAndNormal(mesh % vertices % shelf(vertexIdxs))
-
-    end do
+    ! Import faces and edges.
+    call initFaceShelf(mesh % faces, mesh % vertices, folderPath, mesh % nInternalFaces)
     
     ! Import elements.
-    call initElementShelf(mesh % elements, folderPath, mesh % nElements, mesh % nFaces, mesh % nInternalFaces)
-    
-    ! Print original mesh composition.
-    !    call self % printComposition(nTetrahedra)
-    
-    ! Initialise nConcaveElements = 0 and set vertex-to-element connectivity information.
+    call initElementShelf(mesh % elements, mesh % faces, mesh % vertices, folderPath, &
+                          mesh % nElements, mesh % nFaces, mesh % nInternalFaces)
+
     nConcaveElements = 0
     do i = 1, mesh % nElements
-      faceIdxs = abs(mesh % elements % shelf(i) % getFaces())
-      do j = 1, size(faceIdxs)
-        faceIdx = faceIdxs(j)
-        call mesh % faces % shelf(faceIdx) % addElementToFace(i)
-        vertexIdxs = mesh % faces % shelf(faceIdx) % getVertices()
-        do k = 1, size(vertexIdxs)
-          vertexIdx = vertexIdxs(k)
-          call mesh % vertices % shelf(vertexIdx) % addElementIdx(i)
-          call mesh % elements % shelf(i) % addVertexToElement(vertexIdx)
-        
-        end do
-
-      end do
-      
-      ! Compute the volume and centroid of current element.
-      faces = mesh % faces % shelf(faceIdxs)
+      ! Set the index of the current element then compute its volume and centroid.
+      call mesh % elements % shelf(i) % setIdx(i)
+      faces = mesh % faces % shelf(abs(mesh % elements % shelf(i) % getFaces()))
       vertices = mesh % vertices % shelf(mesh % elements % shelf(i) % getVertices())
       call mesh % elements % shelf(i) % computeVolumeAndCentroid(vertices, faces)
 
@@ -239,6 +308,12 @@ contains
       if (.not. mesh % elements % shelf(i) % isConvex(vertices, faces)) nConcaveElements = nConcaveElements + 1
 
     end do
+
+    ! Build edges from elements, faces and vertices.
+    call buildEdges(mesh)
+    
+    ! Print original mesh composition.
+    !    call self % printComposition(nTetrahedra)
 
     ! If there are concave elements in the mesh call fatalError.
     if (nConcaveElements > 0) call fatalError(Here, numToChar(nConcaveElements)//' elements failed convexity test.')
@@ -353,8 +428,9 @@ contains
   !!   folderPath [in]     -> Path of the folder containing the mesh files.
   !!   nInternalFaces [in] -> Number of internal faces in the mesh.
   !!
-  subroutine initFaceShelf(shelf, folderPath, nInternalFaces)
-    class(faceShelf), intent(inout)              :: shelf
+  subroutine initFaceShelf(faces, vertices, folderPath, nInternalFaces)
+    class(faceShelf), intent(inout)              :: faces
+    class(vertexShelf), intent(inout)            :: vertices
     character(*), intent(in)                     :: folderPath
     integer(shortInt), intent(in)                :: nInternalFaces
     integer(shortInt), parameter                 :: unit = 10
@@ -371,10 +447,10 @@ contains
     end do
     
     ! Loop through all faces in the shelf.
-    do i = 1, size(shelf % shelf)
+    do i = 1, size(faces % shelf)
       ! Set the face index. If i > nInternalFaces set this face as a boundary face.
-      call shelf % shelf(i) % setIdx(i)
-      if (i > nInternalFaces) call shelf % shelf(i) % setBoundaryFace()
+      call faces % shelf(i) % setIdx(i)
+      if (i > nInternalFaces) call faces % shelf(i) % setBoundaryFace()
       
       ! Skip lines if they are blank (can happen for faces with a large number of vertices).
       if (len_trim(string) == 0) read(unit, "(a)") string
@@ -411,12 +487,16 @@ contains
       end if
       
       ! Add one to the vertices indices since Fortran starts indexing at one rather than zero and
-      ! add each vertex to the current face.
+      ! update mesh connectivity information.
       vertexIdxs = vertexIdxs + 1
       do j = 1, size(vertexIdxs)
-        call shelf % shelf(i) % addVertexToFace(vertexIdxs(j))
+        call faces % shelf(i) % addVertexToFace(vertexIdxs(j))
+        call vertices % shelf(vertexIdxs(j)) % addFaceIdx(i)
 
       end do
+
+      ! Compute the area and normal of the current face.
+      call faces % shelf(i) % computeAreaAndNormal(vertices % shelf(vertexIdxs))
       
       ! Free memory and move onto the next line.
       deallocate(vertexIdxs)
@@ -439,25 +519,29 @@ contains
   !!   nFaces [in]         -> Number of faces in the mesh.
   !!   nInternalFaces [in] -> Number of internal faces in the mesh.
   !!
-  subroutine initElementShelf(shelf, folderPath, nElements, nFaces, nInternalFaces)
-    class(elementShelf), intent(inout)           :: shelf
+  subroutine initElementShelf(elements, faces, vertices, folderPath, nElements, nFaces, nInternalFaces)
+    class(elementShelf), intent(inout)           :: elements
+    class(faceShelf), intent(inout)              :: faces
+    class(vertexShelf), intent(inout)            :: vertices
     character(*), intent(in)                     :: folderPath
     integer(shortInt), intent(in)                :: nElements, nFaces, nInternalFaces
-    integer(shortInt)                            :: i, elementIdx
+    integer(shortInt)                            :: i, j, elementIdx, vertexIdx
     integer(shortInt), parameter                 :: unit = 10
-    integer(shortInt), dimension(:), allocatable :: elementIdxs
+    integer(shortInt), dimension(:), allocatable :: elementIdxs, vertexIdxs
     character(100)                               :: string
-
-    ! Retrieve the number of elements and set the index of each element.
-    do i = 1, nElements
-      call shelf % shelf(i) % setIdx(i)
-
-    end do
     
     ! If there is only one element in the mesh simply add all the faces to this element and return.
     if (nElements == 1) then
       do i = 1, nFaces
-        call shelf % shelf(1) % addFaceToElement(i)
+        call elements % shelf(1) % addFaceToElement(i)
+        call faces % shelf(i) % addElementToFace(1)
+        vertexIdxs = faces % shelf(i) % getVertices()
+        do j = 1, size(vertexIdxs)
+          vertexIdx = vertexIdxs(j)
+          call vertices % shelf(vertexIdx) % addElementIdx(1)
+          call elements % shelf(1) % addVertexToElement(vertexIdx)
+
+        end do
 
       end do
       return
@@ -478,7 +562,18 @@ contains
       ! Read the current element index and add the current face to this element. Note
       ! that we add one since Fortran starts indexing at one and not zero.
       read(string, *) elementIdx
-      call shelf % shelf(elementIdx + 1) % addFaceToElement(i)
+      
+      elementIdx = elementIdx + 1
+      call elements % shelf(elementIdx) % addFaceToElement(i)
+      call faces % shelf(i) % addElementToFace(elementIdx)
+      vertexIdxs = faces % shelf(i) % getVertices()
+      do j = 1, size(vertexIdxs)
+        vertexIdx = vertexIdxs(j)
+        call vertices % shelf(vertexIdx) % addElementIdx(elementIdx)
+        call elements % shelf(elementIdx) % addVertexToElement(vertexIdx)
+      
+      end do
+
       ! Move onto the next line.
       read(unit, "(a)") string
 
@@ -511,7 +606,16 @@ contains
       ! Loop over all internal faces.
       do i = 1, nInternalFaces
         ! Update mesh connectivity information.
-        call shelf % shelf(elementIdxs(i) + 1) % addFaceToElement(-i)
+        elementIdx = elementIdxs(i) + 1
+        call elements % shelf(elementIdx) % addFaceToElement(-i)
+        call faces % shelf(i) % addElementToFace(elementIdx)
+        vertexIdxs = faces % shelf(i) % getVertices()
+        do j = 1, size(vertexIdxs)
+          vertexIdx = vertexIdxs(j)
+          call vertices % shelf(vertexIdx) % addElementIdx(elementIdx)
+          call elements % shelf(elementIdx) % addVertexToElement(vertexIdx)
+        
+        end do
 
       end do
     ! If not element indices are spread over multiple lines with one element index per line.
@@ -522,7 +626,16 @@ contains
         ! Read the current element index and add the current internal face to this element.
         read(string, *) elementIdx
         ! Update mesh connectivity information.
-        call shelf % shelf(elementIdx + 1) % addFaceToElement(-i)
+        elementIdx = elementIdx + 1
+        call elements % shelf(elementIdx) % addFaceToElement(-i)
+        call faces % shelf(i) % addElementToFace(elementIdx)
+        vertexIdxs = faces % shelf(i) % getVertices()
+        do j = 1, size(vertexIdxs)
+          vertexIdx = vertexIdxs(j)
+          call vertices % shelf(vertexIdx) % addElementIdx(elementIdx)
+          call elements % shelf(elementIdx) % addVertexToElement(vertexIdx)
+        
+        end do
         
         ! Move onto the next line.
         read(unit, "(a)") string

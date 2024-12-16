@@ -4,7 +4,7 @@ module tetrahedron_class
   use genericProcedures,   only : append, areEqual, crossProduct, linFind
   use triangle_class,      only : triangle
   use triangleShelf_class, only : triangleShelf
-  use universalVariables,  only : INF, ONE, SURF_TOL, ZERO
+  use universalVariables,  only : INF, ONE, SURF_TOL, ZERO, targetNotFound
   
   implicit none
   private
@@ -23,33 +23,52 @@ module tetrahedron_class
   !!   volume       -> Volume of the tetrahedron.
   !!   centroid     -> Vector pointing to the centroid of the tetrahedron.
   !!
-  type, public :: tetrahedron
+  type, public                      :: tetrahedron
     private
-    integer(shortInt)                            :: idx = 0, elementIdx = 0
-    integer(shortInt), dimension(:), allocatable :: triangleIdxs, vertexIdxs
-    real(defReal)                                :: volume = ZERO
-    real(defReal), dimension(3)                  :: centroid = ZERO
+    integer(shortInt)               :: idx = 0, elementIdx = 0
+    integer(shortInt), dimension(4) :: triangleIdxs = 0, vertexIdxs = 0
+    integer(shortInt), dimension(6) :: edgeIdxs = 0
+    real(defReal)                   :: volume = ZERO
+    real(defReal), dimension(3)     :: centroid = ZERO
   contains
-    procedure                                    :: addTriangle
-    procedure                                    :: computeCentroid
-    procedure                                    :: computeIntersectedTriangle
-    procedure                                    :: computePotentialTriangles
-    procedure                                    :: computeVolume
-    procedure                                    :: getCentroid
-    procedure                                    :: getElement
-    procedure                                    :: getIdx
-    procedure                                    :: getTriangles
-    procedure                                    :: getVertices
-    procedure                                    :: getVolume
-    procedure                                    :: kill
-    procedure                                    :: setCentroid
-    procedure                                    :: setElement
-    procedure                                    :: setIdx
-    procedure                                    :: setVertices
-    procedure                                    :: testForInclusion
+    procedure                       :: addEdgeIdx
+    procedure                       :: addTriangle
+    procedure                       :: computeCentroid
+    procedure                       :: computeIntersectedTriangle
+    procedure                       :: computePotentialTriangles
+    procedure                       :: computeVolume
+    procedure                       :: getCentroid
+    procedure                       :: getEdgeIdxs
+    procedure                       :: getElement
+    procedure                       :: getIdx
+    procedure                       :: getTriangles
+    procedure                       :: getVertices
+    procedure                       :: getVolume
+    procedure                       :: kill
+    procedure                       :: setCentroid
+    procedure                       :: setElement
+    procedure                       :: setIdx
+    procedure                       :: setVertices
+    procedure                       :: testForInclusion
   end type tetrahedron
 
 contains
+
+  !! Subroutine 'addEdgeIdx'
+  !!
+  !! Basic description:
+  !!   Adds the index of an edge in the tetrahedron.
+  !!
+  !! Arguments:
+  !!   idx [in] -> Index of the edge.
+  !!
+  elemental subroutine addEdgeIdx(self, idx)
+    class(tetrahedron), intent(inout) :: self
+    integer(shortInt), intent(in)     :: idx
+
+    if (linFind(self % edgeIdxs, idx) == targetNotFound) self % edgeIdxs(findloc(self % edgeIdxs, 0)) = idx
+
+  end subroutine addEdgeIdx
   
   !! Subroutine 'addTriangle'
   !!
@@ -59,11 +78,12 @@ contains
   !! Arguments:
   !!   idx [in] -> Index of the triangle.
   !!
-  elemental subroutine addTriangle(self, triangleIdx)
+  elemental subroutine addTriangle(self, idx)
     class(tetrahedron), intent(inout) :: self
-    integer(shortInt), intent(in)     :: triangleIdx
+    integer(shortInt), intent(in)     :: idx
     
-    call append(self % triangleIdxs, triangleIdx)
+    self % triangleIdxs(findloc(self % triangleIdxs, 0)) = idx
+
   end subroutine addTriangle
   
   !! Function 'getCentroid'
@@ -79,6 +99,7 @@ contains
     real(defReal), dimension(3)    :: centroid
     
     centroid = self % centroid
+    
   end function getCentroid
   
   !! Subroutine 'computeCentroid'
@@ -99,6 +120,7 @@ contains
                                                apexCoords
     
     self % centroid = (firstVertexCoords + secondVertexCoords + thirdVertexCoords + apexCoords) / 4.0_defReal
+
   end subroutine computeCentroid
   
   !! Subroutine 'computeIntersectedTriangle'
@@ -219,6 +241,7 @@ contains
     real(defReal), dimension(3), intent(in) :: A, B, C, D
     
     self % volume = abs(dot_product(crossProduct(B - A, C - A), D - A)) / 6.0_defReal
+
   end subroutine computeVolume
   
   !! Function 'getElement'
@@ -232,8 +255,26 @@ contains
   elemental function getElement(self) result(elementIdx)
     class(tetrahedron), intent(in) :: self
     integer(shortInt)              :: elementIdx
+    
     elementIdx = self % elementIdx
+
   end function getElement
+
+  !! Function 'getEdgeIdxs'
+  !!
+  !! Basic description:
+  !!   Returns the indices of the edges of the tetrahedron.
+  !!
+  !! Result:
+  !!   edgeIdxs -> Indices of the edges of the tetrahedron.
+  !!
+  pure function getEdgeIdxs(self) result(edgeIdxs)
+    class(tetrahedron), intent(in)  :: self
+    integer(shortInt), dimension(6) :: edgeIdxs
+    
+    edgeIdxs = self % edgeIdxs
+
+  end function getEdgeIdxs
   
   !! Function 'getIdx'
   !!
@@ -248,6 +289,7 @@ contains
     integer(shortInt)              :: idx
     
     idx = self % idx
+
   end function getIdx
   
   !! Function 'getTriangles'
@@ -259,10 +301,11 @@ contains
   !!   triangleIdxs -> Array of indices of the triangles in the tetrahedron.
   !!
   pure function getTriangles(self) result(triangleIdxs)
-    class(tetrahedron), intent(in)                          :: self
-    integer(shortInt), dimension(size(self % triangleIdxs)) :: triangleIdxs
+    class(tetrahedron), intent(in)  :: self
+    integer(shortInt), dimension(4) :: triangleIdxs
     
     triangleIdxs = self % triangleIdxs
+
   end function getTriangles
   
   !! Function 'getVertices'
@@ -274,10 +317,11 @@ contains
   !!   vertexIdxs -> Array of indices of the vertices in the tetrahedron.
   !!
   pure function getVertices(self) result(vertexIdxs)
-    class(tetrahedron), intent(in)                        :: self
-    integer(shortInt), dimension(size(self % vertexIdxs)) :: vertexIdxs
+    class(tetrahedron), intent(in)  :: self
+    integer(shortInt), dimension(4) :: vertexIdxs
     
     vertexIdxs = self % vertexIdxs
+
   end function getVertices
   
   !! Function 'getVolume'
@@ -307,8 +351,10 @@ contains
     self % elementIdx = 0
     self % volume = ZERO
     self % centroid = ZERO
-    if (allocated(self % vertexIdxs)) deallocate(self % vertexIdxs)
-    if (allocated(self % triangleIdxs)) deallocate(self % triangleIdxs)
+    self % edgeIdxs = 0
+    self % triangleIdxs = 0
+    self % vertexIdxs = 0
+
   end subroutine kill
   
   !! Subroutine 'setCentroid'
@@ -369,6 +415,7 @@ contains
     integer(shortInt), dimension(4), intent(in) :: vertexIdxs
     
     self % vertexIdxs = vertexIdxs
+
   end subroutine setVertices
   
   !! Subroutine 'testForInclusion'
@@ -422,7 +469,7 @@ contains
 
       ! If the coordinates lie on the triangle, update surfTolTriangleIdxs.
       if (areEqual(dotProduct, ZERO)) then
-        call append(surfTolTriangleIdxs, triangleIdx)
+        call append(surfTolTriangleIdxs, absTriangleIdx)
         cycle
       
       end if

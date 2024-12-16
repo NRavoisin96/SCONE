@@ -1,13 +1,13 @@
 module face_class
   
   use numPrecision,
-  use universalVariables,  only : HALF, THIRD, SURF_TOL
+  use edgeShelf_class,     only : edgeShelf
   use genericProcedures,   only : append, areEqual, computeTriangleArea, computeTriangleCentre, &
-                                  computeTriangleNormal, fatalError, numToChar
+                                  computeTriangleNormal, fatalError, findCommon, numToChar
   use vertex_class,        only : vertex
   use vertexShelf_class,   only : vertexShelf
   use triangleShelf_class, only : triangleShelf
-  use universalVariables,  only : ZERO, INF
+  use universalVariables,  only : INF, HALF, THIRD, SURF_TOL, ZERO
   
   implicit none
   private
@@ -30,11 +30,12 @@ module face_class
   type, public                                   :: face
     private
     integer(shortInt)                            :: idx = 0
-    integer(shortInt), dimension(:), allocatable :: vertices, faceToElements, triangles
+    integer(shortInt), dimension(:), allocatable :: vertices, faceToElements, triangles, edgeIdxs
     logical(defBool)                             :: boundaryFace = .false.
     real(defReal)                                :: area = ZERO
     real(defReal), dimension(3)                  :: centroid = ZERO, normal = ZERO
   contains
+    procedure                                    :: addEdgeIdx
     procedure                                    :: addElementToFace
     procedure                                    :: addTriangle
     procedure                                    :: addVertexToFace
@@ -42,6 +43,7 @@ module face_class
     procedure                                    :: computeIntersection
     procedure                                    :: getArea
     procedure                                    :: getCentroid
+    procedure                                    :: getEdgeIdxs
     procedure                                    :: getFaceToElements
     procedure                                    :: getIdx
     procedure                                    :: getNormal
@@ -71,6 +73,22 @@ contains
     call append(self % triangles, idx)
 
   end subroutine addTriangle
+
+  !! Subroutine 'addEdgeIdx'
+  !!
+  !! Basic description:
+  !!   Adds the index of an edge sharing the face.
+  !!
+  !! Arguments:
+  !!   idx [in] -> Index of the edge sharing the face.
+  !!
+  elemental subroutine addEdgeIdx(self, idx)
+    class(face), intent(inout)    :: self
+    integer(shortInt), intent(in) :: idx
+
+    call append(self % edgeIdxs, idx)
+
+  end subroutine addEdgeIdx
   
   !! Subroutine 'addElementToFace'
   !!
@@ -207,12 +225,12 @@ contains
   !!   isIntersecting [out]   -> .true. if the line segment intersects the triangle.
   !!   d [out]                -> Distance from the line segment's origin to the point of intersection.
   !!
-  pure subroutine computeIntersection(self, startPos, endPos, vertices, isIntersecting, d)
+  pure subroutine computeIntersection(self, startPos, endPos, u, vertices, d, edgeIdx, vertexIdx)
     class(face), intent(in)                                    :: self
-    real(defReal), dimension(3), intent(in)                    :: startPos, endPos
+    real(defReal), dimension(3), intent(in)                    :: startPos, endPos, u
     type(vertex), dimension(size(self % vertices)), intent(in) :: vertices
-    logical(defBool), intent(out)                              :: isIntersecting
     real(defReal), intent(out)                                 :: d
+    integer(shortInt), intent(out)                             :: edgeIdx, vertexIdx
     real(defReal), dimension(3)                                :: normal, diff, intersectionCoords
     real(defReal)                                              :: denominator, s, crossProduct, sign
     integer(shortInt)                                          :: discardDimension, i, nVertices, nextIdx
@@ -221,18 +239,29 @@ contains
     real(defReal), dimension(size(self % vertices), 2)         :: projVertexCoords
     real(defReal), dimension(2)                                :: projIntersectionCoords, diffEdgeCoords, &
                                                                   diffIntersectionCoords
+    integer(shortInt), dimension(:), allocatable               :: commonEdgeIdxs
 
-    ! Initialise isIntersecting = .false. and d = INF.
-    isIntersecting = .false.
+    ! Initialise d = INF, edgeIdx = 0 and vertexIdx = 0.
     d = INF
+    edgeIdx = 0
+    vertexIdx = 0
     
-    ! Retrieve the face's normal vector and compute s to check if the line segment intersects the
-    ! face's plane. Return early if not (s < ZERO or s > ONE).
+    ! Retrieve the face's normal vector and pre-compute the difference between the line segment's end
+    ! and beginning positions.
     normal = self % normal
     diff = endPos - startPos
     denominator = dot_product(normal, diff)
+
+    ! If the denominator is ZERO, return early since the line segment is parallel to the face's plane.
+    ! Else, compute the fraction of the line segment required to intersect the face's plane, s.
     if (areEqual(denominator, ZERO)) return
     s = dot_product(normal, self % centroid - startPos) / denominator
+    
+    ! If s is ZERO, the line segment's origin is on the face. In this case return early if the segment
+    ! points in the same direction as the face's normal.
+    if (areEqual(s, ZERO) .and. dot_product(normal, u) >= ZERO) return
+    
+    ! If s < ZERO or s > ONE, return early since the intersection is outside the line segment.
     if (s < ZERO .or. s > ONE) return
 
     ! Compute the coordinates of the intersection point.
@@ -253,20 +282,30 @@ contains
     ! Loop through all edges of the projected polygon and check that the projected intersection coordinates
     ! are on the same side of each edge. Note: this works because the polygon is convex.
     do i = 1, nVertices
-      ! Check if intersection point lies on the current vertex and exit the loop if yes.
+      ! Pre-compute the difference in coordinates between the intersection point and the current vertex.
       diffIntersectionCoords = projIntersectionCoords - projVertexCoords(i, :)
-      if (areEqual(diffIntersectionCoords, ZERO)) exit
+      nextIdx = mod(i, nVertices) + 1
+      
+      ! Check if the intersection point is on the current or next vertex and exit if yes.
+      if (i == 1 .and. areEqual(diffIntersectionCoords, ZERO)) vertexIdx = vertices(i) % getIdx()
+      if (i < nVertices .and. areEqual(projIntersectionCoords - projVertexCoords(nextIdx, :), ZERO)) &
+      vertexIdx = vertices(nextIdx) % getIdx()
+      if (vertexIdx > 0) exit
 
       ! Compute cross product.
-      nextIdx = mod(i, nVertices) + 1
       diffEdgeCoords = projVertexCoords(nextIdx, :) - projVertexCoords(i, :)
       crossProduct = diffIntersectionCoords(1) * diffEdgeCoords(2) - diffIntersectionCoords(2) * diffEdgeCoords(1)
 
       ! If crossProduct is ZERO, the point may lie on the edge.
       if (areEqual(crossProduct, ZERO)) then
-        ! Check if point actually lies on the edge and exit loop immediately if yes. Return if not.
-        if (min(projVertexCoords(i, 1), projVertexCoords(nextIdx, 1)) < projIntersectionCoords(1) .and. &
-            projIntersectionCoords(2) <= max(projVertexCoords(i, 2), projVertexCoords(nextIdx, 2))) exit
+        ! If point actually lies on the edge find the common edge between the two vertices and exit. Return if not.
+        if (any(minval(projVertexCoords([i, nextIdx], :), dim = 1) < projIntersectionCoords .and. &
+                projIntersectionCoords < maxval(projVertexCoords([i, nextIdx], :), dim = 1))) then
+          commonEdgeIdxs = findCommon(vertices(i) % getEdgeIdxs(), vertices(nextIdx) % getEdgeIdxs())
+          edgeIdx = commonEdgeIdxs(1)
+          exit
+
+        end if
         return
 
       end if
@@ -283,8 +322,7 @@ contains
 
     end do
 
-    ! If reached here, the intersection point is inside the polygon. Update isIntersecting and d.
-    isIntersecting = .true.
+    ! If reached here, the intersection point is inside the polygon. Update d.
     d = norm2(diff)
 
   end subroutine computeIntersection
@@ -320,6 +358,22 @@ contains
     centroid = self % centroid
 
   end function getCentroid
+
+  !! Function 'getEdgeIdxs'
+  !!
+  !! Basic description:
+  !!   Returns the indices of the edges in the face.
+  !!
+  !! Result:
+  !!   edgeIdxs -> Indices of the edges in the face.
+  !!
+  pure function getEdgeIdxs(self) result(edgeIdxs)
+    class(face), intent(in)                             :: self
+    integer(shortInt), dimension(size(self % edgeIdxs)) :: edgeIdxs
+
+    edgeIdxs = self % edgeIdxs
+
+  end function getEdgeIdxs
   
   !! Function 'getFaceToElements'
   !!
@@ -431,6 +485,7 @@ contains
     self % area = ZERO
     self % centroid = ZERO
     self % normal = ZERO
+    if (allocated(self % edgeIdxs)) deallocate(self % edgeIdxs)
     if (allocated(self % vertices)) deallocate(self % vertices)
     if (allocated(self % triangles)) deallocate(self % triangles)
     if (allocated(self % faceToElements)) deallocate(self % faceToElements)
@@ -489,14 +544,15 @@ contains
   !!   freeTriangleIdx [inout] -> Index of the first free item in triangleShelf.
   !!
   !! TODO: Refactor this into helper functions.
-  elemental subroutine split(self, triangles, vertices, freeTriangleIdx)
+  subroutine split(self, edges, triangles, vertices, lastEdgeIdx, freeTriangleIdx)
     class(face), intent(inout)                          :: self
+    type(edgeShelf), intent(inout)                      :: edges
     type(triangleShelf), intent(inout)                  :: triangles
     type(vertexShelf), intent(inout)                    :: vertices
-    integer(shortInt), intent(inout)                    :: freeTriangleIdx
+    integer(shortInt), intent(inout)                    :: lastEdgeIdx, freeTriangleIdx
     integer(shortInt), dimension(size(self % vertices)) :: vertexIdxs
     integer(shortInt)                                   :: nVertices, i, j, minVertexIdx, &
-                                                           secondVertexIdx, thirdVertexIdx
+                                                           secondVertexIdx, thirdVertexIdx, edgeIdx
     integer(shortInt), dimension(3)                     :: triangleVertexIdxs
     real(defReal), dimension(3)                         :: minVertexCoords, secondVertexCoords, &
                                                            thirdVertexCoords
@@ -525,9 +581,20 @@ contains
       ! normal vector again: simply copy them from the face and return early.
       if (nVertices == 3) then
         call triangles % shelf(freeTriangleIdx) % setVertices(vertexIdxs)
+        call triangles % shelf(freeTriangleIdx) % setAB(vertices % shelf(vertexIdxs(2)) % getCoordinates() - &
+                                                        vertices % shelf(vertexIdxs(1)) % getCoordinates())
+        call triangles % shelf(freeTriangleIdx) % setAC(vertices % shelf(vertexIdxs(3)) % getCoordinates() - &
+                                                        vertices % shelf(vertexIdxs(1)) % getCoordinates())
         call triangles % shelf(freeTriangleIdx) % setCentre(self % centroid)
         call triangles % shelf(freeTriangleIdx) % setArea(self % area)
         call triangles % shelf(freeTriangleIdx) % setNormal(self % normal)
+        do j = 1, 3
+          edgeIdx = self % edgeIdxs(j)
+          call edges % shelf(edgeIdx) % addTriangleIdx(freeTriangleIdx)
+          call triangles % shelf(freeTriangleIdx) % addEdgeIdx(edgeIdx)
+          call vertices % shelf(vertexIdxs(j)) % addTriangleIdx(freeTriangleIdx)
+
+        end do
         return
 
       end if
@@ -544,16 +611,31 @@ contains
       ! vector points in the correct direction.
       triangleVertexIdxs = vertexIdxs([minVertexIdx, secondVertexIdx, thirdVertexIdx])
       call triangles % shelf(freeTriangleIdx) % setVertices(triangleVertexIdxs)
+      call triangles % shelf(freeTriangleIdx) % setAB(secondVertexCoords - minVertexCoords)
+      call triangles % shelf(freeTriangleIdx) % setAC(thirdVertexCoords - minVertexCoords)
       call triangles % shelf(freeTriangleIdx) % computeCentre(minVertexCoords, secondVertexCoords, thirdVertexCoords)
       call triangles % shelf(freeTriangleIdx) % computeNormal(minVertexCoords, secondVertexCoords, thirdVertexCoords)
       
-      ! Compute the triangle's area,normalise its normal vector and update mesh connectivity information.
+      ! Compute the triangle's area, normalise its normal vector and update mesh connectivity information.
       call triangles % shelf(freeTriangleIdx) % computeArea()
       call triangles % shelf(freeTriangleIdx) % normaliseNormal()
+
+      if (i < nVertices - 2) then
+        ! Create a new edge.
+        lastEdgeIdx = lastEdgeIdx + 1
+        call edges % shelf(lastEdgeIdx) % setIdx(lastEdgeIdx)
+        call edges % shelf(lastEdgeIdx) % setVertexIdxs(triangleVertexIdxs([1, 3]))
+        call vertices % shelf(triangleVertexIdxs(1)) % addEdgeIdx(lastEdgeIdx)
+        call vertices % shelf(triangleVertexIdxs(3)) % addEdgeIdx(lastEdgeIdx)
+
+      end if
 
       ! Update mesh connectivity information.
       do j = 1, 3
         call vertices % shelf(triangleVertexIdxs(j)) % addTriangleIdx(freeTriangleIdx)
+        edgeIdx = vertices % findCommonEdgeIdx(triangleVertexIdxs(j), triangleVertexIdxs(mod(j, 3) + 1))
+        call triangles % shelf(freeTriangleIdx) % addEdgeIdx(edgeIdx)
+        call edges % shelf(edgeIdx) % addTriangleIdx(freeTriangleIdx)
 
       end do
 

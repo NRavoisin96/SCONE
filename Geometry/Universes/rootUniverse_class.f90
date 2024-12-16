@@ -139,7 +139,6 @@ contains
     type(coord), intent(inout)         :: coords
     real(defReal), intent(out)         :: d
     integer(shortInt), intent(out)     :: surfIdx
-    character(100), parameter          :: Here = 'distance (rootUniverse_class.f90)'
 
     surfIdx = self % surfIdx
     d = self % surf % distance(coords % r, coords % dir)

@@ -5,6 +5,7 @@ module triUnstructuredMesh_inter
   use genericProcedures,      only : append, findCommon, findDifferent, hasDuplicates, removeDuplicates
   use coord_class,            only : coord
   use dictionary_class,       only : dictionary
+  use edge_class,             only : edge
   use pyramidShelf_class,     only : pyramidShelf
   use tetrahedron_class,      only : tetrahedron
   use tetrahedronShelf_class, only : tetrahedronShelf
@@ -36,13 +37,9 @@ module triUnstructuredMesh_inter
   !!   findElementAndParentIdxs  -> Returns the index of the mesh element occupied by a particle. Also
   !!                                returns the index of the parent mesh element containing the occupied
   !!                                element.
-  !!   findTetrahedronFromEdge   -> Returns the index of the mesh tetrahedron occupied by a particle when the
-  !!                                particle is on a tetrahedron's edge.
-  !!   findTetrahedronFromFace   -> Returns the index of the mesh tetrahedron occupied by a particle when the
-  !!                                particle is on a tetrahedron's face.
-  !!   findTetrahedronFromVertex -> Returns the index of the mesh tetrahedron occupied by a particle when the
-  !!                                particle is on a tetrahedron's vertex.
   !!   kill                      -> Returns to an unitialised state.
+  !!   replaceEdgeShelf          -> Replaces the current edgeShelf of the mesh with a new shelf containing more 
+  !!                                edges.
   !!   replaceVertexShelf        -> Replaces the current vertexShelf of the mesh with a new shelf containing more 
   !!                                vertices.
   !!   split                     -> Splits the elements of the mesh into tetrahedra and the faces into triangles.
@@ -59,10 +56,9 @@ module triUnstructuredMesh_inter
     procedure                                       :: distanceToBoundaryFace
     procedure                                       :: distanceToNextFace
     procedure                                       :: findElementAndParentIdxs
-    procedure, non_overridable                      :: findTetrahedronFromEdge
-    procedure, non_overridable                      :: findTetrahedronFromFace
-    procedure, non_overridable                      :: findTetrahedronFromVertex
+    procedure                                       :: findElementFromDirection
     procedure                                       :: kill
+    procedure, non_overridable                      :: replaceEdgeShelf
     procedure, non_overridable                      :: replaceVertexShelf
     procedure, non_overridable                      :: split
     procedure, non_overridable                      :: splitElements
@@ -92,34 +88,45 @@ contains
   !!   generated simply is, for a given face, the number of triangles it is decomposed into.
   !!
   !! Arguments:
+  !!   nEdges [out]      -> Number of edges to be generated.
   !!   nPyramids [out]   -> Number of pyramids to be generated.
   !!   nTriangles [out]  -> Number of triangles to be generated.
   !!   nTetrahedra [out] -> Number of tetrahedra to be generated.
+  !!   nVertices [out]   -> Number of vertices to be generated.
   !!
-  elemental subroutine computePrimitives(self, nPyramids, nTriangles, nTetrahedra)
+  elemental subroutine computePrimitives(self, nEdges, nPyramids, nTriangles, nTetrahedra, nVertices)
     class(triUnstructuredMesh), intent(in)       :: self
-    integer(shortInt), intent(out)               :: nPyramids, nTriangles, nTetrahedra
-    integer(shortInt)                            :: i, j, nVertices, nFaces, nVerticesInFace, &
+    integer(shortInt), intent(out)               :: nEdges, nPyramids, nTriangles, nTetrahedra, nVertices
+    integer(shortInt)                            :: i, j, nVerticesInElement, nFaces, nVerticesInFace, &
                                                     absFaceIdx
     integer(shortInt), dimension(:), allocatable :: faceIdxs
 
-    ! Initialise nPyramids, nTetrahedra and nTriangles and loop through all elements.
+    ! Initialise nEdges = 0, nPyramids = 0, nTetrahedra = 0 and nTriangles = 0 and loop through all elements.
+    nEdges = 0
     nPyramids = 0
     nTetrahedra = 0
     nTriangles = 0
+    nVertices = 0
     do i = 1, self % nElements
       ! Retrieve the number of vertices and indices of the faces in the current element.
-      nVertices = size(self % elements % shelf(i) % getVertices())
+      nVerticesInElement = size(self % elements % shelf(i) % getVertices())
       faceIdxs = self % elements % shelf(i) % getFaces()
       
       ! Check if the current element is already a tetrahedron. If yes, increment nTetrahedra by 1
       ! and nTriangles by the number of triangles owned by the tetrahedron then cycle.
-      if (nVertices == 4) then
+      if (nVerticesInElement == 4) then
         nTetrahedra = nTetrahedra + 1
         nTriangles = nTriangles + count(faceIdxs > 0)
         cycle
       
-      end if   
+      end if
+
+      ! If the current element is not a tetrahedron it will be split from its centroid so we need
+      ! to add the current element's centroid to the list of vertices.
+      nVertices = nVertices + 1
+
+      ! Increment nEdges.
+      nEdges = nEdges + nVerticesInElement
 
       ! Compute the number of faces in the current element.
       nFaces = size(faceIdxs)
@@ -128,19 +135,23 @@ contains
       nPyramids = nPyramids + nFaces
       
       ! Initialise nVertices and loop through all faces.
-      nVertices = 0
+      nVerticesInElement = 0
       do j = 1, nFaces
         absFaceIdx = abs(faceIdxs(j))
         ! Retrieve the number of vertices in the current face and increase the total 
         ! number of vertices by the number of vertices in the current face.
         nVerticesInFace = size(self % faces % shelf(absFaceIdx) % getVertices())
-        nVertices = nVertices + nVerticesInFace
+        nVerticesInElement = nVerticesInElement + nVerticesInFace
         
         ! Increase the number of triangles corresponding to new internal faces by nVerticesInFace - 3.
         nTriangles = nTriangles + nVerticesInFace - 3
 
         ! If the element owns the current face, increase the number of triangles by nVerticesInFace - 2.
-        if (faceIdxs(j) > 0) nTriangles = nTriangles + nVerticesInFace - 2
+        if (faceIdxs(j) > 0) then
+          nEdges = nEdges + nVerticesInFace - 3
+          nTriangles = nTriangles + nVerticesInFace - 2
+
+        end if
         
         ! There will be as many tetrahedra as the number of triangles in each face, which is given
         ! by nVerticesInFace - 2.
@@ -149,7 +160,7 @@ contains
       end do
       
       ! The number of pyramids' faces is given by half the total number of vertices.
-      nTriangles = nTriangles + nVertices / 2
+      nTriangles = nTriangles + nVerticesInElement / 2
 
     end do
 
@@ -163,16 +174,43 @@ contains
   !!
   !! See mesh_inter for details.
   !!
-  pure subroutine distanceToBoundaryFace(self, d, coords, parentIdx)
-    class(triUnstructuredMesh), intent(in) :: self
-    real(defReal), intent(out)             :: d
-    type(coord), intent(inout)             :: coords
-    integer(shortInt), intent(out)         :: parentIdx
+  elemental subroutine distanceToBoundaryFace(self, d, coords, parentIdx)
+    class(triUnstructuredMesh), intent(in)       :: self
+    real(defReal), intent(out)                   :: d
+    type(coord), intent(inout)                   :: coords
+    integer(shortInt), intent(out)               :: parentIdx
+    integer(shortInt)                            :: edgeIdx, vertexIdx
+    integer(shortInt), dimension(:), allocatable :: testTriangleIdxs, tetrahedronIdxs
 
-    ! Initialise parentIdx = 0 then search the tree for the intersected boundary triangle. Update parentIdx only
-    ! if boundary intersection has been found.
+    ! Initialise parentIdx = 0, edgeIdx = 0 and vertexIdx = 0 then search the tree for the intersected boundary triangle.
     parentIdx = 0
-    call self % tree % findIntersectedTriangle(d, coords, self % vertices, self % triangles)
+    edgeIdx = 0
+    vertexIdx = 0
+    call self % tree % findIntersectedTriangle(self % vertices, self % triangles, d, coords, edgeIdx, vertexIdx)
+
+    ! If edgeIdx > 0 or vertexIdx > 0 then the particle intersects a boundary face through and edge or a vertex. In this
+    ! case assign element occupation from particle direction.
+    if (edgeIdx > 0 .or. vertexIdx > 0) then
+      if (edgeIdx > 0) then
+        testTriangleIdxs = self % edges % shelf(edgeIdx) % getTriangleIdxs()
+        tetrahedronIdxs = self % edges % shelf(edgeIdx) % getTetrahedronIdxs()
+
+      elseif (vertexIdx > 0) then
+        testTriangleIdxs = self % vertices % shelf(vertexIdx) % getVertexToTriangles()
+        tetrahedronIdxs = self % vertices % shelf(vertexIdx) % getVertexToTetrahedra()
+
+      end if
+      coords % elementIdx = self % findElementFromDirection(coords % dir, tetrahedronIdxs, testTriangleIdxs)
+      
+      ! If the particle's elementIdx is 0 (e.g., particle enters the mesh via a boundary vertex but still points outside)
+      ! then update d = INF and return.
+      if (coords % elementIdx == 0) then
+        d = INF
+        return
+
+      end if
+
+    end if
     if (coords % elementIdx > 0) parentIdx = self % tetrahedra % shelf(coords % elementIdx) % getElement()
 
   end subroutine distanceToBoundaryFace
@@ -188,7 +226,7 @@ contains
   !! See mesh_inter for details.
   !!
   !! TODO: Optimise this.
-  pure subroutine distanceToNextFace(self, d, coords)
+  elemental subroutine distanceToNextFace(self, d, coords)
     class(triUnstructuredMesh), intent(in)       :: self
     real(defReal), intent(out)                   :: d
     type(coord), intent(inout)                   :: coords
@@ -246,11 +284,14 @@ contains
     class(triUnstructuredMesh), intent(in)       :: self
     real(defReal), dimension(3), intent(in)      :: r, u
     integer(shortInt), intent(out)               :: elementIdx, parentIdx
-    integer(shortInt)                            :: failedTriangle, i, nearestVertexIdx
+    integer(shortInt)                            :: failedTriangle, i, nearestVertexIdx, commonEdgeIdx, &
+                                                    commonVertexIdx, j
     integer(shortInt), dimension(:), allocatable :: potentialTetrahedra, triangleToTetrahedra, &
-                                                    zeroDotProductTriangles
+                                                    zeroDotProductTriangles, testTriangleIdxs, &
+                                                    commonVertexIdxs
     real(defReal), dimension(6)                  :: boundingBox
     type(tetrahedron)                            :: currentTetrahedron
+    integer(shortInt), dimension(4)              :: tetrahedronVertexIdxs
     
     ! Initialise tetrahedronIdx = 0, retrieve the mesh's bounding box and check that the particle is 
     ! inside the mesh's bounding box. If not we can return early.
@@ -296,16 +337,25 @@ contains
         select case (size(zeroDotProductTriangles))
           ! Particle is on a tetrahedron's face.
           case(1)
-            elementIdx = self % findTetrahedronFromFace(u, currentTetrahedron % getIdx(), &
-                                                        zeroDotProductTriangles)
+            potentialTetrahedra = self % triangles % shelf(zeroDotProductTriangles(1)) % getTetrahedra()
+            testTriangleIdxs = zeroDotProductTriangles
           ! Particle is on a tetrahedron's edge.
           case(2)
-            elementIdx = self % findTetrahedronFromEdge(u, zeroDotProductTriangles)
+            commonEdgeIdx = self % triangles % findCommonEdgeIdx(zeroDotProductTriangles(1), zeroDotProductTriangles(2))
+            potentialTetrahedra = self % edges % shelf(commonEdgeIdx) % getTetrahedronIdxs()
+            testTriangleIdxs = self % edges % shelf(commonEdgeIdx) % getTriangleIdxs()
           ! Particle is on a tetrahedron's vertex.
-          case(3)
-            elementIdx = self % findTetrahedronFromVertex(u, zeroDotProductTriangles)  
+          case default
+            commonVertexIdxs = self % triangles % shelf(zeroDotProductTriangles(1)) % getVertices()
+            do i = 2, size(zeroDotProductTriangles)
+              commonVertexIdxs = findCommon(commonVertexIdxs, self % triangles % shelf(zeroDotProductTriangles(i)) % getVertices())
+              
+            end do
+            potentialTetrahedra = self % vertices % shelf(commonVertexIdxs(1)) % getVertexToTetrahedra()
+            testTriangleIdxs = self % vertices % shelf(commonVertexIdxs(1)) % getVertexToTriangles()
 
         end select
+        elementIdx = self % findElementFromDirection(u, potentialTetrahedra, testTriangleIdxs)
         if (elementIdx > 0) parentIdx = self % tetrahedra % shelf(elementIdx) % getElement()
         return
       
@@ -320,96 +370,65 @@ contains
 
   end subroutine findElementAndParentIdxs
 
-  !! Function 'findTetrahedronFromEdge'
+  !! Function 'findElementFromDirection'
   !!
   !! Basic description:
-  !!   Returns the index of the tetrahedron occupied by the particle in case the particle lies on
-  !!   a tetrahedron edge.
+  !!   Returns the index of the element occupied by a particle in case the particle lies on one or more
+  !!   element face(s).
   !!
   !! Detailed description:
-  !!   Generalisation of 'findTetrahedronFromFace' applied to an edge. In this case the tetrahedron
-  !!   assigned to the particle is that for which the number of negative dot products between the
-  !!   tetrahedron's triangles containing the edge and the particle's direction is the greatest.
+  !!   When the particle lies on one or more element face(s), it is technically in more than one element
+  !!   at once. In this case element occupation can be assigned by using the particle's direction vector.
+  !!   The idea is to take all the faces on which the particle lies and perform the dot product of the
+  !!   particle's direction with each of the face's (signed) normal vector. The element actually occupied
+  !!   by the partice is then that for which the number of negative dot products is the greatest.
   !!
   !! Arguments:
-  !!   u [in]                       -> Particle's direction.
-  !!   zeroDotProductTriangles [in] -> Indices of the triangles on which the particle lies.
+  !!   u [in]            -> Particle's direction.
+  !!   elementIdxs [in]  -> Indices of the elements to be tested.
+  !!   testFaceIdxs [in] -> Indices of the faces to be tested.
   !!
   !! Result:
-  !!   tetrahedronIdx -> Index of the tetrahedron occupied by the particle.
+  !!   elementIdx        -> Index of the element occupied by the particle.
   !!
-  !! Notes:
-  !!   The implementation here is quite ugly and messy. This is because OpenFOAM does not store
-  !!   information about edges, so at the moment they have to be constructed on-the-fly. Could be
-  !!   made more elegant / faster if there was a procedure to build edges during the importation 
-  !!   process, but given how unlikely a particle is to actually sit on an edge, I am not sure this 
-  !!   would make much difference...
-  !!
-  !! TODO: Rework this. Import edges during mesh construction.
-  pure function findTetrahedronFromEdge(self, u, zeroDotProductTriangles) result(tetrahedronIdx)
-    class(triUnstructuredMesh), intent(in)                   :: self
-    real(defReal), dimension(3), intent(in)                  :: u
-    integer(shortInt), dimension(:), allocatable, intent(in) :: zeroDotProductTriangles
-    integer(shortInt)                                        :: i, j, tetrahedronIdx, count, maxCount, maxIdx
-    integer(shortInt), dimension(:), allocatable             :: testTriangleIdxs, edgeVertices, &
-                                                                potentialTetrahedra, absTriangleIdxs, triangleIdxs
-    type(tetrahedron)                                        :: currentTetrahedron
-    type(triangle)                                           :: currentTriangle
-    real(defReal), dimension(3)                              :: normal
-    
-    ! Initialise tetrahedronIdx = 0 and retrieve the vertices in the common edge.
-    tetrahedronIdx = 0
-    testTriangleIdxs = abs(zeroDotProductTriangles)
-    edgeVertices = findCommon(self % triangles % shelf(testTriangleIdxs(1)) % getVertices(), &
-                              self % triangles % shelf(testTriangleIdxs(2)) % getVertices())
-    
-    ! Loop through all triangles.
-    do i = 1, size(self % triangles % shelf)
-      ! If the index of the 'do' loop corresponds to one of the triangles sharing the common edge
-      ! there is no need to search and we cycle.
-      if (any(testTriangleIdxs == i)) cycle
-      
-      ! Check if the current triangle contains the common edge and if so append the index to testFaceIdxs.
-      if (size(findCommon(self % triangles % shelf(i) % getVertices(), edgeVertices)) == 2) call append(testTriangleIdxs, i)
+  pure function findElementFromDirection(self, u, elementIdxs, testFaceIdxs) result(elementIdx)
+    class(triUnstructuredMesh), intent(in)       :: self
+    real(defReal), dimension(3), intent(in)      :: u
+    integer(shortInt), dimension(:), intent(in)  :: elementIdxs, testFaceIdxs
+    integer(shortInt)                            :: elementIdx, i, j, count, maxCount, maxIdx
+    integer(shortInt), dimension(4)              :: triangleIdxs, absTriangleIdxs
+    type(tetrahedron)                            :: currentTetrahedron
+    type(triangle)                               :: currentTriangle
+    real(defReal), dimension(3)                  :: normal
 
-    end do
-    
-    ! Loop through all the triangles that contain the common edge and retrieve their associated
-    ! tetrahedra. We might introduce duplicates in the list of potential tetrahedra so remove them.
-    do i = 1, size(testTriangleIdxs)
-      currentTriangle = self % triangles % shelf(testTriangleIdxs(i))
-      call append(potentialTetrahedra, currentTriangle % getTetrahedra()) 
-
-    end do
-    potentialTetrahedra = removeDuplicates(potentialTetrahedra)
-    
-    ! Initialise maxCount = 0 then loop through all potential tetrahedra.
+    ! Initialise elementIdx = 0 and maxCount = 0 then loop over all elements.
+    elementIdx = 0
     maxCount = 0
-    do i = 1, size(potentialTetrahedra)
-      ! Retrieve the triangles making the current tetrahedron and convert them to absolute indices.
-      currentTetrahedron = self % tetrahedra % shelf(potentialTetrahedra(i))
+    do i = 1, size(elementIdxs)
+      ! Retrieve the faces making the current element and convert them to absolute indices.
+      currentTetrahedron = self % tetrahedra % shelf(elementIdxs(i))
       triangleIdxs = currentTetrahedron % getTriangles()
       absTriangleIdxs = abs(triangleIdxs)
       
-      ! Initialise count = 0 then loop through all the triangles in the current tetrahedron.
+      ! Initialise count = 0 then loop through all faces in the current element.
       count = 0
       do j = 1, 4
 
-        ! If the current triangle does not contain the common edge cycle to the next triangle.
-        if (.not. any(testTriangleIdxs == absTriangleIdxs(j))) cycle
+        ! Cycle to the next face if it is not a face on which the particle is.
+        if (.not. any(testFaceIdxs == absTriangleIdxs(j))) cycle
 
-        ! Retrieve the current triangle's signed normal vector.
+        ! Retrieve the current face's signed normal vector.
         currentTriangle = self % triangles % shelf(absTriangleIdxs(j))
         normal = currentTriangle % getNormal(triangleIdxs(j))
-        
-        ! If the dot product is negative increment count and cycle to the next triangle.
+
+        ! If the dot product is negative increment count and cycle to the next face.
         if (dot_product(u, normal) <= ZERO) then
           count = count + 1
           cycle
 
         end if
-
-        ! If the test fails and the current triangle is a boundary triangle, the particle is outside the mesh
+        
+        ! If the test fails and the current face is a boundary face, the particle is outside the mesh
         ! and we can return early.
         if (currentTriangle % getIsBoundary()) return
 
@@ -424,146 +443,10 @@ contains
 
     end do
 
-    ! If reached here, update tetrahedronIdx.
-    tetrahedronIdx = potentialTetrahedra(maxIdx)
+    ! If reached here, update elementIdx.
+    elementIdx = elementIdxs(maxIdx)
 
-  end function findTetrahedronFromEdge
-
-  !! Function 'findTetrahedronFromFace'
-  !!
-  !! Basic description:
-  !!   Returns the index of the tetrahedron occupied by the particle in case the particle lies on
-  !!   a tetrahedron face.
-  !!
-  !! Detailed description:
-  !!   When a particle is on a tetrahedron face it is not as straightforward to assign a tetrahedron
-  !!   to a particle (it is actually in both tetrahedra at the same time). The workaround here is to
-  !!   use the particle's direction to determine into which tetrahedron the particle's direction 
-  !!   points. This is given by the dot product of the direction and the triangle's normal being
-  !!   negative.
-  !!
-  !! Arguments:
-  !!   u [in]                       -> Particle's direction.
-  !!   zeroDotProductTriangles [in] -> Indices of the triangles on which the particle lies.
-  !!
-  !! Result:
-  !!   tetrahedronIdx -> Index of the tetrahedron occupied by the particle.
-  !!
-  pure function findTetrahedronFromFace(self, u, currentTetrahedronIdx, &
-                                        zeroDotProductTriangles) result(tetrahedronIdx)
-    class(triUnstructuredMesh), intent(in)                   :: self
-    real(defReal), dimension(3), intent(in)                  :: u
-    integer(shortInt), intent(in)                            :: currentTetrahedronIdx
-    integer(shortInt), dimension(:), allocatable, intent(in) :: zeroDotProductTriangles
-    integer(shortInt)                                        :: absZeroDotProductTriangle, &
-                                                                tetrahedronIdx
-    integer(shortInt), dimension(:), allocatable             :: triangleToTetrahedra
-    real(defReal), dimension(3)                              :: normal
-    
-    ! Initialise tetrahedronIdx = currentTetrahedronIdx then retrieve the triangle's signed normal vector.
-    tetrahedronIdx = currentTetrahedronIdx
-    absZeroDotProductTriangle = abs(zeroDotProductTriangles(1))
-    normal = self % triangles % shelf(absZeroDotProductTriangle) % getNormal(zeroDotProductTriangles(1))
-    
-    ! Check the sign of the dot product between the particle's direction and the triangle's normal.
-    ! If negative it is in the current tetrahedron and we can return early.
-    if (dot_product(u, normal) <= ZERO) return
-
-    ! If not, the particle's in the neighbouring tetrahedron. Retrieve mesh connectivity information.
-    triangleToTetrahedra = self % triangles % shelf(absZeroDotProductTriangle) % getTetrahedra()
-
-    ! If the current triangle is not a boundary triangle, update tetrahedronIdx.
-    tetrahedronIdx = 0
-    if (size(triangleToTetrahedra) > 1) tetrahedronIdx = findDifferent(triangleToTetrahedra, currentTetrahedronIdx)
-
-  end function findTetrahedronFromFace
-
-  !! Function 'findTetrahedronFromVertex'
-  !!
-  !! Basic description:
-  !!   Returns the index of the tetrahedron occupied by the particle in case the particle lies on
-  !!   a tetrahedron vertex.
-  !!
-  !! Detailed description:
-  !!   Generalisation of 'findTetrahedronFromFace' applied to a vertex. In this case the tetrahedron
-  !!   assigned to the particle is that for which the number of negative dot products between the
-  !!   tetrahedron's triangles containing the vertex and the particle's direction is the greatest.
-  !!
-  !! Arguments:
-  !!   direction [in]               -> Particle's direction.
-  !!   zeroDotProductTriangles [in] -> Indices of the triangles on which the particle lies.
-  !!
-  !! Result:
-  !!   tetrahedronIdx -> Index of the tetrahedron occupied by the particle.
-  !!
-  pure function findTetrahedronFromVertex(self, u, zeroDotProductTriangles) result(tetrahedronIdx)
-    class(triUnstructuredMesh), intent(in)                   :: self
-    real(defReal), dimension(3), intent(in)                  :: u
-    integer(shortInt), dimension(:), allocatable, intent(in) :: zeroDotProductTriangles
-    integer(shortInt)                                        :: commonVertex, i, j, tetrahedronIdx, count, &
-                                                                maxCount, maxIdx
-    integer(shortInt), dimension(:), allocatable             :: absTrianglesIdxs, &
-                                                                absZeroDotProductTriangles, commonVertices, &
-                                                                potentialTetrahedra, trianglesIdxs
-    type(triangle)                                           :: currentTriangle
-    real(defReal), dimension(3)                              :: normal
-    
-    ! Initialise tetrahedronIdx = 0. Find the common vertex between the triangles and retrieve all 
-    ! tetrahedra sharing this vertex.
-    tetrahedronIdx = 0
-    absZeroDotProductTriangles = abs(zeroDotProductTriangles)
-    commonVertices = self % triangles % shelf(absZeroDotProductTriangles(1)) % getVertices()
-    do i = 2, size(absZeroDotProductTriangles)
-      commonVertices = findCommon(commonVertices, self % triangles % shelf(absZeroDotProductTriangles(i)) % getVertices())
-
-    end do
-    commonVertex = commonVertices(1)
-    potentialTetrahedra = self % vertices % shelf(commonVertex) % getVertexToTetrahedra()
-    
-    ! Initialise maxCount = 0 then loop through all potential tetrahedra.
-    maxCount = 0
-    do i = 1, size(potentialTetrahedra)
-      ! Retrieve the triangles in the current tetrahedron and create absolute indices.
-      trianglesIdxs = self % tetrahedra % shelf(potentialTetrahedra(i)) % getTriangles()
-      absTrianglesIdxs = abs(trianglesIdxs)
-      
-      ! Initialise count = 0 then loop through all triangles.
-      count = 0
-      do j = 1, 4
-        currentTriangle = self % triangles % shelf(absTrianglesIdxs(j))
-        ! Cycle if the current triangle does not contain the common vertex.
-        if (.not. any(currentTriangle % getVertices() == commonVertex)) cycle
-        
-        ! Retrieve the current triangle's normal vector and flip it if necessary.
-        normal = currentTriangle % getNormal(trianglesIdxs(j))
-        
-        ! If the dot product is negative increment the number of triangles for the current 
-        ! tetrahedron and cycle to the next triangle.
-        if (dot_product(u, normal) <= ZERO) then
-          count = count + 1
-          cycle
-  
-        end if
-        
-        ! If the test fails and the current triangle is a boundary triangle, the particle is
-        ! outside the mesh and we can return early.
-        if (currentTriangle % getIsBoundary()) return
-
-      end do
-
-      ! If count > maxCount, update maxCount and maxIdx.
-      if (count > maxCount) then
-        maxCount = count
-        maxIdx = i
-
-      end if
-
-    end do
-
-    ! If reached here, update tetrahedronIdx.
-    tetrahedronIdx = potentialTetrahedra(maxIdx)
-
-  end function findTetrahedronFromVertex
+  end function findElementFromDirection
 
   !! Subroutine 'kill'
   !!
@@ -583,6 +466,27 @@ contains
 
   end subroutine kill
 
+  !! Subroutine 'replaceEdgeShelf'
+  !!
+  !! Basic description:
+  !!   Replaces the current edgeShelf of the mesh with a new shelf containing more edges.
+  !!
+  !! Arguments:
+  !!   nAdditionalEdges [in] -> Number of additional edges to be included.
+  !!
+  elemental subroutine replaceEdgeShelf(self, nAdditionalEdges)
+    class(triUnstructuredMesh), intent(inout) :: self
+    integer(shortInt), intent(in)             :: nAdditionalEdges
+    type(edge), dimension(self % nEdges)      :: shelf
+
+    ! Allocate memory in the new shelf then copy elements from the original shelf.
+    shelf = self % edges % shelf
+    if (allocated(self % edges % shelf)) deallocate(self % edges % shelf)
+    allocate(self % edges % shelf(self % nEdges + nAdditionalEdges))
+    self % edges % shelf(1:self % nEdges) = shelf
+
+  end subroutine replaceEdgeShelf
+
   !! Subroutine 'replaceVertexShelf'
   !!
   !! Basic description:
@@ -590,14 +494,15 @@ contains
   !!   The new number of vertices is equal to the number of base mesh vertices plus the number
   !!   of mesh elements (since the elements are split from their centroids).
   !!
-  elemental subroutine replaceVertexShelf(self)
+  elemental subroutine replaceVertexShelf(self, nAdditionalVertices)
     class(triUnstructuredMesh), intent(inout) :: self
+    integer(shortInt), intent(in)             :: nAdditionalVertices
     type(vertex), dimension(self % nVertices) :: shelf
 
     ! Allocate memory in the new shelf then copy elements from the original shelf.
     shelf = self % vertices % shelf
-    if(allocated(self % vertices % shelf)) deallocate(self % vertices % shelf)
-    allocate(self % vertices % shelf(self % nVertices + self % nElements))
+    if (allocated(self % vertices % shelf)) deallocate(self % vertices % shelf)
+    allocate(self % vertices % shelf(self % nVertices + nAdditionalVertices))
     self % vertices % shelf(1:self % nVertices) = shelf
 
   end subroutine replaceVertexShelf
@@ -619,27 +524,34 @@ contains
   !! Arguments:
   !!   lastVertexIdx [out] -> Index of the last vertex in the resulting mesh.
   !!
-  elemental subroutine split(self, lastVertexIdx)
+  subroutine split(self)
     class(triUnstructuredMesh), intent(inout) :: self
-    integer(shortInt), intent(out)            :: lastVertexIdx
-    integer(shortInt)                         :: nTriangles, nPyramids, nTetrahedra, lastTriangleIdx, &
-                                                 lastTetrahedronIdx, lastPyramidIdx
+    integer(shortInt)                         :: nEdges, nTriangles, nPyramids, nTetrahedra, nVertices, &
+                                                 lastEdgeIdx, lastTriangleIdx, lastTetrahedronIdx, &
+                                                 lastPyramidIdx, lastVertexIdx
     
-    ! Compute the number of pyramids, triangles and tetrahedra to be created and
+    ! Compute the number of edges, pyramids, triangles and tetrahedra to be created and
     ! allocate memory to the corresponding structures.
-    call self % computePrimitives(nPyramids, nTriangles, nTetrahedra)
+    call self % computePrimitives(nEdges, nPyramids, nTriangles, nTetrahedra, nVertices)
     allocate(self % pyramids % shelf(nPyramids))
     allocate(self % triangles % shelf(nTriangles))
     allocate(self % tetrahedra % shelf(nTetrahedra))
+    call self % replaceEdgeShelf(nEdges)
+    call self % replaceVertexShelf(nVertices)
     
     ! Initialise lastVertexIdx, lastPyramidIdx, lastTetrahedronIdx and lastTriangleIdx then
     ! split all elements into pyramids and all pyramids into tetrahedra.
+    lastEdgeIdx = self % nEdges
     lastVertexIdx = self % nVertices
     lastPyramidIdx = 0
     lastTetrahedronIdx = 0
     lastTriangleIdx = 0
-    call self % splitElements(lastVertexIdx, lastPyramidIdx, lastTetrahedronIdx, lastTriangleIdx)
-    call self % splitPyramids(lastTetrahedronIdx, lastTriangleIdx)
+    call self % splitElements(lastEdgeIdx, lastPyramidIdx, lastTetrahedronIdx, lastTriangleIdx, lastVertexIdx)
+    call self % splitPyramids(lastEdgeIdx, lastTetrahedronIdx, lastTriangleIdx)
+
+    ! Update number of vertices and edges.
+    self % nEdges = lastEdgeIdx
+    self % nVertices = lastVertexIdx
 
   end subroutine split
 
@@ -650,15 +562,17 @@ contains
   !!   tetrahedron it is not split but simply appended to the list of existing tetrahedra.
   !!
   !! Arguments:
-  !!   lastVertexIdx [inout]      -> Index of the last vertex in the mesh.
+  !!   lastEdgeIdx [inout]        -> Index of the last edge in the mesh.
   !!   lastPyramidIdx [inout]     -> Index of the last pyramid in the mesh.
   !!   lastTetrahedronIdx [inout] -> Index of the last tetrahedron in the mesh.
   !!   lastTriangleIdx [inout]    -> Index of the last triangle in the mesh.
+  !!   lastVertexIdx [inout]      -> Index of the last vertex in the mesh.
   !!
-  elemental subroutine splitElements(self, lastVertexIdx, lastPyramidIdx, lastTetrahedronIdx, lastTriangleIdx)
+  subroutine splitElements(self, lastEdgeIdx, lastPyramidIdx, lastTetrahedronIdx, lastTriangleIdx, lastVertexIdx)
     class(triUnstructuredMesh), intent(inout)    :: self
-    integer(shortInt), intent(inout)             :: lastVertexIdx, lastPyramidIdx, lastTetrahedronIdx, lastTriangleIdx
-    integer(shortInt)                            :: i, j, initialTriangleIdx
+    integer(shortInt), intent(inout)             :: lastEdgeIdx, lastPyramidIdx, lastTetrahedronIdx, lastTriangleIdx, lastVertexIdx
+    integer(shortInt)                            :: i, j, k, edgeIdx, triangleIdx
+    integer(shortInt), dimension(3)              :: edgeIdxs
     integer(shortInt), dimension(:), allocatable :: faces, vertices, triangles
     real(defReal), dimension(3)                  :: centroid
                                         
@@ -677,11 +591,9 @@ contains
         call self % vertices % shelf(lastVertexIdx) % setIdx(lastVertexIdx)
         call self % vertices % shelf(lastVertexIdx) % setCoordinates(centroid)
         
-        ! Set initialTriangleIdx, split the current element into pyramids and cycle to the next element.
-        initialTriangleIdx = lastTriangleIdx + 1
-        call self % elements % shelf(i) % split(self % faces, self % vertices, self % triangles, &
-                                                self % pyramids, lastTriangleIdx, lastPyramidIdx, &
-                                                lastVertexIdx)
+        ! Split the current element into pyramids and cycle to the next element.
+        call self % elements % shelf(i) % split(self % faces, self % edges, self % vertices, self % triangles, self % pyramids, &
+                                                lastEdgeIdx, lastTriangleIdx, lastPyramidIdx, lastVertexIdx)
         cycle
 
       end if
@@ -703,18 +615,28 @@ contains
         ! new triangle corresponding to this face to the shelf.
         if (faces(j) > 0) then
           ! Generate a new triangle from the current face and update mesh connectivity information.
-          call self % faces % shelf(faces(j)) % split(self % triangles, self % vertices, lastTriangleIdx)
-          call self % triangles % shelf(lastTriangleIdx) % addTetrahedronIdx(lastTetrahedronIdx)
+          call self % faces % shelf(faces(j)) % split(self % edges, self % triangles, self % vertices, lastEdgeIdx, lastTriangleIdx)
+          triangleIdx = lastTriangleIdx
           call self % tetrahedra % shelf(lastTetrahedronIdx) % addTriangle(lastTriangleIdx)
-          cycle
+
+        else
+          ! If faces(j) < 0 then a new triangle has already been generated for the current face. 
+          ! Retrieve the triangle corresponding to the face and set mesh connectivity information.
+          triangles = self % faces % shelf(abs(faces(j))) % getTriangles()
+          triangleIdx = triangles(1)
+          call self % tetrahedra % shelf(lastTetrahedronIdx) % addTriangle(-triangleIdx)
 
         end if
 
-        ! If faces(j) < 0 then a new triangle has already been generated for the current face. 
-        ! Retrieve the triangle corresponding to the face and set mesh connectivity information.
-        triangles = self % faces % shelf(abs(faces(j))) % getTriangles()
-        call self % tetrahedra % shelf(lastTetrahedronIdx) % addTriangle(-triangles(1))
-        call self % triangles % shelf(triangles(1)) % addTetrahedronIdx(lastTetrahedronIdx)
+        ! Set mesh connectivity information.
+        call self % triangles % shelf(triangleIdx) % addTetrahedronIdx(lastTetrahedronIdx)
+        edgeIdxs = self % triangles % shelf(triangleIdx) % getEdgeIdxs()
+        do k = 1, 3
+          edgeIdx = edgeIdxs(k)
+          call self % edges % shelf(edgeIdx) % addTetrahedronIdx(lastTetrahedronIdx)
+          call self % tetrahedra % shelf(lastTetrahedronIdx) % addEdgeIdx(edgeIdx)
+
+        end do
 
       end do
       
@@ -732,11 +654,10 @@ contains
   !!   lastTetrahedronIdx [inout] -> Index of the last tetrahedron in the mesh.
   !!   lastTriangleIdx [inout]    -> Index of the last triangle in the mesh.
   !!
-  elemental subroutine splitPyramids(self, lastTetrahedronIdx, lastTriangleIdx)
+  subroutine splitPyramids(self, lastEdgeIdx, lastTetrahedronIdx, lastTriangleIdx)
     class(triUnstructuredMesh), intent(inout)    :: self
-    integer(shortInt), intent(inout)             :: lastTetrahedronIdx, lastTriangleIdx
-    integer(shortInt)                            :: i, j, faceIdx, initialTriangleIdx, &
-                                                    initialTetrahedronIdx
+    integer(shortInt), intent(inout)             :: lastEdgeIdx, lastTetrahedronIdx, lastTriangleIdx
+    integer(shortInt)                            :: i, j, faceIdx, initialTriangleIdx
     integer(shortInt), dimension(:), allocatable :: triangles
     
     ! Loop over all the pyramids.
@@ -748,7 +669,7 @@ contains
       if (faceIdx > 0) then
         ! Set initialTriangleIdx and split the face.
         initialTriangleIdx = lastTriangleIdx + 1
-        call self % faces % shelf(faceIdx) % split(self % triangles, self % vertices, lastTriangleIdx)
+        call self % faces % shelf(faceIdx) % split(self % edges, self % triangles, self % vertices, lastEdgeIdx, lastTriangleIdx)
 
         ! Add all new triangles to the current pyramid.
         do j = initialTriangleIdx, lastTriangleIdx
@@ -767,11 +688,10 @@ contains
 
       end if
 
-      ! Update initialTriangleIdx and initialTetrahedronIdx then split the pyramid into tetrahedra.
+      ! Update initialTriangleIdx then split the pyramid into tetrahedra.
       initialTriangleIdx = lastTriangleIdx + 1
-      initialTetrahedronIdx = lastTetrahedronIdx + 1
-      call self % pyramids % shelf(i) % split(self % faces % shelf(abs(faceIdx)), self % vertices, &
-                                              self % triangles, self % tetrahedra, &
+      call self % pyramids % shelf(i) % split(self % faces % shelf(abs(faceIdx)), self % edges, &
+                                              self % vertices, self % triangles, self % tetrahedra, &
                                               lastTriangleIdx, lastTetrahedronIdx)
 
     end do

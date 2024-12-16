@@ -116,19 +116,22 @@ contains
     @assertEqual(0, elementIdx)
     
     ! Few more difficult points.
-    ! A point on a face. Points into the mesh.
+    
+    ! A point on a face.
     r = [-1.0_defReal, 0.1_defReal, 0.1_defReal]
+    
+    ! Points into the mesh.
     u = [ONE, ZERO, ZERO]
     call mesh % findElementAndParentIdxs(r, u, elementIdx, parentIdx)
     @assertEqual(2, elementIdx)
     
-    ! Same point but points away from the mesh.
+    ! Points away from the mesh.
     u = [-ONE, ZERO, ZERO]
     call mesh % findElementAndParentIdxs(r, u, elementIdx, parentIdx)
     @assertEqual(0, elementIdx)
     
     ! A point on an internal edge. Different directions.
-    r = 0.0_defReal
+    r = ZERO
     u = [-ONE, -ONE, -ONE]
     u = u / norm2(u)
     call mesh % findElementAndParentIdxs(r, u, elementIdx, parentIdx)
@@ -234,8 +237,6 @@ contains
     coords % r = [0.98_defReal, 0.1_defReal, 0.1_defReal]
     coords % dir = [ONE, ZERO, ZERO]
     coords % rEnd = coords % r + coords % dir * maxDist
-    
-    ! Identify where the point is first.
     call mesh % findElementAndParentIdxs(coords % r, coords % dir, coords % elementIdx, parentIdx)
     call mesh % distanceToNextFace(distance, coords)
     @assertEqual(0.02_defReal, distance, 0.02_defReal * TOL)
@@ -251,48 +252,92 @@ contains
     coords % rEnd = coords % r + coords % dir * maxDist
     call mesh % findElementAndParentIdxs(coords % r, coords % dir, coords % elementIdx, parentIdx)
     call mesh % distanceToBoundary(distance, coords, parentIdx)
-    @assertTrue(coords % elementIdx > 0)
+    @assertEqual(1, coords % elementIdx)
     @assertEqual(0.13_defReal, distance, 0.13_defReal * TOL)
     
-    coords % r = [0.65_defReal, 0.0_defReal, 1.25_defReal]
+    coords % r = [0.65_defReal, 0.1_defReal, 1.25_defReal]
     coords % dir = [ZERO, ZERO, -ONE]
     coords % rEnd = coords % r + coords % dir * maxDist
     call mesh % findElementAndParentIdxs(coords % r, coords % dir, coords % elementIdx, parentIdx)
     call mesh % distanceToBoundary(distance, coords, parentIdx)
-    @assertTrue(coords % elementIdx > 0)
+    @assertEqual(3, coords % elementIdx)
     @assertEqual(0.25_defReal, distance, 0.25_defReal * TOL)
 
-    ! Few more difficult points still entering.
-    ! Entering through a boundary edge.
-    coords % r = [1.1_defReal, 0.1_defReal, 1.1_defReal]
-    coords % dir = [-ONE, ONE, -ONE]
+    ! Few more difficult points entering.
+    
+    ! Entering through boundary edges.
+    coords % r = [-0.6_defReal, 0.2_defReal, -1.25_defReal]
+    coords % dir = [6.0_defReal, -4.0_defReal, 5.0_defReal]
     coords % dir = coords % dir / norm2(coords % dir)
     coords % rEnd = coords % r + coords % dir * maxDist
     call mesh % findElementAndParentIdxs(coords % r, coords % dir, coords % elementIdx, parentIdx)
     call mesh % distanceToBoundary(distance, coords, parentIdx)
-    @assertTrue(coords % elementIdx > 0)
-    @assertEqual(0.1_defReal * sqrt(3.0_defReal), distance, 0.1_defReal * sqrt(3.0_defReal) * TOL)
+    @assertEqual(1, coords % elementIdx)
+    @assertEqual(sqrt(77.0_defReal) / 20.0_defReal, distance, sqrt(77.0_defReal) / 20.0_defReal * TOL)    
+
+    coords % r = [-0.6_defReal, -0.2_defReal, -1.25_defReal]
+    coords % dir = [6.0_defReal, 4.0_defReal, 5.0_defReal]
+    coords % dir = coords % dir / norm2(coords % dir)
+    coords % rEnd = coords % r + coords % dir * maxDist
+    call mesh % findElementAndParentIdxs(coords % r, coords % dir, coords % elementIdx, parentIdx)
+    call mesh % distanceToBoundary(distance, coords, parentIdx)
+    @assertEqual(2, coords % elementIdx)
+    @assertEqual(sqrt(77.0_defReal) / 20.0_defReal, distance, sqrt(77.0_defReal) / 20.0_defReal * TOL)
+
+    coords % r = [1.1_defReal, -0.1_defReal, 1.1_defReal]
+    coords % dir = [-5.0_defReal, 2.0_defReal, -2.0_defReal]
+    coords % dir = coords % dir / norm2(coords % dir)
+    coords % rEnd = coords % r + coords % dir * maxDist
+    call mesh % findElementAndParentIdxs(coords % r, coords % dir, coords % elementIdx, parentIdx)
+    call mesh % distanceToBoundary(distance, coords, parentIdx)
+    @assertEqual(3, coords % elementIdx)
+    @assertEqual(sqrt(33.0_defReal) / 20.0_defReal, distance, sqrt(33.0_defReal) / 20.0_defReal * TOL)
+
+    coords % r = [1.1_defReal, 0.1_defReal, 1.1_defReal]
+    coords % dir = [-5.0_defReal, -2.0_defReal, -2.0_defReal]
+    coords % dir = coords % dir / norm2(coords % dir)
+    coords % rEnd = coords % r + coords % dir * maxDist
+    call mesh % findElementAndParentIdxs(coords % r, coords % dir, coords % elementIdx, parentIdx)
+    call mesh % distanceToBoundary(distance, coords, parentIdx)
+    @assertEqual(4, coords % elementIdx)
+    @assertEqual(sqrt(33.0_defReal) / 20.0_defReal, distance, sqrt(33.0_defReal) / 20.0_defReal * TOL)
 
     ! Entering through boundary vertices.
-    coords % r = [1.1_defReal, 1.1_defReal, 1.1_defReal]
-    coords % dir = [-ONE, -ONE, -ONE]
+    coords % r = [0.2_defReal, 0.2_defReal, -1.2_defReal]
+    coords % dir = [-ONE, -ONE, ONE]
     coords % dir = coords % dir / norm2(coords % dir)
     coords % rEnd = coords % r + coords % dir * maxDist
     call mesh % findElementAndParentIdxs(coords % r, coords % dir, coords % elementIdx, parentIdx)
     call mesh % distanceToBoundary(distance, coords, parentIdx)
-    @assertTrue(coords % elementIdx > 0)
-    @assertEqual(0.1_defReal * sqrt(3.0_defReal), distance, 0.1_defReal * sqrt(3.0_defReal) * TOL)
+    @assertEqual(1, coords % elementIdx)
+    @assertEqual(sqrt(3.0_defReal) / 5.0_defReal, distance, sqrt(3.0_defReal) * TOL / 5.0_defReal)
 
-    coords % r = [(15.0_defReal + sqrt(3.0_defReal)) / 15.0_defReal, &
-                  (15.0_defReal - sqrt(3.0_defReal)) / 15.0_defReal, &
-                  (15.0_defReal + sqrt(3.0_defReal)) / 15.0_defReal]
-    coords % dir = [-ONE, ONE, -ONE]
+    coords % r = [0.35_defReal, -0.35_defReal, -1.35_defReal]
+    coords % dir = [-ONE, ONE, ONE]
     coords % dir = coords % dir / norm2(coords % dir)
     coords % rEnd = coords % r + coords % dir * maxDist
     call mesh % findElementAndParentIdxs(coords % r, coords % dir, coords % elementIdx, parentIdx)
     call mesh % distanceToBoundary(distance, coords, parentIdx)
-    @assertTrue(coords % elementIdx > 0)
-    @assertEqual(0.2_defReal, distance, 0.2_defReal * TOL)
+    @assertEqual(2, coords % elementIdx)
+    @assertEqual(7.0_defReal * sqrt(3.0_defReal) / 20.0_defReal, distance, 7.0_defReal * sqrt(3.0_defReal) * TOL / 20.0_defReal)
+
+    coords % r = [-0.1_defReal, -0.25_defReal, 1.13_defReal]
+    coords % dir = [10.0_defReal, 25.0_defReal, -13.0_defReal]
+    coords % dir = coords % dir / norm2(coords % dir)
+    coords % rEnd = coords % r + coords % dir * maxDist
+    call mesh % findElementAndParentIdxs(coords % r, coords % dir, coords % elementIdx, parentIdx)
+    call mesh % distanceToBoundary(distance, coords, parentIdx)
+    @assertEqual(3, coords % elementIdx)
+    @assertEqual(sqrt(894.0_defReal) / 100.0_defReal, distance, sqrt(894.0_defReal) * TOL / 100.0_defReal)
+
+    coords % r = [-0.33_defReal, 0.56_defReal, 1.27_defReal]
+    coords % dir = [33.0_defReal, -56.0_defReal, -27.0_defReal]
+    coords % dir = coords % dir / norm2(coords % dir)
+    coords % rEnd = coords % r + coords % dir * maxDist
+    call mesh % findElementAndParentIdxs(coords % r, coords % dir, coords % elementIdx, parentIdx)
+    call mesh % distanceToBoundary(distance, coords, parentIdx)
+    @assertEqual(4, coords % elementIdx)
+    @assertEqual(sqrt(4954.0_defReal) / 100.0_defReal, distance, sqrt(4954.0_defReal) * TOL / 100.0_defReal)
     
     ! Few points outside the mesh and not entering.
     coords % r = [-1.13_defReal, -0.8_defReal, 0.3_defReal]
@@ -300,27 +345,136 @@ contains
     coords % rEnd = coords % r + coords % dir * maxDist
     coords % elementIdx = 0
     call mesh % distanceToBoundary(distance, coords, parentIdx)
-    @assertEqual(coords % elementIdx, 0)
+    @assertEqual(0, coords % elementIdx)
     @assertEqual(INF, distance)
     
     coords % r = [0.65_defReal, 0.0_defReal, 1.25_defReal]
-    coords % dir = [ZERO, ZERO, ONE]
+    coords % dir = [ONE, -ONE, ONE]
+    coords % dir = coords % dir / norm2(coords % dir)
     coords % rEnd = coords % r + coords % dir * maxDist
     call mesh % distanceToBoundary(distance, coords, parentIdx)
-    @assertEqual(coords % elementIdx, 0)
+    @assertEqual(0, coords % elementIdx)
     @assertEqual(INF, distance)
 
     ! Few more difficult points still not entering.
-    ! Barely missing a boundary vertex.
-    coords % r = [(15.0_defReal + sqrt(3.0_defReal)) / 15.0_defReal, &
-                  (15.0_defReal - sqrt(3.0_defReal)) / 15.0_defReal, &
-                  (15.0_defReal + sqrt(3.0_defReal)) / 15.0_defReal]
-    coords % dir = [-ONE, ONE + epsilon(ONE), -ONE]
+    ! On a face.
+    coords % r = [ONE, 0.1_defReal, 0.3_defReal]
+    coords % dir = [ONE, ONE, ONE]
     coords % dir = coords % dir / norm2(coords % dir)
     coords % rEnd = coords % r + coords % dir * maxDist
     call mesh % findElementAndParentIdxs(coords % r, coords % dir, coords % elementIdx, parentIdx)
     call mesh % distanceToBoundary(distance, coords, parentIdx)
-    @assertEqual(coords % elementIdx, 0)
+    @assertEqual(0, coords % elementIdx)
+    @assertEqual(INF, distance)
+
+    ! Going through boundary edges but still pointing outside after intersecting. Use dirty values.
+    coords % r = [0.9_defReal, 0.43_defReal, 1.1_defReal]
+    coords % dir = [ONE, ZERO, -ONE]
+    coords % dir = coords % dir / norm2(coords % dir)
+    coords % rEnd = coords % r + coords % dir * maxDist
+    call mesh % findElementAndParentIdxs(coords % r, coords % dir, coords % elementIdx, parentIdx)
+    call mesh % distanceToBoundary(distance, coords, parentIdx)
+    @assertEqual(0, coords % elementIdx)
+    @assertEqual(INF, distance)
+
+    coords % r = [0.55_defReal, 0.67_defReal, 1.23_defReal]
+    coords % dir = [-22.0_defReal, 33.0_defReal, -23.0_defReal]
+    coords % dir = coords % dir / norm2(coords % dir)
+    coords % rEnd = coords % r + coords % dir * maxDist
+    call mesh % findElementAndParentIdxs(coords % r, coords % dir, coords % elementIdx, parentIdx)
+    call mesh % distanceToBoundary(distance, coords, parentIdx)
+    @assertEqual(0, coords % elementIdx)
+    @assertEqual(INF, distance)
+
+    coords % r = [-0.43_defReal, -0.78_defReal, -1.05_defReal]
+    coords % dir = [-57.0_defReal, 3.0_defReal, 5.0_defReal]
+    coords % dir = coords % dir / norm2(coords % dir)
+    coords % rEnd = coords % r + coords % dir * maxDist
+    call mesh % findElementAndParentIdxs(coords % r, coords % dir, coords % elementIdx, parentIdx)
+    call mesh % distanceToBoundary(distance, coords, parentIdx)
+    @assertEqual(0, coords % elementIdx)
+    @assertEqual(INF, distance)
+
+    coords % r = [-0.68_defReal, -0.98_defReal, -1.76_defReal]
+    coords % dir = [ZERO, -ONE, 38.0_defReal]
+    coords % dir = coords % dir / norm2(coords % dir)
+    coords % rEnd = coords % r + coords % dir * maxDist
+    call mesh % findElementAndParentIdxs(coords % r, coords % dir, coords % elementIdx, parentIdx)
+    call mesh % distanceToBoundary(distance, coords, parentIdx)
+    @assertEqual(0, coords % elementIdx)
+    @assertEqual(INF, distance)
+
+    ! Going through boundary vertices but still pointing outside after intersecting. Use dirty values.
+    coords % r = [1.42_defReal, 0.77_defReal, 0.87_defReal]
+    coords % dir = [-42.0_defReal, 23.0_defReal, 13.0_defReal]
+    coords % dir = coords % dir / norm2(coords % dir)
+    coords % rEnd = coords % r + coords % dir * maxDist
+    call mesh % findElementAndParentIdxs(coords % r, coords % dir, coords % elementIdx, parentIdx)
+    call mesh % distanceToBoundary(distance, coords, parentIdx)
+    @assertEqual(0, coords % elementIdx)
+    @assertEqual(INF, distance)
+
+    coords % r = [-0.54_defReal, 0.99_defReal, 1.02_defReal]
+    coords % dir = [-46.0_defReal, ONE, -2.0_defReal]
+    coords % dir = coords % dir / norm2(coords % dir)
+    coords % rEnd = coords % r + coords % dir * maxDist
+    call mesh % findElementAndParentIdxs(coords % r, coords % dir, coords % elementIdx, parentIdx)
+    call mesh % distanceToBoundary(distance, coords, parentIdx)
+    @assertEqual(0, coords % elementIdx)
+    @assertEqual(INF, distance)
+
+    coords % r = [0.98_defReal, -0.99_defReal, 2.05_defReal]
+    coords % dir = [2.0_defReal, -ONE, -105.0_defReal]
+    coords % dir = coords % dir / norm2(coords % dir)
+    coords % rEnd = coords % r + coords % dir * maxDist
+    call mesh % findElementAndParentIdxs(coords % r, coords % dir, coords % elementIdx, parentIdx)
+    call mesh % distanceToBoundary(distance, coords, parentIdx)
+    @assertEqual(0, coords % elementIdx)
+    @assertEqual(INF, distance)
+
+    coords % r = [-1.1_defReal, -0.9_defReal, 1.1_defReal]
+    coords % dir = [ONE, -ONE, -ONE]
+    coords % dir = coords % dir / norm2(coords % dir)
+    coords % rEnd = coords % r + coords % dir * maxDist
+    call mesh % findElementAndParentIdxs(coords % r, coords % dir, coords % elementIdx, parentIdx)
+    call mesh % distanceToBoundary(distance, coords, parentIdx)
+    @assertEqual(0, coords % elementIdx)
+    @assertEqual(INF, distance)
+
+    coords % r = [1.31_defReal, 0.54_defReal, -1.45_defReal]
+    coords % dir = [-31.0_defReal, 46.0_defReal, 45.0_defReal]
+    coords % dir = coords % dir / norm2(coords % dir)
+    coords % rEnd = coords % r + coords % dir * maxDist
+    call mesh % findElementAndParentIdxs(coords % r, coords % dir, coords % elementIdx, parentIdx)
+    call mesh % distanceToBoundary(distance, coords, parentIdx)
+    @assertEqual(0, coords % elementIdx)
+    @assertEqual(INF, distance)
+
+    coords % r = [-0.21_defReal, 0.18_defReal, -1.01_defReal]
+    coords % dir = [-79.0_defReal, 82.0_defReal, ONE]
+    coords % dir = coords % dir / norm2(coords % dir)
+    coords % rEnd = coords % r + coords % dir * maxDist
+    call mesh % findElementAndParentIdxs(coords % r, coords % dir, coords % elementIdx, parentIdx)
+    call mesh % distanceToBoundary(distance, coords, parentIdx)
+    @assertEqual(0, coords % elementIdx)
+    @assertEqual(INF, distance)
+
+    coords % r = [1.98_defReal, -0.98_defReal, -1.66_defReal]
+    coords % dir = [-49.0_defReal, -ONE, 33.0_defReal]
+    coords % dir = coords % dir / norm2(coords % dir)
+    coords % rEnd = coords % r + coords % dir * maxDist
+    call mesh % findElementAndParentIdxs(coords % r, coords % dir, coords % elementIdx, parentIdx)
+    call mesh % distanceToBoundary(distance, coords, parentIdx)
+    @assertEqual(0, coords % elementIdx)
+    @assertEqual(INF, distance)
+
+    coords % r = [-0.99_defReal, -0.99_defReal, -2.67_defReal]
+    coords % dir = [-ONE, -ONE, 167.0_defReal]
+    coords % dir = coords % dir / norm2(coords % dir)
+    coords % rEnd = coords % r + coords % dir * maxDist
+    call mesh % findElementAndParentIdxs(coords % r, coords % dir, coords % elementIdx, parentIdx)
+    call mesh % distanceToBoundary(distance, coords, parentIdx)
+    @assertEqual(0, coords % elementIdx)
     @assertEqual(INF, distance)
   
   end subroutine test_distance

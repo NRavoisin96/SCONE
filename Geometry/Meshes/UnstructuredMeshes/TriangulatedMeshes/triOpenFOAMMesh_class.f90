@@ -35,7 +35,7 @@ contains
   !!
   !! See unstructuredMesh_inter for details.
   !!
-  pure subroutine distanceToBoundaryFace(self, d, coords, parentIdx)
+  elemental subroutine distanceToBoundaryFace(self, d, coords, parentIdx)
     class(triOpenFOAMMesh), intent(in) :: self
     real(defReal), intent(out)         :: d
     type(coord), intent(inout)         :: coords
@@ -52,7 +52,7 @@ contains
   !!
   !! See unstructuredMesh_inter for details.
   !!
-  pure subroutine distanceToNextFace(self, d, coords)
+  elemental subroutine distanceToNextFace(self, d, coords)
     class(triOpenFOAMMesh), intent(in) :: self
     real(defReal), intent(out)         :: d
     type(coord), intent(inout)         :: coords
@@ -91,17 +91,14 @@ contains
     class(triOpenFOAMMesh), intent(inout) :: self
     character(*), intent(in)              :: folderPath
     class(dictionary), intent(in)         :: dict
-    integer(shortInt)                     :: lastVertexIdx
     
     ! Import OpenFOAM mesh.
     call importMesh(self, folderPath, dict)
 
-    ! Split non-tetrahedral mesh elements into tetrahedra
-    call self % replaceVertexShelf()
-    call self % split(lastVertexIdx)
+    ! Split non-tetrahedral mesh elements into tetrahedra.
+    call self % split()
     
-    ! Collapse the 'vertices' structure to save memory and initialise kd-tree for the mesh.
-    call self % vertices % collapse(lastVertexIdx)
+    ! Collapse the vertexShelf to save memory and initialise kd-tree for the mesh.
     call self % tree % init(self % vertices % getAllCoordinates(), .true.)
 
   end subroutine init

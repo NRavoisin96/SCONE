@@ -2,6 +2,7 @@ module pyramid_class
   
   use numPrecision
   use genericProcedures,      only : append, findCommon, linFind, swap
+  use edgeShelf_class,        only : edgeShelf
   use face_class,             only : face
   use triangle_class,         only : triangle
   use triangleShelf_class,    only : triangleShelf
@@ -276,19 +277,19 @@ contains
   !!   freeTriangleIdx [inout]    -> Index of the first free item in triangleShelf.
   !!   freeTetrahedronIdx [inout] -> Index of the first free item in tetrahedronShelf.
   !!
-  elemental subroutine split(self, base, vertices, triangles, tetrahedra, freeTriangleIdx, &
-                        freeTetrahedronIdx)
+  subroutine split(self, base, edges, vertices, triangles, tetrahedra, freeTriangleIdx, freeTetrahedronIdx)
     class(pyramid), intent(in)                   :: self
     type(face), intent(in)                       :: base
+    type(edgeShelf), intent(inout)               :: edges
     type(vertexShelf), intent(inout)             :: vertices
     type(triangleShelf), intent(inout)           :: triangles
     type(tetrahedronShelf), intent(inout)        :: tetrahedra
     integer(shortInt), intent(inout)             :: freeTriangleIdx, freeTetrahedronIdx
     integer(shortInt), dimension(3)              :: newTriangleVertexIdxs, baseTriangleVertexIdxs, triangleIdxs
     integer(shortInt), dimension(4)              :: tetrahedronVertexIdxs
-    integer(shortInt), dimension(:), allocatable :: faceVertexIdxs, faceTriangleIdxs
-    integer(shortInt)                            :: apexIdx, faceIdx, i, j, minVertexIdx, &
-                                                    nTrianglesFound, minVertexLoc, nVertices, absTriangleIdx
+    integer(shortInt), dimension(:), allocatable :: faceVertexIdxs, faceTriangleIdxs, edgeIdxs
+    integer(shortInt)                            :: apexIdx, faceIdx, i, j, k, minVertexIdx, nTrianglesFound, &
+                                                    minVertexLoc, nVertices, absTriangleIdx, edgeIdx
     real(defReal), dimension(3)                  :: minVertexCoords, apexCoords, firstVertexCoords, secondVertexCoords, &
                                                     thirdVertexCoords, testCoords, tempCoords
     
@@ -354,14 +355,20 @@ contains
         ! its neighbour.
         if (triangles % shelf(absTriangleIdx) % hasTetrahedra()) then
           call tetrahedra % shelf(freeTetrahedronIdx) % addTriangle(-absTriangleIdx)
-          call triangles % shelf(absTriangleIdx) % addTetrahedronIdx(freeTetrahedronIdx)
-          cycle 
+
+        else
+          call tetrahedra % shelf(freeTetrahedronIdx) % addTriangle(absTriangleIdx)
 
         end if
 
-        ! If reached here, the current tetrahedron is the current triangle's owner.
-        call tetrahedra % shelf(freeTetrahedronIdx) % addTriangle(absTriangleIdx)
         call triangles % shelf(absTriangleIdx) % addTetrahedronIdx(freeTetrahedronIdx)
+        edgeIdxs = triangles % shelf(absTriangleIdx) % getEdgeIdxs()
+        do k = 1, 3
+          edgeIdx = edgeIdxs(k)
+          call tetrahedra % shelf(freeTetrahedronIdx) % addEdgeIdx(edgeIdx)
+          call edges % shelf(edgeIdx) % addTetrahedronIdx(freeTetrahedronIdx)
+
+        end do
 
         if (nTrianglesFound == 3) exit
 
@@ -401,6 +408,8 @@ contains
       
       ! Set the new triangle's vertices and edge vectors and mesh connectivity.
       call triangles % shelf(freeTriangleIdx) % setVertices(newTriangleVertexIdxs)
+      call triangles % shelf(freeTriangleIdx) % setAB(secondVertexCoords - firstVertexCoords)
+      call triangles % shelf(freeTriangleIdx) % setAC(apexCoords - firstVertexCoords)
       
       ! Update mesh connectivity information. Current tetrahedron is the new triangle's owner,
       ! next tetrahedron is its neighbour.
@@ -411,6 +420,13 @@ contains
 
       do j = 1, 3
         call vertices % shelf(newTriangleVertexIdxs(j)) % addTriangleIdx(freeTriangleIdx)
+        edgeIdx = vertices % findCommonEdgeIdx(newTriangleVertexIdxs(j), newTriangleVertexIdxs(mod(j, 3) + 1))
+        call triangles % shelf(freeTriangleIdx) % addEdgeIdx(edgeIdx)
+        call tetrahedra % shelf(freeTetrahedronIdx) % addEdgeIdx(edgeIdx)
+        call tetrahedra % shelf(freeTetrahedronIdx + 1) % addEdgeIdx(edgeIdx)
+        call edges % shelf(edgeIdx) % addTriangleIdx(freeTriangleIdx)
+        call edges % shelf(edgeIdx) % addTetrahedronIdx(freeTetrahedronIdx)
+        call edges % shelf(edgeIdx) % addTetrahedronIdx(freeTetrahedronIdx + 1)
 
       end do
       

@@ -139,20 +139,24 @@ contains
   !!   Returns the index of the closest face intersected by a line segment.
   !!
   !! Arguments:
-  !!   d [inout]      -> Distance from the line segment's origin to the point of intersection.
-  !!   coords [inout] -> Particle's coordinates.
-  !!   vertices [in]  -> A vertexShelf.
-  !!   faces [in]     -> A triangleShelf.
+  !!   vertices [in]     -> A vertexShelf.
+  !!   faces [in]        -> A faceShelf.
+  !!   d [inout]         -> Distance from the line segment's origin to the point of intersection.
+  !!   coords [inout]    -> Particle's coordinates.
+  !!   edgeIdx [inout]   -> Index of the edge intersected by the particle.
+  !!   vertexIdx [inout] -> Index of the vertex intersected by the particle.
   !!
-  pure subroutine findIntersectedFace(self, d, coords, vertices, faces)
-    class(kdTree), intent(in)     :: self
-    real(defReal), intent(inout)  :: d
-    type(coord), intent(inout)    :: coords
-    type(vertexShelf), intent(in) :: vertices
-    type(faceShelf), intent(in)   :: faces
+  elemental subroutine findIntersectedFace(self, vertices, faces, d, coords, edgeIdx, vertexIdx)
+    class(kdTree), intent(in)        :: self
+    type(vertexShelf), intent(in)    :: vertices
+    type(faceShelf), intent(in)      :: faces
+    real(defReal), intent(inout)     :: d
+    type(coord), intent(inout)       :: coords
+    integer(shortInt), intent(inout) :: edgeIdx, vertexIdx
     
     ! Start searching the root node for potential face intersections.
-    call self % root % findIntersectedFace(d, coords % r, coords, vertices, faces, self % verticesIdxs)
+    call self % root % findIntersectedFace(vertices, faces, coords % r, self % verticesIdxs, d, &
+                                           coords, edgeIdx, vertexIdx)
 
   end subroutine findIntersectedFace
   
@@ -162,21 +166,24 @@ contains
   !!   Returns the index of the closest triangle intersected by a line segment.
   !!
   !! Arguments:
-  !!   d [inout]      -> Distance from the line segment's origin to the point of intersection.
-  !!   coords [inout] -> Particle's coordinates.
   !!   vertices [in]  -> A vertexShelf.
   !!   triangles [in] -> A triangleShelf.
+  !!   d [inout]      -> Distance from the line segment's origin to the point of intersection.
+  !!   coords [inout] -> Particle's coordinates.
+  !!   edgeIdx [inout]   -> Index of the edge intersected by the particle.
+  !!   vertexIdx [inout] -> Index of the vertex intersected by the particle.
   !!
-  pure subroutine findIntersectedTriangle(self, d, coords, vertices, triangles)
-    class(kdTree), intent(in)               :: self
-    real(defReal), intent(inout)            :: d
-    type(coord), intent(inout)              :: coords
-    type(vertexShelf), intent(in)           :: vertices
-    type(triangleShelf), intent(in)         :: triangles
+  elemental subroutine findIntersectedTriangle(self, vertices, triangles, d, coords, edgeIdx, vertexIdx)
+    class(kdTree), intent(in)        :: self
+    type(vertexShelf), intent(in)    :: vertices
+    type(triangleShelf), intent(in)  :: triangles
+    real(defReal), intent(inout)     :: d
+    type(coord), intent(inout)       :: coords
+    integer(shortInt), intent(inout) :: edgeIdx, vertexIdx
     
     ! Start searching the root node for potential triangle intersections.
-    call self % root % findIntersectedTriangle(d, coords % r, coords, vertices, triangles, &
-                                               self % verticesIdxs)
+    call self % root % findIntersectedTriangle(vertices, triangles, coords % r, self % verticesIdxs, d, &
+                                               coords, edgeIdx, vertexIdx)
 
   end subroutine findIntersectedTriangle
 

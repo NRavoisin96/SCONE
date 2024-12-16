@@ -163,14 +163,24 @@ contains
   !! Error:
   !!   None.
   !!
-  pure subroutine append_shortInt(array, value)
+  pure subroutine append_shortInt(array, value, excludeIfPresent)
     integer(shortInt), dimension(:), allocatable, intent(inout) :: array
     integer(shortInt), intent(in)                               :: value
+    logical(defBool), intent(in), optional                      :: excludeIfPresent
     
     if (.not. allocated(array)) then
       allocate(array(1))
       array = value
       return
+
+    end if
+
+    if (present(excludeIfPresent)) then
+      if (excludeIfPresent) then
+        if (linFind(array, value) == targetNotFound) array = [array, value]
+        return
+
+      end if
 
     end if
     
@@ -189,14 +199,28 @@ contains
   !! Error:
   !!   None.
   !!
-  pure subroutine append_shortIntArray(array, values)
+  pure subroutine append_shortIntArray(array, values, excludeIfPresent)
     integer(shortInt), dimension(:), allocatable, intent(inout) :: array
     integer(shortInt), dimension(:), intent(in)                 :: values
+    logical(defBool), intent(in), optional                      :: excludeIfPresent
+    integer(shortInt)                                           :: i
     
     if (.not. allocated(array)) then
       allocate(array(size(values)))
       array = values
       return
+
+    end if
+
+    if (present(excludeIfPresent)) then
+      if (excludeIfPresent) then
+        do i = 1, size(values)
+          if (linFind(array, values(i)) == targetNotFound) array = [array, values(i)]
+
+        end do
+        return
+
+      end if
 
     end if
     
@@ -215,14 +239,24 @@ contains
   !! Error:
   !!   None.
   !!
-  pure subroutine append_defReal(array, value)
-    integer(defReal), dimension(:), allocatable, intent(inout) :: array
-    integer(defReal), intent(in)                               :: value
+  pure subroutine append_defReal(array, value, excludeIfPresent)
+    real(defReal), dimension(:), allocatable, intent(inout) :: array
+    real(defReal), intent(in)                               :: value
+    logical(defBool), intent(in), optional                  :: excludeIfPresent
     
     if (.not. allocated(array)) then
       allocate(array(1))
       array = value
       return
+
+    end if
+
+    if (present(excludeIfPresent)) then
+      if (excludeIfPresent) then
+        if (linFind(array, value) == targetNotFound) array = [array, value]
+        return
+
+      end if
 
     end if
     

@@ -46,7 +46,7 @@ module tallyMap1DFactory_func
   ! It is printed if type was unrecognised
   ! NOTE:
   ! For now  it is necessary to adjust trailing blanks so all enteries have the same length
-  character(nameLen),dimension(*),parameter, public :: AVALIBLE_tallyMaps1D = [ 'energyMap   ',&
+  character(nameLen),dimension(*),parameter, public :: AVAILABLE_tallyMaps1D = ['energyMap   ',&
                                                                                 'spaceMap    ',&
                                                                                 'materialMap ',&
                                                                                 'homogMatMap ',&
@@ -116,7 +116,7 @@ contains
         allocate(testMap :: new)
 
       case default
-        print *, AVALIBLE_tallyMaps1D
+        print *, AVAILABLE_tallyMaps1D
         call fatalError(Here,'Unrecognised type of tallyMap1D : ' // trim(type))
 
     end select

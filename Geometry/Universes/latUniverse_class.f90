@@ -201,7 +201,7 @@ contains
     real(defReal), dimension(3), intent(in) :: r, u
     integer(shortInt), intent(out)          :: localId, cellIdx, elementIdx
     integer(shortInt), dimension(3)         :: ijk
-    integer(shortInt)                       :: i, inc
+    integer(shortInt)                       :: i
     real(defReal), dimension(3)             :: corner, pitch, r_bar
     real(defReal)                           :: r_barComponent, uComponent
 

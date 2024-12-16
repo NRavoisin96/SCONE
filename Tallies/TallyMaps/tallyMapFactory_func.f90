@@ -15,7 +15,7 @@ module tallyMapFactory_func
 
   ! TallyMap interface and sub-interface Factories
   use tallyMap_inter,         only : tallyMap
-  use tallyMap1DFactory_func, only : new_tallyMap1D => new_tallyMap, AVALIBLE_tallyMaps1D
+  use tallyMap1DFactory_func, only : new_tallyMap1D => new_tallyMap, AVAILABLE_tallyMaps1D
 
 
   ! TallyMap implementations
@@ -31,7 +31,7 @@ module tallyMapFactory_func
   ! It is printed if type was unrecognised
   ! NOTE:
   ! For now  it is necessary to adjust trailing blanks so all enteries have the same length
-  character(nameLen),dimension(*),parameter :: AVALIBLE_tallyMaps = [ 'multiMap      ', &
+  character(nameLen),dimension(*),parameter :: AVAILABLE_tallyMaps = ['multiMap      ', &
                                                                       'cylindricalMap']
 
 
@@ -62,7 +62,7 @@ contains
     call dict % get(type,'type')
 
     ! Check if the requested type is tallyMap1D
-    if (linFind(AVALIBLE_tallyMaps1D, type) /= targetNotFound) then
+    if (linFind(AVAILABLE_tallyMaps1D, type) /= targetNotFound) then
       call new_tallyMap1D(new, dict)
 
     else ! Check aginst multidimensional tallyMaps
@@ -74,7 +74,7 @@ contains
           allocate( cylindricalMap :: new)
 
         case default
-          print *, AVALIBLE_tallyMaps1D, AVALIBLE_tallyMaps
+          print *, AVAILABLE_tallyMaps1D, AVAILABLE_tallyMaps
           call fatalError(Here,' Unrecognised tallyMap : '// trim(type))
 
       end select

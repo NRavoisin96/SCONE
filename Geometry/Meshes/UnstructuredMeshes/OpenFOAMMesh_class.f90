@@ -35,7 +35,7 @@ contains
   !!
   !! See unstructuredMesh_inter for details.
   !!
-  pure subroutine distanceToBoundaryFace(self, d, coords, parentIdx)
+  elemental subroutine distanceToBoundaryFace(self, d, coords, parentIdx)
     class(OpenFOAMMesh), intent(in) :: self
     real(defReal), intent(out)      :: d
     type(coord), intent(inout)      :: coords
@@ -52,7 +52,7 @@ contains
   !!
   !! See unstructuredMesh_inter for details.
   !!
-  pure subroutine distanceToNextFace(self, d, coords)
+  elemental subroutine distanceToNextFace(self, d, coords)
     class(OpenFOAMMesh), intent(in) :: self
     real(defReal), intent(out)      :: d
     type(coord), intent(inout)      :: coords

@@ -1,69 +1,69 @@
 module edgeShelf_class
   
   use numPrecision
-  use genericProcedures, only : findCommon, hasDuplicates
+  use genericProcedures, only : fatalError, numToChar
   use edge_class,        only : edge
-  use faceShelf_class,   only : faceShelf
   
   implicit none
   private
   
-  type, public :: edgeShelf
+  type, public                                    :: edgeShelf
     private
-    type(edge), dimension(:), allocatable :: shelf
+    type(edge), dimension(:), allocatable, public :: shelf
   contains
-    procedure                             :: getIdxsAndVertices
+    procedure                                     :: collapse
+    procedure                                     :: kill
   end type edgeShelf
 
 contains
+
+  !! Subroutine 'collapse'
+  !!
+  !! Basic description:
+  !!   Reduces the size of the shelf to lastIdx.
+  !!
+  !! Arguments:
+  !!   lastIdx [in] -> Index of the last edge in the shelf to be collapsed.
+  !!
+  !! Errors:
+  !!   - fatalError if lastIdx < 1.
+  !!   - fatalError if lastIdx > size(self % shelf).
+  !!
+  subroutine collapse(self, lastIdx)
+    class(edgeShelf), intent(inout) :: self
+    integer(shortInt), intent(in)   :: lastIdx
+    type(edgeShelf)                 :: tempShelf
+    character(*), parameter         :: Here = 'collapse (edgeShelf_class.f90)'
+    
+    ! Catch invalid idx.
+    if (lastIdx < 1) call fatalError(Here, 'edgeShelf size must be +ve. Is: '//numToChar(lastIdx)//'.')
+    if (lastIdx > size(self % shelf)) call fatalError(Here, 'New shelf size must be smaller than original size.')
+    
+    ! Create a temporary shelf and copy all the elements up to lastVertexIdx from the 
+    ! original shelf into the temporary one.
+    allocate(tempShelf % shelf(lastIdx))
+    tempShelf % shelf = self % shelf(1:lastIdx)
+    
+    ! kill the original shelf and reallocate memory.
+    call self % kill()
+    allocate(self % shelf(lastIdx))
+    
+    ! Copy back and kill the temporary shelf.
+    self % shelf = tempShelf % shelf
+    call tempShelf % kill()
+
+  end subroutine collapse
+
+  !! Subroutine 'kill'
+  !!
+  !! Basic description:
+  !!   Returns to an unitialised state.
+  !!
+  elemental subroutine kill(self)
+    class(edgeShelf), intent(inout) :: self
+
+    if (allocated(self % shelf)) deallocate(self % shelf)
+
+  end subroutine kill
   
-  !!
-  !!
-  !!
-  elemental subroutine getIdxsAndVertices(self, faces)
-    class(edgeShelf), intent(inout)              :: self
-    type(faceShelf), intent(in)                  :: faces
-    integer(shortInt)                            :: nFaces, i, j, idx
-    integer(shortInt), dimension(:), allocatable :: verticesFace1, verticesFace2, commonVertices
-    type(edge)                                   :: edgeToAdd
-    real(defReal), dimension(3)                  :: normalFace1, normalFace2
-    
-    idx = 1
-    
-    nFaces = size(faces % shelf)
-    
-    do i = 1, nFaces - 1
-      verticesFace1 = faces % shelf(i) % getVertices()
-      do j = i + 1, nFaces
-        verticesFace2 = faces % shelf(j) % getVertices()
-        if (hasDuplicates([verticesFace1, verticesFace2])) then
-          commonVertices = findCommon(verticesFace1, verticesFace2)
-        
-          if (size(commonVertices) == 2) then
-!            edgeToAdd % idx = idx
-!            edgeToAdd % startVertex = minval(commonVertices)
-!            edgeToAdd % endVertex = maxval(commonVertices)
-        
-            if (allocated(self % shelf)) then
-          
-              self % shelf = [self % shelf, edgeToAdd]
-          
-            else
-          
-              allocate(self % shelf(1))
-              self % shelf(1) = edgeToAdd
-          
-            end if
-          
-            idx = idx + 1
-        
-          end if
-      
-        end if
-      
-      end do
-    
-    end do
-  
-  end subroutine getIdxsAndVertices
 end module edgeShelf_class

@@ -3,6 +3,7 @@ module triangle_class
   use numPrecision
   use genericProcedures,  only : append, areEqual, crossProduct
   use universalVariables, only : ONE, ZERO, THIRD, INF
+  use vertexShelf_class,  only : vertexShelf
   
   implicit none
   private
@@ -24,12 +25,13 @@ module triangle_class
   type, public :: triangle
     private
     integer(shortInt)                            :: idx = 0, faceIdx = 0
-    integer(shortInt), dimension(3)              :: vertexIdxs = 0
+    integer(shortInt), dimension(3)              :: vertexIdxs = 0, edgeIdxs = 0
     integer(shortInt), dimension(:), allocatable :: tetrahedronIdxs
     logical(defBool)                             :: isBoundary = .false.
     real(defReal)                                :: area = ZERO
     real(defReal), dimension(3)                  :: AB = ZERO, AC = ZERO, normal = ZERO, centre = ZERO
   contains
+    procedure                                    :: addEdgeIdx
     procedure                                    :: addTetrahedronIdx
     procedure                                    :: computeCentre
     procedure                                    :: computeIntersection
@@ -41,11 +43,14 @@ module triangle_class
     procedure                                    :: normaliseNormal
     procedure                                    :: getCentre
     procedure                                    :: getArea
+    procedure                                    :: getEdgeIdxs
     procedure                                    :: getIdx
     procedure                                    :: getNormal
     procedure                                    :: getTetrahedra
     procedure                                    :: getVertices
     procedure                                    :: kill
+    procedure                                    :: setAB
+    procedure                                    :: setAC
     procedure                                    :: setArea
     procedure                                    :: setIsBoundary
     procedure                                    :: setCentre
@@ -56,6 +61,22 @@ module triangle_class
   end type triangle
 
 contains
+
+  !! Subroutine 'addTetrahedronIdx'
+  !!
+  !! Basic description:
+  !!   Adds the index of an edge in the triangle.
+  !!
+  !! Arguments:
+  !!   idx [in] -> Index of the edge.
+  !!
+  elemental subroutine addEdgeIdx(self, idx)
+    class(triangle), intent(inout) :: self
+    integer(shortInt), intent(in)  :: idx
+
+    self % edgeIdxs(findloc(self % edgeIdxs, 0)) = idx
+
+  end subroutine addEdgeIdx
   
   !! Subroutine 'addTetrahedronIdx'
   !!
@@ -70,6 +91,7 @@ contains
     integer(shortInt), intent(in)  :: tetrahedronIdx
     
     call append(self % tetrahedronIdxs, tetrahedronIdx)
+
   end subroutine addTetrahedronIdx
   
   !! Subroutine 'computeCentre'
@@ -101,22 +123,24 @@ contains
   !! Arguments:
   !!   startPos [in]          -> 3-D coordinates of the line segment's origin.
   !!   endPos [in]            -> 3-D coordinates of the line segment's end.
+  !!   u [in]                 -> Particle's direction.
   !!   firstVertexCoords [in] -> 3-D coordinates of the triangle's first vertex.
-  !!   isIntersecting [out]   -> .true. if the line segment intersects the triangle.
   !!   dist [out]             -> Distance from the line segment's origin to the point of intersection.
   !!
-  pure subroutine computeIntersection(self, startPos, endPos, firstVertexCoords, isIntersecting, d)
+  pure subroutine computeIntersection(self, vertices, startPos, endPos, u, firstVertexCoords, d, edgeIdx, vertexIdx)
     class(triangle), intent(in)             :: self
-    real(defReal), dimension(3), intent(in) :: startPos, endPos, firstVertexCoords 
-    logical(defBool), intent(out)           :: isIntersecting
+    type(vertexShelf), intent(in)           :: vertices
+    real(defReal), dimension(3), intent(in) :: startPos, endPos, u, firstVertexCoords 
     real(defReal), intent(out)              :: d
+    integer(shortInt), intent(out)          :: edgeIdx, vertexIdx
     real(defReal), dimension(3)             :: normal, diff, intersectionCoords, inPlaneVector, AB, AC
     real(defReal)                           :: denominator, inverseDenominator, s, t, AB_dot_AC, AB_dot_AB, &
                                                AC_dot_AC, inPlane_dot_AB, inPlane_dot_AC
     
-    ! Initialise isIntersecting = .false. and d = INF.
-    isIntersecting = .false.
+    ! Initialise d = INF, edgeIdx = 0 and vertexIdx = 0.
     d = INF
+    edgeIdx = 0
+    vertexIdx = 0
     
     ! Retrieve the triangle's normal vector and compute s to check if the line segment intersects
     ! the triangle's plane. Return early if not (s < ZERO or s > ONE).
@@ -124,7 +148,10 @@ contains
     diff = endPos - startPos
     denominator = dot_product(normal, diff)
     if (areEqual(denominator, ZERO)) return
+    
     s = dot_product(normal, firstVertexCoords - startPos) / denominator
+    if (areEqual(s, ZERO) .and. dot_product(normal, u) >= ZERO) return
+    
     if (s < ZERO .or. s > ONE) return
       
     ! Compute the coordinates of the intersection point and create a vector in the plane of the 
@@ -132,6 +159,13 @@ contains
     diff = s * diff
     intersectionCoords = startPos + diff
     inPlaneVector = intersectionCoords - firstVertexCoords
+
+    if (areEqual(inPlaneVector, ZERO)) then
+      vertexIdx = self % vertexIdxs(1)
+      d = norm2(diff)
+      return
+
+    end if
     
     ! Retrieve triangle's edge vectors and pre-compute dot products between the different vectors.
     AB = self % AB
@@ -151,11 +185,26 @@ contains
     ! If the intersection point's projection along one of the edges sharing the first vertex is
     ! outside said edge we can return early.
     if (s < ZERO .or. t < ZERO .or. s + t > ONE) return
-    
-    ! If reached here, update isIntersecting = .true. and compute distance from segment origin to
-    ! intersection point.
-    isIntersecting = .true.
+
+    ! If reached here, the intersection point is inside the triangle. Update d.
     d = norm2(diff)
+
+    if (areEqual(s, ONE)) then
+      vertexIdx = self % vertexIdxs(2)
+
+    elseif (areEqual(t, ONE)) then
+      vertexIdx = self % vertexIdxs(3)
+
+    elseif(areEqual(s, ZERO)) then
+      edgeIdx = vertices % findCommonEdgeIdx(self % vertexIdxs(1), self % vertexIdxs(3))
+
+    elseif(areEqual(t, ZERO)) then
+      edgeIdx = vertices % findCommonEdgeIdx(self % vertexIdxs(1), self % vertexIdxs(2))
+
+    elseif(areEqual(s + t, ONE)) then
+      edgeIdx = vertices % findCommonEdgeIdx(self % vertexIdxs(2), self % vertexIdxs(3))
+
+    end if
 
   end subroutine computeIntersection
   
@@ -297,6 +346,22 @@ contains
     if (idx < 0) normal = -normal
     
   end function getNormal
+
+  !! Function 'getIdx'
+  !!
+  !! Basic description:
+  !!   Returns the index of the triangle.
+  !!
+  !! Result:
+  !!   idx -> Index of the triangle.
+  !!
+  pure function getEdgeIdxs(self) result(edgeIdxs)
+    class(triangle), intent(in)                         :: self
+    integer(shortInt), dimension(size(self % edgeIdxs)) :: edgeIdxs
+    
+    edgeIdxs = self % edgeIdxs
+    
+  end function getEdgeIdxs
   
   !! Function 'getIdx'
   !!
@@ -311,6 +376,7 @@ contains
     integer(shortInt)           :: idx
     
     idx = self % idx
+
   end function getIdx
   
   !! Function 'getTetrahedra'
@@ -354,6 +420,7 @@ contains
     self % idx = 0
     self % faceIdx = 0
     self % vertexIdxs = 0
+    self % edgeIdxs = 0
     self % isBoundary = .false.
     self % area = ZERO
     self % AB = ZERO
@@ -361,7 +428,42 @@ contains
     self % normal = ZERO
     self % centre = ZERO
     if (allocated(self % tetrahedronIdxs)) deallocate(self % tetrahedronIdxs)
+
   end subroutine kill
+
+  !! Subroutine 'setAB'
+  !!
+  !! Basic description:
+  !!   Sets the first edge vector of the triangle.
+  !!
+  !! Arguments:
+  !!   AB [in] -> 3-D coordinates of the vector going from the first to the second
+  !!              triangle vertices.
+  !!
+  pure subroutine setAB(self, AB)
+    class(triangle), intent(inout)          :: self
+    real(defReal), dimension(3), intent(in) :: AB
+
+    self % AB = AB
+
+  end subroutine setAB
+
+  !! Subroutine 'setAC'
+  !!
+  !! Basic description:
+  !!   Sets the second edge vector of the triangle.
+  !!
+  !! Arguments:
+  !!   AC [in] -> 3-D coordinates of the vector going from the first to the third
+  !!              triangle vertices.
+  !!
+  pure subroutine setAC(self, AC)
+    class(triangle), intent(inout)          :: self
+    real(defReal), dimension(3), intent(in) :: AC
+
+    self % AC = AC
+
+  end subroutine setAC
   
   !! Subroutine 'setArea'
   !!

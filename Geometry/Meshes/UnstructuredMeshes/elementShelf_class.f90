@@ -1,11 +1,7 @@
 module elementShelf_class
   
   use numPrecision
-  use genericProcedures, only : append, findCommon, hasDuplicates, openToRead, removeDuplicates
-  use element_class,     only : element
-  use face_class,        only : face
-  use faceShelf_class,   only : faceShelf
-  use vertexShelf_class, only : vertexShelf
+  use element_class, only : element
   
   implicit none
   private
