@@ -1,10 +1,9 @@
 module node_class
+  
   use coord_class,         only : coord
-  use face_class,          only : face
   use faceShelf_class,     only : faceShelf
   use genericProcedures,   only : append, areEqual, removeDuplicates, swap
   use numPrecision
-  use triangle_class,      only : triangle
   use triangleShelf_class, only : triangleShelf
   use universalVariables,  only : ZERO, HALF, SURF_TOL, INF
   use vertexShelf_class,   only : vertexShelf
@@ -368,12 +367,11 @@ contains
     real(defReal), intent(inout)                 :: d
     type(coord), intent(inout)                   :: coords
     integer(shortInt), intent(inout)             :: edgeIdx, vertexIdx
-    integer(shortInt)                            :: cutDimension, i, newEdgeIdx, newVertexIdx
+    integer(shortInt)                            :: cutDimension, i, faceIdx, newEdgeIdx, newVertexIdx
     integer(shortInt), dimension(:), allocatable :: nodeVertices, potentialFaces, faceToElements
     logical(defBool)                             :: isIntersecting
     real(defReal)                                :: cutValue, uComponent, startPosComponent, t, update
     real(defReal), dimension(3)                  :: newStartPos
-    type(face)                                   :: currentFace
 
     ! If the node has left or right children, we need to descend deeper into the tree.
     if (self % hasLeft .or. self % hasRight) then
@@ -421,32 +419,25 @@ contains
     ! If reached here, we are at a terminal node. Retrieve the vertices in the node and use the tree cache
     ! to re-order the vertices.
     nodeVertices = self % getVertices()
-    nodeVertices = vertexIdxs(nodeVertices)
     
     ! Retrieve the faces containing the node vertices from mesh connectivity and remove duplicates.
-    do i = 1, size(nodeVertices)
-      call append(potentialFaces, vertices % shelf(nodeVertices(i)) % getVertexToFaces())
-
-    end do
-    potentialFaces = removeDuplicates(potentialFaces)
+    potentialFaces = vertices % getVertexFaceIdxs(vertexIdxs(nodeVertices))
     
     ! Loop over all potentially intersected faces.
     do i = 1, size(potentialFaces)
-      currentFace = faces % shelf(potentialFaces(i))
+      faceIdx = potentialFaces(i)
       
-      ! If the current face is not a boundary face we can cycle to the next face.
-      if (.not. currentFace % getIsBoundary()) cycle
-      
-      ! Test the current face for an intersection.
-      call currentFace % computeIntersection(coords % r, coords % rEnd, coords % dir, &
-                                             vertices % shelf(currentFace % getVertices()), update, &
-                                             newEdgeIdx, newVertexIdx)
+      ! If the current face is not a boundary face we can cycle to the next face. Else test the face for
+      ! an intersection.
+      if (.not. faces % getFaceIsBoundary(faceIdx)) cycle
+      call faces % computeFaceIntersection(faceIdx, coords % r, coords % rEnd, coords % dir, &
+                                           vertices, update, newEdgeIdx, newVertexIdx)
       
       ! If the distance to intersection is less than the lowest distance known update d and the
       ! particle's elementIdx.
       if (update < d) then
         d = update
-        faceToElements = currentFace % getFaceToElements()
+        faceToElements = faces % getFaceElementIdxs(faceIdx)
         coords % elementIdx = faceToElements(1)
         edgeIdx = newEdgeIdx
         vertexIdx = newVertexIdx
@@ -494,12 +485,11 @@ contains
     real(defReal), intent(inout)                 :: d
     type(coord), intent(inout)                   :: coords
     integer(shortInt), intent(inout)             :: edgeIdx, vertexIdx
-    integer(shortInt)                            :: cutDimension, firstVertexIdx, i, newEdgeIdx, newVertexIdx
+    integer(shortInt)                            :: cutDimension, firstVertexIdx, i, newEdgeIdx, newVertexIdx, triangleIdx
     integer(shortInt), dimension(:), allocatable :: nodeVertices, potentialTriangles, triangleToTetrahedra
     logical(defBool)                             :: isIntersecting
     real(defReal)                                :: cutValue, uComponent, startPosComponent, t, update
     real(defReal), dimension(3)                  :: newStartPos, firstVertexCoords
-    type(triangle)                               :: currentTriangle
     
     ! If the node has left or right children, we need to descend deeper into the tree.
     if (self % hasLeft .or. self % hasRight) then
@@ -549,37 +539,30 @@ contains
     ! If reached here, we are at a terminal node. Retrieve the vertices in the node and use the tree cache
     ! to re-order the vertices.
     nodeVertices = self % getVertices()
-    nodeVertices = verticesIdxs(nodeVertices)
     
     ! Retrieve the triangles containing the node vertices from mesh connectivity and remove duplicates.
-    do i = 1, size(nodeVertices)
-      call append(potentialTriangles, vertices % shelf(nodeVertices(i)) % getVertexToTriangles())
+    potentialTriangles = vertices % getVertexTriangleIdxs(verticesIdxs(nodeVertices))
 
-    end do
-    potentialTriangles = removeDuplicates(potentialTriangles)
-
-    
     ! Loop over all potentially intersected triangles.
     do i = 1, size(potentialTriangles)
-      currentTriangle = triangles % shelf(potentialTriangles(i))
-      
       ! If the current triangle is not a boundary triangle we can cycle to the next triangle.
-      if (.not. currentTriangle % getIsBoundary()) cycle
+      triangleIdx = potentialTriangles(i)
+      if (.not. triangles % getTriangleIsBoundary(triangleIdx)) cycle
       
       ! Retrieve the vertex of smallest index in the triangle (could be any vertex in reality but
       ! at least this method is consistent) and retrieve the corresponding vertex's coordinates.
-      firstVertexIdx = minval(currentTriangle % getVertices())
-      firstVertexCoords = vertices % shelf(firstVertexIdx) % getCoordinates()
+      firstVertexIdx = minval(triangles % getTriangleVertexIdxs(triangleIdx))
+      firstVertexCoords = vertices % getVertexCoordinates(firstVertexIdx)
       
       ! Test the current triangle for an intersection.
-      call currentTriangle % computeIntersection(vertices, coords % r, coords % rEnd, coords % dir, &
-                                                 firstVertexCoords, update, newEdgeIdx, newVertexIdx)
+      call triangles % computeTriangleIntersection(triangleIdx, coords % r, coords % rEnd, coords % dir, &
+                                                   firstVertexCoords, vertices, update, newEdgeIdx, newVertexIdx)
       
       ! If the distance to intersection is less than the lowest distance known update d and the
       ! particle's elementIdx.
       if (update < d) then
         d = update
-        triangleToTetrahedra = currentTriangle % getTetrahedra()
+        triangleToTetrahedra = triangles % getTriangleTetrahedronIdxs(triangleIdx)
         coords % elementIdx = triangleToTetrahedra(1)
         edgeIdx = newEdgeIdx
         vertexIdx = newVertexIdx

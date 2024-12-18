@@ -10,7 +10,7 @@ module cellZone_class
   !!
   type, public :: cellZone
     private
-    integer(shortInt)         :: startElementIdx = 0, endElementIdx = 0
+    integer(shortInt)         :: firstElementIdx = 0, lastElementIdx = 0
     character(:), allocatable :: name
   contains
     procedure                 :: containsElement
@@ -37,7 +37,8 @@ contains
     integer(shortInt), intent(in) :: elementIdx
     logical(defBool)              :: doesIt
     
-    doesIt = self % startElementIdx <= elementIdx .and. elementIdx <= self % endElementIdx
+    doesIt = self % firstElementIdx <= elementIdx .and. elementIdx <= self % lastElementIdx
+
   end function containsElement
   
   !! Subroutine 'init'
@@ -47,17 +48,18 @@ contains
   !!
   !! Arguments:
   !!   name [in]            -> Name of the cell zone.
-  !!   startElementIdx [in] -> Index of the first element in the cell zone.
-  !!   endElementIdx [in]   -> Index of the last element in the cell zone.
+  !!   firstElementIdx [in] -> Index of the first element in the cell zone.
+  !!   lastElementIdx [in]  -> Index of the last element in the cell zone.
   !!
-  elemental subroutine init(self, name, startElementIdx, endElementIdx)
+  elemental subroutine init(self, name, firstElementIdx, lastElementIdx)
     class(cellZone), intent(inout) :: self
     character(*), intent(in)       :: name
-    integer(shortInt), intent(in)  :: startElementIdx, endElementIdx
+    integer(shortInt), intent(in)  :: firstElementIdx, lastElementIdx
     
     self % name = name
-    self % startElementIdx = startElementIdx
-    self % endElementIdx = endElementIdx
+    self % firstElementIdx = firstElementIdx
+    self % lastElementIdx = lastElementIdx
+
   end subroutine init
   
   !! Function 'getName'
@@ -73,6 +75,7 @@ contains
     character(len(self % name)) :: name
     
     name = self % name
+
   end function getName
   
   !! Subroutine 'kill'
@@ -83,8 +86,10 @@ contains
   elemental subroutine kill(self)
     class(cellZone), intent(inout) :: self
     
-    self % startElementIdx = 0
-    self % endElementIdx = 0
+    self % firstElementIdx = 0
+    self % lastElementIdx = 0
     if (allocated(self % name)) deallocate(self % name)
+
   end subroutine kill
+  
 end module cellZone_class

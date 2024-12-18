@@ -137,29 +137,28 @@ contains
   !!   is then recomputed by performing an area-weighted average of the triangles' centres.
   !!
   !! Arguments:
-  !!   vertices -> An array of vertex structures making the face up.
+  !!   vertices -> A vertexShelf.
   !!
   !! Errors:
   !!   fatalError if area is negative.
   !!   fatalError if area is infinite.
   !!
   subroutine computeAreaAndNormal(self, vertices)
-    class(face), intent(inout)                                 :: self
-    type(vertex), dimension(size(self % vertices)), intent(in) :: vertices
-    integer(shortInt)                                          :: i, nVertices
-    real(defReal)                                              :: norm, sumAreas
-    real(defReal), dimension(3)                                :: C, normal, sumNormals, sumAreasCentroid
-    real(defReal), dimension(3, 3)                             :: array
-    character(100), parameter                                  :: Here = 'computeAreaAndNormal &
-                                                                  &(face_class.f90)'
+    class(face), intent(inout)     :: self
+    type(vertexShelf), intent(in)  :: vertices
+    integer(shortInt)              :: i, nVertices
+    real(defReal)                  :: norm, sumAreas
+    real(defReal), dimension(3)    :: C, normal, sumNormals, sumAreasCentroid
+    real(defReal), dimension(3, 3) :: array
+    character(100), parameter      :: Here = 'computeAreaAndNormal (face_class.f90)'
     
     ! Retrieve the number of vertices in the face and compute its centroid by performing 
     ! an arithmetic average of the vertices' coordinates. If the face is a triangle we
     ! perform a direct computation to minimise round-off errors.
-    nVertices = size(vertices)
+    nVertices = size(self % vertices)
     if (nVertices == 3) then
       do i = 1, nVertices
-        array(i, :) = vertices(i) % getCoordinates()
+        array(i, :) = vertices % getVertexCoordinates(self % vertices(i))
 
       end do
       self % centroid = computeTriangleCentre(array)
@@ -171,7 +170,7 @@ contains
       ! Initialise C = ZERO and loop over all vertices.
       C = ZERO
       do i = 1, nVertices
-        C = C + vertices(i) % getCoordinates()
+        C = C + vertices % getVertexCoordinates(self % vertices(i))
 
       end do
       
@@ -183,8 +182,8 @@ contains
       do i = 1, nVertices
         ! Set the vectors pointing to the remaining two vertices in the triangle and compute the triangle's
         ! centre and normal vector.
-        array(1, :) = vertices(i) % getCoordinates()
-        array(2, :) = vertices(mod(i, nVertices) + 1) % getCoordinates()
+        array(1, :) = vertices % getVertexCoordinates(self % vertices(i))
+        array(2, :) = vertices % getVertexCoordinates(self % vertices(mod(i, nVertices) + 1))
         
         ! Retrieve current triangle's normal and update sumNormals.
         normal = computeTriangleNormal(array)
@@ -226,20 +225,18 @@ contains
   !!   d [out]                -> Distance from the line segment's origin to the point of intersection.
   !!
   pure subroutine computeIntersection(self, startPos, endPos, u, vertices, d, edgeIdx, vertexIdx)
-    class(face), intent(in)                                    :: self
-    real(defReal), dimension(3), intent(in)                    :: startPos, endPos, u
-    type(vertex), dimension(size(self % vertices)), intent(in) :: vertices
-    real(defReal), intent(out)                                 :: d
-    integer(shortInt), intent(out)                             :: edgeIdx, vertexIdx
-    real(defReal), dimension(3)                                :: normal, diff, intersectionCoords
-    real(defReal)                                              :: denominator, s, crossProduct, sign
-    integer(shortInt)                                          :: discardDimension, i, nVertices, nextIdx
-    integer(shortInt), dimension(2)                            :: dimensions
-    real(defReal), dimension(size(self % vertices), 3)         :: vertexCoords
-    real(defReal), dimension(size(self % vertices), 2)         :: projVertexCoords
-    real(defReal), dimension(2)                                :: projIntersectionCoords, diffEdgeCoords, &
-                                                                  diffIntersectionCoords
-    integer(shortInt), dimension(:), allocatable               :: commonEdgeIdxs
+    class(face), intent(in)                            :: self
+    real(defReal), dimension(3), intent(in)            :: startPos, endPos, u
+    type(vertexShelf), intent(in)                      :: vertices
+    real(defReal), intent(out)                         :: d
+    integer(shortInt), intent(out)                     :: edgeIdx, vertexIdx
+    real(defReal), dimension(3)                        :: normal, diff, intersectionCoords
+    real(defReal)                                      :: denominator, s, crossProduct, sign
+    integer(shortInt)                                  :: discardDimension, i, nVertices, nextIdx
+    integer(shortInt), dimension(2)                    :: dimensions
+    real(defReal), dimension(size(self % vertices), 3) :: vertexCoords
+    real(defReal), dimension(size(self % vertices), 2) :: projVertexCoords
+    real(defReal), dimension(2)                        :: projIntersectionCoords, diffEdgeCoords, diffIntersectionCoords
 
     ! Initialise d = INF, edgeIdx = 0 and vertexIdx = 0.
     d = INF
@@ -273,7 +270,7 @@ contains
     dimensions = pack((/(i, i = 1, 3)/), (/(i, i = 1, 3)/) /= discardDimension)
     nVertices = size(self % vertices)
     do i = 1, nVertices
-      vertexCoords(i, :) = vertices(i) % getCoordinates()
+      vertexCoords(i, :) = vertices % getVertexCoordinates(self % vertices(i))
 
     end do
     projVertexCoords = vertexCoords(:, dimensions)
@@ -287,9 +284,9 @@ contains
       nextIdx = mod(i, nVertices) + 1
       
       ! Check if the intersection point is on the current or next vertex and exit if yes.
-      if (i == 1 .and. areEqual(diffIntersectionCoords, ZERO)) vertexIdx = vertices(i) % getIdx()
+      if (i == 1 .and. areEqual(diffIntersectionCoords, ZERO)) vertexIdx = self % vertices(1)
       if (i < nVertices .and. areEqual(projIntersectionCoords - projVertexCoords(nextIdx, :), ZERO)) &
-      vertexIdx = vertices(nextIdx) % getIdx()
+      vertexIdx = self % vertices(nextIdx)
       if (vertexIdx > 0) exit
 
       ! Compute cross product.
@@ -301,8 +298,7 @@ contains
         ! If point actually lies on the edge find the common edge between the two vertices and exit. Return if not.
         if (any(minval(projVertexCoords([i, nextIdx], :), dim = 1) < projIntersectionCoords .and. &
                 projIntersectionCoords < maxval(projVertexCoords([i, nextIdx], :), dim = 1))) then
-          commonEdgeIdxs = findCommon(vertices(i) % getEdgeIdxs(), vertices(nextIdx) % getEdgeIdxs())
-          edgeIdx = commonEdgeIdxs(1)
+          edgeIdx = vertices % findCommonEdgeIdx(self % vertices(i), self % vertices(nextIdx))
           exit
 
         end if
@@ -543,8 +539,7 @@ contains
   !!   vertices [in]           -> A vertexShelf.
   !!   freeTriangleIdx [inout] -> Index of the first free item in triangleShelf.
   !!
-  !! TODO: Refactor this into helper functions.
-  subroutine split(self, edges, triangles, vertices, lastEdgeIdx, freeTriangleIdx)
+  elemental subroutine split(self, edges, triangles, vertices, lastEdgeIdx, freeTriangleIdx)
     class(face), intent(inout)                          :: self
     type(edgeShelf), intent(inout)                      :: edges
     type(triangleShelf), intent(inout)                  :: triangles
@@ -554,8 +549,8 @@ contains
     integer(shortInt)                                   :: nVertices, i, j, minVertexIdx, &
                                                            secondVertexIdx, thirdVertexIdx, edgeIdx
     integer(shortInt), dimension(3)                     :: triangleVertexIdxs
-    real(defReal), dimension(3)                         :: minVertexCoords, secondVertexCoords, &
-                                                           thirdVertexCoords
+    real(defReal), dimension(3)                         :: AB, AC
+    real(defReal), dimension(3, 3)                      :: array
     
     ! Retrieve the number of vertices in the face.
     vertexIdxs = self % vertices                                                       
@@ -564,78 +559,57 @@ contains
     ! Pre-compute the location and coordinates of the vertex of smallest index in the face
     ! then loop through all new triangles.
     minVertexIdx = minloc(vertexIdxs, 1)
-    minVertexCoords = vertices % shelf(vertexIdxs(minVertexIdx)) % getCoordinates()
+    array(1, :) = vertices % getVertexCoordinates(vertexIdxs(minVertexIdx))
     do i = 1, nVertices - 2
       ! Update freeTriangleIdx and add freeTriangleIdx to the indices of triangles in the face.
       freeTriangleIdx = freeTriangleIdx + 1
       call self % addTriangle(freeTriangleIdx)
       
-      ! Create a new triangle. Set its index and parent face index.
-      call triangles % shelf(freeTriangleIdx) % setIdx(freeTriangleIdx)
-      call triangles % shelf(freeTriangleIdx) % setFace(self % idx)
-      
-      ! If the current face is a boundary face, set the current triangle as boundary triangle.
-      if (self % boundaryFace) call triangles % shelf(freeTriangleIdx) % setIsBoundary()
-      
       ! If the face is already a triangle there is no need to compute its vertices, centre, area and 
-      ! normal vector again: simply copy them from the face and return early.
+      ! normal vector again: simply copy them from the face.
       if (nVertices == 3) then
-        call triangles % shelf(freeTriangleIdx) % setVertices(vertexIdxs)
-        call triangles % shelf(freeTriangleIdx) % setAB(vertices % shelf(vertexIdxs(2)) % getCoordinates() - &
-                                                        vertices % shelf(vertexIdxs(1)) % getCoordinates())
-        call triangles % shelf(freeTriangleIdx) % setAC(vertices % shelf(vertexIdxs(3)) % getCoordinates() - &
-                                                        vertices % shelf(vertexIdxs(1)) % getCoordinates())
-        call triangles % shelf(freeTriangleIdx) % setCentre(self % centroid)
-        call triangles % shelf(freeTriangleIdx) % setArea(self % area)
-        call triangles % shelf(freeTriangleIdx) % setNormal(self % normal)
-        do j = 1, 3
-          edgeIdx = self % edgeIdxs(j)
-          call edges % shelf(edgeIdx) % addTriangleIdx(freeTriangleIdx)
-          call triangles % shelf(freeTriangleIdx) % addEdgeIdx(edgeIdx)
-          call vertices % shelf(vertexIdxs(j)) % addTriangleIdx(freeTriangleIdx)
+        AB = vertices % getVertexCoordinates(vertexIdxs(2)) - vertices % getVertexCoordinates(vertexIdxs(1))
+        AC = vertices % getVertexCoordinates(vertexIdxs(3)) - vertices % getVertexCoordinates(vertexIdxs(1))
+        call triangles % initTriangle(freeTriangleIdx, vertexIdxs, self % idx, self % boundaryFace, AB, AC, &
+                                      self % centroid, self % normal, self % area)
 
-        end do
-        return
+      else
+        ! Compute the locations of the second and third vertices in the current triangle.
+        secondVertexIdx = mod(minVertexIdx + i - 1, nVertices) + 1
+        thirdVertexIdx = mod(minVertexIdx + i, nVertices) + 1
+        triangleVertexIdxs = vertexIdxs([minVertexIdx, secondVertexIdx, thirdVertexIdx])
+        ! Set the vertices of the current triangle and compute its centre and normal vector.
+        ! Note that because of the vertices' ordering we do not need to check that the normal 
+        ! vector points in the correct direction.
+        array(2, :) = vertices % getVertexCoordinates(triangleVertexIdxs(2))
+        array(3, :) = vertices % getVertexCoordinates(triangleVertexIdxs(3))
+
+        ! Initialise triangle in the shelf.
+        call triangles % buildTriangle(freeTriangleIdx, triangleVertexIdxs, self % idx, self % boundaryFace, array)
 
       end if
-
-      ! Compute the locations of the second and third vertices in the current triangle and
-      ! retrieve their coordinates.
-      secondVertexIdx = mod(minVertexIdx + i - 1, nVertices) + 1
-      thirdVertexIdx = mod(minVertexIdx + i, nVertices) + 1
-      secondVertexCoords = vertices % shelf(vertexIdxs(secondVertexIdx)) % getCoordinates()
-      thirdVertexCoords = vertices % shelf(vertexIdxs(thirdVertexIdx)) % getCoordinates()
-
-      ! Set the vertices of the current triangle and compute its centre and normal vector.
-      ! Note that because of the vertices' ordering we do not need to check that the normal 
-      ! vector points in the correct direction.
-      triangleVertexIdxs = vertexIdxs([minVertexIdx, secondVertexIdx, thirdVertexIdx])
-      call triangles % shelf(freeTriangleIdx) % setVertices(triangleVertexIdxs)
-      call triangles % shelf(freeTriangleIdx) % setAB(secondVertexCoords - minVertexCoords)
-      call triangles % shelf(freeTriangleIdx) % setAC(thirdVertexCoords - minVertexCoords)
-      call triangles % shelf(freeTriangleIdx) % computeCentre(minVertexCoords, secondVertexCoords, thirdVertexCoords)
-      call triangles % shelf(freeTriangleIdx) % computeNormal(minVertexCoords, secondVertexCoords, thirdVertexCoords)
-      
-      ! Compute the triangle's area, normalise its normal vector and update mesh connectivity information.
-      call triangles % shelf(freeTriangleIdx) % computeArea()
-      call triangles % shelf(freeTriangleIdx) % normaliseNormal()
 
       if (i < nVertices - 2) then
         ! Create a new edge.
         lastEdgeIdx = lastEdgeIdx + 1
-        call edges % shelf(lastEdgeIdx) % setIdx(lastEdgeIdx)
-        call edges % shelf(lastEdgeIdx) % setVertexIdxs(triangleVertexIdxs([1, 3]))
-        call vertices % shelf(triangleVertexIdxs(1)) % addEdgeIdx(lastEdgeIdx)
-        call vertices % shelf(triangleVertexIdxs(3)) % addEdgeIdx(lastEdgeIdx)
+        call edges % initEdge(lastEdgeIdx, triangleVertexIdxs([1, 3]))
+        call vertices % addEdgeIdxToVertex(triangleVertexIdxs(1), lastEdgeIdx)
+        call vertices % addEdgeIdxToVertex(triangleVertexIdxs(3), lastEdgeIdx)
 
       end if
 
       ! Update mesh connectivity information.
       do j = 1, 3
-        call vertices % shelf(triangleVertexIdxs(j)) % addTriangleIdx(freeTriangleIdx)
-        edgeIdx = vertices % findCommonEdgeIdx(triangleVertexIdxs(j), triangleVertexIdxs(mod(j, 3) + 1))
-        call triangles % shelf(freeTriangleIdx) % addEdgeIdx(edgeIdx)
-        call edges % shelf(edgeIdx) % addTriangleIdx(freeTriangleIdx)
+        if (nVertices == 3) then
+          edgeIdx = self % edgeIdxs(j)
+
+        else
+          edgeIdx = vertices % findCommonEdgeIdx(triangleVertexIdxs(j), triangleVertexIdxs(mod(j, 3) + 1))
+
+        end if
+        call edges % addTriangleIdxToEdge(edgeIdx, freeTriangleIdx)
+        call triangles % addEdgeIdxToTriangle(freeTriangleIdx, edgeIdx)
+        call vertices % addTriangleIdxToVertex(triangleVertexIdxs(j), freeTriangleIdx)
 
       end do
 

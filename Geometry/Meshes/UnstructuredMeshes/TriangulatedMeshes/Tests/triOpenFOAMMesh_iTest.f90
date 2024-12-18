@@ -75,29 +75,29 @@ contains
     ! Test number of edges.
     @assertEqual(85, mesh % nEdges)
     ! Test number of tetrahedra.
-    @assertEqual(48, size(mesh % tetrahedra % shelf))
+    @assertEqual(48, mesh % nTetrahedra)
     ! Test every tetrahedron.
-    do i = 1, size(mesh % tetrahedra % shelf)
+    do i = 1, mesh % nTetrahedra
       ! Test that none of the triangle indices and edge indices are zero.
-      @assertTrue(all(mesh % tetrahedra % shelf(i) % getTriangles() /= 0))
-      @assertTrue(all(mesh % tetrahedra % shelf(i) % getEdgeIdxs() > 0))
+      @assertTrue(all(mesh % tetrahedra % getTetrahedronTriangleIdxs(i) /= 0))
+      @assertTrue(all(mesh % tetrahedra % getTetrahedronEdgeIdxs(i) > 0))
 
     end do
     ! Test number of triangles.
-    @assertEqual(112, size(mesh % triangles % shelf))
+    @assertEqual(112, mesh % nTriangles)
     ! Test every triangle.
-    do i = 1, size(mesh % triangles % shelf)
+    do i = 1, mesh % nTriangles
       ! Test that none of the triangle vertex indices and edge indices are zero.
-      @assertTrue(all(mesh % triangles % shelf(i) % getVertices() > 0))
-      @assertTrue(all(mesh % triangles % shelf(i) % getEdgeIdxs() > 0))
+      @assertTrue(all(mesh % triangles % getTriangleVertexIdxs(i) > 0))
+      @assertTrue(all(mesh % triangles % getTriangleEdgeIdxs(i) > 0))
 
     end do
     
     ! Test area of two faces.
-    @assertEqual(2.0_defReal, mesh % faces % shelf(1) % getArea(), 2.0_defReal * TOL)
-    @assertEqual(1.0_defReal, mesh % faces % shelf(11) % getArea(), 1.0_defReal * TOL)
+    @assertEqual(2.0_defReal, mesh % faces % getFaceArea(1), 2.0_defReal * TOL)
+    @assertEqual(1.0_defReal, mesh % faces % getFaceArea(11), 1.0_defReal * TOL)
     ! Test volume of one element.
-    @assertEqual(2.0_defReal, mesh % elements % shelf(3) % getVolume(), 2.0_defReal * TOL)
+    @assertEqual(2.0_defReal, mesh % elements % getElementVolume(3), 2.0_defReal * TOL)
 
   end subroutine test_info
   

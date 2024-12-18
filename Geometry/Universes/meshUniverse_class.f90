@@ -102,7 +102,6 @@ contains
     type(surfaceShelf), intent(inout)                         :: surfs
     type(meshShelf), intent(inout)                            :: meshes
     integer(shortInt)                                         :: cellId, i, meshId, nFills
-    class(mesh), pointer                                      :: meshPtr
     character(nameLen), dimension(:), allocatable             :: fillNames
     character(100), parameter                                 :: Here = 'init (meshUniverse_class.f90)'
     
@@ -127,8 +126,7 @@ contains
     ! of fills does not match the number of element zones in the mesh.
     call dict % get(fillNames, 'fills')
     nFills = size(fillNames)
-    meshPtr => self % mesh % ptr
-    if (meshPtr % nElementZones /= nFills) call fatalError(Here, &
+    if (self % mesh % ptr % getElementZonesNumber() /= nFills) call fatalError(Here, &
     'The number of fills does not match the number of element zones in mesh geometry with id: '//numToChar(meshId)//'.')
     
     ! Create fill array. First entry is fill of the CSG cell, remaining entries are the fills for 

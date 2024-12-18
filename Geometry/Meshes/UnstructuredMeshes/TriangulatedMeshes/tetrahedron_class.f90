@@ -143,34 +143,34 @@ contains
   !! TODO: Review this. Especially for cases where a particle may end up on an edge or at a vertex.
   pure subroutine computeIntersectedTriangle(self, startPos, endPos, potentialTriangleIdxs, &
                                              intersectedTriangleIdx, lambda, triangles)
-    class(tetrahedron), intent(in)                           :: self
-    real(defReal), dimension(3), intent(in)                  :: startPos, endPos
-    integer(shortInt), dimension(:), allocatable, intent(in) :: potentialTriangleIdxs
-    integer(shortInt), intent(out)                           :: intersectedTriangleIdx
-    real(defReal), intent(out)                               :: lambda
-    type(triangleShelf), intent(in)                          :: triangles
-    integer(shortInt)                                        :: i
-    integer(shortInt), dimension(:), allocatable             :: absPotentialTriangleIdxs
-    real(defReal), dimension(3)                              :: centre, normal
-    real(defReal)                                            :: triangleLambda
+    class(tetrahedron), intent(in)              :: self
+    real(defReal), dimension(3), intent(in)     :: startPos, endPos
+    integer(shortInt), dimension(:), intent(in) :: potentialTriangleIdxs
+    integer(shortInt), intent(out)              :: intersectedTriangleIdx
+    real(defReal), intent(out)                  :: lambda
+    type(triangleShelf), intent(in)             :: triangles
+    integer(shortInt)                           :: i, triangleIdx, absTriangleIdx
+    real(defReal), dimension(3)                 :: centre, normal
+    real(defReal)                               :: triangleLambda
     
-    ! Create absolute triangle indices and initialise lambda = INF.
-    absPotentialTriangleIdxs = abs(potentialTriangleIdxs)
+    ! Initialise lambda = INF.
     lambda = INF
     
     ! Loop over all potentially intersected triangles.
     do i = 1, size(potentialTriangleIdxs)
       ! Retrieve the current triangle's normal vector and flip it if necessary.
-      normal = triangles % shelf(absPotentialTriangleIdxs(i)) % getNormal(potentialTriangleIdxs(i))
+      triangleIdx = potentialTriangleIdxs(i)
+      absTriangleIdx = abs(triangleIdx)
+      normal = triangles % getTriangleNormal(triangleIdx)
       
       ! Retrieve the current triangle's centre and compute triangleLambda.
-      centre = triangles % shelf(absPotentialTriangleIdxs(i)) % getCentre()
+      centre = triangles % getTriangleCentroid(absTriangleIdx)
       triangleLambda = dot_product(centre - startPos, normal) / dot_product(endPos - startPos, normal)
       
       ! If triangleLambda < lambda, update lambda and intersectedTriangleIdx.
       if (triangleLambda < lambda) then
         lambda = triangleLambda
-        intersectedTriangleIdx = absPotentialTriangleIdxs(i)
+        intersectedTriangleIdx = absTriangleIdx
 
       end if
 
@@ -188,32 +188,33 @@ contains
   !!   See Macpherson, et al. (2009). DOI: 10.1002/cnm.1128.
   !!
   !! Arguments:
-  !!   endPos [in]                 -> End of the line segment.
-  !!   triangles [in]              -> A triangleShelf.
-  !!   potentialTriangleIdxs [out] -> Array of indices of the potential triangles intersected by 
-  !!                                  the line segment.
+  !!   endPos [in]           -> End of the line segment.
+  !!   triangles [in]        -> A triangleShelf.
   !!
-  pure subroutine computePotentialTriangles(self, endPos, triangles, potentialTriangleIdxs)
-    class(tetrahedron), intent(in)                            :: self
-    real(defReal), dimension(3), intent(in)                   :: endPos
-    type(triangleShelf), intent(in)                           :: triangles
-    integer(shortInt), dimension(:), allocatable, intent(out) :: potentialTriangleIdxs
-    integer(shortInt)                                         :: i, triangleIdx, absTriangleIdx
-    real(defReal)                                             :: lambda
-    real(defReal), dimension(3)                               :: centroid, centre, normal
+  !! Result:
+  !!   potentialTriangleIdxs -> Array of indices of the potential triangles intersected by 
+  !!                            the line segment.
+  !!
+  pure function computePotentialTriangles(self, endPos, triangles) result(potentialTriangleIdxs)
+    class(tetrahedron), intent(in)               :: self
+    real(defReal), dimension(3), intent(in)      :: endPos
+    type(triangleShelf), intent(in)              :: triangles
+    integer(shortInt), dimension(:), allocatable :: potentialTriangleIdxs
+    integer(shortInt)                            :: i, triangleIdx, absTriangleIdx
+    real(defReal)                                :: lambda
+    real(defReal), dimension(3)                  :: centroid, centre, normal
     
     ! Retrieve tetrahedron's centroid then loop over all triangles in the tetrahedron.
+    allocate(potentialTriangleIdxs(0))
     centroid = self % centroid
     do i = 1, 4
       ! Retrieve current triangle index and create its absolute index.
       triangleIdx = self % triangleIdxs(i)
       absTriangleIdx = abs(triangleIdx)
       
-      ! Retrieve the signed normal vector of the current triangle.
-      normal = triangles % shelf(absTriangleIdx) % getNormal(triangleIdx)
-      
-      ! Retrieve the centre of the current triangle and compute lambda.
-      centre = triangles % shelf(absTriangleIdx) % getCentre()
+      ! Retrieve the current triangle's signed normal vector and centre then compute lambda.
+      normal = triangles % getTriangleNormal(triangleIdx)
+      centre = triangles % getTriangleCentroid(absTriangleIdx)
       lambda = dot_product(centre - centroid, normal) / dot_product(endPos - centroid, normal)
       
       ! If ZERO <= lambda <= ONE, append the current triangle to the list of potentially intersected triangles.
@@ -221,9 +222,7 @@ contains
 
     end do
 
-    if (.not. allocated(potentialTriangleIdxs)) allocate(potentialTriangleIdxs(0))
-
-  end subroutine computePotentialTriangles
+  end function computePotentialTriangles
   
   !! Subroutine 'computeVolume'
   !!
@@ -461,11 +460,11 @@ contains
       absTriangleIdx = abs(triangleIdx)
       
       ! Retrieve the normal vector and flip it if necessary.
-      normal = triangles % shelf(absTriangleIdx) % getNormal(triangleIdx)
+      normal = triangles % getTriangleNormal(triangleIdx)
       
       ! Create the test vector going from the coordinates to the current triangle's centre and
       ! compute the dot product between the test vector and the current triangle's normal vector.
-      dotProduct = dot_product(triangles % shelf(absTriangleIdx) % getCentre() - r, normal)
+      dotProduct = dot_product(triangles % getTriangleCentroid(absTriangleIdx) - r, normal)
 
       ! If the coordinates lie on the triangle, update surfTolTriangleIdxs.
       if (areEqual(dotProduct, ZERO)) then

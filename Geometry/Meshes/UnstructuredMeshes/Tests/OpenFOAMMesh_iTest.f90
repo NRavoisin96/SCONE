@@ -71,10 +71,10 @@ contains
     ! Test number of internal faces.
     @assertEqual(4, mesh % nInternalFaces)
     ! Test area of two faces.
-    @assertEqual(2.0_defReal, mesh % faces % shelf(1) % getArea(), 2.0_defReal * TOL)
-    @assertEqual(1.0_defReal, mesh % faces % shelf(11) % getArea(), 1.0_defReal * TOL)
+    @assertEqual(2.0_defReal, mesh % faces % getFaceArea(1), 2.0_defReal * TOL)
+    @assertEqual(1.0_defReal, mesh % faces % getFaceArea(11), 1.0_defReal * TOL)
     ! Test volume of one element.
-    @assertEqual(2.0_defReal, mesh % elements % shelf(3) % getVolume(), 2.0_defReal * TOL)
+    @assertEqual(2.0_defReal, mesh % elements % getElementVolume(3), 2.0_defReal * TOL)
 
   end subroutine test_info
   

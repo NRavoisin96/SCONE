@@ -12,7 +12,7 @@ module meshShelf_iTest
   ! Parameters.
   character(*), parameter :: MESHES_DEF = &
   " testMesh1 { id 11; type OpenFOAMMesh; path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/testMesh1/;} &
-   &testMesh2 { id 21; type triOpenFOAMMesh; path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/testMesh2/;}"
+   &testMesh2 { id 21; type OpenFOAMMesh; path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/testMesh2/;}"
   
   ! Variables.
   type(meshShelf) :: meshes

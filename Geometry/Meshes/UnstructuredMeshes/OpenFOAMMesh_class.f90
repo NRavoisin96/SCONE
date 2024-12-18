@@ -94,7 +94,7 @@ contains
     
     ! Import OpenFOAM mesh and initialise kd-tree.
     call importMesh(self, folderPath, dict)
-    call self % tree % init(self % vertices % getAllCoordinates(), .true.)
+    call self % tree % init(self % getAllVertexCoordinates(), .true.)
 
   end subroutine init
 

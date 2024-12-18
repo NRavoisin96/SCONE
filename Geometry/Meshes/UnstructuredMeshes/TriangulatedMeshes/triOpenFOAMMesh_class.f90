@@ -92,14 +92,11 @@ contains
     character(*), intent(in)              :: folderPath
     class(dictionary), intent(in)         :: dict
     
-    ! Import OpenFOAM mesh.
+    ! Import OpenFOAM mesh, split non-tetrahedral mesh elements into tetrahedra and 
+    ! initialise kd-tree for the mesh.
     call importMesh(self, folderPath, dict)
-
-    ! Split non-tetrahedral mesh elements into tetrahedra.
     call self % split()
-    
-    ! Collapse the vertexShelf to save memory and initialise kd-tree for the mesh.
-    call self % tree % init(self % vertices % getAllCoordinates(), .true.)
+    call self % tree % init(self % getAllVertexCoordinates(), .true.)
 
   end subroutine init
 

@@ -4,8 +4,8 @@ module element_class
   use face_class,          only : face
   use faceShelf_class,     only : faceShelf
   use genericProcedures,   only : append, areEqual, computePyramidCentre, computePyramidVolume, &
-                                  computeTetrahedronCentre, computeTetrahedronVolume, &
-                                  findCommon, swap, fatalError, numToChar
+                                  computeTetrahedronCentre, computeTetrahedronVolume, findCommon, &
+                                  fatalError, numToChar
   use numPrecision
   use pyramid_class,       only : pyramid
   use pyramidShelf_class,  only : pyramidShelf
@@ -129,34 +129,34 @@ contains
   !! TODO: Review this. Especially for cases where a particle may end up on an edge or at a vertex.
   pure subroutine computeIntersectedFace(self, startPos, endPos, potentialFaceIdxs, &
                                          intersectedFaceIdx, lambda, faces)
-    class(element), intent(in)                               :: self
-    real(defReal), dimension(3), intent(in)                  :: startPos, endPos
-    integer(shortInt), dimension(:), allocatable, intent(in) :: potentialFaceIdxs
-    integer(shortInt), intent(out)                           :: intersectedFaceIdx
-    real(defReal), intent(out)                               :: lambda
-    type(faceShelf), intent(in)                              :: faces
-    integer(shortInt)                                        :: i
-    integer(shortInt), dimension(:), allocatable             :: absPotentialFaceIdxs
-    real(defReal), dimension(3)                              :: centroid, normal
-    real(defReal)                                            :: faceLambda
+    class(element), intent(in)                  :: self
+    real(defReal), dimension(3), intent(in)     :: startPos, endPos
+    integer(shortInt), dimension(:), intent(in) :: potentialFaceIdxs
+    integer(shortInt), intent(out)              :: intersectedFaceIdx
+    real(defReal), intent(out)                  :: lambda
+    type(faceShelf), intent(in)                 :: faces
+    integer(shortInt)                           :: i, faceIdx, absFaceIdx
+    real(defReal), dimension(3)                 :: centroid, normal
+    real(defReal)                               :: faceLambda
     
-    ! Create absolute triangle indices and initialise lambda = INF.
-    absPotentialFaceIdxs = abs(potentialFaceIdxs)
+    ! Initialise lambda = INF.
     lambda = INF
     
     ! Loop over all potentially intersected triangles.
     do i = 1, size(potentialFaceIdxs)
-      ! Retrieve the current triangle's normal vector and flip it if necessary.
-      normal = faces % shelf(absPotentialFaceIdxs(i)) % getNormal(potentialFaceIdxs(i))
+      ! Retrieve the current face's signed normal vector and flip it if necessary.
+      faceIdx = potentialFaceIdxs(i)
+      absFaceIdx = abs(faceIdx)
+      normal = faces % getFaceNormal(faceIdx)
       
       ! Retrieve the current triangle's centre and compute triangleLambda.
-      centroid = faces % shelf(absPotentialFaceIdxs(i)) % getCentroid()
+      centroid = faces % getFaceCentroid(absFaceIdx)
       faceLambda = dot_product(centroid - startPos, normal) / dot_product(endPos - startPos, normal)
       
       ! If triangleLambda < lambda, update lambda and intersectedTriangleIdx.
       if (faceLambda < lambda) then
         lambda = faceLambda
-        intersectedFaceIdx = absPotentialFaceIdxs(i)
+        intersectedFaceIdx = absFaceIdx
 
       end if
 
@@ -164,7 +164,7 @@ contains
 
   end subroutine computeIntersectedFace
 
-  !! Subroutine 'computePotentialFaces'
+  !! Function 'computePotentialFaces'
   !!
   !! Basic description:
   !!   Computes a list of indices of the potentially intersected faces using the element's 
@@ -174,41 +174,42 @@ contains
   !!   See Macpherson, et al. (2009). DOI: 10.1002/cnm.1128.
   !!
   !! Arguments:
-  !!   endPos [in]             -> End of the line segment.
-  !!   faces [in]              -> A faceShelf.
-  !!   potentialFaceIdxs [out] -> Array of indices of the potential faces intersected by the line segment.
+  !!   endPos [in]       -> End of the line segment.
+  !!   faces [in]        -> A faceShelf.
   !!
-  pure subroutine computePotentialFaces(self, endPos, faces, potentialFaceIdxs)
-    class(element), intent(in)                                :: self
-    real(defReal), dimension(3), intent(in)                   :: endPos
-    type(faceShelf), intent(in)                               :: faces
-    integer(shortInt), dimension(:), allocatable, intent(out) :: potentialFaceIdxs
-    integer(shortInt)                                         :: i, faceIdx, absFaceIdx
-    real(defReal)                                             :: lambda
-    real(defReal), dimension(3)                               :: centroid, faceCentroid, normal
+  !! Result:
+  !!   potentialFaceIdxs -> Array of indices of the potential faces intersected by the line segment.
+  !!
+  pure function computePotentialFaces(self, endPos, faces) result(potentialFaceIdxs)
+    class(element), intent(in)                   :: self
+    real(defReal), dimension(3), intent(in)      :: endPos
+    type(faceShelf), intent(in)                  :: faces
+    integer(shortInt), dimension(:), allocatable :: potentialFaceIdxs
+    integer(shortInt)                            :: i, faceIdx, absFaceIdx
+    real(defReal)                                :: lambda
+    real(defReal), dimension(3)                  :: centroid, faceCentroid, normal
     
     ! Retrieve element's centroid then loop over all faces in the tetrahedron.
+    allocate(potentialFaceIdxs(0))
     centroid = self % centroid
     do i = 1, size(self % faceIdxs)
-      ! Retrieve current triangle index and create its absolute index.
+      ! Retrieve current face index and create its absolute index.
       faceIdx = self % faceIdxs(i)
       absFaceIdx = abs(faceIdx)
       
-      ! Retrieve the signed normal vector of the current triangle.
-      normal = faces % shelf(absFaceIdx) % getNormal(faceIdx)
+      ! Retrieve the signed normal vector of the current face.
+      normal = faces % getFaceNormal(faceIdx)
       
-      ! Retrieve the centre of the current triangle and compute lambda.
-      faceCentroid = faces % shelf(absFaceIdx) % getCentroid()
+      ! Retrieve the centre of the current face and compute lambda.
+      faceCentroid = faces % getFaceCentroid(absFaceIdx)
       lambda = dot_product(faceCentroid - centroid, normal) / dot_product(endPos - centroid, normal)
       
-      ! If ZERO <= lambda <= ONE, append the current triangle to the list of potentially intersected triangles.
+      ! If ZERO <= lambda <= ONE, append the current face to the list of potentially intersected faces.
       if (ZERO <= lambda .and. lambda <= ONE) call append(potentialFaceIdxs, faceIdx)
 
     end do
 
-    if (.not. allocated(potentialFaceIdxs)) allocate(potentialFaceIdxs(0))
-
-  end subroutine computePotentialFaces
+  end function computePotentialFaces
   
   !! Subroutine 'computeVolumeAndCentroid'
   !!
@@ -231,25 +232,23 @@ contains
   !!   fatalError if the volume is element is negative or infinite.
   !!
   subroutine computeVolumeAndCentroid(self, vertices, faces)
-    class(element), intent(inout)                                :: self
-    type(vertex), dimension(size(self % vertexIdxs)), intent(in) :: vertices
-    type(face), dimension(size(self % faceIdxs)), intent(in)     :: faces
-    integer(shortInt)                                            :: i, nFaces, nVertices
-    real(defReal)                                                :: area, sumAreas, volume, &
-                                                                    sumVolumes
-    real(defReal), dimension(3)                                  :: sumVolumesCentroid, C
-    real(defReal), dimension(:, :), allocatable                  :: array
-    character(100), parameter                                    :: Here = 'computeVolumeAndCentroid &
-                                                                           &(element_class.f90)'
+    class(element), intent(inout)               :: self
+    type(vertexShelf), intent(in)               :: vertices
+    type(faceShelf), intent(in)                 :: faces
+    integer(shortInt)                           :: i, nFaces, nVertices, absFaceIdx
+    real(defReal)                               :: area, sumAreas, volume, sumVolumes
+    real(defReal), dimension(3)                 :: sumVolumesCentroid, C
+    real(defReal), dimension(:, :), allocatable :: array
+    character(100), parameter                   :: Here = 'computeVolumeAndCentroid (element_class.f90)'
     
     ! Retrieve the number of vertices in the element.
-    nVertices = size(vertices)
+    nVertices = size(self % vertexIdxs)
     
     ! If the element is a tetrahedron perform a direct computation to minimise round-off errors.
     if (nVertices == 4) then
       allocate(array(4, 3))
       do i = 1, 4
-        array(i, :) = vertices(i) % getCoordinates()
+        array(i, :) = vertices % getVertexCoordinates(self % vertexIdxs(i))
 
       end do
       self % volume = computeTetrahedronVolume(array)
@@ -257,17 +256,18 @@ contains
 
     else
       ! Retrieve the number of faces in the element and initialise variables.
-      nFaces = size(faces)
+      nFaces = size(self % faceIdxs)
       C = ZERO
       sumAreas = ZERO
       
       ! Loop through all faces and compute the element's approximate centroid
       ! by performing an area-weighted average of the different faces' centroids.
       do i = 1, nFaces
-        ! Retrieve the area of the current face and update 
-        area = faces(i) % getArea()
+        ! Retrieve the area of the current face.
+        absFaceIdx = abs(self % faceIdxs(i))
+        area = faces % getFaceArea(absFaceIdx)
         ! Update the area-weighted centroid and the sum of faces' areas.
-        C = C + (faces(i) % getCentroid()) * area
+        C = C + faces % getFaceCentroid(absFaceIdx) * area
         sumAreas = sumAreas + area
 
       end do
@@ -282,11 +282,12 @@ contains
       ! Loop through all faces (pyramids).
       do i = 1, nFaces
         ! Retrieve the volume of the current pyramid and update the volume-weighted centroid and the sum of volumes.
-        array(1, :) = faces(i) % getNormal() * faces(i) % getArea()
-        array(2, :) = C - faces(i) % getCentroid()
+        absFaceIdx = abs(self % faceIdxs(i))
+        array(1, :) = faces % getFaceNormal(absFaceIdx) * faces % getFaceArea(absFaceIdx)
+        array(2, :) = C - faces % getFaceCentroid(absFaceIdx)
         volume = computePyramidVolume(array)
 
-        array(1, :) = 3.0_defReal * faces(i) % getCentroid()
+        array(1, :) = 3.0_defReal * faces % getFaceCentroid(absFaceIdx)
         array(2, :) = C
         sumVolumesCentroid = sumVolumesCentroid + computePyramidCentre(array) * volume
         sumVolumes = sumVolumes + volume
@@ -323,46 +324,40 @@ contains
   !!   faces [in]    -> A faceShelf.
   !!
   !! Result:
-  !!   isIt -> A logical which is .true. if the element is convex and .false. otherwise.
+  !!   isIt          -> .true. if the element is convex.
   !!
-  pure function isConvex(self, vertices, faces) result(isIt)
-    class(element), intent(in)                                   :: self
-    type(vertex), dimension(size(self % vertexIdxs)), intent(in) :: vertices
-    type(face), dimension(size(self % faceIdxs)), intent(in)     :: faces
-    integer(shortInt)                                            :: i, j, k
-    integer(shortInt), dimension(size(self % faceIdxs))          :: faceIdxs
-    integer(shortInt), dimension(size(self % vertexIdxs))        :: vertexIdxs
-    integer(shortInt), dimension(:), allocatable                 :: faceVertexIdxs
-    logical(defBool)                                             :: isIt
-    type(vertex), dimension(:), allocatable                      :: faceVertex
-    real(defReal), dimension(3)                                  :: normal, faceVertexCoords
+  elemental function isConvex(self, vertices, faces) result(isIt)
+    class(element), intent(in)                   :: self
+    type(vertexShelf), intent(in)                :: vertices
+    type(faceShelf), intent(in)                  :: faces
+    integer(shortInt)                            :: i, j, k, faceIdx, absFaceIdx, vertexIdx
+    integer(shortInt), dimension(:), allocatable :: faceVertexIdxs
+    logical(defBool)                             :: isIt
+    real(defReal), dimension(3)                  :: normal, faceVertexCoords
     
     ! Initialise isIt = .false.
     isIt = .false.
     
-    ! Retrieve the element's vertices and faces and create an array of absolute face indices.
-    vertexIdxs = self % vertexIdxs
-    faceIdxs = self % faceIdxs
-    
     ! Now loop through all the faces in the element.
-    do i = 1, size(faceIdxs)
+    do i = 1, size(self % faceIdxs)
       ! Retrieve the current face's vertices and signed normal vector.
-      faceVertexIdxs = faces(i) % getVertices()
-      normal = faces(i) % getNormal(faceIdxs(i))
+      faceIdx = self % faceIdxs(i)
+      absFaceIdx = abs(faceIdx)
+      faceVertexIdxs = faces % getFaceVertexIdxs(absFaceIdx)
+      normal = faces % getFaceNormal(faceIdx)
       
       ! Loop through all the vertices in the current face.
       do j = 1, size(faceVertexIdxs)
-        ! Retrieve the coordinates of the current face vertex and loop through all the vertices
-        ! in the element.
-        faceVertex = pack(vertices, vertices % getIdx() == faceVertexIdxs(j))
-        faceVertexCoords = faceVertex(1) % getCoordinates()
-        do k = 1, size(vertexIdxs)
+        ! Retrieve the coordinates of the current face vertex and loop through all the vertices in the element.
+        faceVertexCoords = vertices % getVertexCoordinates(faceVertexIdxs(j))
+        do k = 1, size(self % vertexIdxs)
           ! Cycle to the next vertex if the current vertex index corresponds to the index of a vertex in the current face.
-          if (any(faceVertexIdxs == vertexIdxs(k))) cycle
+          vertexIdx = self % vertexIdxs(k)
+          if (any(faceVertexIdxs == vertexIdx)) cycle
           
           ! Assemble the test vector and check if normal .dot. testVector > ZERO. If yes, the element
           ! is concave and we can return early.
-          if (dot_product(normal, vertices(k) % getCoordinates() - faceVertexCoords) > ZERO) return
+          if (dot_product(normal, vertices % getVertexCoordinates(vertexIdx) - faceVertexCoords) > ZERO) return
 
         end do
 
@@ -529,8 +524,8 @@ contains
   !!   lastPyramidIdx [inout]  -> Index of the first free item in the pyramidShelf.
   !!   lastVertexIdx [in]      -> Index of the first free item in the vertexShelf.
   !!
-  subroutine split(self, faces, edges, vertices, triangles, pyramids, &
-                   lastEdgeIdx, lastTriangleIdx, lastPyramidIdx, lastVertexIdx)
+  elemental subroutine split(self, faces, edges, vertices, triangles, pyramids, &
+                             lastEdgeIdx, lastTriangleIdx, lastPyramidIdx, lastVertexIdx)
     class(element), intent(inout)                    :: self
     type(faceShelf), intent(in)                      :: faces
     type(edgeShelf), intent(inout)                   :: edges
@@ -540,15 +535,16 @@ contains
     integer(shortInt), intent(inout)                 :: lastEdgeIdx, lastTriangleIdx, lastPyramidIdx
     integer(shortInt), intent(in)                    :: lastVertexIdx
     integer(shortInt)                                :: i, j, k, faceIdx, absFaceIdx, nVertices, &
-                                                        edgeIdx
-    integer(shortInt), dimension(:), allocatable     :: faceVertices, commonIdxs
+                                                        edgeIdx, commonTriangleIdx
+    integer(shortInt), dimension(:), allocatable     :: faceVertices
     integer(shortInt), dimension(3)                  :: testVertices
-    real(defReal), dimension(3)                      :: apexCoords, testCoords, firstVertexCoords, &
-                                                        secondVertexCoords, tempCoords
+    real(defReal), dimension(3)                      :: apexCoords
+    real(defReal), dimension(3, 3)                   :: array
     logical(defBool)                                 :: createNewEdge
     
     ! Retrieve the apex coordinates and loop over all element faces.
-    apexCoords = vertices % shelf(lastVertexIdx) % getCoordinates()
+    apexCoords = vertices % getVertexCoordinates(lastVertexIdx)
+    array(3, :) = apexCoords
     do i = 1, size(self % faceIdxs)
       ! Increment lastPyramidIdx, retrieve current face index and create absolute face index.
       lastPyramidIdx = lastPyramidIdx + 1
@@ -557,12 +553,8 @@ contains
 
       ! Create a new pyramid. Set its index, parent element index (the current element's index),
       ! base face index, vertex indices and centroid.
-      faceVertices = faces % shelf(absFaceIdx) % getVertices()
-      call pyramids % shelf(lastPyramidIdx) % setIdx(lastPyramidIdx)
-      call pyramids % shelf(lastPyramidIdx) % setElement(self % idx)
-      call pyramids % shelf(lastPyramidIdx) % setFace(faceIdx)
-      call pyramids % shelf(lastPyramidIdx) % setVertices([faceVertices, lastVertexIdx])
-      call pyramids % shelf(lastPyramidIdx) % computeCentroid(faces % shelf(absFaceIdx), apexCoords)
+      faceVertices = faces % getFaceVertexIdxs(absFaceIdx)
+      call pyramids % initPyramid(lastPyramidIdx, self % idx, faceIdx, [faceVertices, lastVertexIdx], apexCoords, faces)
       
       ! Compute the number of vertices and loop through all the vertices in the current face to 
       ! see if we need to create new triangles.
@@ -573,14 +565,10 @@ contains
         testVertices = [faceVertices(j), faceVertices(mod(j, nVertices) + 1), lastVertexIdx]
 
         ! Note: skip the first face because none of the triangles can already be present. 
-        if (i > 1 .and. all(vertices % shelf(testVertices) % hasTriangles())) then
-          commonIdxs = vertices % shelf(testVertices(1)) % getVertexToTriangles()
-          do k = 2, 3
-            commonIdxs = findCommon(commonIdxs, vertices % shelf(testVertices(k)) % getVertexToTriangles())
-
-          end do
-          if (size(commonIdxs) > 0) then
-            call pyramids % shelf(lastPyramidIdx) % addTriangle(-triangles % shelf(commonIdxs(1)) % getIdx())
+        if (i > 1) then
+          commonTriangleIdx = vertices % findCommonTriangleIdx(testVertices)
+          if (commonTriangleIdx > 0) then
+            call pyramids % addTriangleIdxToPyramid(lastPyramidIdx, -commonTriangleIdx)
             cycle
 
           end if
@@ -591,44 +579,23 @@ contains
         ! Create a new triangle. Create vectors pointing to the first and second vertices and
         ! compute the new triangle's centre and normal vector.
         lastTriangleIdx = lastTriangleIdx + 1
-        call triangles % shelf(lastTriangleIdx) % setIdx(lastTriangleIdx)
-        firstVertexCoords = vertices % shelf(testVertices(1)) % getCoordinates()
-        secondVertexCoords = vertices % shelf(testVertices(2)) % getCoordinates()
-        call triangles % shelf(lastTriangleIdx) % computeCentre(firstVertexCoords, secondVertexCoords, apexCoords)
-        call triangles % shelf(lastTriangleIdx) % computeNormal(firstVertexCoords, secondVertexCoords, apexCoords)
-        
-        ! Now compute the triangle's area and normalise its normal vector. Check that the normal
-        ! vector points away from the current face. If not, flip two of its vertices and negate it.
-        call triangles % shelf(lastTriangleIdx) % computeArea()
-        call triangles % shelf(lastTriangleIdx) % normaliseNormal()
-        testCoords = triangles % shelf(lastTriangleIdx) % getCentre() - pyramids % shelf(lastPyramidIdx) % getCentroid()
-        
-        if (dot_product(testCoords, triangles % shelf(lastTriangleIdx) % getNormal()) <= ZERO) then
-          call swap(testVertices, 1, 2)
-          tempCoords = firstVertexCoords
-          firstVertexCoords = secondVertexCoords
-          secondVertexCoords = tempCoords
-          call triangles % shelf(lastTriangleIdx) % negateNormal()
-
-        end if
-        
-        ! Set the new triangle's vertices and edge vectors.
-        call triangles % shelf(lastTriangleIdx) % setVertices(testVertices)
-        call triangles % shelf(lastTriangleIdx) % setAB(secondVertexCoords - firstVertexCoords)
-        call triangles % shelf(lastTriangleIdx) % setAC(apexCoords - firstVertexCoords)
+        array(1, :) = vertices % getVertexCoordinates(testVertices(1))
+        array(2, :) = vertices % getVertexCoordinates(testVertices(2))
+        call triangles % buildTriangle(lastTriangleIdx, testVertices, 0, .false., array, &
+                                       pyramids % getPyramidCentroid(lastPyramidIdx))
         
         ! Update mesh connectivity information.
-        call pyramids % shelf(lastPyramidIdx) % addTriangle(lastTriangleIdx)
+        call pyramids % addTriangleIdxToPyramid(lastPyramidIdx, lastTriangleIdx)
         do k = 1, 3
-          call vertices % shelf(testVertices(k)) % addTriangleIdx(lastTriangleIdx)
+          call vertices % addTriangleIdxToVertex(testVertices(k), lastTriangleIdx)
 
         end do
 
         ! Find the common edge between the first two vertices of the new triangle (this edge was
         ! already created during the initial importation process) and update mesh connectivity.
         edgeIdx = vertices % findCommonEdgeIdx(testVertices(1), testVertices(2))
-        call edges % shelf(edgeIdx) % addTriangleIdx(lastTriangleIdx)
-        call triangles % shelf(lastTriangleIdx) % addEdgeIdx(edgeIdx)
+        call edges % addTriangleIdxToEdge(edgeIdx, lastTriangleIdx)
+        call triangles % addEdgeIdxToTriangle(lastTriangleIdx, edgeIdx)
 
         ! Now check if new edges need to be created for the remaining two pairs of vertices in the
         ! new triangle.
@@ -648,17 +615,16 @@ contains
             ! Create a new edge, set its index and vertices then add this edge to each vertex and
             ! update edgeIdx = lastEdgeIdx.
             lastEdgeIdx = lastEdgeIdx + 1
-            call edges % shelf(lastEdgeIdx) % setIdx(lastEdgeIdx)
-            call edges % shelf(lastEdgeIdx) % setVertexIdxs([testVertices(k), lastVertexIdx])
-            call vertices % shelf(testVertices(k)) % addEdgeIdx(lastEdgeIdx)
-            call vertices % shelf(lastVertexIdx) % addEdgeIdx(lastEdgeIdx)
+            call edges % initEdge(lastEdgeIdx, [testVertices(k), lastVertexIdx])
+            call vertices % addEdgeIdxToVertex(testVertices(k), lastEdgeIdx)
+            call vertices % addEdgeIdxToVertex(lastVertexIdx, lastEdgeIdx)
             edgeIdx = lastEdgeIdx
 
           end if
 
           ! Update mesh connectivity information.
-          call edges % shelf(edgeIdx) % addTriangleIdx(lastTriangleIdx)
-          call triangles % shelf(lastTriangleIdx) % addEdgeIdx(edgeIdx)
+          call edges % addTriangleIdxToEdge(edgeIdx, lastTriangleIdx)
+          call triangles % addEdgeIdxToTriangle(lastTriangleIdx, edgeIdx)
 
         end do
       
@@ -712,8 +678,8 @@ contains
       ! Create an absolute face index retrieve the face's normal and centroid vectors.
       faceIdx = self % faceIdxs(i)
       absFaceIdx = abs(faceIdx)
-      normal = faces % shelf(absFaceIdx) % getNormal(faceIdx)
-      centroid = faces % shelf(absFaceIdx) % getCentroid()
+      normal = faces % getFaceNormal(faceIdx)
+      centroid = faces % getFaceCentroid(absFaceIdx)
       
       ! Make a vector going from the coordinates to the face's centroid and perform the dot
       ! product between this vector and the face's normal vector.

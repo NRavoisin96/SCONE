@@ -12,23 +12,43 @@ module cellZoneShelf_class
   !! Storage space for element zones in a given unstructured mesh.
   !!
   !! Public members:
-  !!   shelf          -> Array to store element zones.
+  !!   shelf           -> Array to store element zones.
   !!
   !! Interface:
-  !!   findCellZone   -> Returns the cell zone containing a given element.
-  !!   getIdxFromName -> Returns the cell zone corresponding to a given name.
-  !!   kill           -> Returns to an uninitialised state.
+  !!   allocateShelf   -> Allocates the shelf.
+  !!   findCellZone    -> Returns the cell zone containing a given element.
+  !!   getIdxFromName  -> Returns the cell zone corresponding to a given name.
+  !!   initElementZone -> Initialises a new element zone in the shelf.
+  !!   kill            -> Returns to an uninitialised state.
   !!
-  type, public :: cellZoneShelf
+  type, public                                :: cellZoneShelf
     private
-    type(cellZone), dimension(:), allocatable, public :: shelf
+    type(cellZone), dimension(:), allocatable :: shelf
   contains
-    procedure                                         :: findCellZone
-    procedure                                         :: getIdxFromName
-    procedure                                         :: kill
+    procedure                                 :: allocateShelf
+    procedure                                 :: findCellZone
+    procedure                                 :: getIdxFromName
+    procedure                                 :: initElementZone
+    procedure                                 :: kill
   end type cellZoneShelf
 
 contains
+
+  !! Subroutine 'allocateShelf'
+  !!
+  !! Basic description:
+  !!   Allocates the shelf.
+  !!
+  !! Arguments:
+  !!   nElementZones [in] -> Number of element zones in the shelf.
+  !!
+  elemental subroutine allocateShelf(self, nElementZones)
+    class(cellZoneShelf), intent(inout) :: self
+    integer(shortInt), intent(in)       :: nElementZones
+
+    allocate(self % shelf(nElementZones))
+
+  end subroutine allocateShelf
   
   !! Function 'findCellZone'
   !!
@@ -87,5 +107,25 @@ contains
     if (allocated(self % shelf)) deallocate(self % shelf)
 
   end subroutine kill
+
+  !! Subroutine 'initElementZone'
+  !!
+  !! Basic description:
+  !!   Initialises an element zone in the shelf.
+  !!
+  !! Arguments:
+  !!   name [in]            -> Name of the element zone.
+  !!   idx [in]             -> Index of the element zone in the shelf.
+  !!   firstElementIdx [in] -> Index of the first element in the element zone.
+  !!   lastElementIdx [in]  -> Index of the last element in the element zone.
+  !!
+  elemental subroutine initElementZone(self, name, idx, firstElementIdx, lastElementIdx)
+    class(cellZoneShelf), intent(inout) :: self
+    character(*), intent(in)            :: name
+    integer(shortInt), intent(in)       :: idx, firstElementIdx, lastElementIdx
+
+    call self % shelf(idx) % init(name, firstElementIdx, lastElementIdx)
+
+  end subroutine initElementZone
   
 end module cellZoneShelf_class
