@@ -72,8 +72,8 @@ module surface_inter
     procedure                                    :: setOrigin
     procedure                                    :: setSurfTol
     procedure                                    :: setType
-
     ! Runtime procedures
+    procedure                                    :: cropsBoundingBox
     procedure                                    :: halfspace
     procedure(evaluate), deferred                :: evaluate
     procedure(distance), deferred                :: distance
@@ -159,6 +159,34 @@ module surface_inter
   end interface
 
 contains
+  !! Subroutine 'cropsBoundingBox'
+  !!
+  !! Basic description:
+  !!   Checks whether the surface crops a given bounding box. By default it simply call fatalError.
+  !!   Must be overriden in extended classes.
+  !!
+  !! Arguments:
+  !!   boundingBox -> A defReal array containing the x_min, y_min, z_min, x_max, y_max and z_max
+  !!                  coordinates of the bounding box.
+  !!
+  !! Result:
+  !!   doesIt      -> .true. if the surface crops the bounding box.
+  !!
+  !! Errors:
+  !!   - fatalError by default.
+  !!
+  function cropsBoundingBox(self, boundingBox) result(doesIt)
+    class(surface), intent(in)              :: self
+    real(defReal), dimension(6), intent(in) :: boundingBox
+    logical(defBool)                        :: doesIt
+    character(*), parameter                 :: here = 'cropsBoundingBox (surface_inter.f90)'
+
+    ! Call fatalError.
+    doesIt = .true.
+    call fatalError(here, 'Invalid surface type. Must be either box or sphere.')
+
+  end function cropsBoundingBox
+
   !!
   !! Return axis-aligned bounding box
   !!

@@ -2,7 +2,7 @@ module meshUniverse_class
   
   use numPrecision
   use universalVariables,     only : NUDGE, ZERO, ONE, INF, nameLen
-  use genericProcedures,      only : fatalError, numToChar
+  use genericProcedures,      only : fatalError, numToChar, countCharacters
   use dictionary_class,       only : dictionary
   use box_class,              only : box
   use coord_class,            only : coord
@@ -66,8 +66,8 @@ module meshUniverse_class
   !!     geometry.
   !!
   !! Public Members:
-  !!   cell -> Structure that stores cellIdx and pointers to the cell
-  !!   mesh -> Struture that stores meshIdx and a pointer to the mesh geometry
+  !!   cell -> Structure that stores cellIdx and a pointer to the cell.
+  !!   mesh -> Structure that stores meshIdx and a pointer to the mesh geometry.
   !!
   !! Interface:
   !!   universe interface
@@ -135,7 +135,9 @@ contains
     fills(1) = cells % getFill(self % cell % idx)
     do i = 1, nFills
       fills(1 + i) = charToFill(fillNames(i), mats, Here)
+
     end do
+
   end subroutine init
   
   !!
@@ -219,8 +221,8 @@ contains
     ! Local.
     self % cell % idx = 0
     self % mesh % idx = 0
-    if (associated(self % cell % ptr)) deallocate(self % cell % ptr)
-    if (associated(self % mesh % ptr)) deallocate(self % mesh % ptr)
+    if (associated(self % cell % ptr)) nullify(self % cell % ptr)
+    if (associated(self % mesh % ptr)) nullify(self % mesh % ptr)
 
   end subroutine kill
   
@@ -242,17 +244,9 @@ contains
     type(surfaceShelf), intent(in)               :: surfs
     class(cell), pointer                         :: cellPtr
     class(surface), pointer                      :: surfPtr
-    character(:), allocatable                    :: surfType
-    real(defReal)                                :: radiusSquared, dist
-    real(defReal), dimension(3)                  :: halfwidths
-    real(defReal), dimension(6)                  :: boundingBox
-    integer(shortInt)                            :: i
     integer(shortInt), dimension(:), allocatable :: surfIdxs
-    logical(defBool)                             :: doesIt
-    character(100), parameter                    :: Here = 'checkForCropping &
-                                                            &(meshUniverse_class.f90)'
-    ! Initialise doesIt = .false. 
-    doesIt = .false.
+    real(defReal), dimension(6)                  :: boundingBox
+    character(*), parameter                      :: Here = 'checkForCropping (meshUniverse_class.f90)'
     
     ! Get local pointer to cell. We need this to select the cell type.
     cellPtr => self % cell % ptr
@@ -269,70 +263,24 @@ contains
     ! being put in the non-overlapping region between surfaces).
     if (size(surfIdxs) > 1) call fatalError(Here, 'The CSG cell used in the mesh universe has more than one surface.')
     
-    ! Get pointer to the surface of the CSG cell and retrieve its type.
+    ! Get pointer to the surface of the CSG cell and check that the surface of the CSG cell does not crop it.
     surfPtr => surfs % getPtr(abs(surfIdxs(1)))
-    surfType = surfPtr % getType()
-    
-    ! Retrieve the mesh bounding box and check that the surface of the CSG cell does not crop it.
-    ! At the moment only boxes and spheres are supported.
     boundingBox = self % mesh % ptr % getBoundingBox()
-    select case(surfType)
-      case('box')
-        select type(surfPtr)
-          type is (box)
-          ! Retrieve the halfwidths of the box.
-          halfwidths = surfPtr % getHalfwidths()
-
-        end select
-        ! Loop through all dimensions and check that the bounding box is inside the surface box.
-        do i = 1, 3
-          if (any(abs(boundingBox([i, 3 + i])) > halfwidths(i))) then
-            doesIt = .true.
-            exit
-
-          end if
-
-        end do
-      
-      case('sphere')
-        select type(surfPtr)
-          type is (sphere)
-          ! Retrieve the radius of the sphere.
-          radiusSquared = surfPtr % getRadiusSquared()
-
-        end select
-        ! Initialise dist = ZERO and loop through all dimensions.
-        dist = ZERO
-        do i = 1, 3
-          ! Update the distance to the furthest vertex of the bounding box. If this vertex is not
-          ! inside the sphere then it crops the mesh.
-          dist = dist + max(boundingBox(i) ** 2, boundingBox(3 + i) ** 2)
-          if (dist > radiusSquared) then
-            doesIt = .true.
-            exit
-
-          end if
-          
-        end do
-      
-        ! If the surface is not a sphere or box call fatalError.
-      case default
-        call fatalError(Here, 'Invalid surface type for the CSG cell in the mesh universe. Must be &
-                               &either box or sphere.')
-    end select
-    
-    ! If the surface crops the mesh geometry display the extremal coordinates (for user convenience)
-    ! and call fatalError.
-    if (doesIt) then
-      print *, 'Minimum x-coordinate: '//numToChar(boundingBox(1))
-      print *, 'Minimum y-coordinate: '//numToChar(boundingBox(2))
-      print *, 'Minimum z-coordinate: '//numToChar(boundingBox(3))
-      print *, 'Maximum x-coordinate: '//numToChar(boundingBox(4))
-      print *, 'Maximum y-coordinate: '//numToChar(boundingBox(5))
-      print *, 'Maximum z-coordinate: '//numToChar(boundingBox(6))
-      call fatalError(Here, 'The surface used to define the CSG cell crops the mesh geometry.')
+    if (surfPtr % cropsBoundingBox(boundingBox)) then
+      print *, 'Minimum x-coordinate: '//numToChar(boundingBox(1))//'.'
+      print *, 'Minimum y-coordinate: '//numToChar(boundingBox(2))//'.'
+      print *, 'Minimum z-coordinate: '//numToChar(boundingBox(3))//'.'
+      print *, 'Maximum x-coordinate: '//numToChar(boundingBox(4))//'.'
+      print *, 'Maximum y-coordinate: '//numToChar(boundingBox(5))//'.'
+      print *, 'Maximum z-coordinate: '//numToChar(boundingBox(6))//'.'
+      call fatalError(Here, 'Surface with id: '//numToChar(surfPtr % getId())//&
+                      ' crops the bounding box of the mesh geometry with id: '//numToChar(self % mesh % ptr % getId())//'.')
 
     end if
+
+    ! Nullify pointers.
+    nullify(cellPtr)
+    nullify(surfPtr)
 
   end subroutine checkForCropping
   

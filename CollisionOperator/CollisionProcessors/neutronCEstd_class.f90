@@ -173,6 +173,7 @@ contains
     if (collDat % nucIdx == REJECTED) then
       collDat % MT = noInteraction
       return
+      
     end if
 
     self % nuc => ceNeutronNuclide_CptrCast(self % xsData % getNuclide(collDat % nucIdx))

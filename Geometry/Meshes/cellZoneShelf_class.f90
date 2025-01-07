@@ -3,7 +3,6 @@ module cellZoneShelf_class
   use numPrecision
   use universalVariables, only : targetNotFound
   use genericProcedures,  only : openToRead, linFind
-  use element_class,      only : element
   use cellZone_class,     only : cellZone
   
   implicit none
@@ -17,7 +16,6 @@ module cellZoneShelf_class
   !! Interface:
   !!   allocateShelf   -> Allocates the shelf.
   !!   findCellZone    -> Returns the cell zone containing a given element.
-  !!   getIdxFromName  -> Returns the cell zone corresponding to a given name.
   !!   initElementZone -> Initialises a new element zone in the shelf.
   !!   kill            -> Returns to an uninitialised state.
   !!
@@ -27,7 +25,6 @@ module cellZoneShelf_class
   contains
     procedure                                 :: allocateShelf
     procedure                                 :: findCellZone
-    procedure                                 :: getIdxFromName
     procedure                                 :: initElementZone
     procedure                                 :: kill
   end type cellZoneShelf
@@ -68,33 +65,10 @@ contains
     
     do cellZoneIdx = 2, size(self % shelf) + 1
       if (self % shelf(cellZoneIdx - 1) % containsElement(elementIdx)) return
-    end do
-  end function findCellZone
-  
-  !! Function 'getIdxFromName'
-  !!
-  !! Basic description:
-  !!   Returns the index of the cell zone whose name matches targetName. Returns 'targetNotFound' if
-  !!   no cell zone name matches targetName.
-  !!
-  !! Arguments:
-  !!   targetName [in] -> Name of the cell zone.
-  !!
-  !! Result:
-  !!   cellZoneIdx     -> Index of the cell zone whose name matches targetName.
-  !!
-  elemental function getIdxFromName(self, targetName) result(cellZoneIdx)
-    class(cellZoneShelf), intent(in)                  :: self
-    character(*), intent(in)                          :: targetName
-    integer(shortInt)                                 :: cellZoneIdx, i
-    character(nameLen), dimension(size(self % shelf)) :: names
-    
-    do i = 1, size(self % shelf)
-      names(i) = self % shelf(i) % getName()
 
     end do
-    cellZoneIdx = linFind(names, targetName)
-  end function getIdxFromName
+    
+  end function findCellZone
   
   !! Subroutine 'kill'
   !!

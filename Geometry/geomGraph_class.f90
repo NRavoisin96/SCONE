@@ -19,8 +19,7 @@ module geomGraph_class
   !! uniRootID is the location of the data for the given universe in array
   !!
   type, private :: location
-    integer(shortInt) :: idx = 0
-    integer(shortInt) :: id  = 0
+    integer(shortInt) :: id = 0, idx = 0
   end type location
 
   !!
@@ -130,7 +129,7 @@ contains
   !!   id [out]       -> UniqueId or uniRootId
   !!
   !! Errors:
-  !!   If localId is too large or too smal, content from a different universe will be read
+  !!   If localId is too large or too small, content from a different universe will be read
   !!   For invalid uniRootId any content may be returned
   !!
   elemental subroutine getFill(self, uniRootId, localId, idx, id)

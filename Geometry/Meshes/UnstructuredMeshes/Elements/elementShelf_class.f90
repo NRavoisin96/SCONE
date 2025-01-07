@@ -1,12 +1,13 @@
 module elementShelf_class
   
-  use edgeShelf_class,     only : edgeShelf
-  use element_class,       only : element
-  use faceShelf_class,     only : faceShelf
+  use edgeShelf_class,   only : edgeShelf
+  use element_inter,     only : element, elementBox
+  use face_inter,        only : faceBox
+  use faceShelf_class,   only : faceShelf
   use numPrecision
-  use pyramidShelf_class,  only : pyramidShelf
-  use triangleShelf_class, only : triangleShelf
-  use vertexShelf_class,   only : vertexShelf
+  use polyhedron_class,  only : polyhedron
+  use tetrahedron_class, only : tetrahedron
+  use vertexShelf_class, only : vertexShelf
   
   implicit none
   private
@@ -17,25 +18,32 @@ module elementShelf_class
   !! Private members:
   !!   shelf -> Array to store elements.
   !!
-  type, public                               :: elementShelf
+  type, public                                  :: elementShelf
     private
-    type(element), dimension(:), allocatable :: shelf
+    type(elementBox), dimension(:), allocatable :: shelf
   contains
-    procedure                                :: addEdgeIdxToElement
-    procedure                                :: addFaceIdxToElement
-    procedure                                :: addVertexIdxToElement
-    procedure                                :: allocateShelf
-    procedure                                :: computeFaceIntersection
-    procedure                                :: computePotentialFaceIdxs
-    procedure                                :: getElementCentroid
-    procedure                                :: getElementFaceIdxs
-    procedure                                :: getElementVertexIdxs
-    procedure                                :: getElementVolume
-    procedure                                :: initElement
-    procedure                                :: isConvex
-    procedure                                :: kill
-    procedure                                :: splitElement
-    procedure                                :: testForInclusion
+    procedure                                   :: addEdgeIdxToElement
+    procedure                                   :: addElement
+    procedure                                   :: addFaceIdxToElement
+    procedure                                   :: addVertexIdxToElement
+    procedure                                   :: allocateElement
+    procedure                                   :: allocateShelf
+    procedure                                   :: buildElement
+    procedure                                   :: computeFaceIntersection
+    procedure                                   :: computePotentialFaceIdxs
+    procedure                                   :: getElementCentroid
+    procedure                                   :: getElementEdgeIdxs
+    procedure                                   :: getElementFaceIdxs
+    procedure                                   :: getElementIsConvex
+    procedure                                   :: getElementParentIdx
+    procedure                                   :: getElementType
+    procedure                                   :: getElementVertexIdxs
+    procedure                                   :: getElementVolume
+    procedure                                   :: getSize
+    procedure                                   :: initElement
+    procedure                                   :: kill
+    procedure                                   :: splitElement
+    procedure                                   :: testForInclusion
   end type elementShelf
 
 contains
@@ -53,9 +61,21 @@ contains
     class(elementShelf), intent(inout) :: self
     integer(shortInt), intent(in)      :: idx, edgeIdx
 
-    call self % shelf(idx) % addEdgeIdx(edgeIdx)
+    call self % shelf(idx) % item % addEdgeIdx(edgeIdx)
 
   end subroutine addEdgeIdxToElement
+
+  !!
+  !!
+  !!
+  elemental subroutine addElement(self, idx, item)
+    class(elementShelf), intent(inout) :: self
+    integer(shortInt), intent(in)      :: idx
+    type(elementBox), intent(in)       :: item
+
+    self % shelf(idx) = item
+
+  end subroutine addElement
 
   !! Subroutine 'addFaceIdxToElement'
   !!
@@ -70,7 +90,7 @@ contains
     class(elementShelf), intent(inout) :: self
     integer(shortInt), intent(in)      :: idx, faceIdx
 
-    call self % shelf(idx) % addFaceToElement(faceIdx)
+    call self % shelf(idx) % item % addFaceIdx(faceIdx)
 
   end subroutine addFaceIdxToElement
 
@@ -87,9 +107,28 @@ contains
     class(elementShelf), intent(inout) :: self
     integer(shortInt), intent(in)      :: idx, vertexIdx
 
-    call self % shelf(idx) % addVertexToElement(vertexIdx)
+    call self % shelf(idx) % item % addVertexIdx(vertexIdx)
 
   end subroutine addVertexIdxToElement
+
+  !!
+  !!
+  !!
+  elemental subroutine allocateElement(self, idx, type)
+    class(elementShelf), intent(inout) :: self
+    integer(shortInt), intent(in)      :: idx
+    character(*), intent(in)           :: type
+
+    select case(type)
+      case('Polyhedron')
+        allocate(polyhedron :: self % shelf(idx) % item)
+      case('Tetrahedron')
+        allocate(tetrahedron :: self % shelf(idx) % item)
+      case default
+
+    end select
+
+  end subroutine allocateElement
 
   !! Subroutine 'allocateShelf'
   !!
@@ -106,6 +145,23 @@ contains
     allocate(self % shelf(nElements))
 
   end subroutine allocateShelf
+
+  !!
+  !!
+  !!
+  pure subroutine buildElement(self, idx, parentIdx, faceIdxs, vertexIdxs, faces, vertices, type)
+    class(elementShelf), intent(inout)          :: self
+    integer(shortInt), intent(in)               :: idx, parentIdx
+    integer(shortInt), dimension(:), intent(in) :: faceIdxs, vertexIdxs
+    type(faceShelf), intent(in)                 :: faces
+    type(vertexShelf), intent(in)               :: vertices
+    character(*), intent(in)                    :: type
+
+    ! Allocate element in shelf then build components.
+    call self % allocateElement(idx, type)
+    call self % shelf(idx) % item % build(idx, parentIdx, faceIdxs, vertexIdxs, faces, vertices, type)
+
+  end subroutine buildElement
 
   !! Subroutine 'computeFaceIntersection'
   !!
@@ -130,7 +186,7 @@ contains
     integer(shortInt), intent(out)              :: intersectedFaceIdx
     real(defReal), intent(out)                  :: lambda
 
-    call self % shelf(idx) % computeIntersectedFace(r, rEnd, potentialFaceIdxs, intersectedFaceIdx, lambda, faces)
+    call self % shelf(idx) % item % computeIntersectedFace(r, rEnd, potentialFaceIdxs, intersectedFaceIdx, lambda, faces)
 
   end subroutine computeFaceIntersection
 
@@ -154,7 +210,7 @@ contains
     type(faceShelf), intent(in)                  :: faces
     integer(shortInt), dimension(:), allocatable :: potentialFaceIdxs
 
-    potentialFaceIdxs = self % shelf(idx) % computePotentialFaces(rEnd, faces)
+    potentialFaceIdxs = self % shelf(idx) % item % computePotentialFaces(rEnd, faces)
 
   end function computePotentialFaceIdxs
 
@@ -174,9 +230,29 @@ contains
     integer(shortInt), intent(in)   :: idx
     real(defReal), dimension(3)     :: centroid
 
-    centroid = self % shelf(idx) % getCentroid()
+    centroid = self % shelf(idx) % item % getCentroid()
 
   end function getElementCentroid
+
+  !! Function 'getElementEdgeIdxs'
+  !!
+  !! Basic description:
+  !!   Returns the indices of the edges in an element of the shelf.
+  !!
+  !! Arguments:
+  !!   idx [in] -> Index of the element in the shelf.
+  !!
+  !! Result:
+  !!   edgeIdxs -> Indices of the edges in the element.
+  !!
+  pure function getElementEdgeIdxs(self, idx) result(edgeIdxs)
+    class(elementShelf), intent(in)              :: self
+    integer(shortInt), intent(in)                :: idx
+    integer(shortInt), dimension(:), allocatable :: edgeIdxs
+
+    edgeIdxs = self % shelf(idx) % item % getEdgeIdxs()
+
+  end function getElementEdgeIdxs
 
   !! Function 'getElementFaceIdxs'
   !!
@@ -194,9 +270,61 @@ contains
     integer(shortInt), intent(in)                :: idx
     integer(shortInt), dimension(:), allocatable :: faceIdxs
 
-    faceIdxs = self % shelf(idx) % getFaces()
+    faceIdxs = self % shelf(idx) % item % getFaceIdxs()
 
   end function getElementFaceIdxs
+
+  !! Function 'getElementIsConvex'
+  !!
+  !! Basic description:
+  !!   Returns .true. if an element in the shelf is convex.
+  !!
+  !! Arguments:
+  !!   idx [in] -> Index of the element in the shelf.
+  !!
+  !! Result:
+  !!   isConvex -> .true. if the element is convex.
+  !!
+  elemental function getElementIsConvex(self, idx) result(isConvex)
+    class(elementShelf), intent(in) :: self
+    integer(shortInt), intent(in)   :: idx
+    logical(defBool)                :: isConvex
+
+    isConvex = self % shelf(idx) % item % getIsConvex()
+
+  end function getElementIsConvex
+
+  !! Function 'getElementParentIdx'
+  !!
+  !! Basic description:
+  !!   Returns the index of the parent element of an element of the shelf.
+  !!
+  !! Arguments:
+  !!   idx [in]  -> Index of the element in the shelf.
+  !!
+  !! Result:
+  !!   parentIdx -> Index of the parent element of the element
+  !!
+  elemental function getElementParentIdx(self, idx) result(parentIdx)
+    class(elementShelf), intent(in) :: self
+    integer(shortInt), intent(in)   :: idx
+    integer(shortInt)               :: parentIdx
+
+    parentIdx = self % shelf(idx) % item % getParentIdx()
+
+  end function getElementParentIdx
+
+  !!
+  !!
+  !!
+  pure function getElementType(self, idx) result(type)
+    class(elementShelf), intent(in) :: self
+    integer(shortInt), intent(in)   :: idx
+    character(:), allocatable       :: type
+
+    type = self % shelf(idx) % item % getType()
+
+  end function getElementType
 
   !! Function 'getElementVertexIdxs'
   !!
@@ -214,7 +342,7 @@ contains
     integer(shortInt), intent(in)                :: idx
     integer(shortInt), dimension(:), allocatable :: vertexIdxs
 
-    vertexIdxs = self % shelf(idx) % getVertices()
+    vertexIdxs = self % shelf(idx) % item % getVertexIdxs()
 
   end function getElementVertexIdxs
 
@@ -234,9 +362,25 @@ contains
     integer(shortInt), intent(in)   :: idx
     real(defReal)                   :: volume
 
-    volume = self % shelf(idx) % getVolume()
+    volume = self % shelf(idx) % item % getVolume()
 
   end function getElementVolume
+
+  !! Function 'getSize'
+  !!
+  !! Basic description:
+  !!   Returns the number of elements in the shelf.
+  !!
+  !! Result:
+  !!   nElements -> Number of elements in the shelf.
+  !!
+  elemental function getSize(self) result(nElements)
+    class(elementShelf), intent(in) :: self
+    integer(shortInt)               :: nElements
+
+    nElements = size(self % shelf)
+
+  end function getSize
 
   !! Subroutine 'initElement'
   !!
@@ -248,40 +392,21 @@ contains
   !!   faces [in]    -> A faceShelf.
   !!   vertices [in] -> A vertexShelf.
   !!
-  subroutine initElement(self, idx, faces, vertices)
-    class(elementShelf), intent(inout) :: self
-    integer(shortInt), intent(in)      :: idx
-    type(faceShelf), intent(in)        :: faces
-    type(vertexShelf), intent(in)      :: vertices
+  subroutine initElement(self, idx, parentIdx, faceIdxs, vertexIdxs, faces, vertices, centroid, volume, isConvex, type)
+    class(elementShelf), intent(inout)          :: self
+    integer(shortInt), intent(in)               :: idx, parentIdx
+    integer(shortInt), dimension(:), intent(in) :: faceIdxs, vertexIdxs
+    type(faceShelf), intent(in)                 :: faces
+    type(vertexShelf), intent(in)               :: vertices
+    real(defReal), dimension(3), intent(in)     :: centroid
+    real(defReal), intent(in)                   :: volume
+    logical(defBool), intent(in)                :: isConvex
+    character(*), intent(in)                    :: type
 
-    call self % shelf(idx) % setIdx(idx)
-    call self % shelf(idx) % computeVolumeAndCentroid(vertices, faces)
+    call self % allocateElement(idx, type)
+    call self % shelf(idx) % item % init(idx, parentIdx, faceIdxs, vertexIdxs, centroid, volume, isConvex, type)
 
   end subroutine initElement
-
-  !! Function 'isConvex'
-  !!
-  !! Basic description:
-  !!   Returns .true. if an element in the shelf is convex.
-  !!
-  !! Arguments:
-  !!   idx [in]      -> Index of the element in the shelf.
-  !!   faces [in]    -> A faceShelf.
-  !!   vertices [in] -> A vertexShelf.
-  !!
-  !! Result:
-  !!   isIt          -> .true. if the element is convex.
-  !!
-  elemental function isConvex(self, idx, faces, vertices) result(isIt)
-    class(elementShelf), intent(in) :: self
-    integer(shortInt), intent(in)   :: idx
-    type(faceShelf), intent(in)     :: faces
-    type(vertexShelf), intent(in)   :: vertices
-    logical(defBool)                :: isIt
-
-    isIt = self % shelf(idx) % isConvex(vertices, faces)
-
-  end function isConvex
   
   !! Subroutine 'kill'
   !!
@@ -290,8 +415,16 @@ contains
   !!
   elemental subroutine kill(self)
     class(elementShelf), intent(inout) :: self
+    integer(shortInt)                  :: i
     
-    if (allocated(self % shelf)) deallocate(self % shelf)
+    if (allocated(self % shelf)) then
+      do i = 1, size(self % shelf)
+        deallocate(self % shelf(i) % item)
+
+      end do
+      deallocate(self % shelf)
+
+    end if
 
   end subroutine kill
 
@@ -312,20 +445,19 @@ contains
   !!   lastPyramidIdx [inout]  -> Index of the last pyramid in the pyramidShelf.
   !!   lastVertexIdx [in]      -> Index of the last vertex in the vertexIdx.
   !!   
-  elemental subroutine splitElement(self, idx, faces, edges, vertices, triangles, pyramids, &
-                                    lastEdgeIdx, lastTriangleIdx, lastPyramidIdx, lastVertexIdx)
-    class(elementShelf), intent(inout) :: self
-    integer(shortInt), intent(in)      :: idx
-    type(faceShelf), intent(in)        :: faces
-    type(edgeShelf), intent(inout)     :: edges
-    type(vertexShelf), intent(inout)   :: vertices
-    type(triangleShelf), intent(inout) :: triangles
-    type(pyramidShelf), intent(inout)  :: pyramids
-    integer(shortInt), intent(inout)   :: lastEdgeIdx, lastTriangleIdx, lastPyramidIdx
-    integer(shortInt), intent(in)      :: lastVertexIdx
+  subroutine splitElement(self, idx, faces, lastNewEdgeIdx, lastNewElementIdx, lastNewFaceIdx, lastNewVertexIdx, &
+                          newEdges, newFaces, newVertices, tetrahedra, triangles)
+    class(elementShelf), intent(inout)            :: self
+    integer(shortInt), intent(in)                 :: idx
+    type(faceShelf), intent(inout)                :: faces, newFaces
+    integer(shortInt), intent(inout)              :: lastNewEdgeIdx, lastNewElementIdx, lastNewFaceIdx, lastNewVertexIdx
+    type(edgeShelf), intent(inout)                :: newEdges
+    type(vertexShelf), intent(inout)              :: newVertices
+    type(elementBox), dimension(:), intent(inout) :: tetrahedra
+    type(faceBox), dimension(:), intent(inout)    :: triangles
 
-    call self % shelf(idx) % split(faces, edges, vertices, triangles, pyramids, lastEdgeIdx, &
-                                   lastTriangleIdx, lastPyramidIdx, lastVertexIdx)
+    call self % shelf(idx) % item % split(faces, lastNewEdgeIdx, lastNewElementIdx, lastNewFaceIdx, lastNewVertexIdx, &
+                                          newEdges, newFaces, newVertices, tetrahedra, triangles)
 
   end subroutine splitElement
 
@@ -349,7 +481,7 @@ contains
     integer(shortInt), intent(out)                            :: failedFaceIdx
     integer(shortInt), dimension(:), allocatable, intent(out) :: surfTolFaceIdxs
 
-    call self % shelf(idx) % testForInclusion(faces, r, failedFaceIdx, surfTolFaceIdxs)
+    call self % shelf(idx) % item % testForInclusion(faces, r, failedFaceIdx, surfTolFaceIdxs)
 
   end subroutine testForInclusion
   

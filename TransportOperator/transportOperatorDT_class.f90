@@ -51,12 +51,10 @@ contains
     class(particleDungeon), intent(inout)     :: thisCycle
     class(particleDungeon), intent(inout)     :: nextCycle
     real(defReal)                             :: majorant_inv, sigmaT, distance
-    integer(shortInt)                         :: matIdx
     character(100), parameter :: Here = 'deltaTracking (transportOperatorDT_class.f90)'
 
     ! Get majorant XS inverse: 1/Sigma_majorant
-    matIdx = p % getMatIdx()
-    majorant_inv = ONE / self % xsData % getTrackingXS(p, matIdx, MAJORANT_XS)
+    majorant_inv = ONE / self % xsData % getTrackingXS(p, p % getMatIdx(), MAJORANT_XS)
 
    ! Should never happen! Prevents Inf distances
     if (abs(majorant_inv) > huge(majorant_inv)) call fatalError(Here, "Majorant is 0")
@@ -68,30 +66,30 @@ contains
       call self % geom % teleport(p % coords, distance)
 
       ! If particle has leaked, exit
-      if (matIdx == OUTSIDE_FILL) then
+      if (p % getMatIdx() == OUTSIDE_FILL) then
         p % fate = LEAK_FATE
         p % isDead = .true.
         return
       end if
 
       ! Check for void
-      if (matIdx == VOID_MAT) then
+      if (p % getMatIdx() == VOID_MAT) then
         call tally % reportInColl(p, .true.)
         cycle DTLoop
       end if
 
       ! Give error if the particle somehow ended in an undefined material
-      if (matIdx == UNDEF_MAT) then
+      if (p % getMatIdx() == UNDEF_MAT) then
         print *, p % rGlobal()
         call fatalError(Here, "Particle is in undefined material")
       end if
 
       ! Obtain the local cross-section
-      sigmaT = self % xsData % getTrackMatXS(p, matIdx)
+      sigmaT = self % xsData % getTrackMatXS(p, p % getMatIdx())
 
       ! Roll RNG to determine if the collision is real or virtual
       ! Exit the loop if the collision is real, report collision if virtual
-      if (p % pRNG % get() < sigmaT*majorant_inv) then
+      if (p % pRNG % get() < sigmaT * majorant_inv) then
         exit DTLoop
       else
         call tally % reportInColl(p, .true.)

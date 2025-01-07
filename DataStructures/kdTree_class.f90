@@ -1,12 +1,11 @@
 module kdTree_class
   
-  use coord_class,         only : coord
-  use faceShelf_class,     only : faceShelf
+  use coord_class,        only : coord
+  use faceShelf_class,    only : faceShelf
   use numPrecision
-  use universalVariables,  only : INF
-  use node_class,          only : node
-  use triangleShelf_class, only : triangleShelf
-  use vertexShelf_class,   only : vertexShelf
+  use node_class,         only : node
+  use universalVariables, only : INF
+  use vertexShelf_class,  only : vertexShelf
   
   implicit none
   private
@@ -40,7 +39,6 @@ module kdTree_class
     ! Runtime procedures.
     procedure :: findNearestVertex
     procedure :: findIntersectedFace
-    procedure :: findIntersectedTriangle
   end type kdTree
 
 contains
@@ -159,32 +157,5 @@ contains
                                            coords, edgeIdx, vertexIdx)
 
   end subroutine findIntersectedFace
-  
-  !! Subroutine 'findIntersectedTriangle'
-  !!
-  !! Basic description:
-  !!   Returns the index of the closest triangle intersected by a line segment.
-  !!
-  !! Arguments:
-  !!   vertices [in]  -> A vertexShelf.
-  !!   triangles [in] -> A triangleShelf.
-  !!   d [inout]      -> Distance from the line segment's origin to the point of intersection.
-  !!   coords [inout] -> Particle's coordinates.
-  !!   edgeIdx [inout]   -> Index of the edge intersected by the particle.
-  !!   vertexIdx [inout] -> Index of the vertex intersected by the particle.
-  !!
-  elemental subroutine findIntersectedTriangle(self, vertices, triangles, d, coords, edgeIdx, vertexIdx)
-    class(kdTree), intent(in)        :: self
-    type(vertexShelf), intent(in)    :: vertices
-    type(triangleShelf), intent(in)  :: triangles
-    real(defReal), intent(inout)     :: d
-    type(coord), intent(inout)       :: coords
-    integer(shortInt), intent(inout) :: edgeIdx, vertexIdx
-    
-    ! Start searching the root node for potential triangle intersections.
-    call self % root % findIntersectedTriangle(vertices, triangles, coords % r, self % verticesIdxs, d, &
-                                               coords, edgeIdx, vertexIdx)
-
-  end subroutine findIntersectedTriangle
 
 end module kdTree_class

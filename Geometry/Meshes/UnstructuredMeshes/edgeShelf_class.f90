@@ -13,15 +13,13 @@ module edgeShelf_class
   contains
     procedure                             :: addElementIdxToEdge
     procedure                             :: addFaceIdxToEdge
-    procedure                             :: addTetrahedronIdxToEdge
-    procedure                             :: addTriangleIdxToEdge
     procedure                             :: allocateShelf
     procedure                             :: collapseShelf
     procedure                             :: expandShelf
     procedure                             :: getEdgeElementIdxs
     procedure                             :: getEdgeFaceIdxs
-    procedure                             :: getEdgeTetrahedronIdxs
-    procedure                             :: getEdgeTriangleIdxs
+    procedure                             :: getEdgeVertexIdxs
+    procedure                             :: getSize
     procedure                             :: initEdge
     procedure                             :: kill
   end type edgeShelf
@@ -61,40 +59,6 @@ contains
     call self % shelf(idx) % addFaceIdx(faceIdx)
 
   end subroutine addFaceIdxToEdge
-
-  !! Subroutine 'addTetrahedronIdxToEdge'
-  !!
-  !! Basic description:
-  !!   Adds the index of a tetrahedron to an edge in the shelf.
-  !!
-  !! Arguments:
-  !!   idx [in]            -> Index of the edge in the shelf.
-  !!   tetrahedronIdx [in] -> Index of the tetrahedron containing the edge.
-  !!
-  elemental subroutine addTetrahedronIdxToEdge(self, idx, tetrahedronIdx)
-    class(edgeShelf), intent(inout) :: self
-    integer(shortInt), intent(in)   :: idx, tetrahedronIdx
-
-    call self % shelf(idx) % addTetrahedronIdx(tetrahedronIdx)
-
-  end subroutine addTetrahedronIdxToEdge
-
-  !! Subroutine 'addTriangleIdxToEdge'
-  !!
-  !! Basic description:
-  !!   Adds the index of a triangle to an edge in the shelf.
-  !!
-  !! Arguments:
-  !!   idx [in]         -> Index of the edge in the shelf.
-  !!   triangleIdx [in] -> Index of the triangle containing the edge.
-  !!
-  elemental subroutine addTriangleIdxToEdge(self, idx, triangleIdx)
-    class(edgeShelf), intent(inout) :: self
-    integer(shortInt), intent(in)   :: idx, triangleIdx
-
-    call self % shelf(idx) % addTriangleIdx(triangleIdx)
-
-  end subroutine addTriangleIdxToEdge
 
   !! Subroutine 'allocateShelf'
   !!
@@ -215,45 +179,41 @@ contains
 
   end function getEdgeFaceIdxs
 
-  !! Function 'getEdgeTetrahedronIdxs'
+  !! Function 'getEdgeVertexIdxs'
   !!
   !! Basic description:
-  !!   Returns the indices of the tetrahedra sharing an edge in the shelf.
+  !!   Returns the indices of the vertices in an edge of the shelf.
   !!
   !! Arguments:
-  !!   idx [in]        -> Index of the edge in the shelf.
+  !!   idx [in]   -> Index of the edge in the shelf.
   !!
   !! Result:
-  !!   tetrahedronIdxs -> Indices of the tetrahedra sharing the edge.
+  !!   vertexIdxs -> Indices of the vertices in the edge.
   !!
-  pure function getEdgeTetrahedronIdxs(self, idx) result(tetrahedronIdxs)
-    class(edgeShelf), intent(in)                 :: self
-    integer(shortInt), intent(in)                :: idx
-    integer(shortInt), dimension(:), allocatable :: tetrahedronIdxs
+  pure function getEdgeVertexIdxs(self, idx) result(vertexIdxs)
+    class(edgeShelf), intent(in)    :: self
+    integer(shortInt), intent(in)   :: idx
+    integer(shortInt), dimension(2) :: vertexIdxs
 
-    tetrahedronIdxs = self % shelf(idx) % getTetrahedronIdxs()
+    vertexIdxs = self % shelf(idx) % getVertexIdxs()
 
-  end function getEdgeTetrahedronIdxs
+  end function getEdgeVertexIdxs
 
-  !! Function 'getEdgeTriangleIdxs'
+  !! Function 'getSize'
   !!
   !! Basic description:
-  !!   Returns the indices of the triangles sharing an edge in the shelf.
-  !!
-  !! Arguments:
-  !!   idx [in]     -> Index of the edge in the shelf.
+  !!   Returns the number of edges in the shelf.
   !!
   !! Result:
-  !!   triangleIdxs -> Indices of the triangles sharing the edge.
+  !!   nEdges -> Number of edges in the shelf.
   !!
-  pure function getEdgeTriangleIdxs(self, idx) result(triangleIdxs)
-    class(edgeShelf), intent(in)                 :: self
-    integer(shortInt), intent(in)                :: idx
-    integer(shortInt), dimension(:), allocatable :: triangleIdxs
+  elemental function getSize(self) result(nEdges)
+    class(edgeShelf), intent(in) :: self
+    integer(shortInt)            :: nEdges
 
-    triangleIdxs = self % shelf(idx) % getTriangleIdxs()
+    nEdges = size(self % shelf)
 
-  end function getEdgeTriangleIdxs
+  end function getSize
 
   !! Subroutine 'initEdge'
   !!

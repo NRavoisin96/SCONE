@@ -9,7 +9,6 @@ module meshFactory_func
   
   ! Meshes.
   use OpenFOAMMesh_class,    only : OpenFOAMMesh
-  use triOpenFOAMMesh_class, only : triOpenFOAMMesh
   
   implicit none
   private
@@ -17,8 +16,7 @@ module meshFactory_func
   ! ** ADD NAME OF NEW MESH TO THE LIST **!
   ! List that contains acceptable types of meshes
   ! NOTE: It is necessary to adjust trailing blanks so all entries have the same length
-  character(nameLen), dimension(*), parameter :: AVAILABLE_MESHES = ['OpenFOAMMesh   ', &
-                                                                     'triOpenFOAMMesh']
+  character(nameLen), dimension(*), parameter :: AVAILABLE_MESHES = ['OpenFOAMMesh']
   ! Public interface.
   public :: new_mesh, new_mesh_ptr
 
@@ -63,8 +61,6 @@ module meshFactory_func
     select case(type)
       case('OpenFOAMMesh')
         allocate(OpenFOAMMesh :: new)
-      case('triOpenFOAMMesh')
-        allocate(triOpenFOAMMesh :: new)
       case default
         print '(A)', 'AVAILABLE MESHES: '
         print '(A)', AVAILABLE_MESHES

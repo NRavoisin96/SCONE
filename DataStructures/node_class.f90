@@ -4,7 +4,6 @@ module node_class
   use faceShelf_class,     only : faceShelf
   use genericProcedures,   only : append, areEqual, removeDuplicates, swap
   use numPrecision
-  use triangleShelf_class, only : triangleShelf
   use universalVariables,  only : ZERO, HALF, SURF_TOL, INF
   use vertexShelf_class,   only : vertexShelf
   
@@ -51,7 +50,6 @@ module node_class
     procedure                      :: kill
     ! Runtime procedures.
     procedure                      :: findIntersectedFace
-    procedure                      :: findIntersectedTriangle
     procedure                      :: getVertices
     procedure                      :: process
     procedure                      :: search
@@ -447,131 +445,6 @@ contains
     end do
     
   end subroutine findIntersectedFace
-  
-  !! Subroutine 'findIntersectedTriangle'
-  !!
-  !! Basic description:
-  !!   Recursively searches a node and its children nodes and returns the index of the first 
-  !!   triangle intersected by a line segment.
-  !!
-  !! Detailed description:
-  !!   Starts at the root node. Then, depending on which side of the cut plane the segment's origin
-  !!   is, the subroutine descends into either the left or right child node. Repeats the process
-  !!   until a terminal node is encountered, at which point all the triangles containing the 
-  !!   vertices in the node are tested for an intersection. If an intersection is found at this 
-  !!   point we are guaranteed that it is the closest possible intersection and the subroutine ends
-  !!   early. If not, the recursion goes up one level and checks if the line segment intersects the
-  !!   cut plane of the parent node. If it does, the other child node of the parent node is visited
-  !!   until another terminal node is found. The process is then repeated until either an
-  !!   intersection is found or the entire tree has been visited.
-  !!
-  !! Arguments:
-  !!   vertices [in]     -> A vertexShelf.
-  !!   triangles [in]    -> A triangleShelf.
-  !!   startPos [in]     -> Origin of the line segment.
-  !!   verticesIdxs [in] -> Internal re-ordering of the vertices in the tree.
-  !!   d [inout]         -> Distance to the closest intersected triangle.
-  !!   coords [inout]    -> Particle's coordinates.
-  !!   edgeIdx [inout]   -> Index of the edge intersected by the line segment.
-  !!   vertexIdx [inout] -> Index of the vertex intersected by the line segment.
-  !!
-  pure recursive subroutine findIntersectedTriangle(self, vertices, triangles, startPos, verticesIdxs, d, coords, &
-                                                    edgeIdx, vertexIdx)
-    class(node), intent(in)                      :: self
-    type(vertexShelf), intent(in)                :: vertices
-    type(triangleShelf), intent(in)              :: triangles
-    real(defReal), dimension(3), intent(in)      :: startPos
-    integer(shortInt), dimension(:), intent(in)  :: verticesIdxs
-    real(defReal), intent(inout)                 :: d
-    type(coord), intent(inout)                   :: coords
-    integer(shortInt), intent(inout)             :: edgeIdx, vertexIdx
-    integer(shortInt)                            :: cutDimension, firstVertexIdx, i, newEdgeIdx, newVertexIdx, triangleIdx
-    integer(shortInt), dimension(:), allocatable :: nodeVertices, potentialTriangles, triangleToTetrahedra
-    logical(defBool)                             :: isIntersecting
-    real(defReal)                                :: cutValue, uComponent, startPosComponent, t, update
-    real(defReal), dimension(3)                  :: newStartPos, firstVertexCoords
-    
-    ! If the node has left or right children, we need to descend deeper into the tree.
-    if (self % hasLeft .or. self % hasRight) then
-      ! Retrieve the cut dimension and cut value of the current node.
-      cutDimension = self % cutDimension
-      cutValue = self % cutValue
-      uComponent = coords % dir(cutDimension)
-      startPosComponent = startPos(cutDimension)
-
-      ! Initialise t = INF and compute t, which is the fraction of the line segment necessary to reach
-      ! the node's cut plane.
-      t = INF
-      if (.not. areEqual(uComponent, ZERO)) t = (cutValue - startPosComponent) / uComponent
-      isIntersecting = ZERO <= t .and. t < norm2(coords % rEnd - startPos)
-
-      if (startPosComponent < cutValue .and. self % hasLeft) then
-        call self % left % findIntersectedTriangle(vertices, triangles, startPos, verticesIdxs, d, coords, &
-                                                   edgeIdx, vertexIdx)
-        
-        ! If intersection has been found, or if the line segment does not intersect the node's cut plane,
-        ! return early.
-        if (coords % elementIdx > 0 .or. (.not. isIntersecting)) return
-        
-        ! Visit the right child node if it exists and look for an intersection.
-        newStartPos = startPos + coords % dir * t
-        if (self % hasRight) call self % right % findIntersectedTriangle(vertices, triangles, newStartPos, verticesIdxs, &
-                                                                         d, coords, edgeIdx, vertexIdx)
-
-      else if (self % hasRight) then
-        call self % right % findIntersectedTriangle(vertices, triangles, startPos, verticesIdxs, d, coords, &
-                                                    edgeIdx, vertexIdx)
-        
-        ! If intersection has been found, or if the line segment does not intersect the node's cut plane,
-        ! return early.
-        if (coords % elementIdx > 0 .or. (.not. isIntersecting)) return
-        
-        ! Visit the left child node if it exists and look for an intersection.
-        newStartPos = startPos + coords % dir * t
-        if (self % hasLeft) call self % left % findIntersectedTriangle(vertices, triangles, newStartPos, verticesIdxs, d, &
-                                                                       coords, edgeIdx, vertexIdx)
-
-      end if
-      return
-
-    end if
-
-    ! If reached here, we are at a terminal node. Retrieve the vertices in the node and use the tree cache
-    ! to re-order the vertices.
-    nodeVertices = self % getVertices()
-    
-    ! Retrieve the triangles containing the node vertices from mesh connectivity and remove duplicates.
-    potentialTriangles = vertices % getVertexTriangleIdxs(verticesIdxs(nodeVertices))
-
-    ! Loop over all potentially intersected triangles.
-    do i = 1, size(potentialTriangles)
-      ! If the current triangle is not a boundary triangle we can cycle to the next triangle.
-      triangleIdx = potentialTriangles(i)
-      if (.not. triangles % getTriangleIsBoundary(triangleIdx)) cycle
-      
-      ! Retrieve the vertex of smallest index in the triangle (could be any vertex in reality but
-      ! at least this method is consistent) and retrieve the corresponding vertex's coordinates.
-      firstVertexIdx = minval(triangles % getTriangleVertexIdxs(triangleIdx))
-      firstVertexCoords = vertices % getVertexCoordinates(firstVertexIdx)
-      
-      ! Test the current triangle for an intersection.
-      call triangles % computeTriangleIntersection(triangleIdx, coords % r, coords % rEnd, coords % dir, &
-                                                   firstVertexCoords, vertices, update, newEdgeIdx, newVertexIdx)
-      
-      ! If the distance to intersection is less than the lowest distance known update d and the
-      ! particle's elementIdx.
-      if (update < d) then
-        d = update
-        triangleToTetrahedra = triangles % getTriangleTetrahedronIdxs(triangleIdx)
-        coords % elementIdx = triangleToTetrahedra(1)
-        edgeIdx = newEdgeIdx
-        vertexIdx = newVertexIdx
-
-      end if
-
-    end do
-    
-  end subroutine findIntersectedTriangle
   
   !! Function 'getVertices'
   !!

@@ -55,6 +55,7 @@ module mesh_inter
     procedure, non_overridable                    :: setElementZonesFile
     procedure, non_overridable                    :: setElementZonesNumber
     procedure, non_overridable                    :: setId
+    procedure, non_overridable                    :: setupBase
     procedure(init), deferred                     :: init
     procedure                                     :: kill
     ! Runtime procedures.
@@ -251,7 +252,7 @@ contains
     ! Find indices of the occupied mesh element and its parent element. Update localId only if particle is not 
     ! outside the mesh.
     call self % findElementAndParentIdxs(r, u, elementIdx, parentIdx)
-    if (elementIdx > 0) localId = self % elementZones % findCellZone(parentIdx)
+    if (parentIdx > 0) localId = self % findElementZoneIdx(parentIdx)
 
   end subroutine findOccupiedElementIdx
 
@@ -417,6 +418,30 @@ contains
     self % id = id
 
   end subroutine setId
+
+  !! Subroutine 'setupBase'
+  !!
+  !! Basic description:
+  !!   Sets basic mesh components from dictionary.
+  !!
+  !! Arguments:
+  !!   dict [in] -> A dictionary.
+  !!
+  !! Errors:
+  !!   - fatalError if id < 1.
+  !!
+  subroutine setupBase(self, dict)
+    class(mesh), intent(inout)    :: self
+    class(dictionary), intent(in) :: dict
+    integer(shortInt)             :: id
+    character(*), parameter       :: here = 'setupBase (mesh_inter.f90)'
+
+    ! Load id from the dictionary. Call fatal error if id is unvalid.
+    call dict % get(id, 'id')
+    if (id < 1) call fatalError(Here, 'Mesh Id must be +ve. Is: '//numToChar(id)//'.')
+    self % id = id
+
+  end subroutine setupBase
   
   !! Function 'getId'
   !!

@@ -150,8 +150,8 @@ contains
     ! Check for population overflow
     if (pop > size(self % prisoners)) then
       call fatalError(Here,'Run out of space for particles.&
-                           & Max size:'//numToChar(size(self % prisoners)) //&
-                            ' Current population: ' // numToChar(self % pop))
+                           & Max size: '//numToChar(size(self % prisoners)) //&
+                            ' .Current population: ' // numToChar(self % pop)//'.')
     end if
 
     ! Load new particle
@@ -202,11 +202,9 @@ contains
     !$omp end atomic
 
     ! Check for population overflow
-    if (pop > size(self % prisoners)) then
-      call fatalError(Here,'Run out of space for particles.&
-                           & Max size:'//numToChar(size(self % prisoners)) //&
-                            ' Current population: ' // numToChar(self % pop))
-    end if
+    if (pop > size(self % prisoners)) call fatalError(Here,'Run out of space for particles.&
+    & Max size:'//numToChar(size(self % prisoners)) //&
+    ' Current population: ' // numToChar(self % pop))
 
     ! Load new particle
     self % prisoners(pop) = p_state

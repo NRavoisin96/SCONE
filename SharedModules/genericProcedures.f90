@@ -461,12 +461,11 @@ contains
     real(defReal), intent(in) :: r
     integer(shortInt)         :: nChars
     real(defReal)             :: absValue
-    real(defReal), parameter  :: lowerBound = 0.1_defReal, upperBound = 1.0E17_defReal
 
     ! Initialise nChars to 18 or 19 depending on whether r is positive or negative.
     ! Note: here we need to be careful, as to Fortran ZERO = -ZERO, but sign(a, ZERO) /= sign(a, -ZERO)!
     nChars = 18
-    if (sign(ONE, r) < ZERO) nChars = nChars + 1
+    if (sign(ONE, r) < ZERO) nChars = 19
 
     ! If r = ZERO or r = -ZERO (this is equivalent to Fortran) return early.
     if (r == ZERO) return
@@ -476,7 +475,7 @@ contains
     
     ! If lowerBound <= absValue < ONE Fortran outputs one more character. Increase nChars 
     ! by 1 and return.
-    if (lowerBound <= absValue .and. absValue < ONE) then
+    if (scientificLowerBound <= absValue .and. absValue < ONE) then
       nChars = nChars + 1
       return
 
@@ -484,7 +483,7 @@ contains
 
     ! If absValue < lowerBound or upperBound <= absValue then Fortran outputs the number in
     ! scientific notation. Add 5 characters in this case.
-    if (absValue < lowerBound .or. upperBound <= absValue) nChars = nChars + 5
+    if (absValue < scientificLowerBound .or. scientificUpperBound <= absValue) nChars = nChars + 5
 
   end function countCharacters_defReal
 
@@ -1492,10 +1491,37 @@ contains
   !! Convert defReal to character
   !!
   function numToChar_defReal(x) result(c)
-    real(defReal),intent(in)      :: x
-    character(countCharacters(x)) :: c
+    real(defReal), intent(in) :: x
+    character(:), allocatable :: c, format
+    integer(shortInt)         :: nChars, nDecimals
+    real(defReal)             :: absValue
 
-    write(c, *) x
+    ! First compute the number of characters in x and allocate memory in the output string.
+    nChars = countCharacters(x)
+    allocate(character(nChars) :: c)
+
+    ! Since Fortran outputs floating point numbers of different magnitudes differently, we need
+    ! to create the output formal for the string dynamically. First create the absolute value of
+    ! x and compute the number of decimal places to be used. Note: check if x is negative as this 
+    ! reduces the number of decimal places by 1.
+    absValue = abs(x)
+    nDecimals = nChars - 2
+    if (sign(ONE, x) < ZERO) nDecimals = nDecimals - 1
+
+    ! Check whether it is within the bounds of non-scientific notation.
+    if (x == ZERO .or. (scientificLowerBound <= absValue .and. absValue < scientificUpperBound)) then
+      format = '(F'//numToChar(nChars)//'.'//numToChar(nDecimals)//')'
+
+    else
+      ! Else, Fortran outputs the number in scientific notation. Update the number of decimal
+      ! places to be used and create format in scientific notation.
+      nDecimals = nDecimals - 5
+      format = '(ES'//numToChar(nChars)//'.'//numToChar(nDecimals)//'E3)'
+
+    end if
+
+    ! Write output string in the appropriate format.
+    write(c, format) x
 
   end function numToChar_defReal
 

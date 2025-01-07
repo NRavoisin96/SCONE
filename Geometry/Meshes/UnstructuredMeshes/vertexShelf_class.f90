@@ -26,27 +26,21 @@ module vertexShelf_class
     procedure                               :: addEdgeIdxToVertex
     procedure                               :: addElementIdxToVertex
     procedure                               :: addFaceIdxToVertex
-    procedure                               :: addTetrahedronIdxToVertex
-    procedure                               :: addTriangleIdxToVertex
     procedure                               :: allocateShelf
     procedure                               :: expandShelf
     procedure                               :: findCommonEdgeIdx
-    procedure                               :: findCommonTriangleIdx
+    procedure                               :: findCommonFaceIdx
     procedure                               :: getAllCoordinates
     procedure                               :: getExtremalCoordinates
     procedure                               :: getOffset
     procedure                               :: getSize
     procedure                               :: getVertexCoordinates
+    procedure                               :: getVertexEdgeIdxs
     procedure                               :: getVertexElementIdxs
     generic                                 :: getVertexFaceIdxs => getVertexFaceIdxs_shortInt, &
                                                                     getVertexFaceIdxs_shortIntArray
     procedure, private                      :: getVertexFaceIdxs_shortInt
     procedure, private                      :: getVertexFaceIdxs_shortIntArray
-    procedure                               :: getVertexTetrahedronIdxs
-    generic                                 :: getVertexTriangleIdxs => getVertexTriangleIdxs_shortInt, &
-                                                                        getVertexTriangleIdxs_shortIntArray
-    procedure, private                      :: getVertexTriangleIdxs_shortInt
-    procedure, private                      :: getVertexTriangleIdxs_shortIntArray
     procedure                               :: initVertex
     procedure                               :: kill
     procedure                               :: setExtremalCoordinates
@@ -105,40 +99,6 @@ contains
     call self % shelf(vertexIdx) % addFaceIdx(faceIdx)
 
   end subroutine addFaceIdxToVertex
-
-  !! Subroutine 'addTetrahedronIdxToVertex'
-  !!
-  !! Basic description:
-  !!   Adds the index of a tetrahedron to a vertex in the shelf.
-  !!
-  !! Arguments:
-  !!   vertexIdx [in]      -> Index of the vertex in the shelf.
-  !!   tetrahedronIdx [in] -> Index of the tetrahedron containing the vertex.
-  !!
-  elemental subroutine addTetrahedronIdxToVertex(self, vertexIdx, tetrahedronIdx)
-    class(vertexShelf), intent(inout) :: self
-    integer(shortInt), intent(in)     :: vertexIdx, tetrahedronIdx
-
-    call self % shelf(vertexIdx) % addTetrahedronIdx(tetrahedronIdx)
-
-  end subroutine addTetrahedronIdxToVertex
-
-  !! Subroutine 'addTriangleIdxToVertex'
-  !!
-  !! Basic description:
-  !!   Adds the index of a triangle to a vertex in the shelf.
-  !!
-  !! Arguments:
-  !!   vertexIdx [in]   -> Index of the vertex in the shelf.
-  !!   triangleIdx [in] -> Index of the triangle containing the vertex.
-  !!
-  elemental subroutine addTriangleIdxToVertex(self, vertexIdx, triangleIdx)
-    class(vertexShelf), intent(inout) :: self
-    integer(shortInt), intent(in)     :: vertexIdx, triangleIdx
-
-    call self % shelf(vertexIdx) % addTriangleIdx(triangleIdx)
-
-  end subroutine addTriangleIdxToVertex
 
   !! Subroutine 'allocateShelf'
   !!
@@ -228,25 +188,25 @@ contains
   !! Result:
   !!   triangleIdx     -> Index of the triangle containing the two vertices.
   !!
-  pure function findCommonTriangleIdx(self, vertexIdxs) result(triangleIdx)
+  pure function findCommonFaceIdx(self, vertexIdxs) result(faceIdx)
     class(vertexShelf), intent(in)               :: self
     integer(shortInt), dimension(3), intent(in)  :: vertexIdxs
-    integer(shortInt)                            :: triangleIdx, i
+    integer(shortInt)                            :: faceIdx, i
     integer(shortInt), dimension(:), allocatable :: commonIdxs
 
     ! Initialise triangleIdx = 0 and return immediately if any vertices are not associated with triangles.
-    triangleIdx = 0
-    if (any(.not. self % shelf(vertexIdxs) % hasTriangles(), 1)) return
+    faceIdx = 0
+    if (any(.not. self % shelf(vertexIdxs) % hasFaces(), 1)) return
     
     ! Find common edge indices. Update edgeIdx only if common indices have been found.
-    commonIdxs = self % shelf(vertexIdxs(1)) % getVertexToTriangles()
+    commonIdxs = self % shelf(vertexIdxs(1)) % getFaceIdxs()
     do i = 2, 3
-      commonIdxs = findCommon(commonIdxs, self % shelf(vertexIdxs(i)) % getVertexToTriangles())
+      commonIdxs = findCommon(commonIdxs, self % shelf(vertexIdxs(i)) % getFaceIdxs())
 
     end do
-    if (size(commonIdxs) > 0) triangleIdx = commonIdxs(1)
+    if (size(commonIdxs) > 0) faceIdx = commonIdxs(1)
 
-  end function findCommonTriangleIdx
+  end function findCommonFaceIdx
 
   !! Function 'getAllCoordinates'
   !!
@@ -337,6 +297,26 @@ contains
 
   end function getVertexCoordinates
 
+  !! Function 'getVertexEdgeIdxs'
+  !!
+  !! Basic description:
+  !!   Returns the indices of all the edges containing a vertex in the shelf.
+  !!
+  !! Arguments:
+  !!   idx [in] -> Index of the vertex in the shelf.
+  !!
+  !! Result:
+  !!   edgeIdxs -> Indices of all the edges containing the vertex.
+  !!
+  pure function getVertexEdgeIdxs(self, idx) result(edgeIdxs)
+    class(vertexShelf), intent(in)               :: self
+    integer(shortInt), intent(in)                :: idx
+    integer(shortInt), dimension(:), allocatable :: edgeIdxs
+
+    edgeIdxs = self % shelf(idx) % getEdgeIdxs()
+
+  end function getVertexEdgeIdxs
+
   !! Function 'getVertexElementIdxs'
   !!
   !! Basic description:
@@ -353,7 +333,7 @@ contains
     integer(shortInt), intent(in)                :: idx
     integer(shortInt), dimension(:), allocatable :: elementIdxs
 
-    elementIdxs = self % shelf(idx) % getVertexToElements()
+    elementIdxs = self % shelf(idx) % getElementIdxs()
 
   end function getVertexElementIdxs
 
@@ -373,7 +353,7 @@ contains
     integer(shortInt), intent(in)                :: idx
     integer(shortInt), dimension(:), allocatable :: faceIdxs
 
-    faceIdxs = self % shelf(idx) % getVertexToFaces()
+    faceIdxs = self % shelf(idx) % getFaceIdxs()
 
   end function getVertexFaceIdxs_shortInt
 
@@ -396,76 +376,11 @@ contains
     integer(shortInt)                            :: i
 
     do i = 1, size(idxs)
-      call append(faceIdxs, self % shelf(idxs(i)) % getVertexToFaces(), .true.)
+      call append(faceIdxs, self % shelf(idxs(i)) % getFaceIdxs(), .true.)
 
     end do
 
   end function getVertexFaceIdxs_shortIntArray
-
-  !! Function 'getVertexTetrahedronIdxs'
-  !!
-  !! Basic description:
-  !!   Returns the indices of all the tetrahedra containing a vertex in the shelf.
-  !!
-  !! Arguments:
-  !!   idx [in]        -> Index of the vertex in the shelf.
-  !!
-  !! Result:
-  !!   tetrahedronIdxs -> Indices of all the tetrahedra containing the vertex.
-  !!
-  pure function getVertexTetrahedronIdxs(self, idx) result(tetrahedronIdxs)
-    class(vertexShelf), intent(in)               :: self
-    integer(shortInt), intent(in)                :: idx
-    integer(shortInt), dimension(:), allocatable :: tetrahedronIdxs
-
-    tetrahedronIdxs = self % shelf(idx) % getVertexToTetrahedra()
-
-  end function getVertexTetrahedronIdxs
-
-  !! Function 'getVertexTriangleIdxs_shortInt'
-  !!
-  !! Basic description:
-  !!   Returns the indices of all the triangles containing a vertex in the shelf.
-  !!
-  !! Arguments:
-  !!   idx [in]     -> Index of the vertex in the shelf.
-  !!
-  !! Result:
-  !!   triangleIdxs -> Indices of all the triangles containing the vertex.
-  !!
-  pure function getVertexTriangleIdxs_shortInt(self, idx) result(triangleIdxs)
-    class(vertexShelf), intent(in)               :: self
-    integer(shortInt), intent(in)                :: idx
-    integer(shortInt), dimension(:), allocatable :: triangleIdxs
-
-    triangleIdxs = self % shelf(idx) % getVertexToTriangles()
-
-  end function getVertexTriangleIdxs_shortInt
-
-  !! Function 'getVertexTriangleIdxs_shortIntArray'
-  !!
-  !! Basic description:
-  !!   Returns the unique indices of all the triangles containing a set of vertices
-  !!   in the shelf.
-  !!
-  !! Arguments:
-  !!   idxs [in]    -> Indices of the vertices in the shelf.
-  !!
-  !! Result:
-  !!   triangleIdxs -> Unique indices of all the triangles containing the vertices.
-  !!
-  pure function getVertexTriangleIdxs_shortIntArray(self, idxs) result(triangleIdxs)
-    class(vertexShelf), intent(in)               :: self
-    integer(shortInt), dimension(:), intent(in)  :: idxs
-    integer(shortInt), dimension(:), allocatable :: triangleIdxs
-    integer(shortInt)                            :: i
-
-    do i = 1, size(idxs)
-      call append(triangleIdxs, self % shelf(idxs(i)) % getVertexToTriangles(), .true.)
-
-    end do
-
-  end function getVertexTriangleIdxs_shortIntArray
 
   !! Subroutine 'initVertex'
   !!

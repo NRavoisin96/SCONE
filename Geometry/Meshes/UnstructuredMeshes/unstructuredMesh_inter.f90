@@ -1,14 +1,16 @@
 module unstructuredMesh_inter
 
-  use numPrecision
-  use universalVariables
-  use genericProcedures,   only : findDifferent, numToChar
   use coord_class,         only : coord
   use dictionary_class,    only : dictionary
-  use mesh_inter,          only : mesh, kill_super => kill
   use edgeShelf_class,     only : edgeShelf
+  use element_inter,       only : elementBox
   use elementShelf_class,  only : elementShelf
+  use face_inter,          only : faceBox
   use faceShelf_class,     only : faceShelf
+  use genericProcedures,   only : findDifferent, numToChar
+  use mesh_inter,          only : mesh, kill_super => kill
+  use numPrecision
+  use universalVariables
   use vertexShelf_class,   only : vertexShelf
   use kdTree_class,        only : kdTree
 
@@ -58,12 +60,16 @@ module unstructuredMesh_inter
     type(kdTree), public                :: tree
   contains
     ! Build procedures.
+    procedure                           :: computePrimitives
     procedure                           :: kill
     procedure, non_overridable          :: printComposition
     procedure                           :: setEdgeShelf
     procedure                           :: setElementShelf
     procedure                           :: setFaceShelf
     procedure                           :: setVertexShelf
+    procedure                           :: split
+    procedure                           :: splitElements
+    procedure                           :: splitFaces
     ! Runtime procedures.
     procedure                           :: distanceToBoundaryFace
     procedure                           :: distanceToNextFace
@@ -73,6 +79,116 @@ module unstructuredMesh_inter
   end type unstructuredMesh
 
 contains
+
+  !! Subroutine 'computePrimitives'
+  !!
+  !! Basic description:
+  !!   Computes the number of pyramids, triangles and tetrahedra to be created during the mesh
+  !!   splitting process.
+  !!
+  !! Detailed description:
+  !!   The number of pyramids is simply given by the sum of the number of faces in each element in
+  !!   the original element. The number of triangles is more complex: each pyramid created during
+  !!   the splitting process also creates a number of triangles equal to the number of edges (or
+  !!   vertices) in the current face. However, since all these triangles are internal they are
+  !!   always shared between two pyramids; therefore, the number of triangles to be generated during
+  !!   the pyramid creation process is, for a given element, equal to the sum of the number of
+  !!   vertices in each of the element's face divided by two. Triangles are also created during the
+  !!   splitting of the original mesh's faces: for a given face, the number of triangles to be
+  !!   created is simply equal to the number of vertices in the face less two. Lastly, during the
+  !!   splitting of pyramids into tetrahedra, additional internal triangles are created, given by
+  !!   the number of vertices in a given pyramid's base less three. The number of tetrahedra to be
+  !!   generated simply is, for a given face, the number of triangles it is decomposed into.
+  !!
+  !! Arguments:
+  !!   nEdges [out]      -> Number of edges to be generated.
+  !!   nTriangles [out]  -> Number of triangles to be generated.
+  !!   nTetrahedra [out] -> Number of tetrahedra to be generated.
+  !!   nVertices [out]   -> Number of vertices to be generated.
+  !!
+  elemental subroutine computePrimitives(self, elements, faces, nEdges, nInternalTriangles, nTetrahedra, nTriangles, nVertices)
+    class(unstructuredMesh), intent(in)          :: self
+    type(elementShelf), intent(in)               :: elements
+    type(faceShelf), intent(in)                  :: faces
+    integer(shortInt), intent(out)               :: nEdges, nInternalTriangles, nTetrahedra, nTriangles, nVertices
+    integer(shortInt)                            :: i, j, nVerticesInElement, nFaces, nVerticesInFace, &
+                                                    absFaceIdx
+    integer(shortInt), dimension(:), allocatable :: faceIdxs
+
+    ! Initialise nEdges = 0, nInternalTriangles = 0, nTetrahedra = 0, nTriangles = 0 and nVertices = 0.
+    nEdges = 0
+    nInternalTriangles = 0
+    nTetrahedra = 0
+    nTriangles = 0
+    nVertices = 0
+
+    ! Loop through all elements.
+    do i = 1, self % nElements
+      ! Retrieve the number of vertices and indices of the faces in the current element.
+      nVerticesInElement = size(elements % getElementVertexIdxs(i))
+      faceIdxs = elements % getElementFaceIdxs(i)
+      
+      ! Check if the current element is already a tetrahedron. If yes, increment nTetrahedra by 1
+      ! and nTriangles by the number of triangles owned by the tetrahedron then cycle.
+      if (nVerticesInElement == 4) then
+        nTetrahedra = nTetrahedra + 1
+        nTriangles = nTriangles + count(faceIdxs > 0)
+
+        do j = 1, 4
+          if (faceIdxs(j) > 0) then
+            if (.not. faces % getFaceIsBoundary(faceIdxs(j))) nInternalTriangles = nInternalTriangles + 1
+
+          end if
+
+        end do
+        cycle
+      
+      end if
+
+      ! If the current element is not a tetrahedron it will be split from its centroid so we need
+      ! to add the current element's centroid to the list of vertices.
+      nVertices = nVertices + 1
+
+      ! Increment nEdges.
+      nEdges = nEdges + nVerticesInElement
+
+      ! Compute the number of faces in the current element.
+      nFaces = size(faceIdxs)
+      
+      ! Initialise nVertices and loop through all faces.
+      nVerticesInElement = 0
+      do j = 1, nFaces
+        absFaceIdx = abs(faceIdxs(j))
+        ! Retrieve the number of vertices in the current face and increase the total 
+        ! number of vertices by the number of vertices in the current face.
+        nVerticesInFace = size(faces % getFaceVertexIdxs(absFaceIdx))
+        nVerticesInElement = nVerticesInElement + nVerticesInFace
+        
+        ! Increase the number of triangles corresponding to new internal faces by nVerticesInFace - 3.
+        nTriangles = nTriangles + nVerticesInFace - 3
+        nInternalTriangles = nInternalTriangles + nVerticesInFace - 3
+
+        ! If the element owns the current face, increase the number of triangles by nVerticesInFace - 2.
+        if (faceIdxs(j) > 0) then
+          nEdges = nEdges + nVerticesInFace - 3
+          nTriangles = nTriangles + nVerticesInFace - 2
+          if (.not. faces % getFaceIsBoundary(faceIdxs(j))) nInternalTriangles = nInternalTriangles + nVerticesInFace - 2
+
+        end if
+        
+        ! There will be as many tetrahedra as the number of triangles in each face, which is given
+        ! by nVerticesInFace - 2.
+        nTetrahedra = nTetrahedra + nVerticesInFace - 2
+      
+      end do
+      
+      ! The number of pyramids' faces is given by half the total number of vertices.
+      nTriangles = nTriangles + nVerticesInElement / 2
+      nInternalTriangles = nInternalTriangles + nVerticesInElement / 2
+
+    end do
+
+  end subroutine computePrimitives
 
   !! Subroutine 'distanceToBoundaryFace'
   !!
@@ -121,7 +237,7 @@ contains
     end if
 
     ! Update parentIdx only if particle enters the mesh.
-    if (coords % elementIdx > 0) parentIdx = coords % elementIdx
+    if (coords % elementIdx > 0) parentIdx = self % elements % getElementParentIdx(coords % elementIdx)
 
   end subroutine distanceToBoundaryFace
 
@@ -171,7 +287,7 @@ contains
     ! update elementIdx and localId.
     faceToElements = self % faces % getFaceElementIdxs(intersectedFaceIdx)
     coords % elementIdx = findDifferent(faceToElements, elementIdx)
-    coords % localId = self % findElementZoneIdx(coords % elementIdx)
+    coords % localId = self % findElementZoneIdx(self % elements % getElementParentIdx(coords % elementIdx))
 
   end subroutine distanceToNextFace
 
@@ -219,7 +335,11 @@ contains
       ! for which the search failed and update the search.
       if (failedFaceIdx > 0) then
         ! If the failed face is a boundary face the particle is outside the mesh and we can return.
-        if (self % faces % getFaceIsBoundary(failedFaceIdx)) return
+        if (self % faces % getFaceIsBoundary(failedFaceIdx)) then
+          elementIdx = 0
+          return
+
+        end if
         
         ! Retrieve the elements sharing the face from mesh connectivity, update element to be searched
         ! and cycle.
@@ -252,12 +372,12 @@ contains
 
         end select
         elementIdx = self % findElementFromDirection(u, potentialElements, testFaceIdxs)
-        parentIdx = elementIdx
+        if (elementIdx > 0) parentIdx = self % elements % getElementParentIdx(elementIdx)
         return
       
       end if
       ! If reached this point the particle is in the current element. Update parentIdx and return.
-      parentIdx = elementIdx
+      parentIdx = self % elements % getElementParentIdx(elementIdx)
       return
 
     end do searchLoop
@@ -489,5 +609,161 @@ contains
     self % vertices = vertices
 
   end subroutine setVertexShelf
+
+!! Subroutine 'split'
+  !!
+  !! Basic description:
+  !!   Splits a mesh into tetrahedral elements. If a given element is already a tetrahedron it is
+  !!   not split but simply added to the shelf of tetrahedra in the mesh.
+  !!
+  !! Detailed description:
+  !!   'split' starts by computing the number of pyramids, tetrahedra and triangles that will be
+  !!   generated in the resulting mesh. Then, each element is split into a set of pyramids, whose
+  !!   bases are each of the element's face and whose (common) apex is the element's centroid. This
+  !!   apex is also appended to the list of vertices in the mesh in the process. Once this is done,
+  !!   each face in the original mesh is subdivided into triangles. Lastly, each pyramid previously
+  !!   created is further split into tetrahedra.
+  !!
+  !! Arguments:
+  !!   lastVertexIdx [out] -> Index of the last vertex in the resulting mesh.
+  !!
+  subroutine split(self, edges, elements, faces, vertices, newEdges, newElements, newFaces, newVertices)
+    class(unstructuredMesh), intent(inout)    :: self
+    type(edgeShelf), intent(in)               :: edges
+    type(elementShelf), intent(inout)         :: elements
+    type(faceShelf), intent(inout)            :: faces
+    type(vertexShelf), intent(in)             :: vertices
+    type(edgeShelf), intent(out)              :: newEdges
+    type(elementShelf), intent(out)           :: newElements
+    type(faceShelf), intent(out)              :: newFaces
+    type(vertexShelf), intent(out)            :: newVertices
+    integer(shortInt)                         :: i, j, nEdges, nInternalTriangles, nNewEdges, nTetrahedra, nTriangles, &
+                                                 nVertices, nNewVertices, lastEdgeIdx, lastFaceIdx, lastElementIdx, lastVertexIdx
+    integer(shortInt), dimension(:), allocatable :: edgeIdxs
+    type(elementBox), dimension(:), allocatable  :: tetrahedra
+    type(faceBox), dimension(:), allocatable     :: triangles
+    
+    ! Retrieve sizes of the original shelves.
+    nEdges = self % nEdges
+    nVertices = self % nVertices
+    
+    ! Compute the number of edges, pyramids, triangles and tetrahedra to be created and
+    ! allocate memory to the corresponding structures.
+    call self % computePrimitives(elements, faces, nNewEdges, nInternalTriangles, nTetrahedra, nTriangles, nNewVertices)
+    
+    ! Allocate memory in the new shelves.
+    call newEdges % allocateShelf(nEdges + nNewEdges)
+    call newElements % allocateShelf(nTetrahedra)
+    call newFaces % allocateShelf(nTriangles)
+    call newVertices % allocateShelf(nVertices + nNewVertices)
+
+    ! Copy original edges and vertices into the new shelves.
+    do i = 1, nEdges
+      call newEdges % initEdge(i, edges % getEdgeVertexIdxs(i))
+
+    end do
+
+    call newVertices % setExtremalCoordinates(vertices % getExtremalCoordinates())
+    call newVertices % setOffset(vertices % getOffset())
+    do i = 1, nVertices
+      call newVertices % initVertex(i, vertices % getVertexCoordinates(i))
+      edgeIdxs = vertices % getVertexEdgeIdxs(i)
+
+      do j = 1, size(edgeIdxs)
+        call newVertices % addEdgeIdxToVertex(i, edgeIdxs(j))
+
+      end do
+
+    end do
+
+    ! Initialise new triangles and tetrahedra to be generated.
+    allocate(triangles(nTriangles))
+    allocate(tetrahedra(nTetrahedra))
+    
+    ! Initialise lastVertexIdx, lastPyramidIdx, lastTetrahedronIdx and lastTriangleIdx then
+    ! split all elements into pyramids and all pyramids into tetrahedra.
+    lastEdgeIdx = nEdges
+    lastElementIdx = 0
+    lastFaceIdx = 0
+    lastVertexIdx = nVertices
+    call self % splitFaces(faces, newEdges, newFaces, newVertices, lastEdgeIdx, lastFaceIdx, triangles)
+    call self % splitElements(elements, faces, lastEdgeIdx, lastElementIdx, lastFaceIdx, lastVertexIdx, &
+                              newEdges, newElements, newFaces, newVertices, tetrahedra, triangles)
+
+    ! Update the number of edges, faces, elements and vertices in the mesh.
+    self % nEdges = nEdges + nNewEdges
+    self % nElements = nTetrahedra
+    self % nFaces = nTriangles
+    self % nInternalFaces = nInternalTriangles
+    self % nVertices = nVertices + nNewVertices
+
+  end subroutine split
+
+  !! Subroutine 'splitElements'
+  !!
+  !! Basic description:
+  !!   Splits all elements in the original mesh into pyramids. If a given element is already a
+  !!   tetrahedron it is not split but simply appended to the list of existing tetrahedra.
+  !!
+  !! Arguments:
+  !!   lastEdgeIdx [inout]        -> Index of the last edge in the mesh.
+  !!   lastPyramidIdx [inout]     -> Index of the last pyramid in the mesh.
+  !!   lastTetrahedronIdx [inout] -> Index of the last tetrahedron in the mesh.
+  !!   lastTriangleIdx [inout]    -> Index of the last triangle in the mesh.
+  !!   lastVertexIdx [inout]      -> Index of the last vertex in the mesh.
+  !!
+  subroutine splitElements(self, elements, faces, lastNewEdgeIdx, lastNewElementIdx, lastNewFaceIdx, lastNewVertexIdx, &
+                           newEdges, newElements, newFaces, newVertices, tetrahedra, triangles)
+    class(unstructuredMesh), intent(inout)        :: self
+    type(elementShelf), intent(inout)             :: elements, newElements
+    type(faceShelf), intent(inout)                :: faces, newFaces
+    integer(shortInt), intent(inout)              :: lastNewEdgeIdx, lastNewElementIdx, lastNewFaceIdx, lastNewVertexIdx
+    type(edgeShelf), intent(inout)                :: newEdges
+    type(vertexShelf), intent(inout)              :: newVertices
+    type(elementBox), dimension(:), intent(inout) :: tetrahedra
+    type(faceBox), dimension(:), intent(inout)    :: triangles
+    integer(shortInt)                             :: i, initialElementIdx, j
+                                        
+    ! Loop through all original elements and split them into tetrahedra.
+    do i = 1, self % nElements
+      ! Initialise initialElementIdx then split the current element.
+      initialElementIdx = lastNewElementIdx + 1
+      call elements % splitElement(i, faces, lastNewEdgeIdx, lastNewElementIdx, lastNewFaceIdx, lastNewVertexIdx, &
+                                   newEdges, newFaces, newVertices, tetrahedra, triangles)
+
+      ! Set all new tetrahedra.
+      do j = initialElementIdx, lastNewElementIdx
+        call newElements % addElement(j, tetrahedra(j))
+
+      end do
+      
+    end do
+
+  end subroutine splitElements
+
+  subroutine splitFaces(self, faces, newEdges, newFaces, newVertices, lastNewEdgeIdx, lastNewFaceIdx, triangles)
+    class(unstructuredMesh), intent(inout)     :: self
+    type(faceShelf), intent(inout)             :: faces, newFaces
+    type(edgeShelf), intent(inout)             :: newEdges
+    type(vertexShelf), intent(inout)           :: newVertices
+    integer(shortInt), intent(inout)           :: lastNewEdgeIdx, lastNewFaceIdx
+    type(faceBox), dimension(:), intent(inout) :: triangles
+    integer(shortInt)                          :: i, initialFaceIdx, j
+
+    ! Loop through all original faces in the mesh and split them into triangles.
+    do i = 1, self % nFaces
+      ! Initialise initialFaceIdx then split the current face.
+      initialFaceIdx = lastNewFaceIdx + 1
+      call faces % splitFace(i, newEdges, newVertices, lastNewEdgeIdx, lastNewFaceIdx, triangles)
+
+      ! Set all new triangles.
+      do j = initialFaceIdx, lastNewFaceIdx
+        call newFaces % addFace(j, triangles(j))
+
+      end do
+
+    end do
+
+  end subroutine splitFaces
 
 end module unstructuredMesh_inter

@@ -22,59 +22,24 @@ module vertex_class
     private
     integer(shortInt)                            :: idx = 0
     real(defReal), dimension(3)                  :: coordinates = ZERO
-    integer(shortInt), dimension(:), allocatable :: faceIdxs, edgeIdxs, elementIdxs, &
-                                                    tetrahedronIdxs, triangleIdxs
+    integer(shortInt), dimension(:), allocatable :: faceIdxs, edgeIdxs, elementIdxs
   contains
     procedure                                    :: addFaceIdx
     procedure                                    :: addEdgeIdx
     procedure                                    :: addElementIdx
-    procedure                                    :: addTetrahedronIdx
-    procedure                                    :: addTriangleIdx
     procedure                                    :: getCoordinates
     procedure                                    :: getEdgeIdxs
+    procedure                                    :: getElementIdxs
+    procedure                                    :: getFaceIdxs
     procedure                                    :: getIdx
-    procedure                                    :: getVertexToElements
-    procedure                                    :: getVertexToFaces
-    procedure                                    :: getVertexToTetrahedra
-    procedure                                    :: getVertexToTriangles
     procedure                                    :: hasEdges
-    procedure                                    :: hasTriangles
+    procedure                                    :: hasFaces
     procedure                                    :: kill
     procedure                                    :: setCoordinates
     procedure                                    :: setIdx
   end type
 
 contains
-  
-  !! Subroutine 'addTetrahedronIdx'
-  !!
-  !! Basic description:
-  !!   Adds the index of a tetrahedron sharing the vertex.
-  !!
-  !! Arguments:
-  !!   tetrahedronIdx [in] -> Index of the tetrahedron.
-  !!
-  elemental subroutine addTetrahedronIdx(self, tetrahedronIdx)
-    class(vertex), intent(inout)  :: self
-    integer(shortInt), intent(in) :: tetrahedronIdx
-    
-    call append(self % tetrahedronIdxs, tetrahedronIdx)
-  end subroutine addTetrahedronIdx
-  
-  !! Subroutine 'addTriangleIdx'
-  !!
-  !! Basic description:
-  !!   Adds the index of a triangle sharing the vertex.
-  !!
-  !! Arguments:
-  !!   triangleIdx [in] -> Index of the triangle.
-  !!
-  elemental subroutine addTriangleIdx(self, triangleIdx)
-    class(vertex), intent(inout)  :: self
-    integer(shortInt), intent(in) :: triangleIdx
-    
-    call append(self % triangleIdxs, triangleIdx)
-  end subroutine addTriangleIdx
   
   !! Subroutine 'addFaceIdx'
   !!
@@ -89,6 +54,7 @@ contains
     integer(shortInt), intent(in) :: faceIdx
     
     call append(self % faceIdxs, faceIdx)
+
   end subroutine addFaceIdx
 
   !! Subroutine 'addEdgeIdx'
@@ -158,6 +124,38 @@ contains
     edgeIdxs = self % edgeIdxs
 
   end function getEdgeIdxs
+
+  !! Function 'getVertexToElements'
+  !!
+  !! Basic description:
+  !!   Returns the elements containing the vertex.
+  !!
+  !! Result:
+  !!   elementIdxs -> Array listing the indices of the elements containing the vertex.
+  !!
+  pure function getElementIdxs(self) result(elementIdxs)
+    class(vertex), intent(in)                              :: self
+    integer(shortInt), dimension(size(self % elementIdxs)) :: elementIdxs
+    
+    elementIdxs = self % elementIdxs
+
+  end function getElementIdxs
+  
+  !! Function 'getVertexToFaces'
+  !!
+  !! Basic description:
+  !!   Returns the faces containing the vertex.
+  !!
+  !! Result:
+  !!   faceIdxs -> Array listing the indices of the faces containing the vertex.
+  !!
+  pure function getFaceIdxs(self) result(faceIdxs)
+    class(vertex), intent(in)                           :: self
+    integer(shortInt), dimension(size(self % faceIdxs)) :: faceIdxs
+    
+    faceIdxs = self % faceIdxs
+
+  end function getFaceIdxs
   
   !! Function 'getIdx'
   !!
@@ -172,66 +170,8 @@ contains
     integer(shortInt)         :: idx
     
     idx = self % idx
+
   end function getIdx
-  
-  !! Function 'getVertexToElements'
-  !!
-  !! Basic description:
-  !!   Returns the elements containing the vertex.
-  !!
-  !! Result:
-  !!   elementIdxs -> Array listing the indices of the elements containing the vertex.
-  !!
-  pure function getVertexToElements(self) result(elementIdxs)
-    class(vertex), intent(in)                              :: self
-    integer(shortInt), dimension(size(self % elementIdxs)) :: elementIdxs
-    
-    elementIdxs = self % elementIdxs
-  end function getVertexToElements
-  
-  !! Function 'getVertexToFaces'
-  !!
-  !! Basic description:
-  !!   Returns the faces containing the vertex.
-  !!
-  !! Result:
-  !!   faceIdxs -> Array listing the indices of the faces containing the vertex.
-  !!
-  pure function getVertexToFaces(self) result(faceIdxs)
-    class(vertex), intent(in)                           :: self
-    integer(shortInt), dimension(size(self % faceIdxs)) :: faceIdxs
-    
-    faceIdxs = self % faceIdxs
-  end function getVertexToFaces
-  !! Function 'getVertexToTetrahedra'
-  !!
-  !! Basic description:
-  !!   Returns the tetrahedra containing the vertex.
-  !!
-  !! Result:
-  !!   tetrahedronIdxs -> Array listing the indices of the tetrahedra containing the vertex.
-  !!
-  pure function getVertexToTetrahedra(self) result(tetrahedronIdxs)
-    class(vertex), intent(in)                                  :: self
-    integer(shortInt), dimension(size(self % tetrahedronIdxs)) :: tetrahedronIdxs
-    
-    tetrahedronIdxs = self % tetrahedronIdxs
-  end function getVertexToTetrahedra
-  
-  !! Function 'getVertexToTriangles'
-  !!
-  !! Basic description:
-  !!   Returns the triangles containing the vertex.
-  !!
-  !! Result:
-  !!   triangleIdxs -> Array listing the indices of the triangles containing the vertex.
-  !!
-  pure function getVertexToTriangles(self) result(triangleIdxs)
-    class(vertex), intent(in)                               :: self
-    integer(shortInt), dimension(size(self % triangleIdxs)) :: triangleIdxs
-    
-    triangleIdxs = self % triangleIdxs
-  end function getVertexToTriangles
 
   !! Function 'hasEdges'
   !!
@@ -251,13 +191,13 @@ contains
   !! Basic description:
   !!   Returns .true. if triangleIdxs is allocated.
   !!
-  elemental function hasTriangles(self) result(doesIt)
+  elemental function hasFaces(self) result(doesIt)
     class(vertex), intent(in) :: self
     logical(defBool)          :: doesIt
 
-    doesIt = allocated(self % triangleIdxs)
+    doesIt = allocated(self % faceIdxs)
 
-  end function hasTriangles
+  end function hasFaces
   
   !! Subroutine 'kill'
   !!
@@ -272,8 +212,7 @@ contains
     if (allocated(self % faceIdxs)) deallocate(self % faceIdxs)
     if (allocated(self % edgeIdxs)) deallocate(self % edgeIdxs)
     if (allocated(self % elementIdxs)) deallocate(self % elementIdxs)
-    if (allocated(self % triangleIdxs)) deallocate(self % triangleIdxs)
-    if (allocated(self % tetrahedronIdxs)) deallocate(self % tetrahedronIdxs)
+  
   end subroutine kill
   
   !! Subroutine 'setCoordinates'
@@ -305,4 +244,5 @@ contains
     
     self % idx = idx
   end subroutine setIdx
+  
 end module vertex_class

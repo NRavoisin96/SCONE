@@ -461,7 +461,7 @@ contains
         value = real(self % entries(idx) % int0_alloc, defReal)
 
       case default
-        call fatalError(Here,'Entery under keyword ' // keyword // ' is not a real or int')
+        call fatalError(Here,'Entry under keyword ' // keyword // ' is not a real or int')
 
     end select
 
@@ -491,7 +491,7 @@ contains
         value = real(self % entries(idx) % int1_alloc, defReal)
 
       case default
-        call fatalError(Here,'Entery under keyword ' // keyword // ' is not a real array or int array')
+        call fatalError(Here,'Entry under keyword ' // keyword // ' is not a real array or int array')
 
     end select
 
@@ -526,7 +526,7 @@ contains
         value = real(self % entries(idx) % int1_alloc, defReal)
 
       case default
-        call fatalError(Here,'Entery under keyword ' // keyword // ' is not a real array or int array')
+        call fatalError(Here,'Entry under keyword ' // keyword // ' is not a real array or int array')
 
     end select
 
@@ -550,7 +550,7 @@ contains
         value = self % entries(idx) % int0_alloc
 
       case default
-        call fatalError(Here,'Entery under keyword ' // keyword // ' is not an integer')
+        call fatalError(Here,'Entry under keyword ' // keyword // ' is not an integer')
 
     end select
 
@@ -577,7 +577,7 @@ contains
         value = self % entries(idx) % int1_alloc
 
       case default
-        call fatalError(Here,'Entery under keyword ' // keyword // ' is not integer array')
+        call fatalError(Here,'Entry under keyword ' // keyword // ' is not integer array')
 
     end select
 
@@ -607,7 +607,7 @@ contains
         value = self % entries(idx) % int1_alloc
 
       case default
-        call fatalError(Here,'Entery under keyword ' // keyword // ' is not integer array')
+        call fatalError(Here,'Entry under keyword ' // keyword // ' is not integer array')
 
     end select
 
@@ -667,7 +667,7 @@ contains
         value = self % entries(idx) % char1_alloc
 
       case default
-        call fatalError(Here,'Entery under keyword ' // keyword // ' is not a character array')
+        call fatalError(Here,'Entry under keyword ' // keyword // ' is not a character array')
 
     end select
 
@@ -701,7 +701,7 @@ contains
         value = self % entries(idx) % char1_alloc
 
       case default
-        call fatalError(Here,'Entery under keyword ' // keyword // ' is not a character array')
+        call fatalError(Here,'Entry under keyword ' // keyword // ' is not a character array')
 
     end select
 
@@ -724,7 +724,7 @@ contains
         value = self % entries(idx) % dict0_alloc
 
       case default
-        call fatalError(Here,'Entery under keyword ' // keyword // ' is not a dictionary')
+        call fatalError(Here,'Entry under keyword ' // keyword // ' is not a dictionary')
 
     end select
 

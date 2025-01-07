@@ -29,6 +29,10 @@ module numPrecision
   real(defReal), public, parameter  :: floatTol = 1.0e-12 !*** Should be replaced
   real(defReal), public, parameter  :: FP_REL_TOL = 1.0e-7_defReal
 
+  ! Minimum and maximum values for scientific notation for floating point numbers.
+  real(defReal), public, parameter :: scientificLowerBound = 1.0E-1_defReal, &
+                                      scientificUpperBound = 1.0E17_defReal
+
 contains
 
 end module numPrecision

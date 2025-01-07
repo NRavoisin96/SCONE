@@ -39,7 +39,8 @@ module box_class
     private
     integer(shortInt)                    :: nBCs = 6
   contains
-    ! Superclass procedures
+    ! Superclass procedures.
+    procedure                            :: cropsBoundingBox
     procedure                            :: init
     procedure                            :: evaluate
     procedure                            :: distance
@@ -51,12 +52,42 @@ module box_class
   end type box
 
 contains
+  !! Subroutine 'cropsBoundingBox'
+  !!
+  !! Basic description:
+  !!   Checks whether the box crops a given bounding box.
+  !!
+  !! Arguments:
+  !!   boundingBox -> A defReal array containing the x_min, y_min, z_min, x_max, y_max and z_max
+  !!                  coordinates of the bounding box.
+  !!
+  !! Result:
+  !!   doesIt      -> .true. if the box crops the bounding box.
+  !!
+  pure function cropsBoundingBox(self, boundingBox) result(doesIt)
+    class(box), intent(in)                  :: self
+    real(defReal), dimension(6), intent(in) :: boundingBox
+    logical(defBool)                        :: doesIt
+    real(defReal), dimension(3)             :: halfwidths
+    integer(shortInt)                       :: i
+
+    ! Initialise doesIt = .true., retrieve the box's halfwidths then loop through all dimensions.
+    doesIt = .true.
+    halfwidths = self % getHalfwidths()
+    do i = 1, 3
+      if (any(abs(boundingBox([i, 3 + i])) >= halfwidths(i))) return
+
+    end do
+
+    ! If reached here, update doesIt = .false.
+    doesIt = .false.
+
+  end function cropsBoundingBox
+
   !!
   !! Initialise box from a dictionary
   !!
   !! See surface_inter for more details
-  !!
-  !! Errors:
   !!
   subroutine init(self, dict)
     class(box), intent(inout)                :: self

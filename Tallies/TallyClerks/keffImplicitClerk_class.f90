@@ -184,9 +184,7 @@ contains
 
     ! Get material pointer
     mat => neutronMaterial_CptrCast(xsData % getMaterial(matIdx))
-    if (.not.associated(mat)) then
-      call fatalError(Here,'Unrecognised type of material was retrived from nuclearDatabase')
-    end if
+    if (.not.associated(mat)) call fatalError(Here, 'Unrecognised type of material was retrieved from nuclearDatabase')
 
     ! Obtain xss
     call mat % getMacroXSs(xss, p)

@@ -1,22 +1,21 @@
-module triOpenFOAMMesh_iTest
-  
-  use coord_class,           only : coord
-  use triOpenFOAMMesh_class, only : triOpenFOAMMesh
-  use numPrecision
-  use genericProcedures
-  use dictionary_class,      only : dictionary
-  use dictParser_func,       only : charToDict
+module OpenFOAMMesh_triangulated_iTest
+
+  use coord_class,        only : coord
+  use dictionary_class,   only : dictionary
+  use dictParser_func,    only : charToDict
   use funit
+  use numPrecision
+  use OpenFOAMMesh_class, only : OpenFOAMMesh
   use universalVariables
   
   implicit none
   
   ! Parameters.
   character(*), parameter :: MESH_DEF = &
-  " id 2; type triOpenFOAMMesh; path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/testMesh/;"
+  " id 2; type OpenFOAMMesh; path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/testMesh/; triangulate 1;"
   ! Variables.
-  type(triOpenFOAMMesh)   :: mesh
-  type(coord)             :: coords
+  type(OpenFOAMMesh) :: mesh
+  type(coord)        :: coords
 
 contains
   
@@ -67,37 +66,35 @@ contains
     ! Test number of vertices.
     @assertEqual(22, mesh % nVertices)
     ! Test number of faces.
-    @assertEqual(20, mesh % nFaces)
-    ! Test number of elements.
-    @assertEqual(4, mesh % nElements)
+    @assertEqual(112, mesh % nFaces)
     ! Test number of internal faces.
-    @assertEqual(4, mesh % nInternalFaces)
+    @assertEqual(80, mesh % nInternalFaces)
     ! Test number of edges.
     @assertEqual(85, mesh % nEdges)
     ! Test number of tetrahedra.
-    @assertEqual(48, mesh % nTetrahedra)
+    @assertEqual(48, mesh % nElements)
     ! Test every tetrahedron.
-    do i = 1, mesh % nTetrahedra
+    do i = 1, mesh % nElements
       ! Test that none of the triangle indices and edge indices are zero.
-      @assertTrue(all(mesh % tetrahedra % getTetrahedronTriangleIdxs(i) /= 0))
-      @assertTrue(all(mesh % tetrahedra % getTetrahedronEdgeIdxs(i) > 0))
+      @assertTrue(all(mesh % elements % getElementFaceIdxs(i) /= 0))
+      @assertTrue(all(mesh % elements % getElementEdgeIdxs(i) > 0))
 
     end do
     ! Test number of triangles.
-    @assertEqual(112, mesh % nTriangles)
+    @assertEqual(112, mesh % nFaces)
     ! Test every triangle.
-    do i = 1, mesh % nTriangles
+    do i = 1, mesh % nFaces
       ! Test that none of the triangle vertex indices and edge indices are zero.
-      @assertTrue(all(mesh % triangles % getTriangleVertexIdxs(i) > 0))
-      @assertTrue(all(mesh % triangles % getTriangleEdgeIdxs(i) > 0))
+      @assertTrue(all(mesh % faces % getFaceVertexIdxs(i) > 0))
+      @assertTrue(all(mesh % faces % getFaceEdgeIdxs(i) > 0))
 
     end do
     
     ! Test area of two faces.
-    @assertEqual(2.0_defReal, mesh % faces % getFaceArea(1), 2.0_defReal * TOL)
+    @assertEqual(1.0_defReal, mesh % faces % getFaceArea(1), TOL)
     @assertEqual(1.0_defReal, mesh % faces % getFaceArea(11), 1.0_defReal * TOL)
     ! Test volume of one element.
-    @assertEqual(2.0_defReal, mesh % elements % getElementVolume(3), 2.0_defReal * TOL)
+    @assertEqual(1.0_defReal / 6.0_defReal, mesh % elements % getElementVolume(3), TOL / 6.0_defReal)
 
   end subroutine test_info
   
@@ -114,6 +111,7 @@ contains
     u = [ONE, ZERO, ZERO]
     call mesh % findElementAndParentIdxs(r, u, elementIdx, parentIdx)
     @assertEqual(36, elementIdx)
+
     r = [0.02_defReal, 0.97_defReal, -0.5_defReal]
     u = [ZERO, ONE, ZERO]
     call mesh % findElementAndParentIdxs(r, u, elementIdx, parentIdx)
@@ -144,7 +142,7 @@ contains
     u = [-ONE, ZERO, ZERO]
     call mesh % findElementAndParentIdxs(r, u, elementIdx, parentIdx)
     @assertEqual(0, elementIdx)
-    
+
     ! A point on an internal edge. Different directions.
     r = ZERO
     u = [2.0_defReal, ONE, ONE]
@@ -490,7 +488,7 @@ contains
     integer(shortInt)           :: parentIdx, i
     real(defReal), parameter    :: TOL = 1.0E-6, maxDist = 2.0_defReal
     integer(shortInt), dimension(:), allocatable :: vertexIdxs
-    
+
     ! Few points inside mesh.
     coords % r = [0.98_defReal, 0.1_defReal, 0.1_defReal]
     coords % dir = [ONE, ZERO, ZERO]
@@ -498,7 +496,7 @@ contains
     call mesh % findElementAndParentIdxs(coords % r, coords % dir, coords % elementIdx, parentIdx)
     call mesh % distanceToNextFace(distance, coords)
     @assertEqual(0.02_defReal, distance, 0.02_defReal * TOL)
-    
+
     coords % r = [-0.65_defReal, 0.33_defReal, -0.47_defReal]
     coords % rEnd = coords % r + coords % dir * maxDist
     call mesh % findElementAndParentIdxs(coords % r, coords % dir, coords % elementIdx, parentIdx)
@@ -736,4 +734,4 @@ contains
   
   end subroutine test_distance
 
-end module triOpenFOAMMesh_iTest
+end module OpenFOAMMesh_triangulated_iTest

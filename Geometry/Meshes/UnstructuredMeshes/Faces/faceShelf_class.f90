@@ -1,11 +1,12 @@
 module faceShelf_class
   
-  use edgeShelf_class,     only : edgeShelf
+  use edgeShelf_class,   only : edgeShelf
   use numPrecision
-  use genericProcedures,   only : findCommon
-  use face_class,          only : face
-  use triangleShelf_class, only : triangleShelf
-  use vertexShelf_class,   only : vertexShelf
+  use genericProcedures, only : fatalError, findCommon
+  use face_inter,        only : face, faceBox
+  use polygon_class,     only : polygon
+  use triangle_class,    only : triangle
+  use vertexShelf_class, only : vertexShelf
   
   implicit none
   private
@@ -16,28 +17,34 @@ module faceShelf_class
   !! Private members:
   !!   shelf -> Array to store faces.
   !!
-  type, public                            :: faceShelf
+  type, public                               :: faceShelf
     private
-    type(face), dimension(:), allocatable :: shelf
+    type(faceBox), dimension(:), allocatable :: shelf
   contains
-    procedure                             :: addEdgeIdxToFace
-    procedure                             :: addElementIdxToFace
-    procedure                             :: addVertexIdxToFace
-    procedure                             :: allocateShelf
-    procedure                             :: computeFaceIntersection
-    procedure                             :: findCommonEdgeIdx
-    procedure                             :: findCommonVertexIdx
-    procedure                             :: getFaceArea
-    procedure                             :: getFaceCentroid
-    procedure                             :: getFaceElementIdxs
-    procedure                             :: getFaceIsBoundary
-    procedure                             :: getFaceNormal
-    procedure                             :: getFaceTriangleIdxs
-    procedure                             :: getFaceVertexIdxs
-    procedure                             :: getSize
-    procedure                             :: initFace
-    procedure                             :: kill
-    procedure                             :: splitFace
+    procedure                                :: addEdgeIdxToFace
+    procedure                                :: addElementIdxToFace
+    procedure                                :: addFace
+    procedure                                :: addVertexIdxToFace
+    procedure                                :: allocateFace
+    procedure                                :: allocateShelf
+    procedure                                :: buildFace
+    procedure                                :: computeFaceIntersection
+    procedure                                :: findCommonEdgeIdx
+    procedure                                :: findCommonVertexIdx
+    procedure                                :: getFaceArea
+    procedure                                :: getFaceCentroid
+    procedure                                :: getFaceEdgeIdxs
+    procedure                                :: getFaceElementIdxs
+    procedure                                :: getFaceHasElements
+    procedure                                :: getFaceIsBoundary
+    procedure                                :: getFaceNormal
+    procedure                                :: getFaceTriangleIdxs
+    procedure                                :: getFaceType
+    procedure                                :: getFaceVertexIdxs
+    procedure                                :: getSize
+    procedure                                :: initFace
+    procedure                                :: kill
+    procedure                                :: splitFace
   end type
 
 contains
@@ -55,7 +62,7 @@ contains
     class(faceShelf), intent(inout) :: self
     integer(shortInt), intent(in)   :: idx, edgeIdx
 
-    call self % shelf(idx) % addEdgeIdx(edgeIdx)
+    call self % shelf(idx) % item % addEdgeIdx(edgeIdx)
 
   end subroutine addEdgeIdxToFace
 
@@ -72,9 +79,21 @@ contains
     class(faceShelf), intent(inout) :: self
     integer(shortInt), intent(in)   :: idx, elementIdx
 
-    call self % shelf(idx) % addElementToFace(elementIdx)
+    call self % shelf(idx) % item % addElementIdx(elementIdx)
 
   end subroutine addElementIdxToFace
+
+  !!
+  !!
+  !!
+  elemental subroutine addFace(self, idx, newFace)
+    class(faceShelf), intent(inout) :: self
+    integer(shortInt), intent(in)   :: idx
+    type(faceBox), intent(in)       :: newFace
+
+    self % shelf(idx) = newFace
+
+  end subroutine addFace
 
   !! Subroutine 'addVertexIdxToFace'
   !!
@@ -89,9 +108,28 @@ contains
     class(faceShelf), intent(inout) :: self
     integer(shortInt), intent(in)   :: idx, vertexIdx
 
-    call self % shelf(idx) % addVertexToFace(vertexIdx)
+    call self % shelf(idx) % item % addVertexIdx(vertexIdx)
 
   end subroutine addVertexIdxToFace
+
+  !!
+  !!
+  !!
+  elemental subroutine allocateFace(self, idx, type)
+    class(faceShelf), intent(inout) :: self
+    integer(shortInt), intent(in)   :: idx
+    character(*), intent(in)        :: type
+
+    select case(type)
+      case('Polygon')
+        allocate(polygon :: self % shelf(idx) % item)
+      case('Triangle')
+        allocate(triangle :: self % shelf(idx) % item)
+      case default
+
+    end select
+
+  end subroutine allocateFace
 
   !! Subroutine 'allocateShelf'
   !!
@@ -108,6 +146,26 @@ contains
     allocate(self % shelf(nFaces))
 
   end subroutine allocateShelf
+
+  !!
+  !!
+  !!
+  pure subroutine buildFace(self, idx, faceIdx, isBoundary, vertexIdxs, vertices, type, testCentroid)
+    class(faceShelf), intent(inout)                   :: self
+    integer(shortInt), intent(in)                     :: idx, faceIdx
+    logical(defBool), intent(in)                      :: isBoundary
+    integer(shortInt), dimension(:), intent(inout)    :: vertexIdxs
+    type(vertexShelf), intent(in)                     :: vertices
+    character(*), intent(in)                          :: type
+    real(defReal), dimension(3), intent(in), optional :: testCentroid
+
+    ! Allocate the face in the shelf.
+    call self % allocateFace(idx, type)
+
+    ! Set face properties and compute its centroid, normal vector and area.
+    call self % shelf(idx) % item % build(idx, faceIdx, isBoundary, vertexIdxs, vertices, type, testCentroid)
+
+  end subroutine buildFace
 
   !! Subroutine 'computeFaceIntersection'
   !!
@@ -133,7 +191,7 @@ contains
     real(defReal), intent(out)              :: d
     integer(shortInt), intent(out)          :: edgeIdx, vertexIdx
 
-    call self % shelf(idx) % computeIntersection(r, rEnd, u, vertices, d, edgeIdx, vertexIdx)
+    call self % shelf(idx) % item % computeIntersection(r, rEnd, u, vertices, d, edgeIdx, vertexIdx)
 
   end subroutine computeFaceIntersection
 
@@ -157,7 +215,7 @@ contains
 
     ! Initialise edgeIdx = 0 then find common edge indices between the two faces.
     edgeIdx = 0
-    commonIdxs = findCommon(self % shelf(firstFaceIdx) % getEdgeIdxs(), self % shelf(secondFaceIdx) % getEdgeIdxs())
+    commonIdxs = findCommon(self % shelf(firstFaceIdx) % item % getEdgeIdxs(), self % shelf(secondFaceIdx) % item % getEdgeIdxs())
 
     ! If a common edge has been found update edgeIdx.
     if (size(commonIdxs) > 0) edgeIdx = commonIdxs(1)
@@ -183,10 +241,10 @@ contains
 
     ! Initialise vertexIdx = 0 then find common vertex indices between the faces.
     vertexIdx = 0
-    commonIdxs = self % shelf(idxs(1)) % getVertices()
+    commonIdxs = self % shelf(idxs(1)) % item % getVertexIdxs()
 
     do i = 2, size(idxs)
-      commonIdxs = findCommon(commonIdxs, self % shelf(idxs(i)) % getVertices())
+      commonIdxs = findCommon(commonIdxs, self % shelf(idxs(i)) % item % getVertexIdxs())
 
     end do
 
@@ -211,7 +269,7 @@ contains
     integer(shortInt), intent(in) :: idx
     real(defReal)                 :: area
 
-    area = self % shelf(idx) % getArea()
+    area = self % shelf(idx) % item % getArea()
 
   end function getFaceArea
 
@@ -231,9 +289,29 @@ contains
     integer(shortInt), intent(in) :: idx
     real(defReal), dimension(3)   :: centroid
 
-    centroid = self % shelf(idx) % getCentroid()
+    centroid = self % shelf(idx) % item % getCentroid()
 
   end function getFaceCentroid
+
+  !! Function 'getFaceEdgeIdxs'
+  !!
+  !! Basic description:
+  !!   Returns the indices of the edges in a face of the shelf.
+  !!
+  !! Arguments:
+  !!   idx [in] -> Index of the face in the shelf.
+  !!
+  !! Result:
+  !!   edgeIdxs -> Indices of the edges in the face.
+  !!
+  pure function getFaceEdgeIdxs(self, idx) result(edgeIdxs)
+    class(faceShelf), intent(in)                 :: self
+    integer(shortInt), intent(in)                :: idx
+    integer(shortInt), dimension(:), allocatable :: edgeIdxs
+
+    edgeIdxs = self % shelf(idx) % item % getEdgeIdxs()
+
+  end function getFaceEdgeIdxs
 
   !! Function 'getFaceElementIdxs'
   !!
@@ -251,9 +329,29 @@ contains
     integer(shortInt), intent(in)                :: idx
     integer(shortInt), dimension(:), allocatable :: elementIdxs
 
-    elementIdxs = self % shelf(idx) % getFaceToElements()
+    elementIdxs = self % shelf(idx) % item % getElementIdxs()
 
   end function getFaceElementIdxs
+
+  !! Function 'getFaceHasElements'
+  !!
+  !! Basic description:
+  !!   Returns .true. if a face in the shelf is already associated to elements.
+  !!
+  !! Arguments:
+  !!   idx [in]    -> Index of the face in the shelf.
+  !!
+  !! Result:
+  !!   hasElements -> .true. if the face in the shelf is associated to elements.
+  !!
+  elemental function getFaceHasElements(self, idx) result(hasElements)
+    class(faceShelf), intent(in)  :: self
+    integer(shortInt), intent(in) :: idx
+    logical(defBool)              :: hasElements
+
+    hasElements = self % shelf(idx) % item % getHasElements()
+
+  end function getFaceHasElements
 
   !! Function 'getFaceIsBoundary'
   !!
@@ -271,7 +369,7 @@ contains
     integer(shortInt), intent(in) :: idx
     logical(defBool)              :: isBoundary
 
-    isBoundary = self % shelf(idx) % getIsBoundary()
+    isBoundary = self % shelf(idx) % item % getIsBoundary()
 
   end function getFaceIsBoundary
 
@@ -291,7 +389,7 @@ contains
     integer(shortInt), intent(in) :: idx
     real(defReal), dimension(3)   :: centroid
 
-    centroid = self % shelf(abs(idx)) % getNormal(idx)
+    centroid = self % shelf(abs(idx)) % item % getNormal(idx)
 
   end function getFaceNormal
 
@@ -311,9 +409,29 @@ contains
     integer(shortInt), intent(in)                :: idx
     integer(shortInt), dimension(:), allocatable :: triangleIdxs
 
-    triangleIdxs = self % shelf(idx) % getTriangles()
+    triangleIdxs = self % shelf(idx) % item % getTriangleIdxs()
 
   end function getFaceTriangleIdxs
+
+  !! Function 'getFaceType'
+  !!
+  !! Basic description:
+  !!   Returns the type of a face in the shelf.
+  !!
+  !! Arguments:
+  !!   idx [in] -> Index of the face in the shelf.
+  !!
+  !! Result:
+  !!   type     -> Type of the face.
+  !!
+  pure function getFaceType(self, idx) result(type)
+    class(faceShelf), intent(in)  :: self
+    integer(shortInt), intent(in) :: idx
+    character(:), allocatable     :: type
+
+    type = self % shelf(idx) % item % getType()
+
+  end function getFaceType
 
   !! Function 'getFaceVertexIdxs'
   !!
@@ -331,7 +449,7 @@ contains
     integer(shortInt), intent(in)                :: idx
     integer(shortInt), dimension(:), allocatable :: vertexIdxs
 
-    vertexIdxs = self % shelf(idx) % getVertices()
+    vertexIdxs = self % shelf(idx) % item % getVertexIdxs()
 
   end function getFaceVertexIdxs
   
@@ -360,23 +478,18 @@ contains
   !!   idx [in]            -> Index of the face.
   !!   nInternalFaces [in] -> Number of internal faces in the shelf.
   !!
-  subroutine initFace(self, idx, nInternalFaces, vertexIdxs, vertices)
+  subroutine initFace(self, idx, faceIdx, isBoundary, vertexIdxs, AB, AC, centroid, normal, area, type)
     class(faceShelf), intent(inout)             :: self
-    integer(shortInt), intent(in)               :: idx, nInternalFaces
+    integer(shortInt), intent(in)               :: idx, faceIdx
+    logical(defBool), intent(in)                :: isBoundary
     integer(shortInt), dimension(:), intent(in) :: vertexIdxs
-    type(vertexShelf), intent(in)               :: vertices
-    integer(shortInt)                           :: i
-    
-    ! Set the face index. If idx > nInternalFaces set this face as a boundary face.
-    call self % shelf(idx) % setIdx(idx)
-    if (idx > nInternalFaces) call self % shelf(idx) % setBoundaryFace()
+    real(defReal), dimension(3), intent(in)     :: AB, AC, centroid, normal
+    real(defReal), intent(in)                   :: area
+    character(*), intent(in)                    :: type
 
-    ! Set vertex connectivity information then compute face area and normal vector.
-    do i = 1, size(vertexIdxs)
-      call self % shelf(idx) % addVertexToFace(vertexIdxs(i))
-
-    end do
-    call self % shelf(idx) % computeAreaAndNormal(vertices)
+    ! Allocate face in the shelf and set everything.
+    call self % allocateFace(idx, type)
+    call self % shelf(idx) % item % init(idx, faceIdx, isBoundary, area, centroid, normal, AB, AC, vertexIdxs, type)
 
   end subroutine initFace
   
@@ -387,8 +500,16 @@ contains
   !!
   elemental subroutine kill(self)
     class(faceShelf), intent(inout) :: self
+    integer(shortInt)               :: i
     
-    if (allocated(self % shelf)) deallocate(self % shelf)
+    if (allocated(self % shelf)) then
+      do i = 1, size(self % shelf)
+        if (allocated(self % shelf(i) % item)) deallocate(self % shelf(i) % item)
+
+      end do
+      deallocate(self % shelf)
+
+    end if
 
   end subroutine kill
 
@@ -405,15 +526,15 @@ contains
   !!   lastEdgeIdx [inout]     -> Index of the last edge in the edgeShelf.
   !!   lastTriangleIdx [inout] -> Index of the last triangle in the triangleShelf.
   !!
-  elemental subroutine splitFace(self, idx, edges, triangles, vertices, lastEdgeIdx, lastTriangleIdx)
-    class(faceShelf), intent(inout)    :: self
-    integer(shortInt), intent(in)      :: idx
-    type(edgeShelf), intent(inout)     :: edges
-    type(triangleShelf), intent(inout) :: triangles
-    type(vertexShelf), intent(inout)   :: vertices
-    integer(shortInt), intent(inout)   :: lastEdgeIdx, lastTriangleIdx
+  subroutine splitFace(self, idx, edges, vertices, lastEdgeIdx, lastTriangleIdx, triangles)
+    class(faceShelf), intent(inout)            :: self
+    integer(shortInt), intent(in)              :: idx
+    type(edgeShelf), intent(inout)             :: edges
+    type(vertexShelf), intent(inout)           :: vertices
+    integer(shortInt), intent(inout)           :: lastEdgeIdx, lastTriangleIdx
+    type(faceBox), dimension(:), intent(inout) :: triangles
 
-    call self % shelf(idx) % split(edges, triangles, vertices, lastEdgeIdx, lastTriangleIdx)
+    call self % shelf(idx) % item % split(edges, vertices, lastEdgeIdx, lastTriangleIdx, triangles)
 
   end subroutine splitFace
   

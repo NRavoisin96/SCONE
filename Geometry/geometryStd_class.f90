@@ -461,6 +461,7 @@ contains
       call coords % addLevel()
       call uni % enter(coords % lvl(i + 1), coords % lvl(i) % r - offset, coords % lvl(i) % dir)
       coords % lvl(i + 1) % uniRootID = id ! Must be after enter where coord has intent out
+
     end do
 
     call fatalError(Here, 'Failed to find material cell. Should not happen after &
