@@ -1505,17 +1505,24 @@ contains
     ! x and compute the number of decimal places to be used. Note: check if x is negative as this 
     ! reduces the number of decimal places by 1.
     absValue = abs(x)
-    nDecimals = nChars - 2
+    nDecimals = nChars
     if (sign(ONE, x) < ZERO) nDecimals = nDecimals - 1
 
     ! Check whether it is within the bounds of non-scientific notation.
     if (x == ZERO .or. (scientificLowerBound <= absValue .and. absValue < scientificUpperBound)) then
+      if (absValue < ONE) then
+        nDecimals = nDecimals - 2
+
+      else
+        nDecimals = nDecimals - ceiling(log10(absValue)) - 1
+
+      end if
       format = '(F'//numToChar(nChars)//'.'//numToChar(nDecimals)//')'
 
     else
       ! Else, Fortran outputs the number in scientific notation. Update the number of decimal
       ! places to be used and create format in scientific notation.
-      nDecimals = nDecimals - 5
+      nDecimals = nDecimals - 7
       format = '(ES'//numToChar(nChars)//'.'//numToChar(nDecimals)//'E3)'
 
     end if
