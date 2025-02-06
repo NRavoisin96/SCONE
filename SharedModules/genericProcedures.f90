@@ -1452,27 +1452,47 @@ contains
   !!
   function numToChar_shortIntArray(x) result(c)
     integer(shortInt), dimension(:), intent(in) :: x
-    character(:), allocatable                   :: c, tempChar
-    integer(shortInt)                           :: nIntegers, n, i
+    character(:), allocatable                   :: c
+    integer(shortInt)                           :: charIdx, nChars, nIntegers, nTotalChars, n, i
 
-    c = ''
     nIntegers = size(x)
-    if (nIntegers == 0) return
+    if (nIntegers == 0) then
+      c = ''
 
-    n = x(1)
-    allocate(character(countCharacters(n)) :: tempChar)
-    write(tempChar,'(I0)') n
-    c = tempChar
-    deallocate(tempChar)
+    else
+      ! Initialise nTotalChars = 0 then loop through all integers in the array.
+      nTotalChars = 0
+      do i = 1, nIntegers
+        ! Increment nTotalChars by the number of characters required to write the current integer.
+        nTotalChars = nTotalChars + countCharacters(x(i))
 
-    do i = 2, nIntegers
-      n = x(i)
-      allocate(character(countCharacters(n)) :: tempChar)
-      write(tempChar,'(I0)') n
-      c = c//' '//tempChar
-      deallocate(tempChar)
+        ! Increment nTotalChars by 1 (whitespace between elements of the array) if i < nIntegers.
+        if (i < nIntegers) nTotalChars = nTotalChars + 1
 
-    end do
+      end do
+
+      ! Allocate memory in character string.
+      allocate(character(nTotalChars) :: c)
+
+      ! Initialise charIdx = 0 then loop through all integers in the array.
+      charIdx = 0
+      do i = 1, nIntegers
+        ! Retrieve current integer in the array, compute number of characters corresponding to this integer and
+        ! write current integer in character string.
+        n = x(i)
+        nChars = countCharacters(n)
+        c(charIdx + 1:charIdx + nChars) = numToChar(n)
+        
+        ! If we are not at the last iteration, update charIdx and add whitespace between successive integers.
+        if (i < nIntegers) then
+          charIdx = charIdx + nChars + 1
+          c(charIdx:charIdx) = ' '
+
+        end if
+
+      end do
+
+    end if
 
   end function numToChar_shortIntArray
 
@@ -1536,29 +1556,52 @@ contains
   !! Convert defReal array to character
   !!
   function numToChar_defRealArray(x) result(c)
-    real(defReal), dimension(:),intent(in) :: x
-    character(:), allocatable              :: c, tempChar
-    integer(shortInt)                      :: nReals, i
-    real(defReal)                          :: r
+    real(defReal), dimension(:), intent(in) :: x
+    character(:), allocatable               :: c
+    integer(shortInt)                       :: charIdx, i, nChars, nReals, nTotalChars
+    real(defReal)                           :: r
 
-    c = ''
+    ! Compute array size.
     nReals = size(x)
-    if (nReals == 0) return
 
-    r = x(1)
-    allocate(character(countCharacters(r)) :: tempChar)
-    write(tempChar, *) r
-    c = tempChar
-    deallocate(tempChar)
+    ! If array is empty return empty string.
+    if (nReals == 0) then
+      c = ''
 
-    do i = 2, nReals
-      r = x(i)
-      allocate(character(countCharacters(r)) :: tempChar)
-      write(tempChar, *) r
-      c = c//' '//tempChar
-      deallocate(tempChar)
+    else
+      ! Initialise nTotalChars = 0 then loop through all reals in the array.
+      nTotalChars = 0
+      do i = 1, nReals
+        ! Increment nTotalChars by the number of characters required to write the current real.
+        nTotalChars = nTotalChars + countCharacters(x(i))
 
-    end do
+        ! Increment nTotalChars by 1 (whitespace between elements of the array) if i < nReals.
+        if (i < nReals) nTotalChars = nTotalChars + 1
+
+      end do
+
+      ! Allocate memory in character string.
+      allocate(character(nTotalChars) :: c)
+
+      ! Initialise charIdx = 0 then loop through all reals in the array.
+      charIdx = 0
+      do i = 1, nReals
+        ! Retrieve current real in the array, compute number of characters corresponding to this real and
+        ! write current real in character string.
+        r = x(i)
+        nChars = countCharacters(r)
+        c(charIdx + 1:charIdx + nChars) = numToChar(r)
+        
+        ! If we are not at the last iteration, update charIdx and add whitespace between successive reals.
+        if (i < nReals) then
+          charIdx = charIdx + nChars + 1
+          c(charIdx:charIdx) = ' '
+
+        end if
+
+      end do
+
+    end if
 
   end function numToChar_defRealArray
 

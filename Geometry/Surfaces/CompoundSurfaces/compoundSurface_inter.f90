@@ -142,7 +142,7 @@ contains
     d = dMin
     if ((surfTolCondition .and. abs(dMax) >= abs(dMin)) .or. (.not. surfTolCondition .and. dMin <= ZERO)) d = dMax
     
-    ! Cap distance to INF if particle is within surfTol to another surface or if d > INF.
+    ! Cap distance to INF if d <= ZERO or d > INF.
     if (d <= ZERO .or. d > INF) d = INF
 
   end function distancesCompound
