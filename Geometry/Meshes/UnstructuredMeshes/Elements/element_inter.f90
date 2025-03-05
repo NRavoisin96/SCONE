@@ -579,7 +579,7 @@ contains
     integer(shortInt)                                         :: i, faceIdx, absFaceIdx
     real(defReal)                                             :: dotProduct
     
-    ! Initialise failedFace = 0 and loop over all element faces.
+    ! Initialise failedFaceIdx = 0 and loop over all element faces.
     failedFaceIdx = 0
     do i = 1, size(self % faceIdxs)
       ! Create an absolute face index retrieve the face's normal and centroid vectors.
@@ -598,7 +598,7 @@ contains
       end if
 
       ! If dotProduct < ZERO, update failedFace and return early.
-      if (dotProduct < ZERO) then 
+      if (dotProduct < ZERO) then
         failedFaceIdx = absFaceIdx
         return
 

@@ -1,7 +1,6 @@
 module OpenFOAMMesh_class
 
   use coord_class,            only : coord
-  use dictionary_class,       only : dictionary
   use edgeShelf_class,        only : edgeShelf
   use elementShelf_class,     only : elementShelf
   use cellZoneShelf_class,    only : cellZoneShelf
@@ -25,7 +24,6 @@ module OpenFOAMMesh_class
     procedure                             :: distanceToBoundaryFace
     procedure                             :: distanceToNextFace
     procedure                             :: findElementAndParentIdxs
-    procedure                             :: init
     ! Local procedures.
     procedure                             :: buildEdges
     procedure                             :: checkFiles
@@ -219,7 +217,7 @@ contains
     real(defReal), dimension(3), intent(in) :: r, u
     integer(shortInt), intent(out)          :: elementIdx, parentIdx
 
-    call findElementAndParentIdxs_super(self, r, u, elementIdx, parentIdx)
+    call findelementandparentidxs_super(self, r, u, elementIdx, parentIdx)
 
   end subroutine findElementAndParentIdxs
 
@@ -321,23 +319,23 @@ contains
   !! Errors:
   !!   - fatalError if the mesh contains concave elements.
   !!
-  subroutine importMesh(self, folderPath, dict, edges, elements, elementZones, faces, vertices)
+  subroutine importMesh(self, folderPath, centroids, edges, elements, elementZones, faces, vertices)
     class(OpenFOAMMesh), intent(inout) :: self
     character(*), intent(in)           :: folderPath
-    class(dictionary), intent(in)      :: dict
     type(edgeShelf), intent(out)       :: edges
     type(elementShelf), intent(out)    :: elements
     type(cellZoneShelf), intent(out)   :: elementZones
     type(faceShelf), intent(out)       :: faces
-    type(vertexShelf), intent(out)     :: vertices
-    integer(shortInt)                  :: id, nConcaveElements, nElementZones
+    type(vertexShelf), intent(out)     :: centroids, vertices
+    integer(shortInt)                  :: nConcaveElements
     character(*), parameter            :: Here = 'importMesh (OpenFOAMMesh_class.f90)'
     
-    ! Retrieve preliminary information about the mesh and allocate memory to the 'vertices', 'faces' and 'elements' structures.
+    ! Retrieve preliminary information about the mesh and allocate memory.
     call self % getMeshInfo(folderPath)
-    call vertices % allocateShelf(self % nVertices)
-    call faces % allocateShelf(self % nFaces)
+    call centroids % allocateShelf(self % nElements)
     call elements % allocateShelf(self % nElements)
+    call faces % allocateShelf(self % nFaces)
+    call vertices % allocateShelf(self % nVertices)
     
     ! Import vertices and set mesh bounding box.
     call self % initVertexShelf(vertices, folderPath)
@@ -347,7 +345,7 @@ contains
     call self % initFaceShelf(faces, vertices, folderPath)
     
     ! Import elements.
-    call self % initElementShelf(elements, faces, vertices, folderPath, nConcaveElements)
+    call self % initElementShelf(centroids, elements, faces, vertices, folderPath, nConcaveElements)
 
     ! If there are concave elements in the mesh call fatalError.
     if (nConcaveElements > 0) call fatalError(Here, numToChar(nConcaveElements)//' elements failed convexity test.')
@@ -372,55 +370,6 @@ contains
 
   end subroutine importMesh
 
-  !! Subroutine 'init'
-  !!
-  !! Basic description:
-  !!   Imports an OpenFOAM mesh from the path of the folder containing the mesh files.
-  !!
-  !! Arguments:
-  !!   folderPath [in] -> Path of the folder containing the files for the mesh geometry.
-  !!   dict [in]       -> Input dictionary.
-  !!
-  subroutine init(self, folderPath, dict)
-    class(OpenFOAMMesh), intent(inout) :: self
-    character(*), intent(in)           :: folderPath
-    class(dictionary), intent(in)      :: dict
-    type(edgeShelf)                    :: edges, newEdges
-    type(elementShelf)                 :: elements, newElements
-    type(cellZoneShelf)                :: elementZones
-    type(faceShelf)                    :: faces, newFaces
-    type(vertexShelf)                  :: vertices, newVertices
-    logical(defBool)                   :: triangulate
-    
-    ! Set up base components.
-    call self % setupBase(dict)
-    
-    ! Import OpenFOAM mesh.
-    call self % importMesh(folderPath, dict, edges, elements, elementZones, faces, vertices)
-
-    ! Check if triangulation was requested.
-    call dict % getOrDefault(triangulate, 'triangulate', .false.)
-    if (triangulate) then
-      call self % split(edges, elements, faces, vertices, newEdges, newElements, newFaces, newVertices)
-      call self % setEdgeShelf(newEdges)
-      call self % setElementShelf(newElements)
-      call self % setFaceShelf(newFaces)
-      call self % setVertexShelf(newVertices)
-
-    else
-      call self % setEdgeShelf(edges)
-      call self % setElementShelf(elements)
-      call self % setFaceShelf(faces)
-      call self % setVertexShelf(vertices)
-
-    end if
-
-    ! Set elements zones and initialise kd-tree for the mesh.
-    call self % setElementZones(elementZones)
-    call self % tree % init(self % getAllVertexCoordinates(), .true.)
-
-  end subroutine init
-
   !! Subroutine 'initElementShelf'
   !!
   !! Basic description:
@@ -431,11 +380,11 @@ contains
   !!   nFaces [in]         -> Number of faces in the mesh.
   !!   nInternalFaces [in] -> Number of internal faces in the mesh.
   !!
-  subroutine initElementShelf(self, elements, faces, vertices, folderPath, nConcaveElements)
+  subroutine initElementShelf(self, centroids, elements, faces, vertices, folderPath, nConcaveElements)
     class(OpenFOAMMesh), intent(inout)             :: self
+    class(vertexShelf), intent(inout)              :: centroids, vertices
     class(elementShelf), intent(inout)             :: elements
     class(faceShelf), intent(inout)                :: faces
-    class(vertexShelf), intent(inout)              :: vertices
     character(*), intent(in)                       :: folderPath
     integer(shortInt), intent(out)                 :: nConcaveElements
     integer(shortInt)                              :: i, j, elementIdx, vertexIdx
@@ -467,6 +416,8 @@ contains
       type = 'Polyhedron'
       if (size(elementInfos(1) % vertexIdxs) == 4) type = 'Tetrahedron'
       call elements % buildElement(1, 1, elementInfos(1) % faceIdxs, elementInfos(1) % vertexIdxs, faces, vertices, type)
+      call centroids % initVertex(1, elements % getElementCentroid(1))
+      call centroids % addElementIdxToVertex(1, 1)
       if (.not. elements % getElementIsConvex(1)) nConcaveElements = 1
       return
 
@@ -567,6 +518,8 @@ contains
       type = 'Polyhedron'
       if (size(elementInfos(i) % vertexIdxs) == 4) type = 'Tetrahedron'
       call elements % buildElement(i, i, elementInfos(i) % faceIdxs, elementInfos(i) % vertexIdxs, faces, vertices, type)
+      call centroids % initVertex(i, elements % getElementCentroid(i))
+      call centroids % addElementIdxToVertex(i, i)
       if (.not. elements % getElementIsConvex(i)) nConcaveElements = nConcaveElements + 1
 
     end do

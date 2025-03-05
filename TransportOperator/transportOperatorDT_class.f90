@@ -60,7 +60,7 @@ contains
     if (abs(majorant_inv) > huge(majorant_inv)) call fatalError(Here, "Majorant is 0")
 
     DTLoop:do
-      distance = -log( p% pRNG % get() ) * majorant_inv
+      distance = -log(p% pRNG % get()) * majorant_inv
 
       ! Move partice in the geometry
       call self % geom % teleport(p % coords, distance)
@@ -70,18 +70,21 @@ contains
         p % fate = LEAK_FATE
         p % isDead = .true.
         return
+
       end if
 
       ! Check for void
       if (p % getMatIdx() == VOID_MAT) then
         call tally % reportInColl(p, .true.)
         cycle DTLoop
+
       end if
 
       ! Give error if the particle somehow ended in an undefined material
       if (p % getMatIdx() == UNDEF_MAT) then
         print *, p % rGlobal()
         call fatalError(Here, "Particle is in undefined material")
+
       end if
 
       ! Obtain the local cross-section
