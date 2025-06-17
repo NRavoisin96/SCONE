@@ -174,7 +174,7 @@ contains
     allocate(tetrahedron :: tetrahedra(lastNewElementIdx) % item)
     call tetrahedra(lastNewElementIdx) % item % init(lastNewElementIdx, self % getIdx(), triangleIdxs, vertexIdxs, &
                                                      self % getCentroid(), self % getVolume(), self % getIsConvex(), &
-                                                     'Tetrahedron', edgeIdxs)
+                                                     'Tetrahedron', self % getBoundingBox(), edgeIdxs)
   
   end subroutine split
   

@@ -123,7 +123,7 @@ module mesh_inter
     !!   elementIdx [out] -> Index of the mesh element occupied by the particle.
     !!   parentIdx [out]  -> Index of the parent mesh element containing the occupied element.
     !!
-    pure subroutine findElementAndParentIdxs(self, r, u, elementIdx, parentIdx)
+    subroutine findElementAndParentIdxs(self, r, u, elementIdx, parentIdx)
       import                                  :: mesh, defReal, shortInt  
       class(mesh), intent(in)                 :: self
       real(defReal), dimension(3), intent(in) :: r, u
@@ -240,7 +240,7 @@ contains
   !!   elementIdx [out] -> Index of the element in which the particle is.
   !!   localId [out]    -> Local Id for the given particle.
   !!
-  pure subroutine findOccupiedElementIdx(self, r, u, elementIdx, localId)
+  subroutine findOccupiedElementIdx(self, r, u, elementIdx, localId)
     class(mesh), intent(in)                 :: self
     real(defReal), dimension(3), intent(in) :: r, u
     integer(shortInt), intent(out)          :: elementIdx, localId

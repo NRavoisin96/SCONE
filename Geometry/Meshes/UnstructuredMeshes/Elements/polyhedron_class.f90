@@ -5,7 +5,8 @@ module polyhedron_class
   use face_inter,         only : faceBox
   use faceShelf_class,    only : faceShelf
   use genericProcedures,  only : append, areEqual, computePyramidCentre, computePyramidVolume, &
-                                 computeTetrahedronCentre, computeTetrahedronVolume, findCommon, fatalError, numToChar
+                                 computeTetrahedronCentre, computeTetrahedronVolume, findCommon, fatalError, numToChar, &
+                                 updateBoundingBox
   use numPrecision
   use tetrahedron_class,  only : tetrahedron
   use triangle_class,     only : triangle
@@ -172,8 +173,9 @@ contains
     integer(shortInt), dimension(4)               :: triangleIdxs
     integer(shortInt), dimension(6)               :: edgeIdxs
     real(defReal)                                 :: volume
-    real(defReal), dimension(3)                   :: centroid
+    real(defReal), dimension(3)                   :: centroid, vertexCoords
     real(defReal), dimension(4, 3)                :: array
+    real(defReal), dimension(6)                   :: boundingBox
     
     ! Initialise a new vertex corresponding to the centroid of the polyhedron.
     lastNewVertexIdx = lastNewVertexIdx + 1
@@ -254,29 +256,39 @@ contains
           ! Create a new internal triangle.
           lastNewFaceIdx = lastNewFaceIdx + 1
           allocate(triangle :: triangles(lastNewFaceIdx) % item)
-          call triangles(lastNewFaceIdx) % item % build(lastNewFaceIdx, 0, .false., testVertexIdxs, newVertices, 'Triangle', &
-                                                        centroid)
-          call triangles(lastNewFaceIdx) % item % addElementIdx(lastNewElementIdx)
           triangleIdxs(k + 1) = lastNewFaceIdx
 
           ! Update mesh connectivity.
+          boundingBox = [INF, INF, INF, -INF, -INF, -INF]
           do l = 1, 3
             edgeIdx = newVertices % findCommonEdgeIdx(testVertexIdxs(l), testVertexIdxs(mod(l, 3) + 1))
             call newEdges % addFaceIdxToEdge(edgeIdx, lastNewFaceIdx)
             call triangles(lastNewFaceIdx) % item % addEdgeIdx(edgeIdx)
             call newVertices % addFaceIdxToVertex(testVertexIdxs(l), lastNewFaceIdx)
 
+            ! Retrieve the current vertex coordinates and update the triangle's bounding box.
+            vertexCoords = newVertices % getVertexCoordinates(testVertexIdxs(l))
+            call updateBoundingBox(vertexCoords, boundingBox)
+
           end do
 
-          ! Set new triangle in the new faceShelf.
+          ! Build the new triangle and add it into the new faceShelf.
+          call triangles(lastNewFaceIdx) % item % build(lastNewFaceIdx, 0, .false., testVertexIdxs, newVertices, 'Triangle', &
+          boundingBox, centroid)
+          call triangles(lastNewFaceIdx) % item % addElementIdx(lastNewElementIdx)
           call newFaces % addFace(lastNewFaceIdx, triangles(lastNewFaceIdx))
 
         end do
 
         ! Initialise new tetrahedron in the shelf.
         allocate(tetrahedron :: tetrahedra(lastNewElementIdx) % item)
+        boundingBox = [INF, INF, INF, -INF, -INF, -INF]
+        do k = 1, 4
+          call updateBoundingBox(newVertices % getVertexCoordinates(vertexIdxs(k)), boundingBox)
+
+        end do
         call tetrahedra(lastNewElementIdx) % item % init(lastNewElementIdx, self % getIdx(), triangleIdxs, vertexIdxs, &
-                                                         centroid, volume, .true., 'Tetrahedron', edgeIdxs)
+                                                         centroid, volume, .true., 'Tetrahedron', boundingBox, edgeIdxs)
 
       end do
 

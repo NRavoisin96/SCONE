@@ -31,7 +31,10 @@ module faceShelf_class
     procedure                                :: computeFaceIntersection
     procedure                                :: findCommonEdgeIdx
     procedure                                :: findCommonVertexIdx
+    procedure                                :: getAllFaceBoundingBoxes
+    procedure                                :: getAllFaceCentroids
     procedure                                :: getFaceArea
+    procedure                                :: getFaceBoundingBox
     procedure                                :: getFaceCentroid
     procedure                                :: getFaceEdgeIdxs
     procedure                                :: getFaceElementIdxs
@@ -150,20 +153,21 @@ contains
   !!
   !!
   !!
-  pure subroutine buildFace(self, idx, faceIdx, isBoundary, vertexIdxs, vertices, type, testCentroid)
+  pure subroutine buildFace(self, idx, faceIdx, isBoundary, vertexIdxs, vertices, type, boundingBox, testCentroid)
     class(faceShelf), intent(inout)                   :: self
     integer(shortInt), intent(in)                     :: idx, faceIdx
     logical(defBool), intent(in)                      :: isBoundary
     integer(shortInt), dimension(:), intent(inout)    :: vertexIdxs
     type(vertexShelf), intent(in)                     :: vertices
     character(*), intent(in)                          :: type
+    real(defReal), dimension(6), intent(in)           :: boundingBox
     real(defReal), dimension(3), intent(in), optional :: testCentroid
 
     ! Allocate the face in the shelf.
     call self % allocateFace(idx, type)
 
     ! Set face properties and compute its centroid, normal vector and area.
-    call self % shelf(idx) % item % build(idx, faceIdx, isBoundary, vertexIdxs, vertices, type, testCentroid)
+    call self % shelf(idx) % item % build(idx, faceIdx, isBoundary, vertexIdxs, vertices, type, boundingBox, testCentroid)
 
   end subroutine buildFace
 
@@ -253,6 +257,46 @@ contains
 
   end function findCommonVertexIdx
 
+  !! Function 'getAllFaceBoundingBoxes'
+  !!
+  !! Basic description:
+  !!   Returns the bounding boxes of all the faces in the shelf.
+  !!
+  !! Results:
+  !!   boundingBoxes -> A defReal array containing the bounding boxes of all the faces in the shelf.
+  !!
+  pure function getAllFaceBoundingBoxes(self) result(boundingBoxes)
+    class(faceShelf), intent(in)                  :: self
+    real(defReal), dimension(6, self % getSize()) :: boundingBoxes
+    integer(shortInt)                             :: i
+
+    do i = 1, self % getSize()
+      boundingBoxes(:, i) = self % getFaceBoundingBox(i)
+
+    end do
+
+  end function getAllFaceBoundingBoxes
+
+  !! Function 'getAllFaceCentroids'
+  !!
+  !! Basic description:
+  !!   Returns the centroids of all the faces in the shelf.
+  !!
+  !! Results:
+  !!   centroids -> A defReal array containing the centroids of all the faces in the shelf.
+  !!
+  pure function getAllFaceCentroids(self) result(centroids)
+    class(faceShelf), intent(in)                  :: self
+    real(defReal), dimension(self % getSize(), 3) :: centroids
+    integer(shortInt)                             :: i
+
+    do i = 1, self % getSize()
+      centroids(i, :) = self % getFaceCentroid(i)
+
+    end do
+
+  end function getAllFaceCentroids
+
   !! Function 'getFaceArea'
   !!
   !! Basic description:
@@ -272,6 +316,26 @@ contains
     area = self % shelf(idx) % item % getArea()
 
   end function getFaceArea
+
+  !! Function 'getFaceBoundingBox'
+  !!
+  !! Basic description:
+  !!   Returns the bounding box of a face in the shelf.
+  !!
+  !! Arguments:
+  !!   idx [in]    -> Index of the face in the shelf.
+  !!
+  !! Result:
+  !!   boundingBox -> 6-D coordinates of the face's bounding box.
+  !!
+  pure function getFaceBoundingBox(self, idx) result(boundingBox)
+    class(faceShelf), intent(in)  :: self
+    integer(shortInt), intent(in) :: idx
+    real(defReal), dimension(6)   :: boundingBox
+
+    boundingBox = self % shelf(idx) % item % getBoundingBox()
+
+  end function getFaceBoundingBox
 
   !! Function 'getFaceCentroid'
   !!
@@ -478,7 +542,7 @@ contains
   !!   idx [in]            -> Index of the face.
   !!   nInternalFaces [in] -> Number of internal faces in the shelf.
   !!
-  subroutine initFace(self, idx, faceIdx, isBoundary, vertexIdxs, AB, AC, centroid, normal, area, type)
+  subroutine initFace(self, idx, faceIdx, isBoundary, vertexIdxs, AB, AC, centroid, normal, area, type, boundingBox)
     class(faceShelf), intent(inout)             :: self
     integer(shortInt), intent(in)               :: idx, faceIdx
     logical(defBool), intent(in)                :: isBoundary
@@ -486,10 +550,11 @@ contains
     real(defReal), dimension(3), intent(in)     :: AB, AC, centroid, normal
     real(defReal), intent(in)                   :: area
     character(*), intent(in)                    :: type
+    real(defReal), dimension(6), intent(in)     :: boundingBox
 
     ! Allocate face in the shelf and set everything.
     call self % allocateFace(idx, type)
-    call self % shelf(idx) % item % init(idx, faceIdx, isBoundary, area, centroid, normal, AB, AC, vertexIdxs, type)
+    call self % shelf(idx) % item % init(idx, faceIdx, isBoundary, area, centroid, normal, AB, AC, vertexIdxs, type, boundingBox)
 
   end subroutine initFace
   

@@ -1,4 +1,5 @@
 # Add Source Files to the global list
+add_subdirectory(CartesianGrids)
 add_subdirectory(UnstructuredMeshes)
 
 add_sources(

@@ -2,7 +2,7 @@ module node_class
   
   use coord_class,         only : coord
   use faceShelf_class,     only : faceShelf
-  use genericProcedures,   only : append, areEqual, removeDuplicates, swap
+  use genericProcedures,   only : append, areEqual, quickSort, removeDuplicates, swap
   use numPrecision
   use universalVariables,  only : ZERO, HALF, SURF_TOL, INF
   use vertexShelf_class,   only : vertexShelf
@@ -34,25 +34,27 @@ module node_class
   !!   right          -> Right child node.
   !!   boundingBox    -> Axis-aligned bounding box (AABB) of the node.
   !!
-  type, public                     :: node
+  type, public                  :: node
     private
-    integer(shortInt)              :: cutDimension = 0, lowerBound = 0, upperBound = 0, &
-                                      bucketSize = 2
-    logical(defBool)               :: hasLeft = .false., hasRight = .false.
-    real(defReal)                  :: cutValue = ZERO, cutValue_left = ZERO, cutValue_right = ZERO
-    type(node), allocatable        :: left, right
-    real(defReal), dimension(3, 2) :: boundingBox = ZERO
+    integer(shortInt)           :: cutDimension = 0, lowerBound = 0, upperBound = 0, bucketSize = 20, &
+                                   idx = 0, parentIdx = 0
+    logical(defBool)            :: hasLeft = .false., hasRight = .false.
+    real(defReal)               :: cutValue = ZERO, cutValue_left = ZERO, cutValue_right = ZERO
+    type(node), allocatable     :: left, right
+    real(defReal), dimension(6) :: boundingBox = [INF, INF, INF, -INF, -INF, -INF]
   contains
     ! Build procedures.
-    procedure                      :: computeBoundingBox
-    procedure                      :: computeCutVertexIdx
-    procedure                      :: init
-    procedure                      :: kill
+    procedure                   :: computeBoundingBox
+    procedure                   :: computeCutVertexIdx
+    procedure                   :: init
+    procedure                   :: kill
     ! Runtime procedures.
-    procedure                      :: findIntersectedFace
-    procedure                      :: getVertices
-    procedure                      :: process
-    procedure                      :: search
+    procedure                   :: findIntersectedFace
+    procedure                   :: findPotentialElementIdxs
+    procedure                   :: getBoundingBox
+    procedure                   :: getVertices
+    procedure                   :: process
+    procedure                   :: search
   end type node
 contains
   
@@ -71,34 +73,40 @@ contains
   !!   coords [in]    -> Coordinates of the vertices in the node along the cut dimension.
   !!
   pure subroutine computeBoundingBox(self, dimension, nVertices, coords)
-    class(node), intent(inout)              :: self
-    integer(shortInt), intent(in)           :: dimension, nVertices
-    real(defReal), dimension(:), intent(in) :: coords
-    integer(shortInt)                       :: i
-    real(defReal)                           :: lowerCoord, upperCoord, maxCoord, minCoord
+    class(node), intent(inout)                 :: self
+    integer(shortInt), intent(in)              :: dimension, nVertices
+    real(defReal), dimension(:, :), intent(in) :: coords
+    integer(shortInt)                          :: i, j
+    real(defReal), dimension(:), allocatable   :: dimensionCoords
+    real(defReal)                              :: lowerCoord, upperCoord, maxCoord, minCoord
     
-    ! Retrieve the minimum coordinate along the supplied dimension and initialise the maximum
-    ! and minimum coordinates.
-    lowerCoord = coords(1)
-    upperCoord = coords(nVertices)
-    minCoord = min(lowerCoord, upperCoord)
-    maxCoord = max(lowerCoord, upperCoord)
-    
-    ! Sweep through all vertices in the input data between lowerBound and upperBound.
-    do i = 3, nVertices, 2
-      ! Retrieve the coordinate of the next two adjacent vertices along the supplied dimension.
-      lowerCoord = coords(i - 1)
-      upperCoord = coords(i)
+    ! Loop through all supplied coordinate dimensions.
+    do i = 1, size(coords, 1)
+      ! Retrieve the minimum coordinate along the supplied dimension and initialise the maximum
+      ! and minimum coordinates.
+      dimensionCoords = coords(i, :)
+      lowerCoord = dimensionCoords(1)
+      upperCoord = dimensionCoords(nVertices)
+      minCoord = min(lowerCoord, upperCoord)
+      maxCoord = max(lowerCoord, upperCoord)
+      
+      ! Sweep through all vertices in the input data between lowerBound and upperBound.
+      do j = 3, nVertices, 2
+        ! Retrieve the coordinate of the next two adjacent vertices along the supplied dimension.
+        lowerCoord = dimensionCoords(j - 1)
+        upperCoord = dimensionCoords(j)
 
-      ! Update minCoord and maxCoord.
-      minCoord = min(minCoord, lowerCoord, upperCoord)
-      maxCoord = max(maxCoord, lowerCoord, upperCoord)
+        ! Update minCoord and maxCoord.
+        minCoord = min(minCoord, lowerCoord, upperCoord)
+        maxCoord = max(maxCoord, lowerCoord, upperCoord)
+
+      end do
+      
+      ! Set the lower and upper bound for the interval.
+      self % boundingBox(dimension) = min(minCoord, self % boundingBox(dimension))
+      self % boundingBox(dimension + 3) = max(maxCoord, self % boundingBox(dimension + 3))
 
     end do
-    
-    ! Set the lower and upper bound for the interval.
-    self % boundingBox(dimension, 1) = minCoord
-    self % boundingBox(dimension, 2) = maxCoord
 
   end subroutine computeBoundingBox
 
@@ -149,11 +157,8 @@ contains
         counterUp = counterUp + 1
       ! Else, swap the current vertex index with that of a vertex higher up and update counterDown.
       else
-        ! Swap indexes.
-        tempIdx = verticesIdxs(counterUp)
-        verticesIdxs(counterUp) = verticesIdxs(counterDown)
-        verticesIdxs(counterDown) = tempIdx
-        ! Update counterDown.
+        ! Swap indices and update counterDown.
+        call swap(verticesIdxs(counterUp), verticesIdxs(counterDown))
         counterDown = counterDown - 1
 
       end if
@@ -163,10 +168,10 @@ contains
     ! than or equal to the supplied average value of the vertices' coordinates along said dimension,
     ! then this vertex is chosen as the cut vertex.
     if (coordinates(verticesIdxs(counterUp)) <= average) then
-      CutVertexIdx = counterUp
+      cutVertexIdx = counterUp
     ! Else, the vertex immediately before is chosen as the cut vertex.
     else
-      CutVertexIdx = counterUp - 1
+      cutVertexIdx = counterUp - 1
 
     end if
 
@@ -194,10 +199,12 @@ contains
     end if
     
     ! Kill local.
-    self % boundingBox = ZERO
+    self % boundingBox = [INF, INF, INF, -INF, -INF, -INF]
     self % cutDimension = 0
     self % lowerBound = 0
     self % upperBound = 0
+    self % idx = 0
+    self % parentIdx = 0
     self % cutValue = ZERO
     self % cutValue_left = ZERO
     self % cutValue_right = ZERO
@@ -227,66 +234,91 @@ contains
   !!   upperBound [in]      -> Vertex of greatest index in the node.
   !!   parent [in]          -> Parent node.
   !!
-  recursive subroutine init(self, coords, verticesIdxs, lowerBound, upperBound, parent)
+  recursive subroutine init(self, coords, verticesIdxs, lowerBound, upperBound, isBoundingBoxTree, idx, parent)
     class(node), intent(inout)                                :: self
     real(defReal), dimension(:, :), intent(in)                :: coords
     integer(shortInt), dimension(:), intent(inout)            :: verticesIdxs
     integer(shortInt), intent(in)                             :: lowerBound, upperBound
+    logical(defBool), intent(in)                              :: isBoundingBoxTree
+    integer(shortInt), intent(inout)                          :: idx
     type(node), intent(in), optional                          :: parent
-    integer(shortInt)                                         :: i, cutDimension, cutVertexIdx, nVertices
-    integer(shortInt), dimension(upperBound - lowerBound + 1) :: nodeVertexIdxs
-    real(defReal)                                             :: cutValue
+    integer(shortInt)                                         :: i, j, cutDimension, cutVertexIdx, nVertices, middleIdx
+    integer(shortInt), dimension(:), allocatable              :: indicesArray
+    integer(shortInt), dimension(upperBound - lowerBound + 1) :: nodeVertexIdxs, sortedNodeVertexIdxs
+    real(defReal)                                             :: cutValue, mean, variance, maxVariance, difference
     logical(defBool)                                          :: isChild
+    real(defReal), dimension(upperBound - lowerBound + 1)     :: sortedCoords
     
-    ! Set the node's lower and upper bounds and compute the number of vertices.
+    ! Set the node's index, lower and upper bounds, and compute the number of vertices.
+    idx = idx + 1
+    self % idx = idx
     self % lowerBound = lowerBound
     self % upperBound = upperBound
     nVertices = upperBound - lowerBound + 1
     nodeVertexIdxs = verticesIdxs(lowerBound:upperBound)
+
+    ! Set the node's index and parent index.
+    if (present(parent)) self % parentIdx = parent % idx
     
     ! If nVertices <= bucketSize, the node is a terminal node and there is no need to further subdivide. 
     ! Simply compute the node's bounding box along each dimension and return.
     if (nVertices <= self % bucketSize) then
       do i = 1, 3
-        call self % computeBoundingBox(i, nVertices, coords(i, nodeVertexIdxs))
+        indicesArray = [i]
+        if (isBoundingBoxTree) indicesArray = [i, i + 3]
+        call self % computeBoundingBox(i, nVertices, coords(indicesArray, nodeVertexIdxs))
 
       end do
       return
     
     end if
 
-    ! Loop over all dimensions.
+    ! Initialise maxVariance = ZERO, determine if the current node is a child node, then loop over
+    ! all dimensions.
+    maxVariance = ZERO
     isChild = present(parent)
-    do i = 1, 3
+    do i = 1, size(coords, 1)
       ! If the parent node is allocated and the current dimension is not equal to its cut 
       ! dimension, then the bounding box for the child node is set to its parent's bounding box. 
-      if (isChild) then
-        if (i /= parent % cutDimension) then
-          self % boundingBox(i, :) = parent % boundingBox(i, :)
-          cycle
 
-        end if
+      ! Compute the mean value along the current dimension and initialise variance = ZERO.
+      mean = sum(coords(i, nodeVertexIdxs)) / nVertices
+      variance = ZERO
+      ! Loop over all vertices and update the variance along the current dimension.
+      do j = 1, nVertices
+        difference = coords(i, nodeVertexIdxs(j)) - mean
+        variance = variance + difference * difference
+
+      end do
+
+      ! If variance > maxVariance, update cutDimension and maxVariance.
+      if (variance > maxVariance) then
+        cutDimension = i
+        maxVariance = variance
 
       end if
-      
-      ! If reached here, compute the bounding box for the child node along the cut dimension.
-      call self % computeBoundingBox(i, nVertices, coords(i, nodeVertexIdxs))
 
     end do
-
-    ! Compute the new dimension along which to cut by selecting the dimension with the greatest
-    ! range, then set the node's cut dimension.
-    cutDimension = maxloc(self % boundingBox(:, 2) - self % boundingBox(:, 1), 1)
+    ! Set the node's cut dimension.
     self % cutDimension = cutDimension
     
     ! Compute the cut value by averaging the coordinates of all the vertices in the node along the
     ! cut dimension, then set the node's cut value.
-    cutValue = sum(coords(cutDimension, nodeVertexIdxs)) / nVertices
+    sortedCoords = coords(cutDimension, nodeVertexIdxs)
+    sortedNodeVertexIdxs = nodeVertexIdxs
+    call quickSort(sortedCoords, sortedNodeVertexIdxs)
+    if (mod(nVertices, 2) == 0) then
+      middleIdx = nVertices / 2
+      cutValue = HALF * (sortedCoords(middleIdx) + sortedCoords(middleIdx + 1))
+
+    else
+      middleIdx = nVertices / 2 + 1
+      cutValue = sortedCoords(middleIdx)
+
+    end if
     self % cutValue = cutValue
-    
-    ! Compute the index of the vertex used to split the node.
-    cutVertexIdx = self % computeCutVertexIdx(coords(cutDimension, :), verticesIdxs, &
-                                              cutValue, lowerBound, upperBound)
+    verticesIdxs(lowerBound:upperBound) = sortedNodeVertexIdxs
+    cutVertexIdx = lowerBound + middleIdx - 1
     
     ! Build new children nodes. Catch degenerate cases for which there are no vertices on the left
     ! or right, in which case only a single child node is built. Then, recompute the current 
@@ -294,38 +326,21 @@ contains
     ! the current node's bounding box is simply that of its only child node, and the cut value is 
     ! set accordingly. If the two children nodes are present, then the current node's bounding box 
     ! is taken as the average of its two children's bounding boxes.
-    if (cutVertexIdx < lowerBound) then
-      allocate(self % right)
-      self % hasRight = .true.
-      call self % right % init(coords, verticesIdxs, lowerBound, upperBound, self)
-      self % boundingBox = self % right % boundingBox
-      self % cutValue_right = self % right % boundingBox(cutDimension, 1)
-      self % cutValue = self % cutValue_right
-
-    else if (upperBound == cutVertexIdx) then
-      allocate(self % left)
-      self % hasLeft = .true.
-      call self % left % init(coords, verticesIdxs, lowerBound, upperBound, self)
-      self % boundingBox = self % left % boundingBox
-      self % cutValue_left = self % left % boundingBox(cutDimension, 2)
-      self % cutValue = self % cutValue_left
-
-    else
-      allocate(self % left)
-      allocate(self % right)
-      self % hasLeft = .true.
-      self % hasRight = .true.
-      call self % left % init(coords, verticesIdxs, lowerBound, cutVertexIdx, self)
-      call self % right % init(coords, verticesIdxs, cutVertexIdx + 1, upperBound, self)
-      self % cutValue_right = self % right % boundingBox(cutDimension, 1)
-      self % cutValue_left = self % left % boundingBox(cutDimension, 2)
-      self % cutValue = HALF * (self % cutValue_left + self % cutValue_right)
-      self % boundingBox(:, 1) = min(self % left % boundingBox(:, 1), &
-                                     self % right % boundingBox(:, 1))
-      self % boundingBox(:, 2) = max(self % left % boundingBox(:, 2), &
-                                     self % right % boundingBox(:, 2))
+    allocate(self % left)
+    allocate(self % right)
+    self % hasLeft = .true.
+    self % hasRight = .true.
+    call self % left % init(coords, verticesIdxs, lowerBound, cutVertexIdx, isBoundingBoxTree, idx, self)
+    call self % right % init(coords, verticesIdxs, cutVertexIdx + 1, upperBound, isBoundingBoxTree, idx, self)
+    if (.not. isBoundingBoxTree) then
+      self % cutValue_right = self % right % boundingBox(cutDimension)
+      self % cutValue_left = self % left % boundingBox(cutDimension + 3)
 
     end if
+
+    ! Update bounding box from children bounding boxes.
+    self % boundingBox(1:3) = min(self % left % boundingBox(1:3), self % right % boundingBox(1:3))
+    self % boundingBox(4:6) = max(self % left % boundingBox(4:6), self % right % boundingBox(4:6))
 
   end subroutine init
 
@@ -410,7 +425,6 @@ contains
                                                                    coords, edgeIdx, vertexIdx)
 
       end if
-      return
 
     end if
 
@@ -445,6 +459,65 @@ contains
     end do
     
   end subroutine findIntersectedFace
+
+  !!
+  !!
+  !!
+  recursive subroutine findPotentialElementIdxs(self, data, r, potentialElementIdxs)
+    class(node), intent(in)                                     :: self
+    real(defReal), dimension(:, :), intent(in)                  :: data
+    real(defReal), dimension(3), intent(in)                     :: r
+    integer(shortInt), dimension(:), allocatable, intent(inout) :: potentialElementIdxs
+    integer(shortInt)                                           :: i, cutDimension
+    real(defReal)                                               :: cutValue
+
+    ! First check that the coordinates are within the node's bounding box. Return if not.
+    if (any(r < self % boundingBox(1:3)) .or. any(self % boundingBox(4:6) < r)) return
+    
+    ! If the current node is a leaf, loop through all bounding boxes in the leaf and only 
+    ! retain those containing the coordinates.
+    if (.not. self % hasLeft .and. .not. self % hasRight) then
+      do i = self % lowerBound, self % upperBound
+        if (any(r < data(1:3, i)) .or. any(data(4:6, i) < r)) cycle
+        call append(potentialElementIdxs, i)
+
+      end do
+
+    else
+      ! Retrieve the cut dimension and cut value of the current node.
+      cutDimension = self % cutDimension
+      cutValue = self % cutValue
+
+      ! Check if the cut dimension is one of the minimum coordinates.
+      if (cutDimension <= 3) then
+        call self % left % findPotentialElementIdxs(data, r, potentialElementIdxs)
+        call self % right % findPotentialElementIdxs(data, r, potentialElementIdxs)
+
+      else
+        call self % right % findPotentialElementIdxs(data, r, potentialElementIdxs)
+        call self % left % findPotentialElementIdxs(data, r, potentialElementIdxs)
+
+      end if
+
+    end if
+
+  end subroutine findPotentialElementIdxs
+
+  !! Function 'getBoundingBox'
+  !!
+  !! Basic description:
+  !!   Returns the bounding box of the node.
+  !!
+  !! Result:
+  !!   boundingBox -> Bounding box of the node.
+  !!
+  pure function getBoundingBox(self) result(boundingBox)
+    class(node), intent(in)     :: self
+    real(defReal), dimension(6) :: boundingBox
+
+    boundingBox = self % boundingBox
+
+  end function getBoundingBox
   
   !! Function 'getVertices'
   !!
@@ -459,6 +532,7 @@ contains
     class(node), intent(in)                                                 :: self
     integer(shortInt), dimension(self % upperBound - self % lowerBound + 1) :: vertices
     integer(shortInt)                                                       :: i
+    
     do i = 0, self % upperBound - self % lowerBound
       vertices(i + 1) = self % lowerBound + i
 
@@ -478,14 +552,14 @@ contains
   !!   ballsize [inout] -> Smallest search radius reached up to this point.
   !!   idx [out]        -> Index of the vertex closest to the supplied 3-D coordinates.
   !!
-  pure subroutine process(self, treeData, coordinates, ballSize, idx)
+  subroutine process(self, treeData, coordinates, ballSize, idx)
     class(node), intent(in)                    :: self
     real(defReal), dimension(:, :), intent(in) :: treeData
     real(defReal), dimension(:), intent(in)    :: coordinates
     real(defReal), intent(inout)               :: ballSize
     integer(shortInt), intent(out)             :: idx
     integer(shortInt)                          :: i, j
-    real(defReal)                              :: distanceSquared
+    real(defReal)                              :: distanceSquared, diff
     
     ! Loop over all vertices in the terminal node.
     mainLoop: do i = self % lowerBound, self % upperBound
@@ -495,7 +569,8 @@ contains
       ! Loop over all dimensions.
       do j = 1, 3
         ! Update distanceSquared.
-        distanceSquared = distanceSquared + (treeData(j, i) - coordinates(j)) ** 2
+        diff = treeData(j, i) - coordinates(j)
+        distanceSquared = distanceSquared + diff * diff
         ! If distanceSquared is greater than the current lowest distance, move on to the next vertex
         ! in the node.
         if (distanceSquared > ballSize) cycle mainLoop
@@ -531,7 +606,7 @@ contains
   !!   ballsize [inout] -> Smallest search radius reached up to this point.
   !!   idx [out]        -> Index of the vertex closest to the supplied 3-D coordinates. 
   !!
-  pure recursive subroutine search(self, treeData, coordinates, ballSize, idx)
+  recursive subroutine search(self, treeData, coordinates, ballSize, idx)
     class(node), intent(in)                    :: self
     real(defReal), dimension(:, :), intent(in) :: treeData
     real(defReal), dimension(:), intent(in)    :: coordinates
@@ -539,10 +614,12 @@ contains
     integer(shortInt), intent(out)             :: idx
     integer(shortInt)                          :: i, cutDimension
     real(defReal)                              :: coordinate, distanceSquared
-    real(defReal), dimension(3, 2)             :: boundingBox
+    real(defReal), dimension(6)                :: boundingBox
+    
     ! If the current node is a leaf simply process it.
-    if (.not. allocated(self % left) .and. .not. allocated(self % right)) then
+    if (.not. self % hasLeft .and. .not. self % hasRight) then
       call self % process(treeData, coordinates, ballSize, idx)
+
     else
       ! Set the cut dimension to the node's cut dimension.
       cutDimension = self % cutDimension
@@ -573,13 +650,13 @@ contains
             ! Add components for the dimensions other than the cut dimension to distanceSquared.
             if (i /= cutDimension) then
             
-              if (coordinates(i) > boundingBox(i, 2)) then
+              if (coordinates(i) > boundingBox(i + 3)) then
               
-                distanceSquared = distanceSquared + (coordinates(i) - boundingBox(i, 2)) ** 2
+                distanceSquared = distanceSquared + (coordinates(i) - boundingBox(i + 3)) ** 2
               
-              else if (coordinates(i) < boundingBox(i, 1)) then
+              else if (coordinates(i) < boundingBox(i)) then
               
-                distanceSquared = distanceSquared + (boundingBox(i, 1) - coordinates(i)) ** 2
+                distanceSquared = distanceSquared + (boundingBox(i) - coordinates(i)) ** 2
               
               end if
               ! Now if at this point the updated distanceSquared is larger than ballSize, there is 
@@ -596,15 +673,18 @@ contains
       ! Same as above except that the 'closer' and 'further' nodes are swapped.
       else
         distanceSquared = (self % cutValue_left - coordinate) ** 2
-        if (allocated(self % right)) call self % right % search(treeData, coordinates, ballSize, idx)
-        if (allocated(self % left) .and. distanceSquared <= ballSize) then
+        if (self % hasRight) then
+          call self % right % search(treeData, coordinates, ballSize, idx)
+
+        end if
+        if (self % hasLeft .and. distanceSquared <= ballSize) then
           boundingBox = self % boundingBox
           do i = 1, 3
             if (i /= cutDimension) then
-              if (coordinates(i) > boundingBox(i, 2)) then
-                distanceSquared = distanceSquared + (coordinates(i) - boundingBox(i, 2)) ** 2
-              else if (coordinates(i) < boundingBox(i, 1)) then
-                distanceSquared = distanceSquared + (boundingBox(i, 1) - coordinates(i)) ** 2
+              if (coordinates(i) > boundingBox(i + 3)) then
+                distanceSquared = distanceSquared + (coordinates(i) - boundingBox(i + 3)) ** 2
+              else if (coordinates(i) < boundingBox(i)) then
+                distanceSquared = distanceSquared + (boundingBox(i) - coordinates(i)) ** 2
 
               end if
               if (distanceSquared > ballSize) return

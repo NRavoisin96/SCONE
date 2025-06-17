@@ -105,18 +105,19 @@ contains
   !!
   !!
   !!
-  pure subroutine createTriangle(self, lastNewFaceIdx, edgeIdxs, newVertices, newTriangle, vertexIdxs)
+  pure subroutine createTriangle(self, lastNewFaceIdx, edgeIdxs, newVertices, newTriangle, vertexIdxs, boundingBox)
     class(polygon), intent(in)                     :: self
     integer(shortInt), intent(in)                  :: lastNewFaceIdx
     integer(shortInt), dimension(3), intent(in)    :: edgeIdxs
     type(vertexShelf), intent(in)                  :: newVertices
     type(faceBox), intent(inout)                   :: newTriangle
     integer(shortInt), dimension(3), intent(inout) :: vertexIdxs
+    real(defReal), dimension(6), intent(in)        :: boundingBox
 
     ! Build the new triangle.
     allocate(triangle :: newTriangle % item)
     call newTriangle % item % build(lastNewFaceIdx, self % getIdx(), self % getIsBoundary(), &
-                                    vertexIdxs, newVertices, 'Triangle', edgeIdxs = edgeIdxs)
+                                    vertexIdxs, newVertices, 'Triangle', boundingBox, edgeIdxs = edgeIdxs)
 
   end subroutine createTriangle
   

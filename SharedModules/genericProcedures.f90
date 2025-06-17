@@ -119,39 +119,6 @@ module genericProcedures
   end interface
 
 contains
-  !!
-  !! Computes solutions of quadratic equation a * x² + 2 * b * x + c = 0
-  !!
-  pure function solveQuadratic(a, b, c, delta) result(solutions)
-    real(defReal), intent(in)                :: a, b, c, delta
-    real(defReal), dimension(:), allocatable :: solutions
-    real(defReal)                            :: inverseA
-    
-    ! Handle special cases first. If a = ZERO, the quadratic equation becomes linear.
-    if (areEqual(a, ZERO)) then
-      ! If b = ZERO, this is a degenerate case and there are no solutions. Allocate the 
-      ! solutions array to 0-size return.
-      if (areEqual(b, ZERO)) then
-        allocate(solutions(0))
-        return
-
-      end if
-
-      ! If reached here, there is only one solution given by d = -c / (2 * b).
-      allocate(solutions(1))
-      solutions(1) = -HALF * c / b
-      return
-
-    end if
-
-    ! If reached here, there are two solutions. Pre-compute 1 / a and compute solutions.
-    allocate(solutions(2))
-    inverseA = ONE / a
-    solutions(1) = -(b + sqrt(delta)) * inverseA
-    solutions(2) = -(b - sqrt(delta)) * inverseA
-
-  end function solveQuadratic
-
   !! Subroutine 'append_shortInt'
   !!
   !! Basic description:
@@ -675,6 +642,39 @@ contains
       end select
     end if
   end subroutine searchError
+
+  !!
+  !! Computes solutions of quadratic equation a * x² + 2 * b * x + c = 0
+  !!
+  pure function solveQuadratic(a, b, c, delta) result(solutions)
+    real(defReal), intent(in)                :: a, b, c, delta
+    real(defReal), dimension(:), allocatable :: solutions
+    real(defReal)                            :: inverseA
+    
+    ! Handle special cases first. If a = ZERO, the quadratic equation becomes linear.
+    if (areEqual(a, ZERO)) then
+      ! If b = ZERO, this is a degenerate case and there are no solutions. Allocate the 
+      ! solutions array to 0-size return.
+      if (areEqual(b, ZERO)) then
+        allocate(solutions(0))
+        return
+
+      end if
+
+      ! If reached here, there is only one solution given by d = -c / (2 * b).
+      allocate(solutions(1))
+      solutions(1) = -HALF * c / b
+      return
+
+    end if
+
+    ! If reached here, there are two solutions. Pre-compute 1 / a and compute solutions.
+    allocate(solutions(2))
+    inverseA = ONE / a
+    solutions(1) = -(b + sqrt(delta)) * inverseA
+    solutions(2) = -(b - sqrt(delta)) * inverseA
+
+  end function solveQuadratic
 
   !!
   !! Open "File" for reading under with "unitNum" reference
@@ -1867,60 +1867,66 @@ contains
   end function hasDuplicatesSorted_defReal
 
   !!
-  !! Quicksort for integer array
+  !! Quicksort for integer array. Optionally sorts the indices of the array if indicesArray is supplied.
   !!
-  recursive pure subroutine quickSort_shortInt(array)
-    integer(shortInt), dimension(:), intent(inout) :: array
-    integer(shortInt)                              :: pivot
-    integer(shortInt)                              :: i, maxSmall
+  recursive pure subroutine quickSort_shortInt(array, indicesArray)
+    integer(shortInt), dimension(:), intent(inout)                     :: array
+    integer(shortInt), dimension(size(array)), intent(inout), optional :: indicesArray
+    integer(shortInt)                                                  :: pivot
+    integer(shortInt)                                                  :: i, maxSmall
 
-    if (size(array) > 1 ) then
+    if (size(array) > 1) then
       ! Set a pivot to the rightmost element
       pivot = size(array)
 
       ! Move all elements <= pivot to the LHS of the pivot
       ! Find position of the pivot in the array at the end (maxSmall)
       maxSmall = 0
-      do i=1,size(array)
-
-        if( array(i) <= array(pivot)) then
+      do i = 1,size(array)
+        if(array(i) <= array(pivot)) then
           maxSmall = maxSmall + 1
-          call swap(array(i),array(maxSmall))
+          call swap(array(i), array(maxSmall))
+          if (present(indicesArray)) call swap(indicesArray(i), indicesArray(maxSmall))
+
         end if
       end do
 
-      ! Recursivly sort the sub arrays divided by the pivot
-      call quickSort(array(1:maxSmall-1))
-      call quickSort(array(maxSmall+1:size(array)))
+      ! Recursively sort the sub arrays divided by the pivot
+      call quickSort(array(1:maxSmall - 1))
+      call quickSort(array(maxSmall + 1:size(array)))
+
     end if
 
   end subroutine quickSort_shortInt
 
   !!
-  !! Quicksort for real array
+  !! Quicksort for real array. Optionally sorts the indices of the array if indicesArray is supplied.
   !!
-  recursive pure subroutine quickSort_defReal(array)
-    real(defReal), dimension(:), intent(inout) :: array
-    integer(shortInt)                          :: i, maxSmall, pivot
+  recursive pure subroutine quickSort_defReal(array, indicesArray)
+    real(defReal), dimension(:), intent(inout)                         :: array
+    integer(shortInt), dimension(size(array)), intent(inout), optional :: indicesArray
+    integer(shortInt)                                                  :: i, maxSmall, pivot
 
-    if (size(array) > 1 ) then
-      ! Set a pivot to the rightmost element
-      pivot = size(array)
-
+    ! Set pivot to the rightmost element.
+    pivot = size(array)
+    if (pivot > 1) then
       ! Move all elements <= pivot to the LHS of the pivot
       ! Find position of the pivot in the array at the end (maxSmall)
       maxSmall = 0
-      do i=1,size(array)
-
-        if( array(i) <= array(pivot)) then
+      do i = 1, pivot
+        if (array(i) <= array(pivot)) then
           maxSmall = maxSmall + 1
-          call swap(array(i),array(maxSmall))
+          call swap(array(i), array(maxSmall))
+          if (present(indicesArray)) call swap(indicesArray(i), indicesArray(maxSmall))
+
         end if
+
       end do
 
-      ! Recursivly sort the sub arrays divided by the pivot
-      call quickSort(array(1:maxSmall-1))
-      call quickSort(array(maxSmall+1:size(array)))
+      ! Recursively sort the sub arrays divided by the pivot
+      call quickSort(array(1:maxSmall - 1), indicesArray)
+      call quickSort(array(maxSmall + 1:pivot), indicesArray)
+
     end if
 
   end subroutine quickSort_defReal
@@ -1934,30 +1940,30 @@ contains
     real(defReal), dimension(:), intent(inout) :: array1
     real(defReal), dimension(:), intent(inout) :: array2
     integer(shortInt)                          :: i, maxSmall, pivot
-    character(100),parameter :: Here = 'quickSort_defReal_defReal (genericProcdures.f90)'
+    character(*), parameter                    :: Here = 'quickSort_defReal_defReal (genericProcdures.f90)'
 
-    if(size(array1) /= size(array2)) then
-      call fatalError(Here,'Arrays have diffrent size!')
-    end if
+    if (size(array1) /= size(array2)) call fatalError(Here, 'Arrays have different sizes.')
 
-    if (size(array1) > 1 ) then
+    if (size(array1) > 1) then
       ! Set a pivot to the rightmost element
       pivot = size(array1)
 
       ! Move all elements <= pivot to the LHS of the pivot
       ! Find position of the pivot in the array1 at the end (maxSmall)
       maxSmall = 0
-      do i=1,size(array1)
-
-        if( array1(i) <= array1(pivot)) then
+      do i = 1, size(array1)
+        if(array1(i) <= array1(pivot)) then
           maxSmall = maxSmall + 1
           call swap(array1(i), array2(i), array1(maxSmall), array2(maxSmall))
+
         end if
+
       end do
 
       ! Recursivly sort the sub arrays divided by the pivot
-      call quickSort(array1(1:maxSmall-1), array2(1:maxSmall-1))
-      call quickSort(array1(maxSmall+1:size(array1)), array2(maxSmall+1:size(array1)))
+      call quickSort(array1(1:maxSmall - 1), array2(1:maxSmall - 1))
+      call quickSort(array1(maxSmall + 1:size(array1)), array2(maxSmall + 1:size(array1)))
+
     end if
 
   end subroutine quickSort_defReal_defReal
@@ -2139,5 +2145,27 @@ contains
     print *, lines(offset_L+1)
 
   end subroutine  printFishLineR
+
+  !! Subroutine 'updateBoundingBox'
+  !!
+  !! Description:
+  !!   Updates a bounding box given a set of coordinates.
+  !!
+  !! Arguments:
+  !!   coords [in]         -> 3-D coordinates.
+  !!   boundingBox [inout] -> 6-D bounding box to be updated.
+  !!
+  pure subroutine updateBoundingBox(coords, boundingBox)
+    real(defReal), dimension(3), intent(in)    :: coords
+    real(defReal), dimension(6), intent(inout) :: boundingBox
+    integer(shortInt)                          :: i
+
+    do i = 1, 3
+      boundingBox(i) = min(boundingBox(i), coords(i))
+      boundingBox(i + 3) = max(boundingBox(i + 3), coords(i))
+
+    end do
+
+  end subroutine updateBoundingBox
 
 end module genericProcedures

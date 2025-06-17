@@ -31,6 +31,8 @@ module elementShelf_class
     procedure                                   :: buildElement
     procedure                                   :: computeFaceIntersection
     procedure                                   :: computePotentialFaceIdxs
+    procedure                                   :: getAllBoundingBoxes
+    procedure                                   :: getElementBoundingBox
     procedure                                   :: getElementCentroid
     procedure                                   :: getElementEdgeIdxs
     procedure                                   :: getElementFaceIdxs
@@ -149,17 +151,18 @@ contains
   !!
   !!
   !!
-  pure subroutine buildElement(self, idx, parentIdx, faceIdxs, vertexIdxs, faces, vertices, type)
+  pure subroutine buildElement(self, idx, parentIdx, faceIdxs, vertexIdxs, faces, vertices, type, boundingBox)
     class(elementShelf), intent(inout)          :: self
     integer(shortInt), intent(in)               :: idx, parentIdx
     integer(shortInt), dimension(:), intent(in) :: faceIdxs, vertexIdxs
     type(faceShelf), intent(in)                 :: faces
     type(vertexShelf), intent(in)               :: vertices
     character(*), intent(in)                    :: type
+    real(defReal), dimension(6), intent(in)     :: boundingBox
 
     ! Allocate element in shelf then build components.
     call self % allocateElement(idx, type)
-    call self % shelf(idx) % item % build(idx, parentIdx, faceIdxs, vertexIdxs, faces, vertices, type)
+    call self % shelf(idx) % item % build(idx, parentIdx, faceIdxs, vertexIdxs, faces, vertices, type, boundingBox)
 
   end subroutine buildElement
 
@@ -213,6 +216,46 @@ contains
     potentialFaceIdxs = self % shelf(idx) % item % computePotentialFaces(rEnd, faces)
 
   end function computePotentialFaceIdxs
+
+  !! Function 'getAllBoundingBoxes'
+  !!
+  !! Basic description:
+  !!   Returns the bounding boxes of all the elements in the shelf.
+  !!
+  !! Result:
+  !!   boundingBoxes -> Array containing the bounding boxes of all the elements in the shelf.
+  !!
+  pure function getAllBoundingBoxes(self) result(boundingBoxes)
+    class(elementShelf), intent(in)                 :: self
+    real(defReal), dimension(6, size(self % shelf)) :: boundingBoxes
+    integer(shortInt)                               :: i
+
+    do i = 1, size(self % shelf)
+      boundingBoxes(:, i) = self % shelf(i) % item % getBoundingBox()
+
+    end do
+
+  end function getAllBoundingBoxes
+
+  !! Function 'getElementBoundingBox'
+  !!
+  !! Basic description:
+  !!   Returns the bounding box of an element in the shelf.
+  !!
+  !! Arguments:
+  !!   idx [in]    -> Index of the element in the shelf.
+  !!
+  !! Result:
+  !!   boundingBox -> Array containing the bounding box of the element.
+  !!
+  pure function getElementBoundingBox(self, idx) result(boundingBox)
+    class(elementShelf), intent(in) :: self
+    integer(shortInt), intent(in)   :: idx
+    real(defReal), dimension(6)     :: boundingBox
+
+    boundingBox = self % shelf(idx) % item % getBoundingBox()
+
+  end function getElementBoundingBox
 
   !! Function 'getElementCentroid'
   !!
@@ -392,7 +435,7 @@ contains
   !!   faces [in]    -> A faceShelf.
   !!   vertices [in] -> A vertexShelf.
   !!
-  subroutine initElement(self, idx, parentIdx, faceIdxs, vertexIdxs, faces, vertices, centroid, volume, isConvex, type)
+  subroutine initElement(self, idx, parentIdx, faceIdxs, vertexIdxs, faces, vertices, centroid, volume, isConvex, type, boundingBox)
     class(elementShelf), intent(inout)          :: self
     integer(shortInt), intent(in)               :: idx, parentIdx
     integer(shortInt), dimension(:), intent(in) :: faceIdxs, vertexIdxs
@@ -402,9 +445,10 @@ contains
     real(defReal), intent(in)                   :: volume
     logical(defBool), intent(in)                :: isConvex
     character(*), intent(in)                    :: type
+    real(defReal), dimension(6), intent(in)     :: boundingBox
 
     call self % allocateElement(idx, type)
-    call self % shelf(idx) % item % init(idx, parentIdx, faceIdxs, vertexIdxs, centroid, volume, isConvex, type)
+    call self % shelf(idx) % item % init(idx, parentIdx, faceIdxs, vertexIdxs, centroid, volume, isConvex, type, boundingBox)
 
   end subroutine initElement
   

@@ -33,6 +33,7 @@ module element_inter
     integer(shortInt), dimension(:), allocatable :: edgeIdxs, faceIdxs, vertexIdxs, tetrahedronIdxs
     real(defReal)                                :: volume = ZERO
     real(defReal), dimension(3)                  :: centroid = ZERO
+    real(defReal), dimension(6)                  :: boundingBox = [INF, INF, INF, -INF, -INF, -INF]
     logical(defBool)                             :: isConvex = .false.
     character(:), allocatable                    :: type
   contains
@@ -49,6 +50,7 @@ module element_inter
     ! Runtime procedures.
     procedure, non_overridable                   :: computeIntersectedFace
     procedure, non_overridable                   :: computePotentialFaces
+    procedure, non_overridable                   :: getBoundingBox
     procedure, non_overridable                   :: getCentroid
     procedure, non_overridable                   :: getEdgeIdxs
     procedure, non_overridable                   :: getFaceIdxs
@@ -159,7 +161,7 @@ contains
   !!
   !!
   !!
-  pure subroutine build(self, idx, parentIdx, faceIdxs, vertexIdxs, faces, vertices, type)
+  pure subroutine build(self, idx, parentIdx, faceIdxs, vertexIdxs, faces, vertices, type, boundingBox)
     class(element), intent(inout)               :: self
     integer(shortInt), intent(in)               :: idx, parentIdx
     integer(shortInt), dimension(:), intent(in) :: faceIdxs, vertexIdxs
@@ -169,6 +171,7 @@ contains
     logical(defBool)                            :: isConvex
     real(defReal), dimension(3)                 :: centroid
     real(defReal)                               :: volume
+    real(defReal), dimension(6), intent(in)     :: boundingBox
 
     call self % computeComponents(faceIdxs, vertexIdxs, faces, vertices, centroid, volume)
 
@@ -181,7 +184,7 @@ contains
     end if
 
     ! Initialise element.
-    call self % init(idx, parentIdx, faceIdxs, vertexIdxs, centroid, volume, isConvex, type)
+    call self % init(idx, parentIdx, faceIdxs, vertexIdxs, centroid, volume, isConvex, type, boundingBox)
 
   end subroutine build
 
@@ -347,6 +350,22 @@ contains
     end do
 
   end function computePotentialFaces
+
+  !! Function 'getBoundingBox'
+  !!
+  !! Basic description:
+  !!   Returns the bounding box of the element.
+  !!
+  !! Result:
+  !!   boundingBox -> 6-D array representing the bounding box of the element.
+  !!
+  pure function getBoundingBox(self) result(boundingBox)
+    class(element), intent(in)  :: self
+    real(defReal), dimension(6) :: boundingBox
+
+    boundingBox = self % boundingBox
+
+  end function getBoundingBox
   
   !! Function 'getCentroid'
   !!
@@ -482,7 +501,7 @@ contains
   !!
   !!
   !!
-  pure subroutine init(self, idx, parentIdx, faceIdxs, vertexIdxs, centroid, volume, isConvex, type, edgeIdxs)
+  pure subroutine init(self, idx, parentIdx, faceIdxs, vertexIdxs, centroid, volume, isConvex, type, boundingBox, edgeIdxs)
     class(element), intent(inout)                         :: self
     integer(shortInt), intent(in)                         :: idx, parentIdx
     integer(shortInt), dimension(:), intent(in)           :: faceIdxs, vertexIdxs
@@ -490,6 +509,7 @@ contains
     real(defReal), intent(in)                             :: volume
     logical(defBool), intent(in)                          :: isConvex
     character(*), intent(in)                              :: type
+    real(defReal), dimension(6), intent(in)               :: boundingBox
     integer(shortInt), dimension(:), intent(in), optional :: edgeIdxs
 
     ! Set everything.
@@ -501,6 +521,7 @@ contains
     self % volume = volume
     self % isConvex = isConvex
     self % type = type
+    self % boundingBox = boundingBox
     if (present(edgeIdxs)) self % edgeIdxs = edgeIdxs
 
   end subroutine init
@@ -523,6 +544,7 @@ contains
     if (allocated(self % faceIdxs)) deallocate(self % faceIdxs)
     if (allocated(self % tetrahedronIdxs)) deallocate(self % tetrahedronIdxs)
     if (allocated(self % type)) deallocate(self % type)
+    self % boundingBox = [INF, INF, INF, -INF, -INF, -INF]
 
   end subroutine kill
   

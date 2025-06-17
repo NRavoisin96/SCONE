@@ -133,7 +133,7 @@ module universe_inter
     !!   it is necessary to consider issues related to parallel calculations with shared
     !!   memory.
     !!
-    pure subroutine findCell(self, r, u, localId, cellIdx, elementIdx)
+    subroutine findCell(self, r, u, localId, cellIdx, elementIdx)
       import :: universe, defReal, shortInt
       class(universe), intent(inout)           :: self
       real(defReal), dimension(3), intent(in)  :: r, u

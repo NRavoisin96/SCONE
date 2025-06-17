@@ -26,9 +26,9 @@ module kdTree_class
   !!   verticesIdxs -> Internal sorting of the vertices indices to enable cache-friendly searches.
   !!   root         -> Root node from which NN searches and mesh entry searches are initialised.
   !!
-  type, public :: kdTree
+  type, public                                   :: kdTree
     private
-    integer(shortInt)                            :: nVertices = 0
+    integer(shortInt)                            :: nNodes = 0, nVertices = 0
     real(defReal), dimension(:, :), allocatable  :: data
     integer(shortInt), dimension(:), allocatable :: verticesIdxs
     type(node)                                   :: root
@@ -39,6 +39,9 @@ module kdTree_class
     ! Runtime procedures.
     procedure :: findNearestVertex
     procedure :: findIntersectedFace
+    procedure :: findPotentialElementIdxs
+    procedure :: getNodesNumber
+    procedure :: getRootBoundingBox
   end type kdTree
 
 contains
@@ -51,12 +54,12 @@ contains
   !!   data          -> Array of all 3-D coordinates.
   !!   transposeData -> Does the data need to be transposed?
   !!
-  subroutine init(self, data, transposeData)
+  subroutine init(self, data, transposeData, isBoundingBoxTree)
     class(kdTree), intent(inout)                :: self
     real(defReal), dimension(:, :), intent(in)  :: data
-    logical(defBool), intent(in)                :: transposeData
+    logical(defBool), intent(in)                :: transposeData, isBoundingBoxTree
     real(defReal), dimension(:, :), allocatable :: tempData
-    integer(shortInt)                           :: i, nVertices
+    integer(shortInt)                           :: i, nNodes, nVertices
     
     ! First check if the data needs to be transposed.
     if (transposeData) then
@@ -76,10 +79,12 @@ contains
     end do
     
     ! Build the tree's root node and all its children nodes.
-    call self % root % init(self % data, self % verticesIdxs, 1, nVertices)
+    nNodes = 0
+    call self % root % init(self % data, self % verticesIdxs, 1, nVertices, isBoundingBoxTree, nNodes)
+    self % nNodes = nNodes
     
     ! Rearrange the tree's data for more cache-friendly searches later on.
-    allocate(tempData(3, nVertices))
+    allocate(tempData(size(self % data, 1), nVertices))
     do i = 1, nVertices
       tempData(:, i) = self % data(:, self % verticesIdxs(i))
 
@@ -97,6 +102,7 @@ contains
   elemental subroutine kill(self)
     class(kdTree), intent(inout) :: self
     
+    self % nNodes = 0
     self % nVertices = 0
     if (allocated(self % data)) deallocate(self % data)
     if (allocated(self % verticesIdxs)) deallocate(self % verticesIdxs)
@@ -116,7 +122,7 @@ contains
   !!   vertexIdx -> Index of the vertex in the tree whose coordinates are closest to the supplied 
   !!                3-D coordinates.
   !!
-  pure function findNearestVertex(self, r) result(vertexIdx)
+  function findNearestVertex(self, r) result(vertexIdx)
     class(kdTree), intent(in)               :: self
     real(defReal), dimension(3), intent(in) :: r
     integer(shortInt)                       :: idx, vertexIdx
@@ -157,5 +163,62 @@ contains
                                            coords, edgeIdx, vertexIdx)
 
   end subroutine findIntersectedFace
+
+  !!
+  !!
+  !!
+  function findPotentialElementIdxs(self, r) result(potentialElementIdxs)
+    class(kdTree), intent(in)                    :: self
+    real(defReal), dimension(3), intent(in)      :: r
+    integer(shortInt), dimension(:), allocatable :: potentialElementIdxs, idxs
+    integer(shortInt)                            :: nPotentialElements
+
+    ! Descend into the tree and look for potential elements containing the coordinates.
+    allocate(idxs(0))
+    call self % root % findPotentialElementIdxs(self % data, r, idxs)
+    
+    ! Compute the number of potential elements found and allocate potentialElementIdxs accordingly.
+    nPotentialElements = size(idxs)
+    if (nPotentialElements > 0) then
+      potentialElementIdxs = self % verticesIdxs(idxs)
+
+    else
+      allocate(potentialElementIdxs(0))
+
+    end if
+
+  end function findPotentialElementIdxs
+
+  !! Function 'getNodesNumber'
+  !!
+  !! Basic description:
+  !!   Returns the number of nodes in the tree.
+  !!
+  !! Result:
+  !!   nNodes -> Number of nodes in the tree.
+  !!
+  elemental function getNodesNumber(self) result(nNodes)
+    class(kdTree), intent(in) :: self
+    integer(shortInt)         :: nNodes
+
+    nNodes = self % nNodes
+
+  end function getNodesNumber
+
+  !! Function 'getRootBoundingBox'
+  !!
+  !! Basic description:
+  !!   Returns the bounding box of the root node of the tree.
+  !!
+  !! Result:
+  !!   boundingBox -> Bounding box of the root node of the tree.
+  !!
+  pure function getRootBoundingBox(self) result(boundingBox)
+    class(kdTree), intent(in)   :: self
+    real(defReal), dimension(6) :: boundingBox
+
+    boundingBox = self % root % getBoundingBox()
+
+  end function getRootBoundingBox
 
 end module kdTree_class

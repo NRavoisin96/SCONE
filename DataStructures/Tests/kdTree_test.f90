@@ -70,7 +70,7 @@ contains
     allCoordinates(18, 2) = -1.0_defReal
     allCoordinates(18, 3) = 1.0_defReal
     ! Build tree.
-    call tree % init(allCoordinates, transposeData = .true.)
+    call tree % init(allCoordinates, .true., .false.)
   end subroutine setUp
   !!
   !! Clean environment.

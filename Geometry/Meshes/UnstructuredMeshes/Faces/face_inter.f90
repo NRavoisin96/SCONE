@@ -32,6 +32,7 @@ module face_inter
     logical(defBool)                             :: isBoundary = .false.
     real(defReal)                                :: area = ZERO
     real(defReal), dimension(3)                  :: centroid = ZERO, normal = ZERO, AB = ZERO, AC = ZERO
+    real(defReal), dimension(6)                  :: boundingBox = ZERO
     character(:), allocatable                    :: type
   contains
     procedure, non_overridable                   :: addEdgeIdx
@@ -45,6 +46,7 @@ module face_inter
     procedure, non_overridable                   :: getAB
     procedure, non_overridable                   :: getAC
     procedure, non_overridable                   :: getArea
+    procedure, non_overridable                   :: getBoundingBox
     procedure, non_overridable                   :: getCentroid
     procedure, non_overridable                   :: getEdgeIdxs
     procedure, non_overridable                   :: getElementIdxs
@@ -115,14 +117,15 @@ module face_inter
     !!
     !!
     !!
-    pure subroutine createTriangle(self, lastNewFaceIdx, edgeIdxs, newVertices, newTriangle, vertexIdxs)
-      import                                         :: face, shortInt, vertexShelf, faceBox
+    pure subroutine createTriangle(self, lastNewFaceIdx, edgeIdxs, newVertices, newTriangle, vertexIdxs, boundingBox)
+      import                                         :: face, shortInt, vertexShelf, faceBox, defReal
       class(face), intent(in)                        :: self
       integer(shortInt), intent(in)                  :: lastNewFaceIdx
       integer(shortInt), dimension(3), intent(in)    :: edgeIdxs
       type(vertexShelf), intent(in)                  :: newVertices
       type(faceBox), intent(inout)                   :: newTriangle
       integer(shortInt), dimension(3), intent(inout) :: vertexIdxs
+      real(defReal), dimension(6), intent(in)        :: boundingBox
 
     end subroutine createTriangle
 
@@ -210,13 +213,14 @@ contains
   !!
   !!
   !!
-  pure subroutine build(self, idx, faceIdx, isBoundary, vertexIdxs, vertices, type, testCentroid, edgeIdxs)
+  pure subroutine build(self, idx, faceIdx, isBoundary, vertexIdxs, vertices, type, boundingBox, testCentroid, edgeIdxs)
     class(face), intent(inout)                            :: self
     integer(shortInt), intent(in)                         :: idx, faceIdx
     logical(defBool), intent(in)                          :: isBoundary
     integer(shortInt), dimension(:), intent(inout)        :: vertexIdxs
     type(vertexShelf), intent(in)                         :: vertices
     character(*), intent(in)                              :: type
+    real(defReal), dimension(6), intent(in)               :: boundingBox
     real(defReal), dimension(3), intent(in), optional     :: testCentroid
     integer(shortInt), dimension(:), intent(in), optional :: edgeIdxs
     real(defReal), dimension(3)                           :: centroid, normal, firstVertexCoords, AB, AC
@@ -241,7 +245,7 @@ contains
     firstVertexCoords = vertices % getVertexCoordinates(vertexIdxs(1))
     AB = vertices % getVertexCoordinates(vertexIdxs(2)) - firstVertexCoords
     AC = vertices % getVertexCoordinates(vertexIdxs(3)) - firstVertexCoords
-    call self % init(idx, faceIdx, isBoundary, area, centroid, normal, AB, AC, vertexIdxs, type, edgeIdxs)
+    call self % init(idx, faceIdx, isBoundary, area, centroid, normal, AB, AC, vertexIdxs, type, boundingBox, edgeIdxs)
 
   end subroutine build
 
@@ -338,6 +342,22 @@ contains
     area = self % area
 
   end function getArea
+
+  !! Function 'getBoundingBox'
+  !!
+  !! Basic description:
+  !!   Returns the bounding box of the face.
+  !!
+  !! Result:
+  !!   boundingBox -> 6-D coordinates of the bounding box of the face.
+  !!
+  pure function getBoundingBox(self) result(boundingBox)
+    class(face), intent(in)     :: self
+    real(defReal), dimension(6) :: boundingBox
+    
+    boundingBox = self % boundingBox
+
+  end function getBoundingBox
   
   !! Function 'getCentroid'
   !!
@@ -522,7 +542,7 @@ contains
   !!
   !!
   !!
-  pure subroutine init(self, idx, parentIdx, isBoundary, area, centroid, normal, AB, AC, vertexIdxs, type, edgeIdxs)
+  pure subroutine init(self, idx, parentIdx, isBoundary, area, centroid, normal, AB, AC, vertexIdxs, type, boundingBox, edgeIdxs)
     class(face), intent(inout)                            :: self
     integer(shortInt), intent(in)                         :: idx, parentIdx
     logical(defBool), intent(in)                          :: isBoundary
@@ -530,6 +550,7 @@ contains
     real(defReal), dimension(3), intent(in)               :: centroid, normal, AB, AC
     integer(shortInt), dimension(:), intent(in)           :: vertexIdxs
     character(*), intent(in)                              :: type
+    real(defReal), dimension(6), intent(in)               :: boundingBox
     integer(shortInt), dimension(:), intent(in), optional :: edgeIdxs
 
     ! Set everything.
@@ -543,6 +564,7 @@ contains
     self % AC = AC
     self % vertexIdxs = vertexIdxs
     self % type = type
+    self % boundingBox = boundingBox
     if (present(edgeIdxs)) self % edgeIdxs = edgeIdxs
 
   end subroutine init
@@ -563,6 +585,7 @@ contains
     self % normal = ZERO
     self % AB = ZERO
     self % AC = ZERO
+    self % boundingBox = ZERO
     if (allocated(self % edgeIdxs)) deallocate(self % edgeIdxs)
     if (allocated(self % elementIdxs)) deallocate(self % elementIdxs)
     if (allocated(self % vertexIdxs)) deallocate(self % vertexIdxs)
@@ -677,8 +700,10 @@ contains
     type(vertexShelf), intent(inout)           :: newVertices
     integer(shortInt), intent(inout)           :: lastNewEdgeIdx, lastNewFaceIdx
     type(faceBox), dimension(:), intent(inout) :: triangles
-    integer(shortInt)                          :: i, j, minVertexLoc, nTriangles, nVertices
+    integer(shortInt)                          :: i, j, k, minVertexLoc, nTriangles, nVertices
     integer(shortInt), dimension(3)            :: edgeIdxs, vertexIdxs
+    real(defReal), dimension(6)                :: boundingBox
+    real(defReal), dimension(3)                :: vertexCoords
 
     ! First compute the number of vertices and the location of the vertex of minimum index in the current face.
     nVertices = size(self % vertexIdxs)
@@ -697,6 +722,7 @@ contains
       if (nVertices == 3) then
         edgeIdxs = self % edgeIdxs
         vertexIdxs = self % vertexIdxs
+        boundingBox = self % boundingBox
 
       else
         vertexIdxs(2:3) = self % vertexIdxs([mod(minVertexLoc + i - 1, nVertices) + 1, mod(minVertexLoc + i, nVertices) + 1])
@@ -710,15 +736,30 @@ contains
 
         end if
 
+        ! Loop through all vertices (and edges) in the new triangle.
         do j = 1, 3
           edgeIdxs(j) = newVertices % findCommonEdgeIdx(vertexIdxs(j), vertexIdxs(mod(j, 3) + 1))
+          
+          vertexCoords = newVertices % getVertexCoordinates(vertexIdxs(j))
+          if (j == 1) then
+            boundingBox(1:3) = vertexCoords
+            boundingBox(4:6) = vertexCoords
+
+          else
+            do k = 1, 3
+              boundingBox(k) = min(vertexCoords(k), boundingBox(k))
+              boundingBox(k + 3) = max(vertexCoords(k), boundingBox(k + 3))
+
+            end do
+
+          end if
 
         end do
 
       end if
 
       ! Create a new triangle.
-      call self % createTriangle(lastNewFaceIdx, edgeIdxs, newVertices, triangles(lastNewFaceIdx), vertexIdxs)
+      call self % createTriangle(lastNewFaceIdx, edgeIdxs, newVertices, triangles(lastNewFaceIdx), vertexIdxs, boundingBox)
 
       ! Update mesh connectivity information.
       do j = 1, 3

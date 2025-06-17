@@ -1,6 +1,7 @@
 module unstructuredMesh_inter
 
   use coord_class,         only : coord
+  use cartesianGrid_class, only : cartesianGrid
   use cellZoneShelf_class, only : cellZoneShelf
   use dictionary_class,    only : dictionary
   use edgeShelf_class,     only : edgeShelf
@@ -54,11 +55,12 @@ module unstructuredMesh_inter
     private
     integer(shortInt), public           :: nVertices = 0, nFaces = 0, nEdges = 0, &
                                            nElements = 0, nInternalFaces = 0
+    type(cartesianGrid)                 :: grid
     type(edgeShelf), public             :: edges
     type(elementShelf), public          :: elements
     type(faceShelf), public             :: faces
     type(vertexShelf), public           :: centroids, vertices
-    type(kdTree), public                :: tree, centroidTree
+    type(kdTree), public                :: tree, centroidTree, boundingBoxTree
   contains
     ! Build procedures.
     procedure                           :: computePrimitives
@@ -329,7 +331,7 @@ contains
   !!
   !! See mesh_inter for details.
   !!
-  pure subroutine findElementAndParentIdxs(self, r, u, elementIdx, parentIdx)
+  subroutine findElementAndParentIdxs(self, r, u, elementIdx, parentIdx)
     class(unstructuredMesh), intent(in)          :: self
     real(defReal), dimension(3), intent(in)      :: r, u
     integer(shortInt), intent(out)               :: elementIdx, parentIdx
@@ -343,83 +345,14 @@ contains
     ! bounding box we can return early.
     elementIdx = 0
     parentIdx = 0
-    boundingBox = self % getBoundingBox()
-    do i = 1, 3
-      if (r(i) <= boundingBox(i) .or. boundingBox(i + 3) <= r(i)) return
 
-    end do
+    ! Retrieve potential elements from the bounding box tree:
+    potentialElements = self % boundingBoxTree % findPotentialElementIdxs(r)
+    if (size(potentialElements) == 0) return
 
-    ! If the point is inside the bounding box then we need to determine if the point is inside a mesh element.
-    ! First find the vertex which is nearest to the coordinates. Query the tree with the lowest number of points.
-    if (self % nElements < self % nVertices) then
-      nearestVertexIdx = self % centroidTree % findNearestVertex(r)
-
-    else
-      nearestVertexIdx = self % tree % findNearestVertex(r)
-
-    end if
-
-    ! Retrieve potential elements occupied by the particle from mesh connectivity information.
-    potentialElements = self % vertices % getVertexElementIdxs(nearestVertexIdx)
-
-    ! Initialise isVisited = .false. then do a first pass over all elements sharing the nearest vertex.
-    isVisited = .false.
-    outerLoop: do i = 1, size(potentialElements)
+    do i = 1, size(potentialElements)
       elementIdx = potentialElements(i)
-      searchLoop: do
-        if (isVisited(elementIdx)) cycle outerLoop
-        call self % elements % testForInclusion(elementIdx, r, self % faces, failedFaceIdx, zeroDotProductFaceIdxs)
-        isVisited(elementIdx) = .true.
-
-        if (failedFaceIdx > 0) then
-          if (self % faces % getFaceIsBoundary(failedFaceIdx)) cycle outerLoop
-          elementIdx = findDifferent(self % faces % getFaceElementIdxs(failedFaceIdx), elementIdx)
-          cycle searchLoop
-
-        end if
-
-        ! If there are faces on which the particle lies we need to employ some more specific
-        ! procedures to correctly determine which element is actually occupied.
-        if (allocated(zeroDotProductFaceIdxs)) then
-          select case (size(zeroDotProductFaceIdxs))
-            ! Particle is on a element's face.
-            case(1)
-              potentialElements = self % faces % getFaceElementIdxs(zeroDotProductFaceIdxs(1))
-              testFaceIdxs = zeroDotProductFaceIdxs
-            ! Particle is on a element's edge.
-            case(2)
-              ! Find the common edge and retrieve elements sharing this edge.
-              commonEdgeIdx = self % faces % findCommonEdgeIdx(zeroDotProductFaceIdxs(1), zeroDotProductFaceIdxs(2))
-              potentialElements = self % edges % getEdgeElementIdxs(commonEdgeIdx)
-              testFaceIdxs = self % edges % getEdgeFaceIdxs(commonEdgeIdx)
-            ! Particle is on a element's vertex.
-            case default
-              ! Find the common vertex and retrieve all elements sharing this vertex.
-              commonVertexIdx = self % faces % findCommonVertexIdx(zeroDotProductFaceIdxs)
-              potentialElements = self % vertices % getVertexElementIdxs(commonVertexIdx)
-              testFaceIdxs = self % vertices % getVertexFaceIdxs(commonVertexIdx)
-  
-          end select
-          elementIdx = self % findElementFromDirection(u, potentialElements, testFaceIdxs)
-          if (elementIdx > 0) parentIdx = self % elements % getElementParentIdx(elementIdx)
-          return
-        
-        end if
-
-        parentIdx = self % elements % getElementParentIdx(elementIdx)
-        return
-
-      end do searchLoop
-
-    end do outerLoop
-
-    ! If host element has not been found yet, do a search on all remaining elements.
-    do i = 1, self % nElements
-      if (isVisited(i)) cycle
-      elementIdx = i
       call self % elements % testForInclusion(elementIdx, r, self % faces, failedFaceIdx, zeroDotProductFaceIdxs)
-      isVisited(elementIdx) = .true.
-      
       if (failedFaceIdx > 0) cycle
 
       ! If there are faces on which the particle lies we need to employ some more specific
@@ -579,6 +512,7 @@ contains
     type(faceShelf)                        :: faces, newFaces
     type(vertexShelf)                      :: centroids, newCentroids, newVertices, vertices
     logical(defBool)                       :: triangulate
+    integer(shortInt)                      :: i
 
     ! Set up base components.
     call self % setupBase(dict)
@@ -607,8 +541,14 @@ contains
 
     ! Set elements zones and initialise kd-tree for the mesh.
     call self % setElementZones(elementZones)
-    call self % tree % init(self % getAllVertexCoordinates(), .true.)
-    call self % centroidTree % init(self % getAllCentroidCoordinates(), .true.)
+    call self % tree % init(self % getAllVertexCoordinates(), .true., .false.)
+    call self % centroidTree % init(self % getAllCentroidCoordinates(), .true., .false.)
+
+    ! Initialise tree for the bounding boxes of the elements in the mesh.
+    call self % boundingBoxTree % init(self % elements % getAllBoundingBoxes(), .false., .true.)
+
+    ! Initialise background Cartesian grid.
+    call self % grid % init(self % faces)
 
   end subroutine init
 
@@ -633,6 +573,8 @@ contains
     call self % edges % kill()
     call self % elements % kill()
     call self % faces % kill()
+    call self % grid % kill()
+    call self % boundingBoxTree % kill()
     call self % centroidTree % kill()
     call self % tree % kill()
     call self % vertices % kill()

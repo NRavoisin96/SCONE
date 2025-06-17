@@ -64,19 +64,20 @@ contains
   !!
   !!
   !!
-  pure subroutine createTriangle(self, lastNewFaceIdx, edgeIdxs, newVertices, newTriangle, vertexIdxs)
+  pure subroutine createTriangle(self, lastNewFaceIdx, edgeIdxs, newVertices, newTriangle, vertexIdxs, boundingBox)
     class(triangle), intent(in)                    :: self
     integer(shortInt), intent(in)                  :: lastNewFaceIdx
     integer(shortInt), dimension(3), intent(in)    :: edgeIdxs
     type(vertexShelf), intent(in)                  :: newVertices
     type(faceBox), intent(inout)                   :: newTriangle
     integer(shortInt), dimension(3), intent(inout) :: vertexIdxs
+    real(defReal), dimension(6), intent(in)        :: boundingBox
 
     ! Allocate new triangle and simply copy everything.
     allocate(triangle :: newTriangle % item)
     call newTriangle % item % init(lastNewFaceIdx, self % getIdx(), self % getIsBoundary(), self % getArea(), &
                                    self % getCentroid(), self % getNormal(), self % getAB(), self % getAC(), &
-                                   vertexIdxs, 'Triangle', edgeIdxs)
+                                   vertexIdxs, 'Triangle', boundingBox, edgeIdxs)
 
   end subroutine createTriangle
   

@@ -145,7 +145,7 @@ contains
   !!
   !! See universe_inter for details.
   !!
-  pure subroutine findCell(self, r, u, localId, cellIdx, elementIdx)
+  subroutine findCell(self, r, u, localId, cellIdx, elementIdx)
     class(meshUniverse), intent(inout)      :: self
     integer(shortInt), intent(out)          :: localId, cellIdx, elementIdx
     real(defReal), dimension(3), intent(in) :: r, u

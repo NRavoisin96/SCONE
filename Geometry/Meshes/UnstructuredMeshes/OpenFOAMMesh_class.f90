@@ -5,8 +5,9 @@ module OpenFOAMMesh_class
   use elementShelf_class,     only : elementShelf
   use cellZoneShelf_class,    only : cellZoneShelf
   use faceShelf_class,        only : faceShelf
-  use genericProcedures,      only : append, fatalError, numToChar, openToRead, quickSort
+  use genericProcedures,      only : append, fatalError, numToChar, openToRead, quickSort, updateBoundingBox
   use numPrecision
+  use universalVariables,     only : INF
   use unstructuredMesh_inter, only : unstructuredMesh, &
                                      distanceToBoundaryFace_super => distanceToBoundaryFace, &
                                      distanceToNextFace_super => distanceToNextFace, &
@@ -212,7 +213,7 @@ contains
   !!
   !! See unstructuredMesh_inter for details.
   !!
-  pure subroutine findElementAndParentIdxs(self, r, u, elementIdx, parentIdx)
+  subroutine findElementAndParentIdxs(self, r, u, elementIdx, parentIdx)
     class(OpenFOAMMesh), intent(in)         :: self
     real(defReal), dimension(3), intent(in) :: r, u
     integer(shortInt), intent(out)          :: elementIdx, parentIdx
@@ -393,6 +394,7 @@ contains
     character(100)                                 :: string
     type(elementInfo), dimension(self % nElements) :: elementInfos
     character(:), allocatable                      :: type
+    real(defReal), dimension(6)                    :: boundingBox
 
     ! Initialise nConcaveElements = 0
     nConcaveElements = 0
@@ -406,16 +408,19 @@ contains
 
       end do
 
+      boundingBox = [INF, INF, INF, -INF, -INF, -INF]
       allocate(elementInfos(1) % vertexIdxs(self % nVertices))
       do i = 1, self % nVertices
         elementInfos(1) % vertexIdxs(i) = i
         call vertices % addElementIdxToVertex(i, 1)
+        call updateBoundingBox(vertices % getVertexCoordinates(i), boundingBox)
 
       end do
 
       type = 'Polyhedron'
       if (size(elementInfos(1) % vertexIdxs) == 4) type = 'Tetrahedron'
-      call elements % buildElement(1, 1, elementInfos(1) % faceIdxs, elementInfos(1) % vertexIdxs, faces, vertices, type)
+      call elements % buildElement(1, 1, elementInfos(1) % faceIdxs, elementInfos(1) % vertexIdxs, faces, vertices, type, &
+                                   boundingBox)
       call centroids % initVertex(1, elements % getElementCentroid(1))
       call centroids % addElementIdxToVertex(1, 1)
       if (.not. elements % getElementIsConvex(1)) nConcaveElements = 1
@@ -517,7 +522,16 @@ contains
     do i = 1, self % nElements
       type = 'Polyhedron'
       if (size(elementInfos(i) % vertexIdxs) == 4) type = 'Tetrahedron'
-      call elements % buildElement(i, i, elementInfos(i) % faceIdxs, elementInfos(i) % vertexIdxs, faces, vertices, type)
+      ! Compute bounding box for the current element.
+      boundingBox = [INF, INF, INF, -INF, -INF, -INF]
+      do j = 1, size(elementInfos(i) % vertexIdxs)
+        vertexIdx = elementInfos(i) % vertexIdxs(j)
+        call updateBoundingBox(vertices % getVertexCoordinates(vertexIdx), boundingBox)
+
+      end do
+
+      call elements % buildElement(i, i, elementInfos(i) % faceIdxs, elementInfos(i) % vertexIdxs, faces, vertices, type, &
+                                   boundingBox)
       call centroids % initVertex(i, elements % getElementCentroid(i))
       call centroids % addElementIdxToVertex(i, i)
       if (.not. elements % getElementIsConvex(i)) nConcaveElements = nConcaveElements + 1
@@ -654,10 +668,12 @@ contains
     class(vertexShelf), intent(inout)            :: vertices
     character(*), intent(in)                     :: folderPath
     integer(shortInt), parameter                 :: unit = 10
-    integer(shortInt)                            :: i, j, nVertices
+    integer(shortInt)                            :: i, j, k, nVertices, vertexIdx
     integer(shortInt), dimension(:), allocatable :: vertexIdxs
     character(100)                               :: string
     character(:), allocatable                    :: type
+    real(defReal), dimension(3)                  :: vertexCoords
+    real(defReal), dimension(6)                  :: boundingBox
 
     ! Open the 'faces' data file and read it until a line containing the symbol ')' is encountered.
     call openToRead(unit, folderPath//'faces')
@@ -703,18 +719,35 @@ contains
 
       end if
       
-      ! Add one to the vertices indices since Fortran starts indexing at one rather than zero and
-      ! update mesh connectivity information.
+      ! Add one to the vertices indices since Fortran starts indexing at one rather than zero. Then
+      ! loop through all vertices in the face.
       vertexIdxs = vertexIdxs + 1
       do j = 1, size(vertexIdxs)
-        call vertices % addFaceIdxToVertex(vertexIdxs(j), i)
+        ! Retrieve current vertex index, add the current face to this vertex.
+        vertexIdx = vertexIdxs(j)
+        call vertices % addFaceIdxToVertex(vertexIdx, i)
+
+        ! Retrieve the coordinates of the current vertex and update the face's bounding box.
+        vertexCoords = vertices % getVertexCoordinates(vertexIdx)
+        if (j == 1) then
+          boundingBox(1:3) = vertexCoords
+          boundingBox(4:6) = vertexCoords
+
+        else
+          do k = 1, 3
+            boundingBox(k) = min(vertexCoords(k), boundingBox(k))
+            boundingBox(k + 3) = max(vertexCoords(k), boundingBox(k + 3))
+  
+          end do
+
+        end if
 
       end do
 
       ! Initialise face in the shelf.
       type = 'Polygon'
       if (nVertices == 3) type = 'Triangle'
-      call faces % buildFace(i, i, i > self % nInternalFaces, vertexIdxs, vertices, type)
+      call faces % buildFace(i, i, i > self % nInternalFaces, vertexIdxs, vertices, type, boundingBox)
       
       ! Free memory and move onto the next line.
       deallocate(vertexIdxs)
@@ -767,7 +800,6 @@ contains
 
     ! Retrieve shelf offset then loop over all vertices.
     offset = vertices % getOffset()
-    extremalCoordinates = vertices % getExtremalCoordinates()
     do i = 1, self % nVertices
       if (singleLine) then
         ! Locate the leftmost and rightmost brackets. Read the coordinates between the
@@ -788,12 +820,18 @@ contains
       ! Set the index and coordinates of the current vertex. Apply offset in the process.
       call vertices % initVertex(i, coordinates + offset)
 
-      ! Update extremal coordinates if necessary.
-      do j = 1, 3
-        if (coordinates(j) < extremalCoordinates(j)) extremalCoordinates(j) = coordinates(j)
-        if (coordinates(j) > extremalCoordinates(j + 3)) extremalCoordinates(j + 3) = coordinates(j)
+      ! Update extremal coordinates.
+      if (i == 1) then
+        extremalCoordinates = [coordinates, coordinates]
 
-      end do
+      else
+        do j = 1, 3
+          extremalCoordinates(j) = min(coordinates(j), extremalCoordinates(j))
+          extremalCoordinates(j + 3) = max(coordinates(j), extremalCoordinates(j + 3))
+  
+        end do
+
+      end if
 
     end do
     ! Update extremal coordinates in the shelf.
