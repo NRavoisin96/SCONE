@@ -34,7 +34,10 @@ module vertexShelf_class
     procedure                               :: getExtremalCoordinates
     procedure                               :: getOffset
     procedure                               :: getSize
-    procedure                               :: getVertexCoordinates
+    generic                                 :: getVertexCoordinates => getVertexCoordinates_shortInt, &
+                                                                       getVertexCoordinates_shortIntArray
+    procedure, private                      :: getVertexCoordinates_shortInt
+    procedure, private                      :: getVertexCoordinates_shortIntArray
     procedure                               :: getVertexEdgeIdxs
     procedure                               :: getVertexElementIdxs
     generic                                 :: getVertexFaceIdxs => getVertexFaceIdxs_shortInt, &
@@ -217,12 +220,12 @@ contains
   !!   allCoordinates -> Array listing the 3-D coordinates of all the vertices.
   !!
   pure function getAllCoordinates(self) result(allCoordinates)
-    class(vertexShelf), intent(in)                :: self
-    real(defReal), dimension(self % getSize(), 3) :: allCoordinates
-    integer(shortInt)                             :: i
+    class(vertexShelf), intent(in)                  :: self
+    real(defReal), dimension(3, size(self % shelf)) :: allCoordinates
+    integer(shortInt)                               :: i
 
-    do i = 1, self % getSize()
-      allCoordinates(i, :) = self % shelf(i) % getCoordinates()
+    do i = 1, size(self % shelf)
+      allCoordinates(:, i) = self % shelf(i) % getCoordinates()
 
     end do
 
@@ -277,7 +280,7 @@ contains
 
   end function getSize
 
-  !! Function 'getVertexCoordinates'
+  !! Function 'getVertexCoordinates_shortInt'
   !!
   !! Basic description:
   !!   Returns the 3-D coordinates of a vertex in the shelf.
@@ -288,14 +291,38 @@ contains
   !! Result:
   !!   coords   -> 3-D coordinates of the vertex.
   !!
-  pure function getVertexCoordinates(self, idx) result(coords)
+  pure function getVertexCoordinates_shortInt(self, idx) result(coords)
     class(vertexShelf), intent(in) :: self
     integer(shortInt), intent(in)  :: idx
     real(defReal), dimension(3)    :: coords
 
     coords = self % shelf(idx) % getCoordinates()
 
-  end function getVertexCoordinates
+  end function getVertexCoordinates_shortInt
+
+  !! Function 'getVertexCoordinates_shortInt'
+  !!
+  !! Basic description:
+  !!   Returns the 3-D coordinates of vertices in the shelf.
+  !!
+  !! Arguments:
+  !!   idxs [in] -> Indices of the vertices in the shelf.
+  !!
+  !! Result:
+  !!   coords   -> 3-D coordinates of the vertices.
+  !!
+  pure function getVertexCoordinates_shortIntArray(self, idxs) result(coords)
+    class(vertexShelf), intent(in)              :: self
+    integer(shortInt), dimension(:), intent(in) :: idxs
+    real(defReal), dimension(3, size(idxs))     :: coords
+    integer(shortInt)                           :: i
+
+    do i = 1, size(idxs)
+      coords(:, i) = self % shelf(idxs(i)) % getCoordinates()
+
+    end do
+
+  end function getVertexCoordinates_shortIntArray
 
   !! Function 'getVertexEdgeIdxs'
   !!

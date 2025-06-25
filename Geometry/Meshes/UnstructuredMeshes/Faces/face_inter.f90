@@ -1,10 +1,12 @@
 module face_inter
   
-  use edgeShelf_class,     only : edgeShelf
-  use genericProcedures,   only : append, areEqual, fatalError, findCommon, numToChar, swap
+  use axisAlignedBoundingBox_class, only : axisAlignedBoundingBox
+  use coord_class,                  only : coord
+  use edgeShelf_class,              only : edgeShelf
+  use genericProcedures,            only : append, areEqual, crossProduct, fatalError, findCommon, numToChar, swap
   use numPrecision
-  use universalVariables,  only : INF, HALF, THIRD, SURF_TOL, ZERO
-  use vertexShelf_class,   only : vertexShelf
+  use universalVariables,           only : HALF, INF, ONE, SURF_TOL, THIRD, ZERO
+  use vertexShelf_class,            only : vertexShelf
   
   implicit none
   private
@@ -32,7 +34,7 @@ module face_inter
     logical(defBool)                             :: isBoundary = .false.
     real(defReal)                                :: area = ZERO
     real(defReal), dimension(3)                  :: centroid = ZERO, normal = ZERO, AB = ZERO, AC = ZERO
-    real(defReal), dimension(6)                  :: boundingBox = ZERO
+    type(axisAlignedBoundingBox)                 :: boundingBox
     character(:), allocatable                    :: type
   contains
     procedure, non_overridable                   :: addEdgeIdx
@@ -43,6 +45,8 @@ module face_inter
     procedure(computeComponents), deferred       :: computeComponents
     procedure, non_overridable                   :: computeIntersection
     procedure(createTriangle), deferred          :: createTriangle
+    procedure, non_overridable                   :: distanceSquared
+    procedure, non_overridable                   :: distanceSquaredToEdge
     procedure, non_overridable                   :: getAB
     procedure, non_overridable                   :: getAC
     procedure, non_overridable                   :: getArea
@@ -59,6 +63,11 @@ module face_inter
     procedure, non_overridable                   :: getType
     procedure, non_overridable                   :: getVertexIdxs
     procedure, non_overridable                   :: init
+    generic                                      :: intersects => intersects_BoundingBox
+    procedure, private, non_overridable          :: intersects_BoundingBox
+    generic                                      :: intersectsBoundingBox => intersectsBoundingBox_BoundingBox
+    procedure, private, non_overridable          :: intersectsBoundingBox_BoundingBox
+    procedure, non_overridable                   :: isPointInside
     procedure                                    :: kill
     procedure, non_overridable                   :: setArea
     procedure, non_overridable                   :: setCentroid
@@ -67,7 +76,6 @@ module face_inter
     procedure, non_overridable                   :: setNormal
     procedure, non_overridable                   :: setVertexIdxs
     procedure                                    :: split
-    procedure(testForInclusion), deferred        :: testForInclusion
   end type face
 
   !!
@@ -118,29 +126,17 @@ module face_inter
     !!
     !!
     pure subroutine createTriangle(self, lastNewFaceIdx, edgeIdxs, newVertices, newTriangle, vertexIdxs, boundingBox)
-      import                                         :: face, shortInt, vertexShelf, faceBox, defReal
+      import                                         :: axisAlignedBoundingBox, face, shortInt, vertexShelf, faceBox, &
+                                                        defReal
       class(face), intent(in)                        :: self
       integer(shortInt), intent(in)                  :: lastNewFaceIdx
       integer(shortInt), dimension(3), intent(in)    :: edgeIdxs
       type(vertexShelf), intent(in)                  :: newVertices
       type(faceBox), intent(inout)                   :: newTriangle
       integer(shortInt), dimension(3), intent(inout) :: vertexIdxs
-      real(defReal), dimension(6), intent(in)        :: boundingBox
+      type(axisAlignedBoundingBox), intent(in)       :: boundingBox
 
     end subroutine createTriangle
-
-    !!
-    !!
-    !!
-    pure subroutine testForInclusion(self, vertices, intersectionCoords, diff, d, edgeIdx, vertexIdx)
-      import                                  :: face, defReal, shortInt, vertexShelf
-      class(face), intent(in)                 :: self
-      type(vertexShelf), intent(in)           :: vertices
-      real(defReal), dimension(3), intent(in) :: intersectionCoords, diff
-      real(defReal), intent(inout)            :: d
-      integer(shortInt), intent(inout)        :: edgeIdx, vertexIdx
-
-    end subroutine testForInclusion
 
   end interface
 
@@ -220,7 +216,7 @@ contains
     integer(shortInt), dimension(:), intent(inout)        :: vertexIdxs
     type(vertexShelf), intent(in)                         :: vertices
     character(*), intent(in)                              :: type
-    real(defReal), dimension(6), intent(in)               :: boundingBox
+    type(axisAlignedBoundingBox), intent(in)              :: boundingBox
     real(defReal), dimension(3), intent(in), optional     :: testCentroid
     integer(shortInt), dimension(:), intent(in), optional :: edgeIdxs
     real(defReal), dimension(3)                           :: centroid, normal, firstVertexCoords, AB, AC
@@ -264,24 +260,23 @@ contains
   !!   isIntersecting [out]   -> .true. if the line segment intersects the triangle.
   !!   d [out]                -> Distance from the line segment's origin to the point of intersection.
   !!
-  pure subroutine computeIntersection(self, r, rEnd, u, vertices, d, edgeIdx, vertexIdx)
+  pure subroutine computeIntersection(self, coords, vertices, d)
     class(face), intent(in)                            :: self
-    real(defReal), dimension(3), intent(in)            :: r, rEnd, u
+    type(coord), intent(in)                            :: coords
     type(vertexShelf), intent(in)                      :: vertices
     real(defReal), intent(out)                         :: d
-    integer(shortInt), intent(out)                     :: edgeIdx, vertexIdx
-    real(defReal), dimension(3)                        :: normal, diff, intersectionCoords
+    real(defReal), dimension(3)                        :: diff, normal, r, rIntersection, u
     real(defReal)                                      :: denominator, s
 
-    ! Initialise d = INF, edgeIdx = 0 and vertexIdx = 0.
+    ! Initialise d = INF.
     d = INF
-    edgeIdx = 0
-    vertexIdx = 0
     
     ! Retrieve the face's normal vector and pre-compute the difference between the line segment's end
     ! and beginning positions.
     normal = self % normal
-    diff = rEnd - r
+    r = coords % getPosition()
+    u = coords % getDirection()
+    diff = coords % getEndPosition() - r
     denominator = dot_product(normal, diff)
 
     ! If the denominator is ZERO, return early since the line segment is parallel to the face's plane.
@@ -298,12 +293,87 @@ contains
 
     ! Compute the coordinates of the intersection point.
     diff = s * diff
-    intersectionCoords = r + diff
+    rIntersection = r + diff
 
     ! Check if the intersection point coordinates are inside the face.
-    call self % testForInclusion(vertices, intersectionCoords, diff, d, edgeIdx, vertexIdx)
+    if (self % isPointInside(rIntersection, vertices)) d = norm2(diff)
 
   end subroutine computeIntersection
+
+  !!
+  !!
+  !!
+  pure function distanceSquared(self, r, vertices) result(dSquared)
+    class(face), intent(in)                 :: self
+    real(defReal), dimension(3), intent(in) :: r
+    type(vertexShelf), intent(in)           :: vertices
+    real(defReal)                           :: d, dSquared, inverseNormalSquared, temp
+    real(defReal), dimension(3)             :: diff, proj
+    integer(shortInt)                       :: i, nextIdx, nVertices
+
+    ! First compute the distance between the point and the plane of the face.
+    diff = r - self % centroid
+    d = dot_product(diff, self % normal)
+
+    ! Now project the point on the plane of the face and check if the projection lies inside the face.
+    inverseNormalSquared = ONE / dot_product(self % normal, self % normal)
+    proj = r - self % normal * d * inverseNormalSquared
+
+    ! If projection is inside the face, compute dSquared and return.
+    if (self % isPointInside(proj, vertices)) then
+      dSquared = d * d * inverseNormalSquared
+      return
+
+    end if
+
+    ! If projection is outside the face, we need to compute the distance to each edge of the face and
+    ! retain the mininum distance.
+    dSquared = INF
+    nVertices = size(self % vertexIdxs)
+    do i = 1, nVertices
+      nextIdx = merge(1, i + 1, i == nVertices)
+      temp = self % distanceSquaredToEdge(r, vertices, i, nextIdx)
+      dSquared = min(dSquared, temp)
+
+    end do
+
+  end function distanceSquared
+
+  !!
+  !!
+  !!
+  pure function distanceSquaredToEdge(self, r, vertices, idx, nextIdx) result(dSquared)
+    class(face), intent(in)                 :: self
+    real(defReal), dimension(3), intent(in) :: r
+    type(vertexShelf), intent(in)           :: vertices
+    integer(shortInt), intent(in)           :: idx, nextIdx
+    real(defReal), dimension(3)             :: edgeVector, pointVector, vertexCoords
+    real(defReal)                           :: dSquared, lSquared, t
+
+    ! First compute edgeVector and pointVector.
+    vertexCoords = vertices % getVertexCoordinates(idx)
+    edgeVector = vertices % getVertexCoordinates(nextIdx) - vertexCoords
+    pointVector = r - vertexCoords
+
+    ! Compute the square of the edge length.
+    lSquared = dot_product(edgeVector, edgeVector)
+
+    ! Handle the case of a zero-length segment.
+    if (areEqual(lSquared, ZERO)) then
+        dSquared = dot_product(pointVector, pointVector)
+        return
+        
+    end if
+
+    ! Compute the normalisation parameter t by projecting pointVector onto edgeVector and
+    ! snap it to the range [0, 1].
+    t = max(ZERO, min(ONE, dot_product(pointVector, edgeVector) / lSquared))
+
+    ! Now compute dSquared.
+    pointVector = pointVector - edgeVector * t
+    dSquared = dot_product(pointVector, pointVector)
+
+  end function distanceSquaredToEdge
 
   !!
   !!
@@ -352,8 +422,8 @@ contains
   !!   boundingBox -> 6-D coordinates of the bounding box of the face.
   !!
   pure function getBoundingBox(self) result(boundingBox)
-    class(face), intent(in)     :: self
-    real(defReal), dimension(6) :: boundingBox
+    class(face), intent(in)      :: self
+    type(axisAlignedBoundingBox) :: boundingBox
     
     boundingBox = self % boundingBox
 
@@ -550,7 +620,7 @@ contains
     real(defReal), dimension(3), intent(in)               :: centroid, normal, AB, AC
     integer(shortInt), dimension(:), intent(in)           :: vertexIdxs
     character(*), intent(in)                              :: type
-    real(defReal), dimension(6), intent(in)               :: boundingBox
+    type(axisAlignedBoundingBox), intent(in)              :: boundingBox
     integer(shortInt), dimension(:), intent(in), optional :: edgeIdxs
 
     ! Set everything.
@@ -568,6 +638,135 @@ contains
     if (present(edgeIdxs)) self % edgeIdxs = edgeIdxs
 
   end subroutine init
+
+  !!
+  !!
+  !!
+  elemental subroutine intersects_BoundingBox(self, vertices, boundingBox, doesIt)
+    class(face), intent(in)                              :: self
+    type(vertexShelf), intent(in)                        :: vertices
+    type(axisAlignedBoundingBox), intent(in)             :: boundingBox
+    logical(defBool), intent(out)                        :: doesIt
+    real(defReal), dimension(3)                          :: boundingBoxCentre, halfwidths, axis, edge, boxAxis
+    real(defReal), dimension(3, size(self % vertexIdxs)) :: centredVertexCoords
+    integer(shortInt)                                    :: i, j, nextIdx, nVertices
+
+    ! Initialise doesIt = .false., retrieve the centre and halfwidths of the boundingBox.
+    doesIt = .false.
+    boundingBoxCentre = boundingBox % getCentre()
+    halfwidths = boundingBox % getHalfwidths()
+
+    ! Offset the coordinates of the face vertices with respect to the box centre.
+    nVertices = size(self % vertexIdxs)
+    centredVertexCoords = vertices % getVertexCoordinates(self % vertexIdxs) - spread(boundingBoxCentre, 2, nVertices)
+
+    ! First test for intersection along the three bounding box's axes.
+    do i = 1, 3
+      axis = ZERO
+      axis(i) = ONE
+      if (.not. overlaps(halfwidths, centredVertexCoords, axis, nVertices)) return
+
+    end do
+
+    ! Now test the face's normal vector.
+    if (.not. overlaps(halfwidths, centredVertexCoords, self % normal, nVertices)) return
+
+    ! Finally, test cross products between the face's edges and the bounding box's edges.
+    do i = 1, nVertices
+      nextIdx = merge(1, i + 1, i == nVertices)
+      edge = centredVertexCoords(:, nextIdx) - centredVertexCoords(:, i)
+      do j = 1, 3
+        boxAxis = ZERO
+        boxAxis(j) = ONE
+        axis = crossProduct(edge, boxAxis)
+        if (.not. overlaps(halfwidths, centredVertexCoords, axis, nVertices)) return
+
+      end do
+
+    end do
+
+    ! If reached here, the face and the bounding box intersect so update doesIt = .true.
+    doesIt = .true.
+
+  contains
+    !!
+    !!
+    !!
+    pure function overlaps(h, coords, ax, n) result(isOverlapping)
+      real(defReal), dimension(3), intent(in)                          :: h, ax
+      real(defReal), dimension(3, size(self % vertexIdxs)), intent(in) :: coords
+      integer(shortInt), intent(in)                                    :: n
+      logical(defBool)                                                 :: isOverlapping
+      real(defReal)                                                    :: radius, minProjection, maxProjection, d
+      integer(shortInt)                                                :: k
+
+      ! Compute the box radius.
+      radius = dot_product(h, abs(ax))
+
+      ! Compute d and initialise minProjection and maxProjections.
+      d = dot_product(coords(:, 1), ax)
+      minProjection = d
+      maxProjection = d
+
+      do k = 2, n
+        d = dot_product(coords(:, k), ax)
+        minProjection = min(minProjection, d)
+        maxProjection = max(maxProjection, d)
+
+      end do
+
+      ! Check if overlap between projections.
+      isOverlapping = minProjection <= radius .and. maxProjection >= -radius
+
+    end function overlaps
+
+  end subroutine intersects_BoundingBox
+
+  !!
+  !!
+  !!
+  elemental subroutine intersectsBoundingBox_BoundingBox(self, boundingBox, doesIt)
+    class(face), intent(in)                  :: self
+    type(axisAlignedBoundingBox), intent(in) :: boundingBox
+    logical(defBool), intent(out)            :: doesIt
+
+    doesIt = self % boundingBox % intersects(boundingbox)
+
+  end subroutine intersectsBoundingBox_BoundingBox
+
+  !!
+  !!
+  !!
+  pure function isPointInside(self, r, vertices) result(isIt)
+    class(face), intent(in)                 :: self
+    real(defReal), dimension(3), intent(in) :: r
+    type(vertexShelf), intent(in)           :: vertices
+    logical(defBool)                        :: isIt
+    integer(shortInt)                       :: i, nextIdx, nVertices
+    real(defReal)                           :: dotProduct
+    real(defReal), dimension(3)             :: vertexCoords
+
+    ! Initialise isIt = .false. and compute the number of vertices in the face.
+    isIt = .false.
+    nVertices = size(self % vertexIdxs)
+
+    ! Loop through all the edges in the face and check if the point lies on the same side
+    ! of each edge (note: this assumes a consistent vertex numbering).
+    do i = 1, nVertices
+      nextIdx = merge(1, i + 1, i == nVertices)
+      vertexCoords = vertices % getVertexCoordinates(self % vertexIdxs(i))
+      dotProduct = dot_product(self % normal, &
+                               crossProduct(vertices % getVertexCoordinates(self % vertexIdxs(nextIdx)) - vertexCoords, &
+                                            r - vertexCoords))
+      
+      if (dotProduct < ZERO) return
+
+    end do
+
+    ! If reached here, the point is inside the face.
+    isIt = .true.
+
+  end function isPointInside
   
   !! Subroutine 'kill'
   !!
@@ -585,7 +784,7 @@ contains
     self % normal = ZERO
     self % AB = ZERO
     self % AC = ZERO
-    self % boundingBox = ZERO
+    call self % boundingBox % kill()
     if (allocated(self % edgeIdxs)) deallocate(self % edgeIdxs)
     if (allocated(self % elementIdxs)) deallocate(self % elementIdxs)
     if (allocated(self % vertexIdxs)) deallocate(self % vertexIdxs)
@@ -702,8 +901,8 @@ contains
     type(faceBox), dimension(:), intent(inout) :: triangles
     integer(shortInt)                          :: i, j, k, minVertexLoc, nTriangles, nVertices
     integer(shortInt), dimension(3)            :: edgeIdxs, vertexIdxs
-    real(defReal), dimension(6)                :: boundingBox
-    real(defReal), dimension(3)                :: vertexCoords
+    real(defReal), dimension(3, 3)             :: vertexCoords
+    type(axisAlignedBoundingBox)               :: boundingBox
 
     ! First compute the number of vertices and the location of the vertex of minimum index in the current face.
     nVertices = size(self % vertexIdxs)
@@ -722,7 +921,7 @@ contains
       if (nVertices == 3) then
         edgeIdxs = self % edgeIdxs
         vertexIdxs = self % vertexIdxs
-        boundingBox = self % boundingBox
+        boundingBox = self % getBoundingBox()
 
       else
         vertexIdxs(2:3) = self % vertexIdxs([mod(minVertexLoc + i - 1, nVertices) + 1, mod(minVertexLoc + i, nVertices) + 1])
@@ -739,22 +938,10 @@ contains
         ! Loop through all vertices (and edges) in the new triangle.
         do j = 1, 3
           edgeIdxs(j) = newVertices % findCommonEdgeIdx(vertexIdxs(j), vertexIdxs(mod(j, 3) + 1))
-          
-          vertexCoords = newVertices % getVertexCoordinates(vertexIdxs(j))
-          if (j == 1) then
-            boundingBox(1:3) = vertexCoords
-            boundingBox(4:6) = vertexCoords
-
-          else
-            do k = 1, 3
-              boundingBox(k) = min(vertexCoords(k), boundingBox(k))
-              boundingBox(k + 3) = max(vertexCoords(k), boundingBox(k + 3))
-
-            end do
-
-          end if
+          vertexCoords(:, j) = newVertices % getVertexCoordinates(vertexIdxs(j))
 
         end do
+        call boundingBox % computeBounds(vertexCoords)
 
       end if
 

@@ -1,4 +1,5 @@
 # Add Source Files to the global list
+add_subdirectory(AccelerationStructures)
 add_subdirectory(Elements)
 add_subdirectory(Faces)
 add_sources(

@@ -136,31 +136,38 @@ contains
   !!
   !! See universe_inter for details.
   !!
-  pure subroutine findCell(self, r, u, localId, cellIdx, elementIdx)
-    class(pinUniverse), intent(inout)       :: self
-    real(defReal), dimension(3), intent(in) :: r, u
-    integer(shortInt), intent(out)          :: localId, cellIdx, elementIdx
-    real(defReal), dimension(2)             :: rPlanes, uPlanes
-    real(defReal)                           :: rPlanesSquared, mul, surfTol
+  pure subroutine findCell(self, coords)
+    class(pinUniverse), intent(inout) :: self
+    type(coord), intent(inout)        :: coords
+    real(defReal), dimension(3)       :: r, u
+    real(defReal), dimension(2)       :: rPlanes, uPlanes
+    real(defReal)                     :: rPlanesSquared, mul, surfTol
+    integer(shortInt)                 :: i, nRadiiSquared
 
     ! Set cellIdx = 0, retrieve the particle's position and direction components in the
     ! cylinders' planes (all cylinders are zCylinders so these components are 1 and 2) and
     ! compute rPlanesSquared.
-    cellIdx = 0
-    elementIdx = 0
+    r = coords % getPosition()
+    u = coords % getDirection()
     rPlanes = r(1:2)
     uPlanes = u(1:2)
     rPlanesSquared = dot_product(rPlanes, rPlanes)
 
     ! Find local cell. Pre-compute multiplier based on particle direction.
     mul = sign(ONE, -dot_product(rPlanes, uPlanes))
-    do localId = 1, size(self % radiiSquared)
+    nRadiiSquared = size(self % radiiSquared)
+    do i = 1, nRadiiSquared
       ! Retrieve surface tolerance of current cylinder and check if particle is inside it.
-      surfTol = mul * self % annuli(localId) % getSurfTol()
-      if(rPlanesSquared < self % radiiSquared(localId) + surfTol) return
+      surfTol = mul * self % annuli(i) % getSurfTol()
+      if(rPlanesSquared < self % radiiSquared(i) + surfTol) then
+        call coords % setLocalId(i)
+        return
+
+      end if
 
     end do
     ! If reached here localID = size(self % r_sq) + 1
+    call coords % setLocalId(nRadiiSquared + 1)
 
   end subroutine findCell
 
@@ -183,13 +190,13 @@ contains
     character(100), parameter          :: Here = 'distance (pinUniverse_class.f90)'
 
     ! Retrieve localId and number of annuli. Call fatalError if localId is out of bounds.
-    localId = coords % localId
+    localId = coords % getLocalId()
     nAnnuli = size(self % annuli)
     if (localId < 1 .or. localId > nAnnuli + 1) call fatalError(Here, 'Invalid local id: '//numToChar(localId)//'.')
 
     ! Retrieve particle's location and direction components and compute outer and inner distances.
-    r = coords % r
-    u = coords % dir
+    r = coords % getPosition()
+    u = coords % getDirection()
 
     ! Outer distance.
     if (localId > nAnnuli) then
@@ -231,10 +238,10 @@ contains
     character(100), parameter          :: Here = 'cross (pinUniverse_class.f90)'
 
     if (surfIdx == MOVING_IN) then
-      coords % localID = coords % localID - 1
+      call coords % setLocalId(coords % getLocalId() - 1)
 
     else if (surfIdx == MOVING_OUT) then
-      coords % localID = coords % localID + 1
+      call coords % setLocalId(coords % getLocalId() + 1)
 
     else
       call fatalError(Here, 'Unknown surface memento: '//numToChar(surfIdx)//'.')

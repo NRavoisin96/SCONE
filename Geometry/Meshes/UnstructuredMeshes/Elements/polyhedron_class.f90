@@ -1,17 +1,18 @@
 module polyhedron_class
   
-  use edgeShelf_class,    only : edgeShelf
-  use element_inter,      only : element, elementBox, kill_super => kill
-  use face_inter,         only : faceBox
-  use faceShelf_class,    only : faceShelf
-  use genericProcedures,  only : append, areEqual, computePyramidCentre, computePyramidVolume, &
-                                 computeTetrahedronCentre, computeTetrahedronVolume, findCommon, fatalError, numToChar, &
-                                 updateBoundingBox
+  use axisAlignedBoundingBox_class, only : axisAlignedBoundingBox
+  use edgeShelf_class,              only : edgeShelf
+  use element_inter,                only : element, elementBox, kill_super => kill
+  use face_inter,                   only : faceBox
+  use faceShelf_class,              only : faceShelf
+  use genericProcedures,            only : append, areEqual, computePyramidCentre, computePyramidVolume, &
+                                           computeTetrahedronCentre, computeTetrahedronVolume, findCommon, &
+                                           fatalError, numToChar
   use numPrecision
-  use tetrahedron_class,  only : tetrahedron
-  use triangle_class,     only : triangle
-  use universalVariables, only : SURF_TOL, INF, ZERO
-  use vertexShelf_class,  only : vertexShelf
+  use tetrahedron_class,            only : tetrahedron
+  use triangle_class,               only : triangle
+  use universalVariables,           only : SURF_TOL, INF, ZERO
+  use vertexShelf_class,            only : vertexShelf
   
   implicit none
   private
@@ -173,9 +174,10 @@ contains
     integer(shortInt), dimension(4)               :: triangleIdxs
     integer(shortInt), dimension(6)               :: edgeIdxs
     real(defReal)                                 :: volume
-    real(defReal), dimension(3)                   :: centroid, vertexCoords
+    real(defReal), dimension(3)                   :: centroid
     real(defReal), dimension(4, 3)                :: array
-    real(defReal), dimension(6)                   :: boundingBox
+    real(defReal), dimension(:, :), allocatable   :: vertexCoords
+    type(axisAlignedBoundingBox)                  :: boundingBox
     
     ! Initialise a new vertex corresponding to the centroid of the polyhedron.
     lastNewVertexIdx = lastNewVertexIdx + 1
@@ -238,6 +240,8 @@ contains
         volume = computeTetrahedronVolume(array)
 
         ! Loop through all the remaining faces in the new tetrahedron.
+        if (allocated(vertexCoords)) deallocate(vertexCoords)
+        allocate(vertexCoords(3, 3))
         do k = 1, 3
           edgeIdxs(k + 3) = newVertices % findCommonEdgeIdx(triangleVertexIdxs(k), lastNewVertexIdx)
           call newEdges % addElementIdxToEdge(edgeIdxs(k), lastNewElementIdx)
@@ -259,7 +263,6 @@ contains
           triangleIdxs(k + 1) = lastNewFaceIdx
 
           ! Update mesh connectivity.
-          boundingBox = [INF, INF, INF, -INF, -INF, -INF]
           do l = 1, 3
             edgeIdx = newVertices % findCommonEdgeIdx(testVertexIdxs(l), testVertexIdxs(mod(l, 3) + 1))
             call newEdges % addFaceIdxToEdge(edgeIdx, lastNewFaceIdx)
@@ -267,12 +270,12 @@ contains
             call newVertices % addFaceIdxToVertex(testVertexIdxs(l), lastNewFaceIdx)
 
             ! Retrieve the current vertex coordinates and update the triangle's bounding box.
-            vertexCoords = newVertices % getVertexCoordinates(testVertexIdxs(l))
-            call updateBoundingBox(vertexCoords, boundingBox)
+            vertexCoords(:, l) = newVertices % getVertexCoordinates(testVertexIdxs(l))
 
           end do
 
           ! Build the new triangle and add it into the new faceShelf.
+          call boundingBox % computeBounds(vertexCoords)
           call triangles(lastNewFaceIdx) % item % build(lastNewFaceIdx, 0, .false., testVertexIdxs, newVertices, 'Triangle', &
           boundingBox, centroid)
           call triangles(lastNewFaceIdx) % item % addElementIdx(lastNewElementIdx)
@@ -282,11 +285,13 @@ contains
 
         ! Initialise new tetrahedron in the shelf.
         allocate(tetrahedron :: tetrahedra(lastNewElementIdx) % item)
-        boundingBox = [INF, INF, INF, -INF, -INF, -INF]
+        if (allocated(vertexCoords)) deallocate(vertexCoords)
+        allocate(vertexCoords(3, 4))
         do k = 1, 4
-          call updateBoundingBox(newVertices % getVertexCoordinates(vertexIdxs(k)), boundingBox)
+          vertexCoords(:, k) = newVertices % getVertexCoordinates(vertexIdxs(k))
 
         end do
+        call boundingBox % computeBounds(vertexCoords)
         call tetrahedra(lastNewElementIdx) % item % init(lastNewElementIdx, self % getIdx(), triangleIdxs, vertexIdxs, &
                                                          centroid, volume, .true., 'Tetrahedron', boundingBox, edgeIdxs)
 

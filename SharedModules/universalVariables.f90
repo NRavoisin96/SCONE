@@ -24,10 +24,13 @@ module universalVariables
                                       MISS_TOL    = ONE + 10.0_defReal * epsilon(ONE) ! Tol. on corner skims.
 
   ! Flags for different possible events in movement in geometry
-  integer(shortINt), parameter, public :: COLL_EV = 1, &
+  integer(shortInt), parameter, public :: COLL_EV = 1, &
                                           BOUNDARY_EV = 2, &
                                           CROSS_EV = 3, &
                                           LOST_EV  = 4
+
+  ! Flags for different possible results in host element determination for unstructured mesh geometries.
+  integer(shortInt), parameter, public :: INSIDE_ELEMENT = 1, OUTSIDE_ELEMENT = -1, ON_BOUNDARY_ELEMENT = 0
 
   ! Create definitions for readability when dealing with positions relative to surfaces
   logical(defBool), parameter, public :: behind = .FALSE., &

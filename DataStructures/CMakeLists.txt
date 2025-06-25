@@ -1,19 +1,25 @@
 # Add Source Files to a global List
-add_sources( ./dictionary_class.f90
-             ./intMap_class.f90
-             ./charMap_class.f90
-             ./stack_class.f90
-             ./dynArray_class.f90
-             ./kdTree_class.f90
-             ./node_class.f90
-             ./dictParser_func.f90)
+add_subdirectory(BoundingBoxes)
+add_subdirectory(Trees)
+
+add_sources( 
+            ./charMap_class.f90
+            ./dictionary_class.f90
+            ./dictParser_func.f90
+            ./dynArray_class.f90
+            ./intMap_class.f90
+            ./stack_class.f90
+           )
 
 # Add Unit Tests to a global List
-add_unit_tests( ./Tests/dictionary_test.f90
-                ./Tests/intMap_test.f90
-                ./Tests/charMap_test.f90
-                ./Tests/dynArray_test.f90
-                ./Tests/kdTree_test.f90
-                ./Tests/dictParser_test.f90)
+add_unit_tests( 
+               ./Tests/charMap_test.f90
+               ./Tests/dictionary_test.f90
+               ./Tests/dictParser_test.f90
+               ./Tests/dynArray_test.f90
+               ./Tests/intMap_test.f90
+              )
 
-add_integration_tests( ./Tests/dictParser_iTest.f90)
+add_integration_tests( 
+                      ./Tests/dictParser_iTest.f90
+                     )

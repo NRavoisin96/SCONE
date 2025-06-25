@@ -1,26 +1,26 @@
 module unstructuredMesh_inter
 
-  use coord_class,         only : coord
-  use cartesianGrid_class, only : cartesianGrid
-  use cellZoneShelf_class, only : cellZoneShelf
-  use dictionary_class,    only : dictionary
-  use edgeShelf_class,     only : edgeShelf
-  use element_inter,       only : elementBox
-  use elementShelf_class,  only : elementShelf
-  use face_inter,          only : faceBox
-  use faceShelf_class,     only : faceShelf
-  use genericProcedures,   only : append, findDifferent, numToChar
-  use mesh_inter,          only : mesh, kill_super => kill
+  use accelerationStructure_inter, only : accelerationStructure
+  use cellZoneShelf_class,         only : cellZoneShelf
+  use coord_class,                 only : coord
+  use dictionary_class,            only : dictionary
+  use edgeShelf_class,             only : edgeShelf
+  use element_inter,               only : elementBox, inclusionTestResult
+  use elementShelf_class,          only : elementShelf
+  use face_inter,                  only : faceBox
+  use faceShelf_class,             only : faceShelf
+  use genericProcedures,           only : append, findDifferent, numToChar
+  use mesh_inter,                  only : mesh, kill_super => kill
   use numPrecision
+  use octreeAcceleration_class,    only : octreeAcceleration
   use universalVariables
-  use vertexShelf_class,   only : vertexShelf
-  use kdTree_class,        only : kdTree
+  use vertexShelf_class,           only : vertexShelf
 
   implicit none
   private
 
   ! Extendable procedures.
-  public :: distanceToBoundaryFace, distanceToNextFace, findElementAndParentIdxs, kill
+  public :: distanceToBoundaryFace, distanceToNextFace, findHostElement, kill
   
   !! Abstract interface to group all unstructured meshes. An unstructured mesh uses a vertex -> face 
   !! -> element representation of space. Each element is composed by a set of faces which are themselves 
@@ -39,7 +39,6 @@ module unstructuredMesh_inter
   !!   nEdges                   -> Number of edges in the mesh.
   !!   nElements                -> Number of elements in the mesh.
   !!   nInternalFaces           -> Number of internal faces in the mesh.
-  !!   tree                     -> kd-tree used for nearest-neighbour searches and entry checks.
   !!
   !! Interface:
   !!   kill                     -> Returns to an unitialised state.
@@ -51,38 +50,34 @@ module unstructuredMesh_inter
   !!                               returns the index of the parent mesh element containing the occupied
   !!                               element.
   !!
-  type, public, abstract, extends(mesh) :: unstructuredMesh
+  type, public, abstract, extends(mesh)       :: unstructuredMesh
     private
-    integer(shortInt), public           :: nVertices = 0, nFaces = 0, nEdges = 0, &
-                                           nElements = 0, nInternalFaces = 0
-    type(cartesianGrid)                 :: grid
-    type(edgeShelf), public             :: edges
-    type(elementShelf), public          :: elements
-    type(faceShelf), public             :: faces
-    type(vertexShelf), public           :: centroids, vertices
-    type(kdTree), public                :: tree, centroidTree, boundingBoxTree
+    integer(shortInt), public                 :: nVertices = 0, nFaces = 0, nEdges = 0, &
+                                                 nElements = 0, nInternalFaces = 0
+    class(accelerationStructure), allocatable :: acceleration
+    type(edgeShelf), public                   :: edges
+    type(elementShelf), public                :: elements
+    type(faceShelf), public                   :: faces
+    type(vertexShelf), public                 :: vertices
   contains
     ! Build procedures.
-    procedure                           :: computePrimitives
-    procedure(importMesh), deferred     :: importMesh
-    procedure                           :: init
-    procedure                           :: kill
-    procedure, non_overridable          :: printComposition
-    procedure                           :: setCentroidShelf
-    procedure                           :: setEdgeShelf
-    procedure                           :: setElementShelf
-    procedure                           :: setFaceShelf
-    procedure                           :: setVertexShelf
-    procedure                           :: split
-    procedure                           :: splitElements
-    procedure                           :: splitFaces
+    procedure                       :: computePrimitives
+    procedure(importMesh), deferred :: importMesh
+    procedure                       :: init
+    procedure                       :: kill
+    procedure, non_overridable      :: printComposition
+    procedure                       :: setEdgeShelf
+    procedure                       :: setElementShelf
+    procedure                       :: setFaceShelf
+    procedure                       :: setVertexShelf
+    procedure                       :: split
+    procedure                       :: splitElements
+    procedure                       :: splitFaces
     ! Runtime procedures.
-    procedure                           :: distanceToBoundaryFace
-    procedure                           :: distanceToNextFace
-    procedure                           :: findElementAndParentIdxs
-    procedure                           :: findElementFromDirection
-    procedure                           :: getAllCentroidCoordinates
-    procedure                           :: getAllVertexCoordinates
+    procedure                       :: distanceToBoundaryFace
+    procedure                       :: distanceToNextFace
+    procedure                       :: findHostElement
+    procedure                       :: getAllVertexCoordinates
   end type unstructuredMesh
 
   abstract interface
@@ -96,7 +91,7 @@ module unstructuredMesh_inter
     !!   d [out]        -> Distance to the next intersected face.
     !!   coords [inout] -> Particle's coordinates.
     !!
-    subroutine importMesh(self, folderPath, centroids, edges, elements, elementZones, faces, vertices)
+    subroutine importMesh(self, folderPath, edges, elements, elementZones, faces, vertices)
       import                                 :: unstructuredMesh, cellZoneShelf, edgeShelf, elementShelf, faceShelf, vertexShelf
       class(unstructuredMesh), intent(inout) :: self
       character(*), intent(in)               :: folderPath
@@ -104,7 +99,7 @@ module unstructuredMesh_inter
       type(elementShelf), intent(out)        :: elements
       type(cellZoneShelf), intent(out)       :: elementZones
       type(faceShelf), intent(out)           :: faces
-      type(vertexShelf), intent(out)         :: centroids, vertices
+      type(vertexShelf), intent(out)         :: vertices
 
     end subroutine importMesh
 
@@ -230,46 +225,59 @@ contains
   !!
   !! See mesh_inter for details.
   !!
-  elemental subroutine distanceToBoundaryFace(self, d, coords, parentIdx)
+  subroutine distanceToBoundaryFace(self, d, coords)
     class(unstructuredMesh), intent(in)          :: self
     real(defReal), intent(out)                   :: d
     type(coord), intent(inout)                   :: coords
-    integer(shortInt), intent(out)               :: parentIdx
-    integer(shortInt)                            :: edgeIdx, vertexIdx
-    integer(shortInt), dimension(:), allocatable :: testFaceIdxs, elementIdxs
+    integer(shortInt)                            :: i, boundaryFaceIdx
+    real(defReal)                                :: update
+    integer(shortInt), dimension(:), allocatable :: elementIdxs
+    type(inclusionTestResult)                    :: testResult
     
     ! Initialise parentIdx = 0, edgeIdx = 0 and vertexIdx = 0 then search the tree for the intersected boundary face.
-    parentIdx = 0
-    edgeIdx = 0
-    vertexIdx = 0
-    call self % tree % findIntersectedFace(self % vertices, self % faces, d, coords, edgeIdx, vertexIdx)
+    d = INF
+    call coords % setParentElementIdx(0)
+    boundaryFaceIdx = 0
+    do i = 1, self % nFaces
+      if (.not. self % faces % getFaceIsBoundary(i)) cycle
 
-    ! If edgeIdx > 0 or vertexIdx > 0 then the particle intersects a boundary face through and edge or a vertex. In this
-    ! case assign element occupation from particle direction.
-    if (edgeIdx > 0 .or. vertexIdx > 0) then
-      if (edgeIdx > 0) then
-        testFaceIdxs = self % edges % getEdgeFaceIdxs(edgeIdx)
-        elementIdxs = self % edges % getEdgeElementIdxs(edgeIdx)
-
-      elseif (vertexIdx > 0) then
-        testFaceIdxs = self % vertices % getVertexFaceIdxs(vertexIdx)
-        elementIdxs = self % vertices % getVertexElementIdxs(vertexIdx)
+      ! Compute distance to boundary face.
+      call self % faces % computeFaceIntersection(i, coords, self % vertices, update)
+      if (update < d) then
+        d = update
+        boundaryFaceIdx = i
 
       end if
-      coords % elementIdx = self % findElementFromDirection(coords % dir, elementIdxs, testFaceIdxs)
-      
-      ! If the particle's elementIdx is 0 (e.g., particle enters the mesh via a boundary vertex but still points outside)
-      ! then update d = INF and return.
-      if (coords % elementIdx == 0) then
-        d = INF
-        return
+
+    end do
+
+    ! Retrieve the element associated with the boundary face.
+    if (boundaryFaceIdx > 0) then
+      elementIdxs = self % faces % getFaceElementIdxs(boundaryFaceIdx)
+      call coords % setElementIdx(elementIdxs(1))
+      call coords % setParentElementIdx(self % elements % getElementParentIdx(elementIdxs(1)))
+
+      ! Set coords % endPosition to the minimum computed distance plus a slight forward nudge.
+      call coords % setEndPosition(coords % getPosition() + (d + NUDGE) * coords % getDirection())
+
+      ! If the element associated with the intersected face does not contain the end position, begin rescue.
+      testResult = self % elements % isPointInside(elementIdxs(1), coords % getEndPosition(), self % faces)
+      if (.not. testResult % status == INSIDE_ELEMENT) then
+        call coords % setNudgeEndPosition(.true.)
+        call self % findHostElement(coords)
+        ! Update distance.
+        if (coords % getElementIdx() == 0) then
+          d = INF
+
+        else
+          d = norm2(coords % getEndPosition() - coords % getPosition())
+
+        end if
+        call coords % setNudgeEndPosition(.false.)
 
       end if
 
     end if
-
-    ! Update parentIdx only if particle enters the mesh.
-    if (coords % elementIdx > 0) parentIdx = self % elements % getElementParentIdx(coords % elementIdx)
 
   end subroutine distanceToBoundaryFace
 
@@ -294,23 +302,23 @@ contains
     ! Initialise d = INF, retrieve the element currently occupied by the particle and compute potential 
     ! face intersections.
     d = INF
-    elementIdx = coords % elementIdx
-    rEnd = coords % rEnd
+    elementIdx = coords % getElementIdx()
+    rEnd = coords % getEndPosition()
     potentialFaces = self % elements % computePotentialFaceIdxs(elementIdx, rEnd, self % faces)
 
     ! If no potential intersections are detected return early.
     if (size(potentialFaces) == 0) return
     
     ! If reached here, compute which face is actually intersected and update d.
-    r = coords % r
+    r = coords % getPosition()
     call self % elements % computeFaceIntersection(elementIdx, r, rEnd, potentialFaces, self % faces, &
                                                    intersectedFaceIdx, lambda)
     d = norm2(min(ONE, max(ZERO, lambda)) * (rEnd - r))
     
     ! If the intersected face is a boundary face then the particle is leaving the mesh.
     if (self % faces % getFaceIsBoundary(intersectedFaceIdx)) then
-      coords % elementIdx = 0
-      coords % localId = 1
+      call coords % setElementIdx(0)
+      call coords % setLocalId(1)
       return
 
     end if
@@ -318,8 +326,8 @@ contains
     ! Else, retrieve the elements sharing the intersected face from mesh connectivity then
     ! update elementIdx and localId.
     faceToElements = self % faces % getFaceElementIdxs(intersectedFaceIdx)
-    coords % elementIdx = findDifferent(faceToElements, elementIdx)
-    coords % localId = self % findElementZoneIdx(self % elements % getElementParentIdx(coords % elementIdx))
+    call coords % setElementIdx(findDifferent(faceToElements, elementIdx))
+    call coords % setLocalId(self % findElementZoneIdx(self % elements % getElementParentIdx(coords % getElementIdx())))
 
   end subroutine distanceToNextFace
 
@@ -331,157 +339,63 @@ contains
   !!
   !! See mesh_inter for details.
   !!
-  subroutine findElementAndParentIdxs(self, r, u, elementIdx, parentIdx)
+  subroutine findHostElement(self, coords)
     class(unstructuredMesh), intent(in)          :: self
-    real(defReal), dimension(3), intent(in)      :: r, u
-    integer(shortInt), intent(out)               :: elementIdx, parentIdx
-    real(defReal), dimension(6)                  :: boundingBox
-    integer(shortInt), dimension(:), allocatable :: potentialElements, faceToElements, zeroDotProductFaceIdxs, &
-                                                    testFaceIdxs, elementFaceIdxs, elementVertexIdxs, vertexFaceIdxs
-    integer(shortInt)                            :: i, nearestVertexIdx, failedFaceIdx, commonEdgeIdx, commonVertexIdx
-    logical(defBool), dimension(self % nElements) :: isVisited
+    type(coord), intent(inout)                   :: coords
+    integer(shortInt), dimension(:), allocatable :: potentialElementsIdxs
+    integer(shortInt)                            :: i, nPotentialElements, potentialElementIdx
+    real(defReal), dimension(3)                  :: r
+    type(inclusionTestResult)                    :: testResult
     
-    ! Initialise elementIdx = 0 and parentIdx = 0. Retrieve the mesh's bounding box. If the particle is outside the
-    ! bounding box we can return early.
-    elementIdx = 0
-    parentIdx = 0
+    ! Initialise parentIdx = 0. Retrieve the mesh's bounding box. If the particle is outside the bounding box we can return early.
+    call coords % setElementIdx(0)
+    call coords % setParentElementIdx(0)
+    if (allocated(self % acceleration)) then
+      call self % acceleration % findHostElement(self % faces, self % elements, coords)
 
-    ! Retrieve potential elements from the bounding box tree:
-    potentialElements = self % boundingBoxTree % findPotentialElementIdxs(r)
-    if (size(potentialElements) == 0) return
+    else
+      ! Perform brute-force search.
+      searchLoop: do
+        do i = 1, self % nElements
+          testResult = self % elements % isPointInside(i, coords % getPositionToNudge(), self % faces)
+          if (testResult % status == INSIDE_ELEMENT) then
+            call coords % setElementIdx(i)
+            call coords % setParentElementIdx(self % elements % getElementParentIdx(i))
+            return
 
-    do i = 1, size(potentialElements)
-      elementIdx = potentialElements(i)
-      call self % elements % testForInclusion(elementIdx, r, self % faces, failedFaceIdx, zeroDotProductFaceIdxs)
-      if (failedFaceIdx > 0) cycle
+          elseif (testResult % status == ON_BOUNDARY_ELEMENT) then
+            ! If coordinates are on the element boundary (very rare), we need to push them off.
+            do while (testResult % status == ON_BOUNDARY_ELEMENT)
+              call self % elements % pushFromElementBoundary(i, self % faces, coords)
 
-      ! If there are faces on which the particle lies we need to employ some more specific
-      ! procedures to correctly determine which element is actually occupied.
-      if (allocated(zeroDotProductFaceIdxs)) then
-        select case (size(zeroDotProductFaceIdxs))
-          ! Particle is on a element's face.
-          case(1)
-            potentialElements = self % faces % getFaceElementIdxs(zeroDotProductFaceIdxs(1))
-            testFaceIdxs = zeroDotProductFaceIdxs
-          ! Particle is on a element's edge.
-          case(2)
-            ! Find the common edge and retrieve elements sharing this edge.
-            commonEdgeIdx = self % faces % findCommonEdgeIdx(zeroDotProductFaceIdxs(1), zeroDotProductFaceIdxs(2))
-            potentialElements = self % edges % getEdgeElementIdxs(commonEdgeIdx)
-            testFaceIdxs = self % edges % getEdgeFaceIdxs(commonEdgeIdx)
-          ! Particle is on a element's vertex.
-          case default
-            ! Find the common vertex and retrieve all elements sharing this vertex.
-            commonVertexIdx = self % faces % findCommonVertexIdx(zeroDotProductFaceIdxs)
-            potentialElements = self % vertices % getVertexElementIdxs(commonVertexIdx)
-            testFaceIdxs = self % vertices % getVertexFaceIdxs(commonVertexIdx)
+              ! Perform containment test again.
+              testResult = self % elements % isPointInside(i, coords % getPositionToNudge(), self % faces)
 
-        end select
-        elementIdx = self % findElementFromDirection(u, potentialElements, testFaceIdxs)
-        if (elementIdx > 0) parentIdx = self % elements % getElementParentIdx(elementIdx)
+            end do
+
+            ! Now the coordinates are not on the boundary of the element anymore.
+            if (testResult % status == INSIDE_ELEMENT) then
+              ! If coordinates are now well inside the element, we have found our element.
+              call coords % setElementIdx(i)
+              call coords % setParentElementIdx(self % elements % getElementParentIdx(i))
+              return
+
+            elseif (testResult % status == OUTSIDE_ELEMENT) then
+              ! If the nudge has resulted in an overshoot, we cycle searchLoop and begin the entire process again.
+              cycle searchLoop
+
+            end if
+
+          end if
+
+        end do
         return
-      
-      end if
 
-      parentIdx = self % elements % getElementParentIdx(elementIdx)
-      return
+      end do searchLoop
 
-    end do
+    end if
 
-    ! If reached here, particle is outside the mesh.
-    elementIdx = 0
-
-  end subroutine findElementAndParentIdxs
-
-  !! Function 'findElementFromDirection'
-  !!
-  !! Basic description:
-  !!   Returns the index of the element occupied by a particle in case the particle lies on one or more
-  !!   element face(s).
-  !!
-  !! Detailed description:
-  !!   When the particle lies on one or more element face(s), it is technically in more than one element
-  !!   at once. In this case element occupation can be assigned by using the particle's direction vector.
-  !!   The idea is to take all the faces on which the particle lies and perform the dot product of the
-  !!   particle's direction with each of the face's (signed) normal vector. The element actually occupied
-  !!   by the partice is then that for which the number of negative dot products is the greatest.
-  !!
-  !! Arguments:
-  !!   u [in]            -> Particle's direction.
-  !!   elementIdxs [in]  -> Indices of the elements to be tested.
-  !!   testFaceIdxs [in] -> Indices of the faces to be tested.
-  !!
-  !! Result:
-  !!   elementIdx        -> Index of the element occupied by the particle.
-  !!
-  pure function findElementFromDirection(self, u, elementIdxs, testFaceIdxs) result(elementIdx)
-    class(unstructuredMesh), intent(in)          :: self
-    real(defReal), dimension(3), intent(in)      :: u
-    integer(shortInt), dimension(:), intent(in)  :: elementIdxs, testFaceIdxs
-    integer(shortInt)                            :: elementIdx, i, j, count, maxCount, maxIdx
-    integer(shortInt), dimension(:), allocatable :: faceIdxs, absFaceIdxs
-    real(defReal), dimension(3)                  :: normal
-
-    ! Initialise elementIdx = 0 and maxCount = 0 then loop over all elements.
-    elementIdx = 0
-    maxCount = 0
-    do i = 1, size(elementIdxs)
-      ! Retrieve the faces making the current element and convert them to absolute indices.
-      faceIdxs = self % elements % getElementFaceIdxs(elementIdxs(i))
-      absFaceIdxs = abs(faceIdxs)
-      
-      ! Initialise count = 0 then loop through all faces in the current element.
-      count = 0
-      do j = 1, size(faceIdxs)
-
-        ! Cycle to the next face if it is not a face on which the particle is.
-        if (.not. any(testFaceIdxs == absFaceIdxs(j))) cycle
-
-        ! Retrieve the current face's signed normal vector.
-        normal = self % faces % getFaceNormal(faceIdxs(j))
-
-        ! If the dot product is negative increment count and cycle to the next face.
-        if (dot_product(u, normal) <= ZERO) then
-          count = count + 1
-          cycle
-
-        end if
-        
-        ! If the test fails and the current face is a boundary face, the particle is outside the mesh
-        ! and we can return early.
-        if (self % faces % getFaceIsBoundary(absFaceIdxs(j))) return
-
-      end do
-
-      ! If count > maxCount, update maxCount and maxIdx.
-      if (count > maxCount) then
-        maxCount = count
-        maxIdx = i
-
-      end if
-
-    end do
-
-    ! If reached here, update elementIdx.
-    elementIdx = elementIdxs(maxIdx)
-
-  end function findElementFromDirection
-
-  !! Function 'getAllCentroidCoordinates'
-  !!
-  !! Basic description:
-  !!   Returns the 3-D coordinates of all the centroids in the mesh.
-  !!
-  !! Result:
-  !!   coords -> 3-D coordinates of all the centroids in the mesh.
-  !!
-  pure function getAllCentroidCoordinates(self) result(coords)
-    class(unstructuredMesh), intent(in)           :: self
-    real(defReal), dimension(self % nElements, 3) :: coords
-
-    coords = self % centroids % getAllCoordinates()
-
-  end function getAllCentroidCoordinates
+  end subroutine findHostElement
 
   !! Function 'getAllVertexCoordinates'
   !!
@@ -493,7 +407,7 @@ contains
   !!
   pure function getAllVertexCoordinates(self) result(coords)
     class(unstructuredMesh), intent(in)           :: self
-    real(defReal), dimension(self % nVertices, 3) :: coords
+    real(defReal), dimension(3, self % nVertices) :: coords
 
     coords = self % vertices % getAllCoordinates()
 
@@ -510,28 +424,26 @@ contains
     type(elementShelf)                     :: elements, newElements
     type(cellZoneShelf)                    :: elementZones
     type(faceShelf)                        :: faces, newFaces
-    type(vertexShelf)                      :: centroids, newCentroids, newVertices, vertices
+    type(vertexShelf)                      :: newVertices, vertices
     logical(defBool)                       :: triangulate
-    integer(shortInt)                      :: i
+    character(nameLen)                     :: acceleration
 
     ! Set up base components.
     call self % setupBase(dict)
     
     ! Import mesh from files.
-    call self % importMesh(folderPath, centroids, edges, elements, elementZones, faces, vertices)
+    call self % importMesh(folderPath, edges, elements, elementZones, faces, vertices)
 
     ! Check if triangulation was requested.
     call dict % getOrDefault(triangulate, 'triangulate', .false.)
     if (triangulate) then
-      call self % split(edges, elements, faces, vertices, newCentroids, newEdges, newElements, newFaces, newVertices)
-      call self % setCentroidShelf(newCentroids)
+      call self % split(edges, elements, faces, vertices, newEdges, newElements, newFaces, newVertices)
       call self % setEdgeShelf(newEdges)
       call self % setElementShelf(newElements)
       call self % setFaceShelf(newFaces)
       call self % setVertexShelf(newVertices)
 
     else
-      call self % setCentroidShelf(centroids)
       call self % setEdgeShelf(edges)
       call self % setElementShelf(elements)
       call self % setFaceShelf(faces)
@@ -539,16 +451,16 @@ contains
 
     end if
 
-    ! Set elements zones and initialise kd-tree for the mesh.
+    ! Set elements zones.
     call self % setElementZones(elementZones)
-    call self % tree % init(self % getAllVertexCoordinates(), .true., .false.)
-    call self % centroidTree % init(self % getAllCentroidCoordinates(), .true., .false.)
 
-    ! Initialise tree for the bounding boxes of the elements in the mesh.
-    call self % boundingBoxTree % init(self % elements % getAllBoundingBoxes(), .false., .true.)
+    ! Check if acceleration structure was required by user and initialise it if applicable.
+    call dict % getOrDefault(acceleration, 'accelerationMethod', 'none')
+    if (acceleration /= 'none') then
+      if (acceleration == 'octree') allocate(octreeAcceleration :: self % acceleration)
+      call self % acceleration % init(self % vertices, self % faces, self % elements)
 
-    ! Initialise background Cartesian grid.
-    call self % grid % init(self % faces)
+    end if
 
   end subroutine init
 
@@ -569,15 +481,15 @@ contains
     self % nInternalFaces = 0
     self % nElements = 0
     self % nEdges = 0
-    call self % centroids % kill()
     call self % edges % kill()
     call self % elements % kill()
     call self % faces % kill()
-    call self % grid % kill()
-    call self % boundingBoxTree % kill()
-    call self % centroidTree % kill()
-    call self % tree % kill()
     call self % vertices % kill()
+    if (allocated(self % acceleration)) then
+      call self % acceleration % kill()
+      deallocate(self % acceleration)
+
+    end if
 
   end subroutine kill
 
@@ -627,22 +539,6 @@ contains
     print *, '  Number of other polyhedra: '//numToChar(nOthers)//'.'
 
   end subroutine printComposition
-
-  !! Subroutine 'setCentroidShelf'
-  !!
-  !! Basic description:
-  !!   Sets the centroidShelf of the unstructured mesh.
-  !!
-  !! Arguments:
-  !!   centroids [in] -> A vertexShelf.
-  !!
-  elemental subroutine setCentroidShelf(self, centroids)
-    class(unstructuredMesh), intent(inout) :: self
-    type(vertexShelf), intent(in)          :: centroids
-
-    self % centroids = centroids
-
-  end subroutine setCentroidShelf
 
   !! Subroutine 'setEdgeShelf'
   !!
@@ -725,7 +621,7 @@ contains
   !! Arguments:
   !!   lastVertexIdx [out] -> Index of the last vertex in the resulting mesh.
   !!
-  subroutine split(self, edges, elements, faces, vertices, newCentroids, newEdges, newElements, newFaces, newVertices)
+  subroutine split(self, edges, elements, faces, vertices, newEdges, newElements, newFaces, newVertices)
     class(unstructuredMesh), intent(inout)    :: self
     type(edgeShelf), intent(in)               :: edges
     type(elementShelf), intent(inout)         :: elements
@@ -734,7 +630,7 @@ contains
     type(edgeShelf), intent(out)              :: newEdges
     type(elementShelf), intent(out)           :: newElements
     type(faceShelf), intent(out)              :: newFaces
-    type(vertexShelf), intent(out)            :: newCentroids, newVertices
+    type(vertexShelf), intent(out)            :: newVertices
     integer(shortInt)                         :: i, j, nEdges, nInternalTriangles, nNewEdges, nTetrahedra, nTriangles, &
                                                  nVertices, nNewVertices, lastEdgeIdx, lastFaceIdx, lastElementIdx, lastVertexIdx
     integer(shortInt), dimension(:), allocatable :: edgeIdxs
@@ -750,7 +646,6 @@ contains
     call self % computePrimitives(elements, faces, nNewEdges, nInternalTriangles, nTetrahedra, nTriangles, nNewVertices)
     
     ! Allocate memory in the new shelves.
-    call newCentroids % allocateShelf(nTetrahedra)
     call newEdges % allocateShelf(nEdges + nNewEdges)
     call newElements % allocateShelf(nTetrahedra)
     call newFaces % allocateShelf(nTriangles)
@@ -787,7 +682,7 @@ contains
     lastVertexIdx = nVertices
     call self % splitFaces(faces, newEdges, newFaces, newVertices, lastEdgeIdx, lastFaceIdx, triangles)
     call self % splitElements(elements, faces, lastEdgeIdx, lastElementIdx, lastFaceIdx, lastVertexIdx, &
-                              newCentroids, newEdges, newElements, newFaces, newVertices, tetrahedra, triangles)
+                              newEdges, newElements, newFaces, newVertices, tetrahedra, triangles)
 
     ! Update the number of edges, faces, elements and vertices in the mesh.
     self % nEdges = nEdges + nNewEdges
@@ -812,13 +707,13 @@ contains
   !!   lastVertexIdx [inout]      -> Index of the last vertex in the mesh.
   !!
   subroutine splitElements(self, elements, faces, lastNewEdgeIdx, lastNewElementIdx, lastNewFaceIdx, lastNewVertexIdx, &
-                           newCentroids, newEdges, newElements, newFaces, newVertices, tetrahedra, triangles)
+                           newEdges, newElements, newFaces, newVertices, tetrahedra, triangles)
     class(unstructuredMesh), intent(inout)        :: self
     type(elementShelf), intent(inout)             :: elements, newElements
     type(faceShelf), intent(inout)                :: faces, newFaces
     integer(shortInt), intent(inout)              :: lastNewEdgeIdx, lastNewElementIdx, lastNewFaceIdx, lastNewVertexIdx
     type(edgeShelf), intent(inout)                :: newEdges
-    type(vertexShelf), intent(inout)              :: newCentroids, newVertices
+    type(vertexShelf), intent(inout)              :: newVertices
     type(elementBox), dimension(:), intent(inout) :: tetrahedra
     type(faceBox), dimension(:), intent(inout)    :: triangles
     integer(shortInt)                             :: i, initialElementIdx, j
@@ -833,8 +728,6 @@ contains
       ! Set all new tetrahedra.
       do j = initialElementIdx, lastNewElementIdx
         call newElements % addElement(j, tetrahedra(j))
-        call newCentroids % initVertex(j, newElements % getElementCentroid(j))
-        call newCentroids % addElementIdxToVertex(j, j)
 
       end do
       

@@ -1,13 +1,15 @@
 module elementShelf_class
   
-  use edgeShelf_class,   only : edgeShelf
-  use element_inter,     only : element, elementBox
-  use face_inter,        only : faceBox
-  use faceShelf_class,   only : faceShelf
+  use axisAlignedBoundingBox_class, only : axisAlignedBoundingBox
+  use coord_class,                  only : coord
+  use edgeShelf_class,              only : edgeShelf
+  use element_inter,                only : element, elementBox, inclusionTestResult
+  use face_inter,                   only : faceBox
+  use faceShelf_class,              only : faceShelf
   use numPrecision
-  use polyhedron_class,  only : polyhedron
-  use tetrahedron_class, only : tetrahedron
-  use vertexShelf_class, only : vertexShelf
+  use polyhedron_class,             only : polyhedron
+  use tetrahedron_class,            only : tetrahedron
+  use vertexShelf_class,            only : vertexShelf
   
   implicit none
   private
@@ -31,7 +33,8 @@ module elementShelf_class
     procedure                                   :: buildElement
     procedure                                   :: computeFaceIntersection
     procedure                                   :: computePotentialFaceIdxs
-    procedure                                   :: getAllBoundingBoxes
+    procedure                                   :: getAllElementBoundingBoxes
+    procedure                                   :: getAllElementCentroids
     procedure                                   :: getElementBoundingBox
     procedure                                   :: getElementCentroid
     procedure                                   :: getElementEdgeIdxs
@@ -44,8 +47,9 @@ module elementShelf_class
     procedure                                   :: getSize
     procedure                                   :: initElement
     procedure                                   :: kill
+    procedure                                   :: pushFromElementBoundary
     procedure                                   :: splitElement
-    procedure                                   :: testForInclusion
+    procedure                                   :: isPointInside
   end type elementShelf
 
 contains
@@ -158,7 +162,7 @@ contains
     type(faceShelf), intent(in)                 :: faces
     type(vertexShelf), intent(in)               :: vertices
     character(*), intent(in)                    :: type
-    real(defReal), dimension(6), intent(in)     :: boundingBox
+    type(axisAlignedBoundingBox), intent(in)    :: boundingBox
 
     ! Allocate element in shelf then build components.
     call self % allocateElement(idx, type)
@@ -217,7 +221,7 @@ contains
 
   end function computePotentialFaceIdxs
 
-  !! Function 'getAllBoundingBoxes'
+  !! Function 'getAllElementBoundingBoxes'
   !!
   !! Basic description:
   !!   Returns the bounding boxes of all the elements in the shelf.
@@ -225,17 +229,37 @@ contains
   !! Result:
   !!   boundingBoxes -> Array containing the bounding boxes of all the elements in the shelf.
   !!
-  pure function getAllBoundingBoxes(self) result(boundingBoxes)
-    class(elementShelf), intent(in)                 :: self
-    real(defReal), dimension(6, size(self % shelf)) :: boundingBoxes
-    integer(shortInt)                               :: i
+  pure function getAllElementBoundingBoxes(self) result(boundingBoxes)
+    class(elementShelf), intent(in)                             :: self
+    type(axisAlignedBoundingBox), dimension(size(self % shelf)) :: boundingBoxes
+    integer(shortInt)                                           :: i
 
     do i = 1, size(self % shelf)
-      boundingBoxes(:, i) = self % shelf(i) % item % getBoundingBox()
+      boundingBoxes(i) = self % shelf(i) % item % getBoundingBox()
 
     end do
 
-  end function getAllBoundingBoxes
+  end function getAllElementBoundingBoxes
+
+  !! Function 'getAllElementCentroids'
+  !!
+  !! Basic description:
+  !!   Returns the centroids of all the elements in the shelf.
+  !!
+  !! Result:
+  !!   centroids -> Array containing the centroids of all the elements in the shelf.
+  !!
+  pure function getAllElementCentroids(self) result(centroids)
+    class(elementShelf), intent(in)                 :: self
+    real(defReal), dimension(3, size(self % shelf)) :: centroids
+    integer(shortInt)                               :: i
+
+    do i = 1, size(self % shelf)
+      centroids(:, i) = self % shelf(i) % item % getCentroid()
+
+    end do
+
+  end function getAllElementCentroids
 
   !! Function 'getElementBoundingBox'
   !!
@@ -251,7 +275,7 @@ contains
   pure function getElementBoundingBox(self, idx) result(boundingBox)
     class(elementShelf), intent(in) :: self
     integer(shortInt), intent(in)   :: idx
-    real(defReal), dimension(6)     :: boundingBox
+    type(axisAlignedBoundingBox)    :: boundingBox
 
     boundingBox = self % shelf(idx) % item % getBoundingBox()
 
@@ -445,7 +469,7 @@ contains
     real(defReal), intent(in)                   :: volume
     logical(defBool), intent(in)                :: isConvex
     character(*), intent(in)                    :: type
-    real(defReal), dimension(6), intent(in)     :: boundingBox
+    type(axisAlignedBoundingBox), intent(in)    :: boundingBox
 
     call self % allocateElement(idx, type)
     call self % shelf(idx) % item % init(idx, parentIdx, faceIdxs, vertexIdxs, centroid, volume, isConvex, type, boundingBox)
@@ -471,6 +495,19 @@ contains
     end if
 
   end subroutine kill
+
+  !!
+  !!
+  !!
+  elemental subroutine pushFromElementBoundary(self, idx, faces, coords)
+    class(elementShelf), intent(in) :: self
+    integer(shortInt), intent(in)   :: idx
+    type(faceShelf), intent(in)     :: faces
+    type(coord), intent(inout)      :: coords
+
+    call self % shelf(idx) % item % pushFromBoundary(faces, coords)
+
+  end subroutine pushFromElementBoundary
 
   !! Subroutine 'splitElement'
   !!
@@ -517,16 +554,15 @@ contains
   !!   failedFaceIdx [out]   -> Index of the first element's face for which the test fails.
   !!   surfTolFaceIdxs [out] -> Indices of the element's faces on which the point lies.
   !!
-  pure subroutine testForInclusion(self, idx, r, faces, failedFaceIdx, surfTolFaceIdxs)
-    class(elementShelf), intent(in)                           :: self
-    integer(shortInt), intent(in)                             :: idx
-    real(defReal), dimension(3), intent(in)                   :: r
-    type(faceShelf), intent(in)                               :: faces
-    integer(shortInt), intent(out)                            :: failedFaceIdx
-    integer(shortInt), dimension(:), allocatable, intent(out) :: surfTolFaceIdxs
+  pure function isPointInside(self, idx, r, faces) result(result)
+    class(elementShelf), intent(in)         :: self
+    integer(shortInt), intent(in)           :: idx
+    real(defReal), dimension(3), intent(in) :: r
+    type(faceShelf), intent(in)             :: faces
+    type(inclusionTestResult)               :: result
 
-    call self % shelf(idx) % item % testForInclusion(faces, r, failedFaceIdx, surfTolFaceIdxs)
+    result = self % shelf(idx) % item % isPointInside(faces, r)
 
-  end subroutine testForInclusion
+  end function isPointInside
   
 end module elementShelf_class

@@ -3,7 +3,7 @@ module particle_class
   use numPrecision
   use universalVariables
   use genericProcedures
-  use coord_class,       only : coordList
+  use coordList_class,   only : coordList
   use RNG_class,         only : RNG
   use errors_mod,        only : fatalError
 
@@ -264,8 +264,8 @@ contains
     LHS % w                     = RHS % wgt
     LHS % w0                    = RHS % wgt
     call LHS % takeAboveGeom()
-    LHS % coords % lvl(1) % r   = RHS % r
-    LHS % coords % lvl(1) % dir = RHS % dir
+    call LHS % coords % setPosition(RHS % r, 1)
+    call LHS % coords % setDirection(RHS % dir, 1)
     LHS % E                     = RHS % E
     LHS % G                     = RHS % G
     LHS % isMG                  = RHS % isMG
@@ -284,49 +284,53 @@ contains
   !!
   !! Return the position either at the deepest nested level or a specified level
   !!
-  function rLocal(self,n)result(r)
+  function rLocal(self, n) result(r)
     class(particle), intent(in)             :: self
     integer(shortInt), intent(in), optional :: n
     real(defReal), dimension(3)             :: r
     integer(shortInt)                       :: n_loc
 
-    if(present(n)) then
+    if (present(n)) then
       n_loc = n
+
     else
-      n_loc = self % coords % nesting
+      n_loc = self % coords % getNesting()
+
     end if
 
-    r = self % coords % lvl(n_loc) % r
+    r = self % coords % getPosition(n_loc)
 
   end function rLocal
 
   !!
   !! Return the position at the highest level
   !!
-  pure function rGlobal(self)result(r)
+  pure function rGlobal(self) result(r)
     class(particle), intent(in) :: self
     real(defReal), dimension(3) :: r
 
-    r = self % coords % lvl(1) % r
+    r = self % coords % getPosition(1)
 
   end function rGlobal
 
   !!
   !! Return the direction either at the deepest nested level or at a specified level
   !!
-  function dirLocal(self,n)result(dir)
+  function dirLocal(self, n) result(dir)
     class(particle), intent(in) :: self
     integer(shortInt), optional :: n
     real(defReal), dimension(3) :: dir
     integer(shortInt)           :: n_loc
 
-    if(present(n)) then
+    if (present(n)) then
       n_loc = n
+
     else
-      n_loc = self % coords % nesting
+      n_loc = self % coords % getNesting()
+
     end if
 
-    dir = self % coords % lvl(n_loc) % dir
+    dir = self % coords % getDirection(n_loc)
 
   end function dirLocal
 
@@ -337,7 +341,7 @@ contains
     class(particle), intent(in) :: self
     real(defReal), dimension(3) :: dir
 
-    dir = self % coords % lvl(1) % dir
+    dir = self % coords % getDirection(1)
 
   end function dirGlobal
 
@@ -348,7 +352,7 @@ contains
     class(particle), intent(in) :: self
     integer(shortInt)           :: n
 
-    n = self % coords % nesting
+    n = self % coords % getNesting()
 
   end function nesting
 
@@ -362,13 +366,15 @@ contains
     integer(shortInt)                       :: idx
     integer(shortInt)                       :: n_loc
 
-    if(present(n)) then
+    if (present(n)) then
       n_loc = n
+
     else
-      n_loc = self % coords % nesting
+      n_loc = self % coords % getNesting()
+
     end if
 
-    idx = self % coords % lvl(n_loc) % cellIdx
+    idx = self % coords % getCellIdx(n_loc)
 
   end function getCellIdx
 
@@ -376,18 +382,20 @@ contains
   !! Return universe index at a given nesting level n
   !!
   pure function getUniIdx(self,n) result(idx)
-    class(particle), intent(in)             :: self
-    integer(shortInt),optional, intent(in)  :: n
-    integer(shortInt)                       :: idx
-    integer(shortInt)                       :: n_loc
+    class(particle), intent(in)            :: self
+    integer(shortInt),optional, intent(in) :: n
+    integer(shortInt)                      :: idx
+    integer(shortInt)                      :: n_loc
 
-    if(present(n)) then
+    if (present(n)) then
       n_loc = n
+
     else
-      n_loc = self % coords % nesting
+      n_loc = self % coords % getNesting()
+
     end if
 
-    idx = self % coords % lvl(n_loc) % uniIdx
+    idx = self % coords % getUniIdx(n_loc)
 
   end function getUniIdx
 
@@ -398,7 +406,7 @@ contains
     class(particle), intent(in) :: self
     integer(shortInt)           :: matIdx
 
-    matIdx = self % coords % matIdx
+    matIdx = self % coords % getMatIdx()
 
   end function getMatIdx
 
@@ -546,11 +554,11 @@ contains
   !!
   !! Set Material index for testing purposes
   !!
-  pure subroutine setMatIdx(self,matIdx)
+  elemental subroutine setMatIdx(self, matIdx)
     class(particle), intent(inout) :: self
     integer(shortInt), intent(in)  :: matIdx
 
-    self % coords % matIdx = matIdx
+    call self % coords % setMatIdx(matIdx)
 
   end subroutine setMatIdx
 
@@ -611,7 +619,7 @@ contains
 
     state = self
     call state % display()
-    print *, 'Material: ', self % coords % matIdx
+    print *, 'Material: ', self % coords % getMatIdx()
 
   end subroutine display_particle
 
@@ -655,9 +663,9 @@ contains
     LHS % time = RHS % time
 
     ! Save all indexes
-    LHS % matIdx   = RHS % coords % matIdx
-    LHS % uniqueID = RHS % coords % uniqueId
-    LHS % cellIdx  = RHS % coords % cell()
+    LHS % matIdx   = RHS % coords % getMatIdx()
+    LHS % uniqueID = RHS % coords % getUniqueId()
+    LHS % cellIdx  = RHS % coords % getLowestCellIdx()
     LHS % collisionN = RHS % collisionN
     LHS % broodID    = RHS % broodID
 

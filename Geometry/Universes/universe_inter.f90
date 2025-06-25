@@ -133,11 +133,10 @@ module universe_inter
     !!   it is necessary to consider issues related to parallel calculations with shared
     !!   memory.
     !!
-    subroutine findCell(self, r, u, localId, cellIdx, elementIdx)
-      import :: universe, defReal, shortInt
-      class(universe), intent(inout)           :: self
-      real(defReal), dimension(3), intent(in)  :: r, u
-      integer(shortInt), intent(out)           :: localId, cellIdx, elementIdx
+    subroutine findCell(self, coords)
+      import :: coord, universe
+      class(universe), intent(inout) :: self
+      type(coord), intent(inout)     :: coords  
     end subroutine findCell
 
     !!
@@ -359,28 +358,28 @@ contains
   !!   it is necessary to consider issues related to parallel calculations with shared
   !!   memory.
   !!
-  subroutine enter(self, new, r, u)
+  subroutine enter(self, r, u, new)
     class(universe), intent(inout)          :: self
-    type(coord), intent(out)                :: new
     real(defReal), dimension(3), intent(in) :: r, u
+    type(coord), intent(out)                :: new
 
-    ! Set Info & Position
-    new % r = r
-    new % dir = u
-    new % uniIdx = self % uniIdx
-    new % isRotated = self % rot
+    ! Set new % uniIdx and new % isRotated.
+    call new % setPosition(r)
+    call new % setDirection(u)
+    call new % setUniIdx(self % uniIdx)
+    call new % setIsRotated(self % rot)
 
-    if (new % isRotated) then
-      new % rotMat = self % rotMat
-      new % r = matmul(self % rotMat, new % r)
-      new % dir = matmul(self % rotMat, new % dir)
+    if (self % rot) then
+      call new % setRotationMatrix(self % rotMat)
+      call new % rotateComponents()
+
     end if
 
-    ! Translate
-    new % r = new % r - self % origin
+    ! Translate.
+    call new % offsetPosition(self % origin)
 
-    ! Find cell
-    call self % findCell(new % r, new % dir, new % localId, new % cellIdx, new % elementIdx)
+    ! Find cell.
+    call self % findCell(new)
 
   end subroutine enter
 

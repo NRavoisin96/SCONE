@@ -4,7 +4,7 @@ module geometry_inter
   use genericProcedures,  only : fatalError
   use dictionary_class,   only : dictionary
   use charMap_class,      only : charMap
-  use coord_class,        only : coordList
+  use coordList_class,    only : coordList
 
   implicit none
   private

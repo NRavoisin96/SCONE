@@ -5,7 +5,7 @@ module geometryStd_iTest
   use dictionary_class,  only : dictionary
   use charMap_class,     only : charMap
   use dictParser_func,   only : fileToDict
-  use coord_class,       only : coordList
+  use coordList_class,   only : coordList
   use geometryStd_class, only : geometryStd
   use funit
 
@@ -68,14 +68,14 @@ contains
     call geom % placeCoord(coords)
 
     ! Verify positions
-    @assertEqual(r, coords % lvl(1) % r, TOL)
-    @assertEqual(r, coords % lvl(2) % r, TOL)
-    @assertEqual(r - [0.63_defReal, 0.63_defReal, 0.0_defReal], coords % lvl(3) % r, TOL)
+    @assertEqual(r, coords % getPosition(1), TOL)
+    @assertEqual(r, coords % getPosition(2), TOL)
+    @assertEqual(r - [0.63_defReal, 0.63_defReal, 0.0_defReal], coords % getPosition(3), TOL)
 
     ! Verify directions
-    @assertEqual(u, coords % lvl(1) % dir, TOL)
-    @assertEqual(u, coords % lvl(2) % dir, TOL)
-    @assertEqual(u, coords % lvl(3) % dir, TOL)
+    @assertEqual(u, coords % getDirection(1), TOL)
+    @assertEqual(u, coords % getDirection(2), TOL)
+    @assertEqual(u, coords % getDirection(3), TOL)
 
     ! Slice plot -> Material
     call geom % slicePlot(img, [ZERO, ZERO, ZERO], 'z', 'material')
@@ -122,16 +122,16 @@ contains
     name = 'water'
     idx = mats % get(name)
 
-    @assertEqual(r_ref, coords % lvl(1) % r, TOL)
-    @assertEqual(u_ref, coords % lvl(1) % dir, TOL)
-    @assertEqual(idx, coords % matIdx)
+    @assertEqual(r_ref, coords % getPosition(1), TOL)
+    @assertEqual(u_ref, coords % getDirection(1), TOL)
+    @assertEqual(idx, coords % getMatIdx())
 
     !*** Test global movement
     r = [ZERO, ZERO, ZERO]
     u = [ZERO, -ONE, ZERO]
     call coords % init(r, u)
 
-    ! Collosion movement
+    ! Collision movement
     maxDist = 1.0_defReal
     call geom % moveGlobal(coords, maxDist, event)
 
@@ -140,10 +140,10 @@ contains
     name = 'water'
     idx = mats % get(name)
 
-    @assertEqual(r_ref, coords % lvl(1) % r, TOL)
-    @assertEqual(u_ref, coords % lvl(1) % dir, TOL)
+    @assertEqual(r_ref, coords % getPosition(1), TOL)
+    @assertEqual(u_ref, coords % getDirection(1), TOL)
     @assertEqual(COLL_EV, event)
-    @assertEqual(idx, coords % matIdx)
+    @assertEqual(idx, coords % getMatIdx())
     @assertEqual(1.0_defReal, maxDist, TOL)
 
     ! Boundary Hit
@@ -155,13 +155,13 @@ contains
     name = 'water'
     idx = mats % get(name)
 
-    @assertEqual(r_ref, coords % lvl(1) % r, TOL)
-    @assertEqual(u_ref, coords % lvl(1) % dir, TOL)
+    @assertEqual(r_ref, coords % getPosition(1), TOL)
+    @assertEqual(u_ref, coords % getDirection(1), TOL)
     @assertEqual(BOUNDARY_EV, event)
-    @assertEqual(idx, coords % matIdx)
+    @assertEqual(idx, coords % getMatIdx())
     @assertEqual(0.26_defReal, maxDist, TOL)
 
-    !*** Normal Movment (easy case)
+    !*** Normal Movement (easy case)
     r = [-0.63_defReal, -0.63_defReal, 0.0_defReal]
     u = [ZERO, -ONE, ZERO]
     call coords % init(r, u)
@@ -176,10 +176,10 @@ contains
     name = 'water'
     idx = mats % get(name)
 
-    @assertEqual(r_ref, coords % lvl(1) % r, TOL)
-    @assertEqual(u_ref, coords % lvl(1) % dir, TOL)
+    @assertEqual(r_ref, coords % getPosition(1), TOL)
+    @assertEqual(u_ref, coords % getDirection(1), TOL)
     @assertEqual(CROSS_EV, event)
-    @assertEqual(idx, coords % matIdx)
+    @assertEqual(idx, coords % getMatIdx())
     @assertEqual(0.5_defReal, maxDist, TOL)
 
     ! Boundary Hit
@@ -191,10 +191,10 @@ contains
     name = 'water'
     idx = mats % get(name)
 
-    @assertEqual(r_ref, coords % lvl(1) % r, TOL)
-    @assertEqual(u_ref, coords % lvl(1) % dir, TOL)
+    @assertEqual(r_ref, coords % getPosition(1), TOL)
+    @assertEqual(u_ref, coords % getDirection(1), TOL)
     @assertEqual(BOUNDARY_EV, event)
-    @assertEqual(idx, coords % matIdx)
+    @assertEqual(idx, coords % getMatIdx())
     @assertEqual(0.13_defReal, maxDist, TOL)
 
     ! Collision
@@ -206,10 +206,10 @@ contains
     name = 'water'
     idx = mats % get(name)
 
-    @assertEqual(r_ref, coords % lvl(1) % r, TOL)
-    @assertEqual(u_ref, coords % lvl(1) % dir, TOL)
+    @assertEqual(r_ref, coords % getPosition(1), TOL)
+    @assertEqual(u_ref, coords % getDirection(1), TOL)
     @assertEqual(COLL_EV, event)
-    @assertEqual(idx, coords % matIdx)
+    @assertEqual(idx, coords % getMatIdx())
     @assertEqual(0.08_defReal, maxDist, TOL)
 
     ! Kill geometry

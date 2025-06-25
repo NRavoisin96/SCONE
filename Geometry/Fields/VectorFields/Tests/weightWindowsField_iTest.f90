@@ -64,22 +64,22 @@ contains
     real(defReal), dimension(3)              :: bins, EXPECTED_BINS
 
     p % isMG = .false.
-    p % coords % lvl(1) % r = [0.5, 7.0, 0.0]
-    p % E = 10.0
+    call p % coords % setPosition([0.5_defReal, 7.0_defReal, ZERO], 1)
+    p % E = 10.0_defReal
 
     bins = this % wwField % at(p)
-    EXPECTED_BINS = [0.4, 1.5, 0.8]
+    EXPECTED_BINS = [0.4_defReal, 1.5_defReal, 0.8_defReal]
 
-    @assertEqual(EXPECTED_BINS, bins, tolerance=1e-6)
+    @assertEqual(EXPECTED_BINS, bins, tolerance=1e-6_defReal)
 
     p % isMG = .false.
-    p % coords % lvl(1) % r = [-0.5, 7.0, 0.0]
-    p % E = 10.0
+    call p % coords % setPosition([-0.5_defReal, 7.0_defReal, ZERO], 1)
+    p % E = 10.0_defReal
 
     bins = this % wwField % at(p)
     EXPECTED_BINS = ZERO
 
-    @assertEqual(EXPECTED_BINS, bins, tolerance=1e-6)
+    @assertEqual(EXPECTED_BINS, bins, tolerance=1e-6_defReal)
 
   end subroutine testGetValue
 

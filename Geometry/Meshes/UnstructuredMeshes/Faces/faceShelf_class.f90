@@ -1,12 +1,14 @@
 module faceShelf_class
   
-  use edgeShelf_class,   only : edgeShelf
+  use axisAlignedBoundingBox_class, only : axisAlignedBoundingBox
+  use coord_class,                  only : coord
+  use edgeShelf_class,              only : edgeShelf
   use numPrecision
-  use genericProcedures, only : fatalError, findCommon
-  use face_inter,        only : face, faceBox
-  use polygon_class,     only : polygon
-  use triangle_class,    only : triangle
-  use vertexShelf_class, only : vertexShelf
+  use genericProcedures,            only : fatalError, findCommon, removeDuplicates
+  use face_inter,                   only : face, faceBox
+  use polygon_class,                only : polygon
+  use triangle_class,               only : triangle
+  use vertexShelf_class,            only : vertexShelf
   
   implicit none
   private
@@ -29,6 +31,7 @@ module faceShelf_class
     procedure                                :: allocateShelf
     procedure                                :: buildFace
     procedure                                :: computeFaceIntersection
+    procedure                                :: distanceSquaredFromFace
     procedure                                :: findCommonEdgeIdx
     procedure                                :: findCommonVertexIdx
     procedure                                :: getAllFaceBoundingBoxes
@@ -37,7 +40,10 @@ module faceShelf_class
     procedure                                :: getFaceBoundingBox
     procedure                                :: getFaceCentroid
     procedure                                :: getFaceEdgeIdxs
-    procedure                                :: getFaceElementIdxs
+    generic                                  :: getFaceElementIdxs => getFaceElementIdxs_shortInt, &
+                                                                      getFaceElementIdxs_shortIntArray
+    procedure, private                       :: getFaceElementIdxs_shortInt
+    procedure, private                       :: getFaceElementIdxs_shortIntArray
     procedure                                :: getFaceHasElements
     procedure                                :: getFaceIsBoundary
     procedure                                :: getFaceNormal
@@ -46,6 +52,10 @@ module faceShelf_class
     procedure                                :: getFaceVertexIdxs
     procedure                                :: getSize
     procedure                                :: initFace
+    generic                                  :: intersectsFace => intersectsFace_BoundingBox
+    procedure, private                       :: intersectsFace_BoundingBox
+    generic                                  :: intersectsFaceBoundingBox => intersectsFaceBoundingBox_BoundingBox
+    procedure, private                       :: intersectsFaceBoundingBox_BoundingBox
     procedure                                :: kill
     procedure                                :: splitFace
   end type
@@ -160,7 +170,7 @@ contains
     integer(shortInt), dimension(:), intent(inout)    :: vertexIdxs
     type(vertexShelf), intent(in)                     :: vertices
     character(*), intent(in)                          :: type
-    real(defReal), dimension(6), intent(in)           :: boundingBox
+    type(axisAlignedBoundingBox), intent(in)          :: boundingBox
     real(defReal), dimension(3), intent(in), optional :: testCentroid
 
     ! Allocate the face in the shelf.
@@ -187,17 +197,30 @@ contains
   !!   edgeIdx [out]   -> Used in case the line segment intersects the face at one of its edges.
   !!   vertexIdx [out] -> Used in case the line segment intersects the face at one of its vertices.
   !!
-  pure subroutine computeFaceIntersection(self, idx, r, rEnd, u, vertices, d, edgeIdx, vertexIdx)
+  pure subroutine computeFaceIntersection(self, idx, coords, vertices, d)
     class(faceShelf), intent(in)            :: self
     integer(shortInt), intent(in)           :: idx
-    real(defReal), dimension(3), intent(in) :: r, rEnd, u
+    type(coord), intent(in)                 :: coords
     type(vertexShelf), intent(in)           :: vertices
     real(defReal), intent(out)              :: d
-    integer(shortInt), intent(out)          :: edgeIdx, vertexIdx
 
-    call self % shelf(idx) % item % computeIntersection(r, rEnd, u, vertices, d, edgeIdx, vertexIdx)
+    call self % shelf(idx) % item % computeIntersection(coords, vertices, d)
 
   end subroutine computeFaceIntersection
+
+  !! Function 'distanceSquaredFromFace'
+  !!
+  !!
+  pure function distanceSquaredFromFace(self, idx, r, vertices) result(dSquared)
+    class(faceShelf), intent(in)            :: self
+    integer(shortInt), intent(in)           :: idx
+    real(defReal), dimension(3), intent(in) :: r
+    type(vertexShelf), intent(in)           :: vertices
+    real(defReal)                           :: dSquared
+
+    dSquared = self % shelf(idx) % item % distanceSquared(r, vertices)
+
+  end function distanceSquaredFromFace
 
   !! Function 'findCommonEdgeIdx'
   !!
@@ -266,12 +289,12 @@ contains
   !!   boundingBoxes -> A defReal array containing the bounding boxes of all the faces in the shelf.
   !!
   pure function getAllFaceBoundingBoxes(self) result(boundingBoxes)
-    class(faceShelf), intent(in)                  :: self
-    real(defReal), dimension(6, self % getSize()) :: boundingBoxes
-    integer(shortInt)                             :: i
+    class(faceShelf), intent(in)                              :: self
+    type(axisAlignedBoundingBox), dimension(self % getSize()) :: boundingBoxes
+    integer(shortInt)                                         :: i
 
     do i = 1, self % getSize()
-      boundingBoxes(:, i) = self % getFaceBoundingBox(i)
+      boundingBoxes(i) = self % shelf(i) % item % getBoundingBox()
 
     end do
 
@@ -287,11 +310,11 @@ contains
   !!
   pure function getAllFaceCentroids(self) result(centroids)
     class(faceShelf), intent(in)                  :: self
-    real(defReal), dimension(self % getSize(), 3) :: centroids
+    real(defReal), dimension(3, self % getSize()) :: centroids
     integer(shortInt)                             :: i
 
     do i = 1, self % getSize()
-      centroids(i, :) = self % getFaceCentroid(i)
+      centroids(:, i) = self % getFaceCentroid(i)
 
     end do
 
@@ -331,7 +354,7 @@ contains
   pure function getFaceBoundingBox(self, idx) result(boundingBox)
     class(faceShelf), intent(in)  :: self
     integer(shortInt), intent(in) :: idx
-    real(defReal), dimension(6)   :: boundingBox
+    type(axisAlignedBoundingBox)  :: boundingBox
 
     boundingBox = self % shelf(idx) % item % getBoundingBox()
 
@@ -377,7 +400,7 @@ contains
 
   end function getFaceEdgeIdxs
 
-  !! Function 'getFaceElementIdxs'
+  !! Function 'getFaceElementIdxs_shortInt'
   !!
   !! Basic description:
   !!   Returns the indices of the elements sharing a face in the shelf.
@@ -388,14 +411,59 @@ contains
   !! Result:
   !!   elementIdxs -> Indices of the elements sharing the face.
   !!
-  pure function getFaceElementIdxs(self, idx) result(elementIdxs)
+  pure function getFaceElementIdxs_shortInt(self, idx) result(elementIdxs)
     class(faceShelf), intent(in)                 :: self
     integer(shortInt), intent(in)                :: idx
     integer(shortInt), dimension(:), allocatable :: elementIdxs
 
     elementIdxs = self % shelf(idx) % item % getElementIdxs()
 
-  end function getFaceElementIdxs
+  end function getFaceElementIdxs_shortInt
+
+  !! Function 'getFaceElementIdxs_shortIntArray'
+  !!
+  !! Basic description:
+  !!   Returns the unique indices of the elements sharing faces in the shelf.
+  !!
+  !! Arguments:
+  !!   idxs [in]   -> Indices of the faces in the shelf.
+  !!
+  !! Result:
+  !!   elementIdxs -> Indices of the elements sharing the faces.
+  !!
+  pure function getFaceElementIdxs_shortIntArray(self, idxs) result(elementIdxs)
+    class(faceShelf), intent(in)                 :: self
+    integer(shortInt), dimension(:), intent(in)  :: idxs
+    integer(shortInt), dimension(:), allocatable :: elementIdxs, faceElementIdxs, tempIdxs
+    integer(shortInt)                            :: i, idx, j, nIdxs, nTempIdxs
+
+    ! Compute nIdxs and initialise nTempIdxs = 0
+    nIdxs = size(idxs)
+    nTempIdxs = 0
+    
+    ! Do a first pass and count the number of elements sharing each face.
+    do i = 1, nIdxs
+      nTempIdxs = nTempIdxs + size(self % shelf(idxs(i)) % item % getElementIdxs())
+
+    end do
+    allocate(tempIdxs(nTempIdxs))
+
+    ! Do a second pass and populate tempIdxs.
+    idx = 0
+    do i = 1, nIdxs
+      faceElementIdxs = self % shelf(idxs(i)) % item % getElementIdxs()
+      do j = 1, size(faceElementIdxs)
+        idx = idx + 1
+        tempIdxs(idx) = faceElementIdxs(j)
+
+      end do
+
+    end do
+
+    ! Now remove potential duplicates from the tempIdxs array.
+    elementIdxs = removeDuplicates(tempIdxs)
+
+  end function getFaceElementIdxs_shortIntArray
 
   !! Function 'getFaceHasElements'
   !!
@@ -550,13 +618,41 @@ contains
     real(defReal), dimension(3), intent(in)     :: AB, AC, centroid, normal
     real(defReal), intent(in)                   :: area
     character(*), intent(in)                    :: type
-    real(defReal), dimension(6), intent(in)     :: boundingBox
+    type(axisAlignedBoundingBox), intent(in)    :: boundingBox
 
     ! Allocate face in the shelf and set everything.
     call self % allocateFace(idx, type)
     call self % shelf(idx) % item % init(idx, faceIdx, isBoundary, area, centroid, normal, AB, AC, vertexIdxs, type, boundingBox)
 
   end subroutine initFace
+
+  !!
+  !!
+  !!
+  elemental function intersectsFace_BoundingBox(self, idx, vertices, boundingBox) result(doesIt)
+    class(faceShelf), intent(in)             :: self
+    integer(shortInt), intent(in)            :: idx
+    type(vertexShelf), intent(in)            :: vertices
+    type(axisAlignedBoundingBox), intent(in) :: boundingBox
+    logical(defBool)                         :: doesIt
+
+    call self % shelf(idx) % item % intersects(vertices, boundingBox, doesIt)
+
+  end function intersectsFace_BoundingBox
+
+  !!
+  !!
+  !!
+  elemental function intersectsFaceBoundingBox_BoundingBox(self, idx, boundingBox) result(doesIt)
+    class(faceShelf), intent(in)             :: self
+    integer(shortInt), intent(in)            :: idx
+    type(axisAlignedBoundingBox), intent(in) :: boundingBox
+    logical(defBool)                         :: doesIt
+    class(face), allocatable                 :: item
+
+    call self % shelf(idx) % item % intersectsBoundingBox(boundingbox, doesIt)
+
+  end function intersectsFaceBoundingBox_BoundingBox
   
   !! Subroutine 'kill'
   !!

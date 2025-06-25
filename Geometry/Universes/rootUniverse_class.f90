@@ -116,16 +116,15 @@ contains
   !!
   !! See universe_inter for details.
   !!
-  pure subroutine findCell(self, r, u, localId, cellIdx, elementIdx)
-    class(rootUniverse), intent(inout)      :: self
-    real(defReal), dimension(3), intent(in) :: r, u
-    integer(shortInt), intent(out)          :: localId, cellIdx, elementIdx
+  pure subroutine findCell(self, coords)
+    class(rootUniverse), intent(inout) :: self
+    type(coord), intent(inout)         :: coords
+    integer(shortInt)                  :: localId
 
-    ! Set cellIdx = 0, initialise localId = INSIDE_ID then check halfspace.
-    cellIdx = 0
-    elementIdx = 0
+    ! Initialise localId = INSIDE_ID then check halfspace.
     localId = INSIDE_ID
-    if (self % surf % halfspace(r, u)) localId = OUTSIDE_ID
+    if (self % surf % halfspace(coords % getPosition(), coords % getDirection())) localId = OUTSIDE_ID
+    call coords % setLocalId(localId)
 
   end subroutine findCell
 
@@ -141,7 +140,7 @@ contains
     integer(shortInt), intent(out)     :: surfIdx
 
     surfIdx = self % surfIdx
-    d = self % surf % distance(coords % r, coords % dir)
+    d = self % surf % distance(coords % getPosition(), coords % getDirection())
 
   end subroutine distance
 
@@ -160,7 +159,7 @@ contains
     character(100), parameter          :: Here = 'cross (rootUniverse_class.f90)'
 
     ! Cross by cell finding in case of significant undershoots
-    call self % findCell(coords % r, coords % dir, coords % localID, coords % cellIdx, coords % elementIdx)
+    call self % findCell(coords)
 
   end subroutine cross
 

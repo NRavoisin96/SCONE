@@ -196,27 +196,26 @@ contains
   !!
   !! See universe_inter for details.
   !!
-  pure subroutine findCell(self, r, u, localId, cellIdx, elementIdx)
-    class(latUniverse), intent(inout)       :: self
-    real(defReal), dimension(3), intent(in) :: r, u
-    integer(shortInt), intent(out)          :: localId, cellIdx, elementIdx
-    integer(shortInt), dimension(3)         :: ijk
-    integer(shortInt)                       :: i
-    real(defReal), dimension(3)             :: corner, pitch, r_bar
-    real(defReal)                           :: r_barComponent, uComponent
+  pure subroutine findCell(self, coords)
+    class(latUniverse), intent(inout) :: self
+    type(coord), intent(inout)        :: coords
+    integer(shortInt), dimension(3)   :: ijk
+    integer(shortInt)                 :: i
+    real(defReal), dimension(3)       :: corner, pitch, r, r_bar, u
+    real(defReal)                     :: r_barComponent, uComponent
 
-    ! Initialise cellIdx = 0 and localId = self % outLocalID.
-    cellIdx = 0
-    elementIdx = 0
-    localId = self % outLocalID
+    ! Initialise localId = self % outLocalID.
+    call coords % setLocalId(self % outLocalID)
 
     ! Find lattice location in x, y & z and get position wrt middle of the lattice cell.
     corner = self % corner
     pitch = self % pitch
+    r = coords % getPosition()
     ijk = floor((r - corner) / pitch) + 1
     r_bar = r - corner + pitch * (HALF - ijk)
 
     ! Check if particle is within surface tolerance. Push it to next cell if yes.
+    u = coords % getDirection()
     do i = 1, 3
       r_barComponent = r_bar(i)
       uComponent = u(i)
@@ -229,7 +228,7 @@ contains
 
     ! If particle is outside lattice return early. Else update localId.
     if (any(ijk < 1 .or. ijk > self % sizeN)) return
-    localId = ijk(1) + self % sizeN(1) * (ijk(2) - 1 + self % sizeN(2) * (ijk(3) - 1))
+    call coords % setLocalId(ijk(1) + self % sizeN(1) * (ijk(2) - 1 + self % sizeN(2) * (ijk(3) - 1)))
 
   end subroutine findCell
 
@@ -248,20 +247,20 @@ contains
     integer(shortInt)                  :: localId, i, axis
 
     ! Catch case if particle is outside the lattice and return early if yes.
-    localId = coords % localId
+    localId = coords % getLocalId()
     if (localId == self % outLocalID) then
       surfIdx = OUTLINE_SURF
-      d = self % outline % distance(coords % r, coords % dir)
+      d = self % outline % distance(coords % getPosition(), coords % getDirection())
       return
 
     end if
 
     ! Find position wrt lattice cell centre. Need to use localID to properly handle under and overshoots.
     pitch = self % pitch
-    r_bar = coords % r - (self % corner + (get_ijk(localId, self % sizeN) - HALF) * pitch)
+    r_bar = coords % getPosition() - (self % corner + (get_ijk(localId, self % sizeN) - HALF) * pitch)
 
     ! Select surfaces in the direction of the particle.
-    u = coords % dir
+    u = coords % getDirection()
     bounds = sign(HALF * pitch, u)
 
     ! Find minimum distance.
@@ -303,7 +302,7 @@ contains
     type(coord), intent(inout)        :: coords
     integer(shortInt), intent(in)     :: surfIdx
 
-    call self % findCell(coords % r, coords % dir, coords % localID, coords % cellIdx, coords % elementIdx)
+    call self % findCell(coords)
 
   end subroutine cross
 
@@ -319,7 +318,7 @@ contains
     integer(shortInt)               :: localId
 
     ! Retrieve localId and initialise offset = ZERO.
-    localId = coords % localId
+    localId = coords % getLocalId()
     offset = ZERO
 
     ! If particle is outside lattice return early. Else update offset.

@@ -9,21 +9,17 @@ module rayVolPhysicsPackage_class
   use physicsPackage_inter, only : physicsPackage
 
   ! Timers
-  use timer_mod,                      only : registerTimer, timerStart, timerStop, &
-                                             timerTime, timerReset, secToChar
+  use timer_mod,            only : registerTimer, timerStart, timerStop, timerTime, timerReset, secToChar
 
   ! Geometry
-  use coord_class,                    only : coordList
-  use geometry_inter,                 only : geometry, distCache
-  use geometryReg_mod,                only : gr_geomPtr  => geomPtr, gr_geomIdx  => geomIdx, &
-                                             gr_kill    => kill
-  use geometryFactory_func,           only : new_geometry
+  use coordList_class,      only : coordList
+  use geometry_inter,       only : geometry, distCache
+  use geometryReg_mod,      only : gr_geomPtr => geomPtr, gr_geomIdx => geomIdx, gr_kill => kill
+  use geometryFactory_func, only : new_geometry
 
   ! Nuclear Data
-  use materialMenu_mod,               only : mm_nMat           => nMat, mm_matName => matName
-  use nuclearDataReg_mod,             only : ndReg_init        => init ,&
-                                             ndReg_getMatNames => getMatNames, &
-                                             ndReg_kill        => kill
+  use materialMenu_mod,     only : mm_nMat => nMat, mm_matName => matName
+  use nuclearDataReg_mod,   only : ndReg_init => init, ndReg_getMatNames => getMatNames, ndReg_kill => kill
 
   implicit none
   private
@@ -354,12 +350,13 @@ contains
       event = LOST_EV
       do while (event /= COLL_EV)
         ! Save pre-movement state
-        matIdx = coords % matIdx
-        uniqueID = coords % uniqueID
+        matIdx = coords % getMatIdx()
+        uniqueId = coords % getUniqueId()
         maxDist = dist
         if (self % robust) then
-          r_pre = coords % lvl(1) % r
-          u_pre = coords % lvl(1) % dir
+          r_pre = coords % getPosition(1)
+          u_pre = coords % getDirection(1)
+
         end if
 
         ! Move in geometry
@@ -376,11 +373,11 @@ contains
           r = r_pre + u_pre * HALF * dist
           call self % geom % whatIsAt(mat_mid, unique_mid, r, u_pre)
 
-          if (matIdx /= mat_mid ) then
+          if (matIdx /= mat_mid) then
             print *, "EVENT: ", event
             print *, "PRE MOVE: ", r_pre
-            print *, "DIR", coords % lvl(1) % dir
-            print *, "POST MOVE", coords % lvl(1) % r
+            print *, "DIR", coords % getDirection(1)
+            print *, "POST MOVE", coords % getPosition(1)
             print *, "MAT CHECKED AT:", r
             print *, "WITH DIRECTION:", u_pre
             print *, "CORRECT MAT:", mat_mid
@@ -404,7 +401,7 @@ contains
 
       ! Kill the ray
       rn = rand % get()
-      if (self % abs_prob > rn .or. coords % matIdx == OUTSIDE_MAT) exit hist
+      if (self % abs_prob > rn .or. coords % getMatIdx() == OUTSIDE_MAT) exit hist
 
       ! Scatter the ray
       mu = TWO * rand % get() - ONE

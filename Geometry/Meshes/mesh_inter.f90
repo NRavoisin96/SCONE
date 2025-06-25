@@ -1,11 +1,12 @@
 module mesh_inter
   
+  use axisAlignedBoundingBox_class, only : axisAlignedBoundingBox
+  use cellZoneShelf_class,          only : cellZoneShelf
+  use coord_class,                  only : coord
+  use dictionary_class,             only : dictionary
+  use genericProcedures,            only : fatalError, numToChar, openToRead
   use numPrecision
-  use universalVariables,  only : INF, NUDGE
-  use genericProcedures,   only : fatalError, numToChar, openToRead
-  use cellZoneShelf_class, only : cellZoneShelf
-  use dictionary_class,    only : dictionary
-  use coord_class,         only : coord
+  use universalVariables,           only : INF, NUDGE
   
   implicit none
   private
@@ -29,7 +30,6 @@ module mesh_inter
   !!   getBoundingBox           -> Returns the bounding box of the mesh.
   !!   getElementZonesNumber    -> Returns the number of element zones in the mesh.
   !!   getId                    -> Returns the id of the mesh.
-  !!   setBoundingBox           -> Sets bounding box of the mesh.
   !!   setId                    -> Sets Id of the mesh.
   !!   init                     -> Initialises mesh from input files.
   !!   kill                     -> Returns to uninitialised state.
@@ -42,34 +42,34 @@ module mesh_inter
   !!   findElementAndParentIdxs -> Finds the index of the mesh element occupied by a particle and
   !!                               the index of the parent element of the occupied element.
   !!
-  type, public, abstract                          :: mesh
+  type, public, abstract                        :: mesh
     private
-    integer(shortInt)                             :: id = 0, nElementZones = 0
-    real(defReal), dimension(6)                   :: boundingBox = ZERO
-    logical(defBool)                              :: elementZonesFile = .false.
-    type(cellZoneShelf)                           :: elementZones
+    integer(shortInt)                           :: id = 0, nElementZones = 0
+    logical(defBool)                            :: elementZonesFile = .false.
+    type(cellZoneShelf)                         :: elementZones
+    type(axisAlignedBoundingBox)                :: boundingBox
   contains
     ! Build procedures.
-    procedure, non_overridable                    :: setBoundingBox
-    procedure, non_overridable                    :: setElementZones
-    procedure, non_overridable                    :: setElementZonesFile
-    procedure, non_overridable                    :: setElementZonesNumber
-    procedure, non_overridable                    :: setId
-    procedure, non_overridable                    :: setupBase
-    procedure(init), deferred                     :: init
-    procedure                                     :: kill
+    procedure, non_overridable                  :: setBoundingBox
+    procedure, non_overridable                  :: setElementZones
+    procedure, non_overridable                  :: setElementZonesFile
+    procedure, non_overridable                  :: setElementZonesNumber
+    procedure, non_overridable                  :: setId
+    procedure, non_overridable                  :: setupBase
+    procedure(init), deferred                   :: init
+    procedure                                   :: kill
     ! Runtime procedures.
-    procedure, non_overridable                    :: distance
-    procedure, non_overridable                    :: distanceToBoundary
-    procedure(distanceToBoundaryFace), deferred   :: distanceToBoundaryFace
-    procedure(distanceToNextFace), deferred       :: distanceToNextFace
-    procedure, non_overridable                    :: findOccupiedElementIdx
-    procedure(findElementAndParentIdxs), deferred :: findElementAndParentIdxs
-    procedure, non_overridable                    :: findElementZoneIdx
-    procedure, non_overridable                    :: getBoundingBox
-    procedure, non_overridable                    :: getElementZonesFile
-    procedure, non_overridable                    :: getElementZonesNumber
-    procedure, non_overridable                    :: getId
+    procedure, non_overridable                  :: distance
+    procedure, non_overridable                  :: distanceToBoundary
+    procedure(distanceToBoundaryFace), deferred :: distanceToBoundaryFace
+    procedure(distanceToNextFace), deferred     :: distanceToNextFace
+    procedure, non_overridable                  :: findOccupiedElementIdx
+    procedure(findHostElement), deferred        :: findHostElement
+    procedure, non_overridable                  :: findElementZoneIdx
+    procedure, non_overridable                  :: getBoundingBox
+    procedure, non_overridable                  :: getElementZonesFile
+    procedure, non_overridable                  :: getElementZonesNumber
+    procedure, non_overridable                  :: getId
   end type mesh
   
   abstract interface
@@ -102,12 +102,11 @@ module mesh_inter
     !!   coords [inout]  -> Particle's coordinates.
     !!   parentIdx [out] -> Index of the parent element containing the boundary face.
     !!
-    elemental subroutine distanceToBoundaryFace(self, d, coords, parentIdx)
-      import                         :: mesh, defReal, coord, shortInt
+    subroutine distanceToBoundaryFace(self, d, coords)
+      import                         :: mesh, defReal, coord
       class(mesh), intent(in)        :: self
       real(defReal), intent(out)     :: d
       type(coord), intent(inout)     :: coords
-      integer(shortInt), intent(out) :: parentIdx
 
     end subroutine distanceToBoundaryFace
 
@@ -123,13 +122,12 @@ module mesh_inter
     !!   elementIdx [out] -> Index of the mesh element occupied by the particle.
     !!   parentIdx [out]  -> Index of the parent mesh element containing the occupied element.
     !!
-    subroutine findElementAndParentIdxs(self, r, u, elementIdx, parentIdx)
-      import                                  :: mesh, defReal, shortInt  
-      class(mesh), intent(in)                 :: self
-      real(defReal), dimension(3), intent(in) :: r, u
-      integer(shortInt), intent(out)          :: elementIdx, parentIdx
+    subroutine findHostElement(self, coords)
+      import                                 :: coord, mesh 
+      class(mesh), intent(in)                :: self
+      type(coord), intent(inout)             :: coords
 
-    end subroutine findElementAndParentIdxs
+    end subroutine findHostElement
 
     !! Subroutine 'init'
     !!
@@ -146,7 +144,7 @@ module mesh_inter
       class(mesh), intent(inout)    :: self
       character(*), intent(in)      :: folderPath
       class(dictionary), intent(in) :: dict
-      
+
     end subroutine init
 
   end interface
@@ -163,27 +161,26 @@ contains
   !!   coords [inout] -> Coordinates of the particle within the universe (after transformations and with elementIdx already set).
   !!   isInside [out] -> .true. if the particle is inside or entering the mesh. If .false. then CSG tracking resumes.
   !!
-  pure subroutine distance(self, d, coords, isInside)
+  subroutine distance(self, d, coords, isInside)
     class(mesh), intent(in)       :: self
     real(defReal), intent(out)    :: d
     type(coord), intent(inout)    :: coords
     logical(defBool), intent(out) :: isInside
-    integer(shortInt)             :: parentIdx
 
     ! Initialise isInside = .true.
     isInside = .true.
     
     ! If particle is already inside a tetrahedron, simply compute the distance to the next mesh face and return.
-    if (coords % elementIdx > 0) then
+    if (coords % getElementIdx() > 0) then
       call self % distanceToNextFace(d, coords)
       return
 
     end if
 
     ! If not, we need to check if the particle enters the mesh. If yes, update localId from index of the parent element and return.
-    call self % distanceToBoundary(d, coords, parentIdx)
-    if (coords % elementIdx > 0) then
-      coords % localId = self % elementZones % findCellZone(parentIdx)
+    call self % distanceToBoundary(d, coords)
+    if (coords % getElementIdx() > 0) then
+      call coords % setLocalId(self % elementZones % findCellZone(coords % getParentElementIdx()))
       return
 
     end if
@@ -203,29 +200,22 @@ contains
   !!   coords [inout]  -> Particle's coordinates.
   !!   parentIdx [out] -> Index of the parent element containing the intersected mesh boundary face.
   !!
-  pure subroutine distanceToBoundary(self, d, coords, parentIdx)
+  subroutine distanceToBoundary(self, d, coords)
     class(mesh), intent(in)        :: self
     real(defReal), intent(out)     :: d
     type(coord), intent(inout)     :: coords
-    integer(shortInt), intent(out) :: parentIdx
-    integer(shortInt)              :: i
-    real(defReal)                  :: rComponent, rEndComponent, lowerBoundingBoxComponent, upperBoundingBoxComponent
+    real(defReal), dimension(3)    :: r, rEnd
+    real(defReal), dimension(6)    :: bounds
 
     ! Initialise d = INF and check that the particle's path intersects the mesh's bounding box.
     d = INF
-    do i = 1, 3
-      ! If the particle does not intersect the mesh's bounding box return early.
-      rComponent = coords % r(i)
-      rEndComponent = coords % rEnd(i)
-      lowerBoundingBoxComponent = self % boundingBox(i)
-      upperBoundingBoxComponent = self % boundingBox(i + 3)
-      if ((rComponent < lowerBoundingBoxComponent .and. rEndComponent < lowerBoundingBoxComponent) .or. &
-          (rComponent > upperBoundingBoxComponent .and. rEndComponent > upperBoundingBoxComponent)) return
-
-    end do
+    r = coords % getPosition()
+    rEnd = coords % getEndPosition()
+    bounds = self % boundingBox % getBounds()
+    if (any(r < bounds(1:3) .and. rEnd < bounds(1:3)) .or. any(r > bounds(4:6) .and. rEnd > bounds(4:6))) return
 
     ! If particle intersects the bounding box, compute the distance to the next intersected boundary face.
-    call self % distanceToBoundaryFace(d, coords, parentIdx)
+    call self % distanceToBoundaryFace(d, coords)
 
   end subroutine distanceToBoundary
 
@@ -240,19 +230,19 @@ contains
   !!   elementIdx [out] -> Index of the element in which the particle is.
   !!   localId [out]    -> Local Id for the given particle.
   !!
-  subroutine findOccupiedElementIdx(self, r, u, elementIdx, localId)
-    class(mesh), intent(in)                 :: self
-    real(defReal), dimension(3), intent(in) :: r, u
-    integer(shortInt), intent(out)          :: elementIdx, localId
-    integer(shortInt)                       :: parentIdx
+  subroutine findOccupiedElementIdx(self, coords)
+    class(mesh), intent(in)    :: self
+    type(coord), intent(inout) :: coords
+    integer(shortInt)          :: parentIdx
 
     ! Initialise localId = 1 (corresponds to the particle being in the CSG cell).
-    localId = 1
+    call coords % setLocalId(1)
 
     ! Find indices of the occupied mesh element and its parent element. Update localId only if particle is not 
     ! outside the mesh.
-    call self % findElementAndParentIdxs(r, u, elementIdx, parentIdx)
-    if (parentIdx > 0) localId = self % findElementZoneIdx(parentIdx)
+    call self % findHostElement(coords)
+    parentIdx = coords % getParentElementIdx()
+    if (parentIdx > 0) call coords % setLocalId(self % findElementZoneIdx(parentIdx))
 
   end subroutine findOccupiedElementIdx
 
@@ -285,8 +275,8 @@ contains
   !!   boundingBox -> AABB of the mesh.
   !!
   pure function getBoundingBox(self) result(boundingBox)
-    class(mesh), intent(in)     :: self
-    real(defReal), dimension(6) :: boundingBox
+    class(mesh), intent(in)      :: self
+    type(axisAlignedBoundingBox) :: boundingBox
     
     boundingBox = self % boundingBox
 
@@ -337,15 +327,10 @@ contains
   !!                       correspond to the maximum x-, y- and z-values of the bounding box.
   !!
   pure subroutine setBoundingBox(self, boundingBox)
-    class(mesh), intent(inout)              :: self
-    real(defReal), dimension(6), intent(in) :: boundingBox
-    integer(shortInt)                       :: i
+    class(mesh), intent(inout)               :: self
+    type(axisAlignedBoundingBox), intent(in) :: boundingBox
     
-    do i = 1, 3
-      self % boundingBox(i) = boundingBox(i) - NUDGE
-      self % boundingBox(3 + i) = boundingBox(3 + i) + NUDGE
-
-    end do
+    self % boundingBox = boundingBox
 
   end subroutine setBoundingBox
 
@@ -469,8 +454,8 @@ contains
    
     self % id = 0
     self % nElementZones = 0
-    self % boundingBox = ZERO
     self % elementZonesFile = .false.
+    call self % boundingBox % kill()
     call self % elementZones % kill()
 
   end subroutine kill

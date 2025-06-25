@@ -7,6 +7,7 @@ module uniFissSitesField_test
   use geometry_inter,           only : geometry
   use RNG_class,                only : RNG
   use uniFissSitesField_class,  only : uniFissSitesField
+  use universalVariables,       only : ONE, ZERO
 
   implicit none
 
@@ -79,39 +80,38 @@ contains
     real(defReal), dimension(3)                  :: bins, EXPECTED_BINS
 
     ! Test case in the map
-    p % coords % lvl(1) % r = [0.5, 7.0, 50.0]
+    call p % coords % setPosition([0.5_defReal, 7.0_defReal, 50.0_defReal], 1)
 
     bins = this % ufsField % at(p)
-    EXPECTED_BINS = [0.25, 0.25, 0.0]
-    @assertEqual(EXPECTED_BINS, bins, tolerance=1.0e-6)
+    EXPECTED_BINS = [0.25_defReal, 0.25_defReal, ZERO]
+    @assertEqual(EXPECTED_BINS, bins, tolerance=1.0e-6_defReal)
 
     ! Test case outside the map
-    p % coords % lvl(1) % r = [0.5, 7.0, 100.0]
+    call p % coords % setPosition([0.5_defReal, 7.0_defReal, 100.0_defReal], 1)
 
     bins = this % ufsField % at(p)
-    EXPECTED_BINS = [1.0, 1.0, 1.0]
+    EXPECTED_BINS = [ONE, ONE, ONE]
     @assertEqual(EXPECTED_BINS,bins)
 
     ! Modify the map by storing fission sites
-    state % r   = [0.5, 7.0, 12.0]
-    state % wgt = 0.2
+    state % r   = [0.5_defReal, 7.0_defReal, 12.0_defReal]
+    state % wgt = 0.2_defReal
 
     call this % ufsField % storeFS(state)
 
-    state % r   = [0.5, 7.0, 23.2]
-    state % wgt = 0.8
+    state % r   = [0.5_defReal, 7.0_defReal, 23.2_defReal]
+    state % wgt = 0.8_defReal
     call this % ufsField % storeFS(state)
 
     call this % ufsField % updateMap()
 
     ! Test case in the updated map
-    p % coords % lvl(1) % r = [0.5, 7.0, 18.1]
+    call p % coords % setPosition([0.5_defReal, 7.0_defReal, 18.1_defReal], 1)
 
     bins = this % ufsField % at(p)
-    EXPECTED_BINS = [0.25, 0.06666666667, 0.0]
-    @assertEqual(EXPECTED_BINS, bins, tolerance=1.0e-6)
+    EXPECTED_BINS = [0.25_defReal, 0.06666666667_defReal, ZERO]
+    @assertEqual(EXPECTED_BINS, bins, tolerance=1.0e-6_defReal)
 
   end subroutine testGetValue
-
 
 end module uniFissSitesField_test

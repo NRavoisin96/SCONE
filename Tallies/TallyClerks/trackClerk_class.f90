@@ -217,7 +217,7 @@ contains
 
     ! tranfer information about Prestate material to a temporary particle
     pTmp = p
-    pTmp % coords % matIdx = state % matIdx
+    call pTmp % coords % setMatIdx(state % matIdx)
 
     ! Calculate flux sample L = path travelled
     flx = L

@@ -118,6 +118,11 @@ module genericProcedures
     module procedure areEqual_defRealArray
   end interface
 
+  interface anyAreEqual
+    module procedure anyAreEqual_defRealArray_defReal
+    module procedure anyAreEqual_defRealArray_defRealArray
+  end interface
+
 contains
   !! Subroutine 'append_shortInt'
   !!
@@ -1141,6 +1146,48 @@ contains
   end function areEqual_defRealArray
 
   !!
+  !!
+  !!
+  pure function anyAreEqual_defRealArray_defReal(array, b) result(equal)
+    real(defReal), dimension(:), intent(in) :: array
+    real(defReal), intent(in)               :: b
+    logical(defBool)                        :: equal
+    integer(shortInt)                       :: i
+
+    equal = .true.
+    do i = 1, size(array)
+      if (areEqual(array(i), b)) return
+
+    end do
+
+    equal = .false.
+
+  end function anyAreEqual_defRealArray_defReal
+
+  !!
+  !!
+  !!
+  pure function anyAreEqual_defRealArray_defRealArray(array1, array2) result(equal)
+    real(defReal), dimension(:), intent(in) :: array1, array2
+    logical(defBool)                        :: equal
+    integer(shortInt)                       :: i, arraySize
+
+    equal = .false.
+    arraySize = size(array1)
+    if (size(array2) /= arraySize) return
+
+    do i = 1, arraySize
+      if (areEqual(array1(i), array2(i))) then
+        equal = .true.
+        return
+
+      end if
+
+    end do
+
+  end function anyAreEqual_defRealArray_defRealArray
+
+  !!
   !! Concatenate strings from an array into a single long character (tape). Asjusts left and trims
   !! elements of char Array. Adds a blank at the end of a line
   !!
@@ -2145,27 +2192,5 @@ contains
     print *, lines(offset_L+1)
 
   end subroutine  printFishLineR
-
-  !! Subroutine 'updateBoundingBox'
-  !!
-  !! Description:
-  !!   Updates a bounding box given a set of coordinates.
-  !!
-  !! Arguments:
-  !!   coords [in]         -> 3-D coordinates.
-  !!   boundingBox [inout] -> 6-D bounding box to be updated.
-  !!
-  pure subroutine updateBoundingBox(coords, boundingBox)
-    real(defReal), dimension(3), intent(in)    :: coords
-    real(defReal), dimension(6), intent(inout) :: boundingBox
-    integer(shortInt)                          :: i
-
-    do i = 1, 3
-      boundingBox(i) = min(boundingBox(i), coords(i))
-      boundingBox(i + 3) = max(boundingBox(i + 3), coords(i))
-
-    end do
-
-  end subroutine updateBoundingBox
 
 end module genericProcedures

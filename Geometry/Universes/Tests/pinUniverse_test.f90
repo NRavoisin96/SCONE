@@ -1,7 +1,7 @@
 module pinUniverse_test
 
   use numPrecision
-  use universalVariables, only : INF, SURF_TOL
+  use universalVariables, only : HALF, INF, ONE, SURF_TOL, ZERO
   use dictionary_class,   only : dictionary
   use dictParser_func,    only : charToDict
   use charMap_class,      only : charMap
@@ -89,56 +89,56 @@ contains
 @Test
   subroutine test_enter()
     type(coord) :: new
-    real(defReal), dimension(3) :: r_ref, u_ref, r, dir
+    real(defReal), dimension(3) :: r_ref, u_ref, r, u
     real(defReal), parameter :: TOL = 1.0E-7_defReal
 
     ! ** Enter into local cell 1
-    r = [0.0_defReal, 1.0_defReal, 0.0_defReal ]
-    dir = [ZERO, ZERO, ONE]
+    r = [ZERO, ONE, ZERO]
+    u = [ZERO, ZERO, ONE]
 
-    call uni % enter(new, r, dir)
+    call uni % enter(r, u, new)
 
     ! Verify location
     r_ref = r
-    u_ref = dir
-    @assertEqual(r_ref, new % r, TOL)
-    @assertEqual(u_ref, new % dir, TOL)
-    @assertEqual(3, new % uniIdx)
-    @assertEqual(1, new % localID)
-    @assertEqual(0, new % cellIdx)
+    u_ref = u
+    @assertEqual(r_ref, new % getPosition(), TOL)
+    @assertEqual(u_ref, new % getDirection(), TOL)
+    @assertEqual(3, new % getUniIdx())
+    @assertEqual(1, new % getLocalId())
+    @assertEqual(0, new % getCellIdx())
 
     ! ** Enter into local cell 2
-    r = [2.3_defReal, 0.0_defReal, -980.0_defReal ]
-    dir = [ZERO, ZERO, ONE]
+    r = [2.3_defReal, ZERO, -980.0_defReal]
+    u = [ZERO, ZERO, ONE]
 
-    call uni % enter(new, r, dir)
+    call uni % enter(r, u, new)
 
     ! Verify location
     r_ref = r
-    u_ref = dir
-    @assertEqual(r_ref, new % r, TOL)
-    @assertEqual(u_ref, new % dir, TOL)
-    @assertEqual(3, new % uniIdx)
-    @assertEqual(2, new % localID)
-    @assertEqual(0, new % cellIdx)
+    u_ref = u
+    @assertEqual(r_ref, new % getPosition(), TOL)
+    @assertEqual(u_ref, new % getDirection(), TOL)
+    @assertEqual(3, new % getUniIdx())
+    @assertEqual(2, new % getLocalId())
+    @assertEqual(0, new % getCellIdx())
 
     ! ** Enter into local cell 3
-    r = [2.6_defReal, 0.0_defReal, -980.0_defReal ]
-    dir = [ZERO, ZERO, ONE]
+    r = [2.6_defReal, ZERO, -980.0_defReal]
+    u = [ZERO, ZERO, ONE]
 
-    call uni % enter(new, r, dir)
+    call uni % enter(r, u, new)
 
     ! Verify location
     r_ref = r
-    u_ref = dir
-    @assertEqual(r_ref, new % r, TOL)
-    @assertEqual(u_ref, new % dir, TOL)
-    @assertEqual(3, new % uniIdx)
-    @assertEqual(3, new % localID)
-    @assertEqual(0, new % cellIdx)
+    u_ref = u
+    @assertEqual(r_ref, new % getPosition(), TOL)
+    @assertEqual(u_ref, new % getDirection(), TOL)
+    @assertEqual(3, new % getUniIdx())
+    @assertEqual(3, new % getLocalId())
+    @assertEqual(0, new % getCellIdx())
 
     ! VERIFY THAT ROTATION IS NOT SET (all angles were 0.0)
-    @assertFalse(new % isRotated)
+    @assertFalse(new % getIsRotated())
 
   end subroutine test_enter
 
@@ -153,31 +153,31 @@ contains
     real(defReal), parameter :: TOL = 1.0E-7_defReal
 
     ! ** In local cell 1 distance to boundary
-    pos % r = [1.0_defReal, 0.0_defReal, 0.0_defReal]
-    pos % dir = [ONE, ZERO, ZERO]
-    pos % uniIdx  = 3
-    pos % cellIdx = 0
-    pos % localId = 1
+    call pos % setPosition([ONE, ZERO, ZERO])
+    call pos % setDirection([ONE, ZERO, ZERO])
+    call pos % setUniIdx(3)
+    call pos % setCellIdx(0)
+    call pos % setLocalId(1)
 
     call uni % distance(pos, d, surfIdx)
 
-    ref = 0.5_defReal
+    ref = HALF
     @assertEqual(ref, d, ref * tol)
     @assertEqual(MOVING_OUT, surfIdx)
 
     ! ** In outermost cell moving away
-    pos % r = [2.0_defReal, 1.6_defReal, 0.0_defReal]
-    pos % dir = [ONE, ZERO, ZERO]
-    pos % localId = 3
+    call pos % setPosition([2.0_defReal, 1.6_defReal, ZERO])
+    call pos % setDirection([ONE, ZERO, ZERO])
+    call pos % setLocalId(3)
 
     call uni % distance(pos, d, surfIdx)
     @assertEqual(INF, d)
     ! Surface momento is undefined -> No crossing
 
     ! In ordinary cell in-between
-    pos % r = [0.0_defReal, 1.6_defReal, 0.0_defReal]
-    pos % dir = [ZERO, -ONE, ZERO]
-    pos % localId = 2
+    call pos % setPosition([ZERO, 1.6_defReal, ZERO])
+    call pos % setDirection([ZERO, -ONE, ZERO])
+    call pos % setLocalId(2)
 
     call uni % distance(pos, d, surfIdx)
     ref = 0.1_defReal
@@ -193,30 +193,29 @@ contains
   subroutine test_cross()
     type(coord)       :: pos
     integer(shortInt) :: idx
-    real(defReal) :: eps
+    real(defReal)     :: eps
 
     ! Cross from cell 1 to cell 2
     eps = HALF * SURF_TOL
-    pos % r   = [0.0_defReal, 1.5_defReal-eps, 0.0_defReal]
-    pos % dir = [ZERO, ONE, ZERO]
-    pos % uniIdx = 8
-    pos % cellIdx = 0
-    pos % localId = 1
+    call pos % setPosition([ZERO, 1.5_defReal - eps, ZERO])
+    call pos % setDirection([ZERO, ONE, ZERO])
+    call pos % setUniIdx(8)
+    call pos % setCellIdx(0)
+    call pos % setLocalId(1)
 
     idx = MOVING_OUT
     call uni % cross(pos, idx)
 
-    @assertEqual(2, pos % localId)
+    @assertEqual(2, pos % getLocalId())
 
     ! Cross form cell 2 to cell 1
-    eps = HALF * SURF_TOL
-    pos % r   = [0.0_defReal, 1.5_defReal+eps, 0.0_defReal]
-    pos % dir = [ZERO, -ONE, ZERO]
+    call pos % setPosition([ZERO, 1.5_defReal + eps, ZERO])
+    call pos % setDirection([ZERO, -ONE, ZERO])
 
     idx = MOVING_IN
     call uni % cross(pos, idx)
 
-    @assertEqual(1, pos % localId)
+    @assertEqual(1, pos % getLocalId())
 
   end subroutine test_cross
 
@@ -228,22 +227,22 @@ contains
     type(coord)       :: pos
 
     ! Cell 1
-    pos % r   = [0.0_defReal, 1.0_defReal, 0.0_defReal]
-    pos % dir = [ZERO, ONE, ZERO]
-    pos % uniIdx = 3
-    pos % cellIdx = 0
-    pos % localId = 1
+    call pos % setPosition([ZERO, ONE, ZERO])
+    call pos % setDirection([ZERO, ONE, ZERO])
+    call pos % setUniIdx(3)
+    call pos % setCellIdx(0)
+    call pos % setLocalId(1)
 
-    @assertEqual([ZERO, ZERO, ZERO], uni % cellOffset(pos) )
+    @assertEqual([ZERO, ZERO, ZERO], uni % cellOffset(pos))
 
     ! Cell 3
-    pos % r   = [-7.0_defReal, 2.0_defReal, 0.0_defReal]
-    pos % dir = [ZERO, ONE, ZERO]
-    pos % uniIdx = 3
-    pos % cellIdx = 0
-    pos % localId = 3
+    call pos % setPosition([-7.0_defReal, 2.0_defReal, ZERO])
+    call pos % setDirection([ZERO, ONE, ZERO])
+    call pos % setUniIdx(3)
+    call pos % setCellIdx(0)
+    call pos % setLocalId(3)
 
-    @assertEqual([ZERO, ZERO, ZERO], uni % cellOffset(pos) )
+    @assertEqual([ZERO, ZERO, ZERO], uni % cellOffset(pos))
 
   end subroutine test_cellOffset
 
@@ -262,18 +261,18 @@ contains
 
     ! At boundary between cell 1 and 2
     eps = HALF * SURF_TOL
-    pos % r   = [0.0_defReal, 1.5_defReal-eps, 0.0_defReal]
-    pos % dir = [ONE, -0.00001_defReal, ZERO]
-    pos % dir = pos % dir / norm2(pos % dir)
-    pos % uniIdx = 8
-    pos % cellIdx = 0
+    call pos % setPosition([ZERO, 1.5_defReal - eps, ZERO])
+    call pos % setDirection([ONE, -0.00001_defReal, ZERO])
+    call pos % setDirection(pos % getDirection() / norm2(pos % getDirection()))
+    call pos % setUniIdx(8)
+    call pos % setCellIdx(0)
 
     ! Should find particle in cell 1
     ! And return very small distance -> MOVING OUT
-    call uni % findCell(pos % r, pos % dir, localID, cellIDx, elementIdx)
-    @assertEqual(1, localID)
+    call uni % findCell(pos)
+    @assertEqual(1, pos % getLocalId())
 
-    pos % localID = 1
+    call pos % setLocalId(1)
     call uni % distance(pos, d, idx)
 
     @assertEqual(ZERO, d, 1.0E-3_defReal)

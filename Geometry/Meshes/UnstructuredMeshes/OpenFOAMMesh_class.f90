@@ -1,19 +1,20 @@
 module OpenFOAMMesh_class
 
-  use coord_class,            only : coord
-  use edgeShelf_class,        only : edgeShelf
-  use elementShelf_class,     only : elementShelf
-  use cellZoneShelf_class,    only : cellZoneShelf
-  use faceShelf_class,        only : faceShelf
-  use genericProcedures,      only : append, fatalError, numToChar, openToRead, quickSort, updateBoundingBox
+  use axisAlignedBoundingBox_class, only : axisAlignedBoundingBox
+  use coord_class,                  only : coord
+  use edgeShelf_class,              only : edgeShelf
+  use elementShelf_class,           only : elementShelf
+  use cellZoneShelf_class,          only : cellZoneShelf
+  use faceShelf_class,              only : faceShelf
+  use genericProcedures,            only : append, fatalError, numToChar, openToRead, quickSort
   use numPrecision
-  use universalVariables,     only : INF
-  use unstructuredMesh_inter, only : unstructuredMesh, &
-                                     distanceToBoundaryFace_super => distanceToBoundaryFace, &
-                                     distanceToNextFace_super => distanceToNextFace, &
-                                     findElementAndParentIdxs_super => findElementAndParentIdxs, &
-                                     kill_super => kill
-  use vertexShelf_class,      only : vertexShelf
+  use universalVariables,           only : INF
+  use unstructuredMesh_inter,       only : unstructuredMesh, &
+                                           distanceToBoundaryFace_super => distanceToBoundaryFace, &
+                                           distanceToNextFace_super => distanceToNextFace, &
+                                           findHostElement_super => findHostElement, &
+                                           kill_super => kill
+  use vertexShelf_class,            only : vertexShelf
 
   implicit none
   private
@@ -24,7 +25,7 @@ module OpenFOAMMesh_class
     ! Superclass procedures.
     procedure                             :: distanceToBoundaryFace
     procedure                             :: distanceToNextFace
-    procedure                             :: findElementAndParentIdxs
+    procedure                             :: findHostElement
     ! Local procedures.
     procedure                             :: buildEdges
     procedure                             :: checkFiles
@@ -179,13 +180,12 @@ contains
   !!
   !! See unstructuredMesh_inter for details.
   !!
-  elemental subroutine distanceToBoundaryFace(self, d, coords, parentIdx)
+  subroutine distanceToBoundaryFace(self, d, coords)
     class(OpenFOAMMesh), intent(in) :: self
     real(defReal), intent(out)      :: d
     type(coord), intent(inout)      :: coords
-    integer(shortInt), intent(out)  :: parentIdx
 
-    call distanceToBoundaryFace_super(self, d, coords, parentIdx)
+    call distanceToBoundaryFace_super(self, d, coords)
 
   end subroutine distanceToBoundaryFace
 
@@ -213,14 +213,13 @@ contains
   !!
   !! See unstructuredMesh_inter for details.
   !!
-  subroutine findElementAndParentIdxs(self, r, u, elementIdx, parentIdx)
-    class(OpenFOAMMesh), intent(in)         :: self
-    real(defReal), dimension(3), intent(in) :: r, u
-    integer(shortInt), intent(out)          :: elementIdx, parentIdx
+  subroutine findHostElement(self, coords)
+    class(OpenFOAMMesh), intent(in)        :: self
+    type(coord), intent(inout)             :: coords
 
-    call findelementandparentidxs_super(self, r, u, elementIdx, parentIdx)
+    call findHostElement_super(self, coords)
 
-  end subroutine findElementAndParentIdxs
+  end subroutine findHostElement
 
   !! Subroutine 'getMeshInfo'
   !!
@@ -320,33 +319,34 @@ contains
   !! Errors:
   !!   - fatalError if the mesh contains concave elements.
   !!
-  subroutine importMesh(self, folderPath, centroids, edges, elements, elementZones, faces, vertices)
+  subroutine importMesh(self, folderPath, edges, elements, elementZones, faces, vertices)
     class(OpenFOAMMesh), intent(inout) :: self
     character(*), intent(in)           :: folderPath
     type(edgeShelf), intent(out)       :: edges
     type(elementShelf), intent(out)    :: elements
     type(cellZoneShelf), intent(out)   :: elementZones
     type(faceShelf), intent(out)       :: faces
-    type(vertexShelf), intent(out)     :: centroids, vertices
+    type(vertexShelf), intent(out)     :: vertices
     integer(shortInt)                  :: nConcaveElements
+    type(axisAlignedBoundingBox)       :: boundingBox
     character(*), parameter            :: Here = 'importMesh (OpenFOAMMesh_class.f90)'
     
     ! Retrieve preliminary information about the mesh and allocate memory.
     call self % getMeshInfo(folderPath)
-    call centroids % allocateShelf(self % nElements)
     call elements % allocateShelf(self % nElements)
     call faces % allocateShelf(self % nFaces)
     call vertices % allocateShelf(self % nVertices)
     
     ! Import vertices and set mesh bounding box.
     call self % initVertexShelf(vertices, folderPath)
-    call self % setBoundingBox(vertices % getExtremalCoordinates())
+    call boundingBox % init(vertices % getExtremalCoordinates())
+    call self % setBoundingBox(boundingBox)
 
     ! Import faces and edges.
     call self % initFaceShelf(faces, vertices, folderPath)
     
     ! Import elements.
-    call self % initElementShelf(centroids, elements, faces, vertices, folderPath, nConcaveElements)
+    call self % initElementShelf(elements, faces, vertices, folderPath, nConcaveElements)
 
     ! If there are concave elements in the mesh call fatalError.
     if (nConcaveElements > 0) call fatalError(Here, numToChar(nConcaveElements)//' elements failed convexity test.')
@@ -381,9 +381,9 @@ contains
   !!   nFaces [in]         -> Number of faces in the mesh.
   !!   nInternalFaces [in] -> Number of internal faces in the mesh.
   !!
-  subroutine initElementShelf(self, centroids, elements, faces, vertices, folderPath, nConcaveElements)
+  subroutine initElementShelf(self, elements, faces, vertices, folderPath, nConcaveElements)
     class(OpenFOAMMesh), intent(inout)             :: self
-    class(vertexShelf), intent(inout)              :: centroids, vertices
+    class(vertexShelf), intent(inout)              :: vertices
     class(elementShelf), intent(inout)             :: elements
     class(faceShelf), intent(inout)                :: faces
     character(*), intent(in)                       :: folderPath
@@ -394,7 +394,7 @@ contains
     character(100)                                 :: string
     type(elementInfo), dimension(self % nElements) :: elementInfos
     character(:), allocatable                      :: type
-    real(defReal), dimension(6)                    :: boundingBox
+    type(axisAlignedBoundingBox)                   :: boundingBox
 
     ! Initialise nConcaveElements = 0
     nConcaveElements = 0
@@ -408,21 +408,18 @@ contains
 
       end do
 
-      boundingBox = [INF, INF, INF, -INF, -INF, -INF]
       allocate(elementInfos(1) % vertexIdxs(self % nVertices))
       do i = 1, self % nVertices
         elementInfos(1) % vertexIdxs(i) = i
         call vertices % addElementIdxToVertex(i, 1)
-        call updateBoundingBox(vertices % getVertexCoordinates(i), boundingBox)
 
       end do
+      call boundingBox % init(vertices % getExtremalCoordinates())
 
       type = 'Polyhedron'
       if (size(elementInfos(1) % vertexIdxs) == 4) type = 'Tetrahedron'
       call elements % buildElement(1, 1, elementInfos(1) % faceIdxs, elementInfos(1) % vertexIdxs, faces, vertices, type, &
                                    boundingBox)
-      call centroids % initVertex(1, elements % getElementCentroid(1))
-      call centroids % addElementIdxToVertex(1, 1)
       if (.not. elements % getElementIsConvex(1)) nConcaveElements = 1
       return
 
@@ -522,18 +519,14 @@ contains
     do i = 1, self % nElements
       type = 'Polyhedron'
       if (size(elementInfos(i) % vertexIdxs) == 4) type = 'Tetrahedron'
-      ! Compute bounding box for the current element.
-      boundingBox = [INF, INF, INF, -INF, -INF, -INF]
       do j = 1, size(elementInfos(i) % vertexIdxs)
         vertexIdx = elementInfos(i) % vertexIdxs(j)
-        call updateBoundingBox(vertices % getVertexCoordinates(vertexIdx), boundingBox)
 
       end do
+      call boundingBox % computeBounds(vertices % getVertexCoordinates(elementInfos(i) % vertexIdxs))
 
       call elements % buildElement(i, i, elementInfos(i) % faceIdxs, elementInfos(i) % vertexIdxs, faces, vertices, type, &
                                    boundingBox)
-      call centroids % initVertex(i, elements % getElementCentroid(i))
-      call centroids % addElementIdxToVertex(i, i)
       if (.not. elements % getElementIsConvex(i)) nConcaveElements = nConcaveElements + 1
 
     end do
@@ -672,8 +665,7 @@ contains
     integer(shortInt), dimension(:), allocatable :: vertexIdxs
     character(100)                               :: string
     character(:), allocatable                    :: type
-    real(defReal), dimension(3)                  :: vertexCoords
-    real(defReal), dimension(6)                  :: boundingBox
+    type(axisAlignedBoundingBox)                 :: boundingBox
 
     ! Open the 'faces' data file and read it until a line containing the symbol ')' is encountered.
     call openToRead(unit, folderPath//'faces')
@@ -727,24 +719,10 @@ contains
         vertexIdx = vertexIdxs(j)
         call vertices % addFaceIdxToVertex(vertexIdx, i)
 
-        ! Retrieve the coordinates of the current vertex and update the face's bounding box.
-        vertexCoords = vertices % getVertexCoordinates(vertexIdx)
-        if (j == 1) then
-          boundingBox(1:3) = vertexCoords
-          boundingBox(4:6) = vertexCoords
-
-        else
-          do k = 1, 3
-            boundingBox(k) = min(vertexCoords(k), boundingBox(k))
-            boundingBox(k + 3) = max(vertexCoords(k), boundingBox(k + 3))
-  
-          end do
-
-        end if
-
       end do
 
-      ! Initialise face in the shelf.
+      ! Compute the face's bounding box and initialise the face in the shelf.
+      call boundingBox % computeBounds(vertices % getVertexCoordinates(vertexIdxs))
       type = 'Polygon'
       if (nVertices == 3) type = 'Triangle'
       call faces % buildFace(i, i, i > self % nInternalFaces, vertexIdxs, vertices, type, boundingBox)

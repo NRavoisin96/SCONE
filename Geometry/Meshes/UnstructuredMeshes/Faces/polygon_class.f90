@@ -1,13 +1,14 @@
 module polygon_class
   
+  use axisAlignedBoundingBox_class, only : axisAlignedBoundingBox
   use numPrecision,
-  use edgeShelf_class,     only : edgeShelf
-  use face_inter,          only : face, faceBox, kill_super => kill
-  use genericProcedures,   only : append, areEqual, computeTriangleArea, computeTriangleCentre, &
-                                  computeTriangleNormal, fatalError, findCommon, numToChar
-  use triangle_class,      only : triangle
-  use universalVariables,  only : INF, HALF, THIRD, SURF_TOL, ZERO
-  use vertexShelf_class,   only : vertexShelf
+  use edgeShelf_class,              only : edgeShelf
+  use face_inter,                   only : face, faceBox, kill_super => kill
+  use genericProcedures,            only : append, areEqual, computeTriangleArea, computeTriangleCentre, &
+                                           computeTriangleNormal, fatalError, findCommon, numToChar
+  use triangle_class,               only : triangle
+  use universalVariables,           only : INF, HALF, THIRD, SURF_TOL, ZERO
+  use vertexShelf_class,            only : vertexShelf
   
   implicit none
   private
@@ -23,7 +24,6 @@ module polygon_class
     procedure                 :: computeComponents
     procedure                 :: createTriangle
     procedure                 :: kill
-    procedure                 :: testForInclusion
   end type polygon
 
 contains
@@ -112,7 +112,7 @@ contains
     type(vertexShelf), intent(in)                  :: newVertices
     type(faceBox), intent(inout)                   :: newTriangle
     integer(shortInt), dimension(3), intent(inout) :: vertexIdxs
-    real(defReal), dimension(6), intent(in)        :: boundingBox
+    type(axisAlignedBoundingBox), intent(in)       :: boundingBox
 
     ! Build the new triangle.
     allocate(triangle :: newTriangle % item)
@@ -133,99 +133,5 @@ contains
     call kill_super(self)
 
   end subroutine kill
-  
-  !! Subroutine 'split'
-  !!
-  !! Basic description:
-  !!   Splits the face into triangles.
-  !!
-  !! Detailed descrption:
-  !!   Creates triangles by dividing the face from the vertex of smallest index (that is, all
-  !!   triangles share this vertex). The remaining two vertices are then taken in a counter-
-  !!   clockwise ordering, just as for regular faces in OpenFOAM. This ensures that the normal 
-  !!   vectors of the resulting triangles are all pointing in the correct direction without the need
-  !!   to check.
-  !!
-  !! Arguments:
-  !!   triangles [inout]       -> A triangleShelf.
-  !!   vertices [in]           -> A vertexShelf.
-  !!   freeTriangleIdx [inout] -> Index of the first free item in triangleShelf.
-  !!
-
-  !!
-  !!
-  !!
-  pure subroutine testForInclusion(self, vertices, intersectionCoords, diff, d, edgeIdx, vertexIdx)
-    class(polygon), intent(in)                   :: self
-    type(vertexShelf), intent(in)                :: vertices
-    real(defReal), dimension(3), intent(in)      :: intersectionCoords, diff
-    real(defReal), intent(inout)                 :: d
-    integer(shortInt), intent(inout)             :: edgeIdx, vertexIdx
-    integer(shortInt), dimension(:), allocatable :: vertexIdxs
-    integer(shortInt)                            :: discardDimension, i, nVertices, nextIdx
-    integer(shortInt), dimension(2)              :: dimensions
-    real(defReal)                                :: crossProduct, sign
-    real(defReal), dimension(:, :), allocatable  :: vertexCoords, projVertexCoords
-    real(defReal), dimension(2)                  :: projIntersectionCoords, diffEdgeCoords, diffIntersectionCoords
-
-    ! Compute dimension to discard and project vertices coordinates.
-    vertexIdxs = self % getVertexIdxs()
-    nVertices = size(vertexIdxs)
-    allocate(vertexCoords(nVertices, 3))
-    
-    discardDimension = maxloc(abs(self % getNormal()), 1)
-    dimensions = pack((/(i, i = 1, 3)/), (/(i, i = 1, 3)/) /= discardDimension)
-    do i = 1, nVertices
-      vertexCoords(i, :) = vertices % getVertexCoordinates(vertexIdxs(i))
-
-    end do
-    projVertexCoords = vertexCoords(:, dimensions)
-    projIntersectionCoords = intersectionCoords(dimensions)
-
-    ! Loop through all edges of the projected polygon and check that the projected intersection coordinates
-    ! are on the same side of each edge. Note: this works because the polygon is convex.
-    do i = 1, nVertices
-      ! Pre-compute the difference in coordinates between the intersection point and the current vertex.
-      diffIntersectionCoords = projIntersectionCoords - projVertexCoords(i, :)
-      nextIdx = mod(i, nVertices) + 1
-      
-      ! Check if the intersection point is on the current or next vertex and exit if yes.
-      if (i == 1 .and. areEqual(diffIntersectionCoords, ZERO)) vertexIdx = vertexIdxs(1)
-      if (i < nVertices .and. areEqual(projIntersectionCoords - projVertexCoords(nextIdx, :), ZERO)) vertexIdx = vertexIdxs(nextIdx)
-      if (vertexIdx > 0) exit
-
-      ! Compute cross product.
-      diffEdgeCoords = projVertexCoords(nextIdx, :) - projVertexCoords(i, :)
-      crossProduct = diffIntersectionCoords(1) * diffEdgeCoords(2) - diffIntersectionCoords(2) * diffEdgeCoords(1)
-
-      ! If crossProduct is ZERO, the point may lie on the edge.
-      if (areEqual(crossProduct, ZERO)) then
-        ! If point actually lies on the edge find the common edge between the two vertices and exit. Return if not.
-        if (any(minval(projVertexCoords([i, nextIdx], :), dim = 1) < projIntersectionCoords .and. &
-                projIntersectionCoords < maxval(projVertexCoords([i, nextIdx], :), dim = 1))) then
-          edgeIdx = vertices % findCommonEdgeIdx(vertexIdxs(i), vertexIdxs(nextIdx))
-          exit
-
-        end if
-        return
-
-      end if
-
-      ! Initialise sign.
-      if (i == 1) then
-        sign = crossProduct
-        cycle
-
-      end if
-
-      ! If the cross product changes sign the intersection point is outside the polygon and we can return early.
-      if (crossProduct * sign < ZERO) return
-
-    end do
-
-    ! If reached here, the intersection point is inside the polygon. Update d.
-    d = norm2(diff)
-
-  end subroutine testForInclusion
   
 end module polygon_class

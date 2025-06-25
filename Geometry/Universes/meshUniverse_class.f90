@@ -1,21 +1,22 @@
 module meshUniverse_class
   
+  use axisAlignedBoundingBox_class, only : axisAlignedBoundingBox
   use numPrecision
-  use universalVariables,     only : NUDGE, ZERO, ONE, INF, nameLen
-  use genericProcedures,      only : fatalError, numToChar, countCharacters
-  use dictionary_class,       only : dictionary
-  use box_class,              only : box
-  use coord_class,            only : coord
-  use charMap_class,          only : charMap
-  use sphere_class,           only : sphere
-  use surface_inter,          only : surface
-  use surfaceShelf_class,     only : surfaceShelf
-  use cell_inter,             only : cell
-  use cellShelf_class,        only : cellShelf
-  use simpleCell_class,       only : simpleCell
-  use mesh_inter,             only : mesh
-  use meshShelf_class,        only : meshShelf
-  use universe_inter,         only : universe, kill_super => kill, charToFill
+  use universalVariables,           only : NUDGE, ZERO, ONE, INF, nameLen
+  use genericProcedures,            only : fatalError, numToChar, countCharacters
+  use dictionary_class,             only : dictionary
+  use box_class,                    only : box
+  use coord_class,                  only : coord
+  use charMap_class,                only : charMap
+  use sphere_class,                 only : sphere
+  use surface_inter,                only : surface
+  use surfaceShelf_class,           only : surfaceShelf
+  use cell_inter,                   only : cell
+  use cellShelf_class,              only : cellShelf
+  use simpleCell_class,             only : simpleCell
+  use mesh_inter,                   only : mesh
+  use meshShelf_class,              only : meshShelf
+  use universe_inter,               only : universe, kill_super => kill, charToFill
   
   implicit none
   private
@@ -145,14 +146,13 @@ contains
   !!
   !! See universe_inter for details.
   !!
-  subroutine findCell(self, r, u, localId, cellIdx, elementIdx)
-    class(meshUniverse), intent(inout)      :: self
-    integer(shortInt), intent(out)          :: localId, cellIdx, elementIdx
-    real(defReal), dimension(3), intent(in) :: r, u
+  subroutine findCell(self, coords)
+    class(meshUniverse), intent(inout) :: self
+    type(coord), intent(inout)         :: coords
     
     ! Set cellIdx to the index of the CSG cell, then find elementIdx and localId within mesh.
-    cellIdx = self % cell % idx
-    call self % mesh % ptr % findOccupiedElementIdx(r, u, elementIdx, localId)
+    call coords % setCellIdx(self % cell % idx)
+    call self % mesh % ptr % findOccupiedElementIdx(coords)
 
   end subroutine findCell
   
@@ -161,7 +161,7 @@ contains
   !!
   !! See universe_inter for details.
   !!
-  pure subroutine distance(self, coords, d, surfIdx)
+  subroutine distance(self, coords, d, surfIdx)
     class(meshUniverse), intent(inout) :: self
     type(coord), intent(inout)         :: coords
     real(defReal), intent(out)         :: d
@@ -174,7 +174,7 @@ contains
     call self % mesh % ptr % distance(d, coords, inside)
     
     ! If particle is outside the mesh then compute distance to the next CSG surface crossing.
-    if (.not. inside) call self % cell % ptr % distance(d, surfIdx, coords % r, coords % dir)
+    if (.not. inside) call self % cell % ptr % distance(d, surfIdx, coords % getPosition(), coords % getDirection())
 
   end subroutine distance
   
@@ -245,7 +245,8 @@ contains
     class(cell), pointer                         :: cellPtr
     class(surface), pointer                      :: surfPtr
     integer(shortInt), dimension(:), allocatable :: surfIdxs
-    real(defReal), dimension(6)                  :: boundingBox
+    type(axisAlignedBoundingBox)                 :: boundingBox
+    real(defReal), dimension(6)                  :: bounds
     character(*), parameter                      :: Here = 'checkForCropping (meshUniverse_class.f90)'
     
     ! Get local pointer to cell. We need this to select the cell type.
@@ -266,13 +267,14 @@ contains
     ! Get pointer to the surface of the CSG cell and check that the surface of the CSG cell does not crop it.
     surfPtr => surfs % getPtr(abs(surfIdxs(1)))
     boundingBox = self % mesh % ptr % getBoundingBox()
-    if (surfPtr % cropsBoundingBox(boundingBox)) then
-      print *, 'Minimum x-coordinate: '//numToChar(boundingBox(1))//'.'
-      print *, 'Minimum y-coordinate: '//numToChar(boundingBox(2))//'.'
-      print *, 'Minimum z-coordinate: '//numToChar(boundingBox(3))//'.'
-      print *, 'Maximum x-coordinate: '//numToChar(boundingBox(4))//'.'
-      print *, 'Maximum y-coordinate: '//numToChar(boundingBox(5))//'.'
-      print *, 'Maximum z-coordinate: '//numToChar(boundingBox(6))//'.'
+    if (surfPtr % cropsBoundingBox(boundingBox % getBounds())) then
+      bounds = boundingBox % getBounds()
+      print *, 'Minimum x-coordinate: '//numToChar(bounds(1))//'.'
+      print *, 'Minimum y-coordinate: '//numToChar(bounds(2))//'.'
+      print *, 'Minimum z-coordinate: '//numToChar(bounds(3))//'.'
+      print *, 'Maximum x-coordinate: '//numToChar(bounds(4))//'.'
+      print *, 'Maximum y-coordinate: '//numToChar(bounds(5))//'.'
+      print *, 'Maximum z-coordinate: '//numToChar(bounds(6))//'.'
       call fatalError(Here, 'Surface with id: '//numToChar(surfPtr % getId())//&
                       ' crops the bounding box of the mesh geometry with id: '//numToChar(self % mesh % ptr % getId())//'.')
 

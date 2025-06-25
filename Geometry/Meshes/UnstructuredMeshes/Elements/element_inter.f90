@@ -1,14 +1,16 @@
 module element_inter
 
-  use edgeShelf_class,     only : edgeShelf
-  use face_inter,          only : faceBox
-  use faceShelf_class,     only : faceShelf
-  use genericProcedures,   only : append, areEqual, computePyramidCentre, computePyramidVolume, &
-                                  computeTetrahedronCentre, computeTetrahedronVolume, findCommon, &
-                                  fatalError, numToChar
+  use axisAlignedBoundingBox_class, only : axisAlignedBoundingBox
+  use coord_class,                  only : coord
+  use edgeShelf_class,              only : edgeShelf
+  use face_inter,                   only : faceBox
+  use faceShelf_class,              only : faceShelf
+  use genericProcedures,            only : append, areEqual, computePyramidCentre, computePyramidVolume, &
+                                           computeTetrahedronCentre, computeTetrahedronVolume, findCommon, &
+                                           fatalError, numToChar
   use numPrecision
-  use universalVariables,  only : SURF_TOL, INF, ZERO
-  use vertexShelf_class,   only : vertexShelf
+  use universalVariables,           only : INSIDE_ELEMENT, INF, ON_BOUNDARY_ELEMENT, OUTSIDE_ELEMENT, SURF_TOL, ZERO
+  use vertexShelf_class,            only : vertexShelf
   
   implicit none
   private
@@ -33,7 +35,7 @@ module element_inter
     integer(shortInt), dimension(:), allocatable :: edgeIdxs, faceIdxs, vertexIdxs, tetrahedronIdxs
     real(defReal)                                :: volume = ZERO
     real(defReal), dimension(3)                  :: centroid = ZERO
-    real(defReal), dimension(6)                  :: boundingBox = [INF, INF, INF, -INF, -INF, -INF]
+    type(axisAlignedBoundingBox)                 :: boundingBox
     logical(defBool)                             :: isConvex = .false.
     character(:), allocatable                    :: type
   contains
@@ -61,7 +63,8 @@ module element_inter
     procedure, non_overridable                   :: getVertexIdxs
     procedure, non_overridable                   :: getVolume
     procedure                                    :: kill
-    procedure, non_overridable                   :: testForInclusion
+    procedure, non_overridable                   :: pushFromBoundary
+    procedure, non_overridable                   :: isPointInside
   end type element
 
   !!
@@ -74,6 +77,13 @@ module element_inter
   type, public                  :: elementBox
     class(element), allocatable :: item
   end type
+
+  !!
+  !!
+  !!
+  type, public        :: inclusionTestResult
+    integer(shortInt) :: status = INSIDE_ELEMENT, failedFaceIdx = 0
+  end type inclusionTestResult
 
   abstract interface
 
@@ -171,7 +181,7 @@ contains
     logical(defBool)                            :: isConvex
     real(defReal), dimension(3)                 :: centroid
     real(defReal)                               :: volume
-    real(defReal), dimension(6), intent(in)     :: boundingBox
+    type(axisAlignedBoundingBox), intent(in)    :: boundingBox
 
     call self % computeComponents(faceIdxs, vertexIdxs, faces, vertices, centroid, volume)
 
@@ -360,8 +370,8 @@ contains
   !!   boundingBox -> 6-D array representing the bounding box of the element.
   !!
   pure function getBoundingBox(self) result(boundingBox)
-    class(element), intent(in)  :: self
-    real(defReal), dimension(6) :: boundingBox
+    class(element), intent(in)   :: self
+    type(axisAlignedBoundingBox) :: boundingBox
 
     boundingBox = self % boundingBox
 
@@ -509,7 +519,7 @@ contains
     real(defReal), intent(in)                             :: volume
     logical(defBool), intent(in)                          :: isConvex
     character(*), intent(in)                              :: type
-    real(defReal), dimension(6), intent(in)               :: boundingBox
+    type(axisAlignedBoundingBox), intent(in)              :: boundingBox
     integer(shortInt), dimension(:), intent(in), optional :: edgeIdxs
 
     ! Set everything.
@@ -544,9 +554,50 @@ contains
     if (allocated(self % faceIdxs)) deallocate(self % faceIdxs)
     if (allocated(self % tetrahedronIdxs)) deallocate(self % tetrahedronIdxs)
     if (allocated(self % type)) deallocate(self % type)
-    self % boundingBox = [INF, INF, INF, -INF, -INF, -INF]
+    call self % boundingBox % kill()
 
   end subroutine kill
+
+  !!
+  !!
+  !!
+  elemental subroutine pushFromBoundary(self, faces, coords)
+    class(element), intent(in)   :: self
+    type(faceShelf), intent(in)  :: faces
+    type(coord), intent(inout)   :: coords
+    real(defReal), dimension(3)  :: normal, nudgeDirection, r, u
+    integer(shortInt)            :: absFaceIdx, faceIdx, i
+
+    ! Initialise nudgeDirection = ZERO then loop over all the faces in the element.
+    nudgeDirection = ZERO
+    r = coords % getPositionToNudge()
+    u = coords % getDirection()
+    do i = 1, size(self % faceIdxs)
+      ! Retrieve the index of the current face and make an absolute index.
+      faceIdx = self % faceIdxs(i)
+      absFaceIdx = abs(faceIdx)
+
+      ! Retrieve the normal vector of the current face and test whether the coordinates lie on the face.
+      normal = faces % getFaceNormal(faceIdx)
+      if (areEqual(dot_product(faces % getFaceCentroid(absFaceIdx) - r, normal), ZERO)) then
+        ! If coordinates are parallel to the plane of the current face, append the negative of the normal to
+        ! nudgeDirection.
+        if (areEqual(dot_product(u, normal), ZERO)) nudgeDirection = nudgeDirection - normal
+
+      end if
+
+    end do
+
+    ! Now nudge coordinates with the appropriate direction.
+    if (any(nudgeDirection /= ZERO)) then
+      call coords % nudgePosition(nudgeDirection / norm2(nudgeDirection))
+
+    else
+      call coords % nudgePosition()
+
+    end if
+
+  end subroutine pushFromBoundary
   
   !! Subroutine 'setIdx'
   !!
@@ -592,17 +643,18 @@ contains
   !!                            used in the main tracking routine to assign an element to the
   !!                            coordinates in case the coordinates are on one or more face(s).
   !!
-  pure subroutine testForInclusion(self, faces, r, failedFaceIdx, surfTolFaceIdxs)
-    class(element), intent(in)                                :: self
-    type(faceShelf), intent(in)                               :: faces
-    real(defReal), dimension(3), intent(in)                   :: r
-    integer(shortInt), intent(out)                            :: failedFaceIdx
-    integer(shortInt), dimension(:), allocatable, intent(out) :: surfTolFaceIdxs
-    integer(shortInt)                                         :: i, faceIdx, absFaceIdx
-    real(defReal)                                             :: dotProduct
+  pure function isPointInside(self, faces, r) result(result)
+    class(element), intent(in)              :: self
+    type(faceShelf), intent(in)             :: faces
+    real(defReal), dimension(3), intent(in) :: r
+    type(inclusionTestResult)               :: result
+    integer(shortInt)                       :: absFaceIdx, faceIdx, i
+    real(defReal)                           :: dotProduct
+    logical(defBool)                        :: isOnBoundary
     
-    ! Initialise failedFaceIdx = 0 and loop over all element faces.
-    failedFaceIdx = 0
+    ! Initialise isOnBoundary = .false. and result % status = INSIDE_ELEMENT then loop over all element faces.
+    isOnBoundary = .false.
+    result % status = INSIDE_ELEMENT
     do i = 1, size(self % faceIdxs)
       ! Create an absolute face index retrieve the face's normal and centroid vectors.
       faceIdx = self % faceIdxs(i)
@@ -612,22 +664,29 @@ contains
       ! product between this vector and the face's normal vector.
       dotProduct = dot_product(faces % getFaceCentroid(absFaceIdx) - r, faces % getFaceNormal(faceIdx))
 
-      ! Check if the coordinates actually lie on the current face, and if so append zeroDotProductFaces.
+      ! Check if the point is effectively on the plane of this face.
       if (areEqual(dotProduct, ZERO)) then
-        call append(surfTolFaceIdxs, absFaceIdx)
+        isOnBoundary = .true.
+
+        ! Store the first face found and cycle to search other faces.
+        if (result % failedFaceIdx == 0) result % failedFaceIdx = absFaceIdx
         cycle
 
       end if
 
-      ! If dotProduct < ZERO, update failedFace and return early.
+      ! If dotProduct < ZERO, update result and return early.
       if (dotProduct < ZERO) then
-        failedFaceIdx = absFaceIdx
+        result % status = OUTSIDE_ELEMENT
+        result % failedFaceIdx = absFaceIdx
         return
 
       end if
 
     end do
 
-  end subroutine testForInclusion
+    ! If point is on boundary, update result % status.
+    if (isOnBoundary) result % status = ON_BOUNDARY_ELEMENT
+
+  end function isPointInside
 
 end module element_inter

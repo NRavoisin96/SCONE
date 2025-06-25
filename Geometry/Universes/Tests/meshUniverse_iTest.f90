@@ -110,39 +110,42 @@ contains
   !!
 @Test
   subroutine test_enter()
-    type(coord)                 :: new
-    real(defReal), dimension(3) :: r_ref, u_ref, r, dir
-    real(defReal), parameter    :: TOL = 1.0E-7_defReal
+    type(coord)                    :: new
+    real(defReal), dimension(3)    :: r_ref, u_ref, r, u
+    real(defReal), dimension(3, 3) :: rotationMatrix
+    real(defReal), parameter       :: TOL = 1.0E-7_defReal
 
     ! ** Enter into local cell 1.
     r = [ZERO, ZERO, 3.0_defReal]
-    dir = [ZERO, ZERO, ONE]
-    call uni % enter(new, r, dir)
+    u = [ZERO, ZERO, ONE]
+    call uni % enter(r, u, new)
     ! Verify location. Note that particle is at the mesh boundary and is going out due to its 
     ! direction.
     r_ref = [ONE, ZERO, ZERO]
     u_ref = [ONE, ZERO, ZERO]
-    @assertEqual(r_ref, new % r, TOL)
-    @assertEqual(u_ref, new % dir, TOL)
-    @assertEqual(18, new % uniIdx)
-    @assertEqual(1, new % localID)
-    @assertEqual(cells % getIdx(1), new % cellIdx)
+    @assertEqual(r_ref, new % getPosition(), TOL)
+    @assertEqual(u_ref, new % getDirection(), TOL)
+    @assertEqual(18, new % getUniIdx())
+    @assertEqual(1, new % getLocalId())
+    @assertEqual(cells % getIdx(1), new % getCellIdx())
     
     ! Change direction and check that the particle is in the mesh.
-    dir = [ZERO, ZERO, -ONE]
-    call uni % enter(new, r, dir)
+    r = [ZERO, ZERO, 3.0_defReal]
+    u = [ZERO, ZERO, -ONE]
+    call uni % enter(r, u, new)
     u_ref = [-ONE, ZERO, ZERO]
-    @assertEqual(r_ref, new % r, TOL)
-    @assertEqual(u_ref, new % dir, TOL)
-    @assertEqual(18, new % uniIdx)
-    @assertEqual(5, new % localID)
-    @assertEqual(cells % getIdx(1), new % cellIdx)
+    @assertEqual(r_ref, new % getPosition(), TOL)
+    @assertEqual(u_ref, new % getDirection(), TOL)
+    @assertEqual(18, new % getUniIdx())
+    @assertEqual(4, new % getLocalId())
+    @assertEqual(cells % getIdx(1), new % getCellIdx())
     ! Verify rotation settings in coord.
     ! * Do it only once.
-    @assertTrue(new % isRotated)
-    @assertEqual([ZERO, ZERO,  ONE], new % rotMat(1, :), TOL)
-    @assertEqual([ZERO, -ONE, ZERO], new % rotMat(2, :), TOL)
-    @assertEqual([ONE , ZERO, ZERO], new % rotMat(3, :), TOL)
+    @assertTrue(new % getIsRotated())
+    rotationMatrix = new % getRotationMatrix()
+    @assertEqual([ZERO, ZERO,  ONE], rotationMatrix(1, :), TOL)
+    @assertEqual([ZERO, -ONE, ZERO], rotationMatrix(2, :), TOL)
+    @assertEqual([ONE , ZERO, ZERO], rotationMatrix(3, :), TOL)
 
   end subroutine test_enter
   !!
@@ -159,38 +162,38 @@ contains
     maxDist = ONE
     
     ! ** In local cell 1 distance to cell boundary.
-    pos % r = [-1.2_defReal, ZERO, ZERO]
-    pos % dir = [-ONE, ZERO, ZERO]
-    pos % rEnd = pos % r + pos % dir * maxDist
-    pos % uniIdx  = 18
-    pos % cellIdx = cells % getIdx(1)
-    pos % localId = 1
+    call pos % setPosition([-1.2_defReal, ZERO, ZERO])
+    call pos % setDirection([-ONE, ZERO, ZERO])
+    call pos % setEndPosition(pos % getPosition() + pos % getDirection() * maxDist)
+    call pos % setUniIdx(18)
+    call pos % setCellIdx(cells % getIdx(1))
+    call pos % setLocalId(1)
     call uni % distance(pos, d, surfIdx)
     ref = 0.8_defReal
     @assertEqual(ref, d, TOL * ref)
     @assertEqual(surfs % getIdx(1), surfIdx)
     
     ! ** In local cell 1 distance to mesh boundary.
-    pos % r = [-1.2_defReal, ZERO, ZERO]
-    pos % dir = [ONE, ZERO, ZERO]
-    pos % rEnd = pos % r + pos % dir * maxDist
-    pos % uniIdx  = 18
-    pos % cellIdx = cells % getIdx(1)
-    pos % localId = 1
-    pos % elementIdx = 0
+    call pos % setPosition([-1.2_defReal, ZERO, ZERO])
+    call pos % setDirection([ONE, ZERO, ZERO])
+    call pos % setEndPosition(pos % getPosition() + pos % getDirection() * maxDist)
+    call pos % setUniIdx(18)
+    call pos % setCellIdx(cells % getIdx(1))
+    call pos % setLocalId(1)
+    call pos % setElementIdx(0)
     call uni % distance(pos, d, surfIdx)
     ref = 0.2_defReal
     @assertEqual(ref, d, TOL * ref)
     @assertEqual(0, surfIdx)
     
     ! ** In local cell 1. Leaving mesh and on mesh boundary.
-    pos % r = [ZERO, ONE, ZERO]
-    pos % dir = [ZERO, ONE, ZERO]
-    pos % rEnd = pos % r + pos % dir * maxDist
-    pos % uniIdx = 18
-    pos % cellIdx = cells % getIdx(1)
-    pos % localId = 1
-    pos % elementIdx = 0
+    call pos % setPosition([ZERO, ONE, ZERO])
+    call pos % setDirection([ZERO, ONE, ZERO])
+    call pos % setEndPosition(pos % getPosition() + pos % getDirection() * maxDist)
+    call pos % setUniIdx(18)
+    call pos % setCellIdx(cells % getIdx(1))
+    call pos % setLocalId(1)
+    call pos % setElementIdx(0)
     call uni % distance(pos, d, surfIdx)
     ref = ONE
     @assertEqual(ref, d, TOL * d)

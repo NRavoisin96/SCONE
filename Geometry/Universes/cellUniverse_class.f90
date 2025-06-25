@@ -114,16 +114,20 @@ contains
   !!
   !! See universe_inter for details.
   !!
-  pure subroutine findCell(self, r, u, localId, cellIdx, elementIdx)
-    class(cellUniverse), intent(inout)      :: self
-    real(defReal), dimension(3), intent(in) :: r, u
-    integer(shortInt), intent(out)          :: localId, cellIdx, elementIdx
+  pure subroutine findCell(self, coords)
+    class(cellUniverse), intent(inout) :: self
+    type(coord), intent(inout)         :: coords
+    real(defReal), dimension(3)        :: r, u
+    integer(shortInt)                  :: i, nCells
 
-    elementIdx = 0
-    ! Search all cells
-    do localId = 1, size(self % cells)
-      if (self % cells(localId) % ptr % inside(r, u)) then
-        cellIdx = self % cells(localId) % idx
+    ! Search all cells.
+    nCells = size(self % cells)
+    r = coords % getPosition()
+    u = coords % getDirection()
+    do i = 1, nCells
+      if (self % cells(i) % ptr % inside(r, u)) then
+        call coords % setCellIdx(self % cells(i) % idx)
+        call coords % setLocalId(i)
         return
 
       end if
@@ -132,7 +136,8 @@ contains
 
     ! If not found return undefined cell.
     ! Already set to localId (== size(self % cells) + 1) by the do loop
-    cellIdx = 0
+    call coords % setCellIdx(0)
+    call coords % setLocalId(nCells + 1)
 
   end subroutine findCell
 
@@ -152,13 +157,13 @@ contains
     integer(shortInt)                  :: localId
     character(100), parameter          :: Here = 'distance (cellUniverse_class.f90)'
 
-    localId = coords % localId
+    localId = coords % getLocalId()
 
     if (localId > size(self % cells)) call fatalError(Here, &
     'Particle is in undefined cell with local id: '//numToChar(localId)//'.')
 
     ! Calculate distance
-    call self % cells(localId) % ptr % distance(d, surfIdx, coords % r, coords % dir)
+    call self % cells(localId) % ptr % distance(d, surfIdx, coords % getPosition(), coords % getDirection())
 
   end subroutine distance
 
@@ -177,11 +182,11 @@ contains
 
     ! NUDGE position slightly forward to escape surface tolerance
     ! and avoid calculating normal and extra dot-products
-    coords % r = coords % r + coords % dir * NUDGE
+    call coords % nudgePosition()
 
     ! Find cell
     ! TODO: Some cell neighbour list
-    call self % findCell(coords % r, coords % dir, coords % localId, coords % cellIdx, coords % elementIdx)
+    call self % findCell(coords)
 
   end subroutine cross
 

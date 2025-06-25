@@ -1,14 +1,15 @@
 module coord_test
 
-  use numPrecision
-  use coord_class, only : coord, coordList
+  use coord_class,        only : coord
+  use coordList_class,    only : coordList
   use funit
+  use numPrecision
+  use universalVariables, only : ONE, ZERO
 
   implicit none
 
   ! Variables
   type(coordList) :: coords
-
 
 contains
 
@@ -25,17 +26,17 @@ contains
     real(defReal), dimension(3,3) :: mat
 
     ! Set Nesting
-    coords % nesting = 3
-    coords % matIdx = 2
-    coords % uniqueId = 7
+    call coords % setNesting(3)
+    call coords % setMatIdx(2)
+    call coords % setUniqueId(7)
 
     ! Set Level 1
-    coords % lvl(1) % r   = [1.0_defReal, 0.0_defReal, -1.0_defReal]
-    coords % lvl(1) % dir = [ZERO, ONE, ZERO]
-    coords % lvl(1) % uniIdx    = 1
-    coords % lvl(1) % uniRootID = 1
-    coords % lvl(1) % localID   = 1
-    coords % lvl(1) % cellIdx   = 1
+    call coords % setPosition([ONE, ZERO, -ONE], 1)
+    call coords % setDirection([ZERO, ONE, ZERO], 1)
+    call coords % setUniIdx(1, 1)
+    call coords % setUniRootId(1, 1)
+    call coords % setLocalId(1, 1)
+    call coords % setCellIdx(1, 1)
 
     ! Set Level 2
     ! Rotation Y -> Z; Z -> -Y
@@ -43,23 +44,23 @@ contains
     mat(1,1) = ONE
     mat(3,2) = -ONE
     mat(2,3) = ONE
-    coords % lvl(2) % r   = [1.0_defReal, 0.0_defReal, -1.0_defReal]
-    coords % lvl(2) % dir = [ZERO, ZERO, -ONE]
-    coords % lvl(2) % uniIdx    = 2
-    coords % lvl(2) % uniRootID = 6
-    coords % lvl(2) % localID   = 3
-    coords % lvl(2) % isRotated = .true.
-    coords % lvl(2) % rotMat    = mat
-    coords % lvl(2) % cellIdx   = 3
+    call coords % setPosition([ONE, ZERO, -ONE], 2)
+    call coords % setDirection([ZERO, ZERO, -ONE], 2)
+    call coords % setUniIdx(2, 2)
+    call coords % setUniRootId(6, 2)
+    call coords % setLocalId(3, 2)
+    call coords % setIsRotated(.true., 2)
+    call coords % setRotationMatrix(mat, 2)
+    call coords % setCellIdx(3, 2)
 
     ! Set Level 3
     ! Translation to origin
-    coords % lvl(3) % r = ZERO
-    coords % lvl(3) % dir = [ZERO, ZERO, -ONE]
-    coords % lvl(3) % uniIdx    = 4
-    coords % lvl(3) % uniRootID = 12
-    coords % lvl(3) % localID   = 2
-    coords % lvl(3) % cellIdx   = 0
+    call coords % setPosition([ZERO, ZERO, ZERO], 3)
+    call coords % setDirection([ZERO, ZERO, -ONE], 3)
+    call coords % setUniIdx(4, 3)
+    call coords % setUniRootId(12, 3)
+    call coords % setLocalId(2, 3)
+    call coords % setCellIdx(0, 3)
 
   end subroutine set_up
 
@@ -106,13 +107,13 @@ contains
 
     ! Move deeper
     call coords % addLevel()
-    @assertEqual(4, coords % nesting)
-    @assertEqual(0, coords % cell())
+    @assertEqual(4, coords % getNesting())
+    @assertEqual(0, coords % getLowestCellIdx())
 
     ! Move to higher level
     call coords % decreaseLevel(2)
-    @assertEqual(2, coords % nesting)
-    @assertEqual(3, coords % cell())
+    @assertEqual(2, coords % getNesting())
+    @assertEqual(3, coords % getLowestCellIdx())
 
   end subroutine test_nesting_level
 
@@ -131,16 +132,16 @@ contains
     phi = 2.1_defReal
 
     ! Save pre-rotation direction
-    u1 = coords % lvl(1) % dir
-    u2 = coords % lvl(2) % dir
-    u3 = coords % lvl(3) % dir
+    u1 = coords % getDirection(1)
+    u2 = coords % getDirection(2)
+    u3 = coords % getDirection(3)
 
     call coords % rotate(mu, phi)
 
     ! Verify deflection
-    @assertEqual(mu, dot_product(u1, coords % lvl(1) % dir), TOL)
-    @assertEqual(mu, dot_product(u2, coords % lvl(2) % dir), TOL)
-    @assertEqual(mu, dot_product(u3, coords % lvl(3) % dir), TOL)
+    @assertEqual(mu, dot_product(u1, coords % getDirection(1)), TOL)
+    @assertEqual(mu, dot_product(u2, coords % getDirection(2)), TOL)
+    @assertEqual(mu, dot_product(u3, coords % getDirection(3)), TOL)
 
   end subroutine test_rotation
 
@@ -153,17 +154,17 @@ contains
     real(defReal), parameter    :: TOL = 1.0E-7_defReal
 
     ! Save pre-rotation direction
-    u1 = coords % lvl(1) % dir
-    u2 = coords % lvl(2) % dir
-    u3 = coords % lvl(3) % dir
+    u1 = coords % getDirection(1)
+    u2 = coords % getDirection(2)
+    u3 = coords % getDirection(3)
 
     ! Invert direction
-    call coords % assignDirection(-coords % lvl(1) % dir)
+    call coords % assignDirection(-u1)
 
     ! Verify
-    @assertEqual(-u1, coords % lvl(1) % dir)
-    @assertEqual(-u2, coords % lvl(2) % dir)
-    @assertEqual(-u3, coords % lvl(3) % dir)
+    @assertEqual(-u1, coords % getDirection(1))
+    @assertEqual(-u2, coords % getDirection(2))
+    @assertEqual(-u3, coords % getDirection(3))
 
   end subroutine test_direction_assigment
 
@@ -178,30 +179,30 @@ contains
 
     ! Move local
     d = 0.3_defReal
-    r1 = coords % lvl(1) % r
-    r2 = coords % lvl(2) % r
-    r3 = coords % lvl(3) % r
-    u1 = coords % lvl(1) % dir
-    u2 = coords % lvl(2) % dir
-    u3 = coords % lvl(3) % dir
+    r1 = coords % getPosition(1)
+    r2 = coords % getPosition(2)
+    r3 = coords % getPosition(3)
+    u1 = coords % getDirection(1)
+    u2 = coords % getDirection(2)
+    u3 = coords % getDirection(3)
 
     call coords % moveLocal(d, 3)
 
     ! Verify
-    @assertEqual(r1 + d*u1, coords % lvl(1) % r, TOL)
-    @assertEqual(r2 + d*u2, coords % lvl(2) % r, TOL)
-    @assertEqual(r3 + d*u3, coords % lvl(3) % r, TOL)
+    @assertEqual(r1 + d * u1, coords % getPosition(1), TOL)
+    @assertEqual(r2 + d * u2, coords % getPosition(2), TOL)
+    @assertEqual(r3 + d * u3, coords % getPosition(3), TOL)
     @assertTrue(coords % isPlaced())
 
     ! Move Global
     d = -13.0_defReal
-    r1 = coords % lvl(1) % r
-    u1 = coords % lvl(1) % dir
+    r1 = coords % getPosition(1)
+    u1 = coords % getDirection(1)
 
     call coords % moveGlobal(d)
 
     ! Verify
-    @assertEqual(r1 + d*u1, coords % lvl(1) % r, TOL)
+    @assertEqual(r1 + d * u1, coords % getPosition(1), TOL)
     @assertTrue(coords % isAbove())
 
   end subroutine test_movement
@@ -211,12 +212,20 @@ contains
   !!
 @Test
   subroutine test_coord_valid()
+    integer(shortInt) :: i, nesting
 
-    @assertTrue(coords % lvl(1:coords % nesting) % isValid())
+    nesting = coords % getNesting()
+    do i = 1, nesting
+      @assertTrue(coords % isValid(i))
+
+    end do
 
     call coords % kill()
 
-    @assertFalse(coords % lvl % isValid())
+    do i = 1, nesting
+      @assertFalse(coords % isValid(i))
+
+    end do
 
 
   end subroutine test_coord_valid
