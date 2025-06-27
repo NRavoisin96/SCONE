@@ -13,13 +13,13 @@ module dictionary_test
   end type test_dictionary
 
   !! Parameters
-  real(defReal),parameter                  :: realVal     = 3.3_defReal
-  integer(shortInt),parameter              :: boolVal     = 1
+  real(defReal), parameter                  :: realVal     = 3.3_defReal
+  integer(shortInt), parameter              :: boolVal     = 1
   integer(shortInt), parameter             :: intVal      = 1_shortInt
-  character(nameLen),parameter             :: charNameLen = 'GoFortran_DownWithCpp'
+  character(nameLen), parameter             :: charNameLen = 'GoFortran_DownWithCpp'
   character(pathLen), parameter            :: charPathLen ='/home/KyloRen/VaderFanFic'
   real(defReal), dimension(2), parameter   :: realArray = [-1.0E-17_defReal, 14.7_defReal]
-  integer(shortInt),dimension(3),parameter :: intArray =[-6475_shortInt, 13_shortInt, 14_shortInt]
+  integer(shortInt), dimension(3), parameter :: intArray =[-6475_shortInt, 13_shortInt, 14_shortInt]
   character(nameLen), dimension(1), parameter :: charNameLenArray = ['TK-421']
   character(pathLen), dimension(2), parameter :: charPathLenArray = ['C:\User\Tarkin\DeathStarPlans              ', &
                                                                      '/home/Dodonna/Articles/whyRebelsUseUNIX.odt']
@@ -96,8 +96,8 @@ contains
 @test
   subroutine testGettingRealArray(this)
     class(test_dictionary), intent(inout)    :: this
-    real(defReal),dimension(:),allocatable   :: tempReal
-    real(defReal),dimension(:),pointer       :: tempReal_ptr => null()
+    real(defReal), dimension(:), allocatable   :: tempReal
+    real(defReal), dimension(:), pointer       :: tempReal_ptr => null()
 
     call this % dict % get(tempReal,'realArray')
     @assertEqual(realArray, tempReal, 'Ordinary Retrival Failed')
@@ -178,8 +178,8 @@ contains
 @test
   subroutine testGettingIntArray(this)
     class(test_dictionary), intent(inout)      :: this
-    integer(shortInt),dimension(:),allocatable :: temp
-    integer(shortInt),dimension(:),pointer     :: temp_ptr => null()
+    integer(shortInt), dimension(:), allocatable :: temp
+    integer(shortInt), dimension(:), pointer     :: temp_ptr => null()
 
     call this % dict % get(temp,'intArray')
     @assertEqual(intArray, temp, 'Ordinary Retrival Failed')
@@ -209,7 +209,7 @@ contains
   subroutine testGettingNameLenChar(this)
     class(test_dictionary), intent(inout) :: this
     character(nameLen)                    :: temp
-    character(nameLen),parameter :: default = 'Mes Que Nada'
+    character(nameLen), parameter :: default = 'Mes Que Nada'
 
     call this % dict % get(temp,'myCharNameLen')
     @assertEqual(charNameLen, temp, 'Ordinary Retrival Failed')
@@ -229,7 +229,7 @@ contains
   subroutine testGettingPathLenChar(this)
     class(test_dictionary), intent(inout) :: this
     character(pathLen)                    :: temp
-    character(pathLen),parameter  :: default = 'Mes Que Nada'
+    character(pathLen), parameter  :: default = 'Mes Que Nada'
 
     call this % dict % get(temp,'myCharPathLen')
     @assertEqual(charPathLen, temp, 'Ordinary Retrival Failed')
@@ -248,9 +248,9 @@ contains
 @test
   subroutine testGettingNameLenCharArray(this)
     class(test_dictionary), intent(inout)        :: this
-    character(nameLen),dimension(:),allocatable  :: temp
-    character(nameLen),dimension(:),pointer      :: temp_ptr => null()
-    character(nameLen),dimension(1),parameter    :: default = ['Brasil, meu Brasil Brasileiro']
+    character(nameLen), dimension(:), allocatable  :: temp
+    character(nameLen), dimension(:), pointer      :: temp_ptr => null()
+    character(nameLen), dimension(1), parameter    :: default = ['Brasil, meu Brasil Brasileiro']
     logical(defBool)                             :: isSame
 
     call this % dict % get(temp,'charNameLenArray')
@@ -290,9 +290,9 @@ contains
 @test
   subroutine testGettingPathLenCharArray(this)
     class(test_dictionary), intent(inout)        :: this
-    character(pathLen),dimension(:),allocatable  :: temp
-    character(pathLen),dimension(:),pointer      :: temp_ptr => null()
-    character(pathLen),dimension(1),parameter    :: default = ['Brasil, meu Brasil Brasileiro']
+    character(pathLen), dimension(:), allocatable  :: temp
+    character(pathLen), dimension(:), pointer      :: temp_ptr => null()
+    character(pathLen), dimension(1), parameter    :: default = ['Brasil, meu Brasil Brasileiro']
     logical(defBool)                             :: isSame
 
     call this % dict % get(temp,'charPathLenArray')
@@ -334,7 +334,7 @@ contains
     integer(shortInt)                     :: tempInt
     character(nameLen)                    :: tempCharNameLen
     character(pathLen)                    :: tempCharPathLen
-    real(defReal),dimension(:),allocatable        :: tempRealArray
+    real(defReal), dimension(:), allocatable        :: tempRealArray
     integer(shortInt), dimension(:), allocatable  :: tempIntArray
     character(nameLen), dimension(:), allocatable :: tempCharArrayNameLen
     character(pathLen), dimension(:), allocatable :: tempCharArrayPathLen
@@ -377,7 +377,7 @@ contains
     integer(shortInt)                     :: tempInt
     character(nameLen)                    :: tempCharNameLen
     character(pathLen)                    :: tempCharPathLen
-    real(defReal),dimension(:),allocatable        :: tempRealArray
+    real(defReal), dimension(:), allocatable        :: tempRealArray
     integer(shortInt), dimension(:), allocatable  :: tempIntArray
     character(nameLen), dimension(:), allocatable :: tempCharArrayNameLen
     character(pathLen), dimension(:), allocatable :: tempCharArrayPathLen
@@ -421,7 +421,7 @@ contains
   !!
   subroutine getAndFinalPointer(dict)
     class(dictionary), intent(in) :: dict
-    class(dictionary),pointer     :: ptr
+    class(dictionary), pointer     :: ptr
     logical(defBool)              :: myBool
 
     ptr => dict % getDictPtr('nestedDict')
@@ -435,14 +435,14 @@ contains
 @test
   subroutine testKeys(this)
     class(test_dictionary), intent(inout)        :: this
-    character(nameLen),dimension(:),allocatable  :: tempAll
-    character(nameLen),dimension(:),allocatable  :: tempReal
-    character(nameLen),dimension(:),allocatable  :: tempInt
-    character(nameLen),dimension(:),allocatable  :: tempChar
-    character(nameLen),dimension(:),allocatable  :: tempRealArray
-    character(nameLen),dimension(:),allocatable  :: tempIntArray
-    character(nameLen),dimension(:),allocatable  :: tempCharArray
-    character(nameLen),dimension(:),allocatable  :: tempDict
+    character(nameLen), dimension(:), allocatable  :: tempAll
+    character(nameLen), dimension(:), allocatable  :: tempReal
+    character(nameLen), dimension(:), allocatable  :: tempInt
+    character(nameLen), dimension(:), allocatable  :: tempChar
+    character(nameLen), dimension(:), allocatable  :: tempRealArray
+    character(nameLen), dimension(:), allocatable  :: tempIntArray
+    character(nameLen), dimension(:), allocatable  :: tempCharArray
+    character(nameLen), dimension(:), allocatable  :: tempDict
     character(nameLen)                           :: keyword
     logical(defBool) :: isValid
 

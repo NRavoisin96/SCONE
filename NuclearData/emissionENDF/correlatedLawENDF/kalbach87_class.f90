@@ -22,10 +22,10 @@ module kalbach87_class
   !! Provisionaly tested.
   !! probabilityOf was NOT properly verified
   !!
-  type, public,extends(correlatedLawENDF) :: kalbach87
+  type, public, extends(correlatedLawENDF) :: kalbach87
     private
-    real(defReal),dimension(:),allocatable    :: eGrid
-    type(kalbachPdf),dimension(:),allocatable :: pdfs
+    real(defReal), dimension(:), allocatable    :: eGrid
+    type(kalbachPdf), dimension(:), allocatable :: pdfs
   contains
     procedure :: sample
     procedure :: probabilityOf
@@ -51,8 +51,8 @@ contains
     real(defReal)                 :: E_min_up, E_max_up
     real(defReal)                 :: E_min, E_max
     real(defReal)                 :: factor
-    real(defReal)                 :: r, eps
-    character(100),parameter      :: Here='sample (kalbach87_class.f90)'
+    real(defReal)                 :: randomNumber, eps
+    character(100), parameter      :: Here='sample (kalbach87_class.f90)'
 
     ! Find Interval index
     idx = binarySearch(self % eGrid,E_in)
@@ -60,8 +60,6 @@ contains
 
     ! Calculate threshold and sample random number
     eps = (E_in - self % eGrid(idx)) / (self % eGrid(idx+1) - self % eGrid(idx))
-
-    r = rand % get()
 
     ! NOTE: Unlike in the equivalent tabular distribution for mu bounds of the
     !       energy distribution change between bins. We need to interpolate them
@@ -77,7 +75,8 @@ contains
 
     ! Calculate interpolation between bounds of the distribution from which
     ! outgoing energy was sampled
-    if(r < eps) then
+    call rand % generate(randomNumber)
+    if (randomNumber < eps) then
       call self % pdfs(idx+1) % sample(mu, E_out, rand)
       factor = (E_out- E_min_up)/(E_max_up - E_min_up)
 
@@ -104,7 +103,7 @@ contains
     real(defReal)                :: prob
     integer(shortInt)            :: idx
     real(defReal)                :: prob_1, prob_0, E_1, E_0
-    character(100),parameter     :: Here='probabilityOf (kalbach87_class.f90)'
+    character(100), parameter     :: Here='probabilityOf (kalbach87_class.f90)'
 
     ! Find interval index
     idx = binarySearch(self % eGrid,E_in)
@@ -128,9 +127,9 @@ contains
   elemental subroutine kill(Self)
     class(kalbach87), intent(inout) :: self
 
-    if(allocated(self % eGrid)) deallocate(self % eGrid)
+    if (allocated(self % eGrid)) deallocate(self % eGrid)
 
-    if(allocated(self % pdfs)) then
+    if (allocated(self % pdfs)) then
       call self % pdfs % kill()
       deallocate(self % pdfs)
     end if
@@ -143,19 +142,19 @@ contains
   !!
   subroutine init(self,eGrid,pdfs)
     class(kalbach87), intent(inout) :: self
-    real(defReal),dimension(:)      :: eGrid
-    type(kalbachPdf),dimension(:)   :: pdfs
-    character(100),parameter        :: Here='init (kalbach87_class.f90)'
+    real(defReal), dimension(:)      :: eGrid
+    type(kalbachPdf), dimension(:)   :: pdfs
+    character(100), parameter        :: Here='init (kalbach87_class.f90)'
 
     ! Check if the provided eGrid and pdfs match in size and if eGrid is sorted and all its
     ! elements are +ve.
-    if(size(eGrid) /= size(pdfs))   call fatalError(Here,'eGrid and ePdfs have diffrent size')
-    if(.not.(isSorted(eGrid)))      call fatalError(Here,'eGrid is not sorted ascending')
-    if(any( eGrid < 0.0 ))          call fatalError(Here,'eGrid contains -ve values')
+    if (size(eGrid) /= size(pdfs))   call fatalError(Here,'eGrid and ePdfs have diffrent size')
+    if (.not.(isSorted(eGrid)))      call fatalError(Here,'eGrid is not sorted ascending')
+    if (any( eGrid < 0.0 ))          call fatalError(Here,'eGrid contains -ve values')
 
     ! Deallocate current contents if allocated
-    if(allocated(self % eGrid)) deallocate(self % eGrid)
-    if(allocated(self % pdfs))  deallocate(self % pdfs)
+    if (allocated(self % eGrid)) deallocate(self % eGrid)
+    if (allocated(self % pdfs))  deallocate(self % pdfs)
 
     ! Assign content
     self % eGrid = eGrid
@@ -167,8 +166,8 @@ contains
   !! Constructor
   !!
   function new_kalbach87(eGrid,pdfs) result(new)
-    real(defReal),dimension(:),intent(in)    :: eGrid
-    type(kalbachPdf),dimension(:),intent(in) :: pdfs
+    real(defReal), dimension(:), intent(in)    :: eGrid
+    type(kalbachPdf), dimension(:), intent(in) :: pdfs
     type(kalbach87)                          :: new
 
     call new % init(eGrid,pdfs)
@@ -182,17 +181,17 @@ contains
   function new_kalbach87_fromACE(ACE) result(new)
     type(aceCard), intent(inout)               :: ACE
     type(kalbach87)                            :: new
-    real(defReal),dimension(:),allocatable     :: eGrid
-    type(kalbachPdf),dimension(:),allocatable  :: pdfs
-    integer(shortInt),dimension(:),allocatable :: locKal
+    real(defReal), dimension(:), allocatable     :: eGrid
+    type(kalbachPdf), dimension(:), allocatable  :: pdfs
+    integer(shortInt), dimension(:), allocatable :: locKal
     integer(shortInt)                          :: NR, N, i
-    character(100),parameter :: Here ='new_kalbach87_fromACE (kalbach87_class.f90)'
+    character(100), parameter :: Here ='new_kalbach87_fromACE (kalbach87_class.f90)'
 
     ! Read number of interpolation regions
     NR = ACE % readInt()
 
     ! Return error if there are multiple regions
-    if(NR /= 0) then
+    if (NR /= 0) then
       call fatalError(Here,'Many inter. regions on energy distr. table are not supported')
     end if
 
@@ -204,7 +203,7 @@ contains
     allocate(pdfs(N))
 
     ! Loop over all locations and read PDF at the given energy
-    do i=1,N
+    do i= 1, N
       call ACE % setToEnergyLaw(locKal(i))
       pdfs(i) = kalbachPdf(ACE)
     end do

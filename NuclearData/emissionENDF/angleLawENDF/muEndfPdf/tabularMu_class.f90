@@ -19,7 +19,7 @@ module tabularMu_class
   !!
   !! Class that stores PDF of mu as a table
   !!
-  type, public,extends(muEndfPdf) :: tabularMu
+  type, public, extends(muEndfPdf) :: tabularMu
     private
     type(tabularPdf) :: pdf
   contains
@@ -28,9 +28,9 @@ module tabularMu_class
     procedure :: probabilityOf
     procedure :: kill
 
-    generic,private   :: init => init_withPDF, init_withCDF
-    procedure,private :: init_withPDF
-    procedure,private :: init_withCDF
+    generic, private   :: init => init_withPDF, init_withCDF
+    procedure, private :: init_withPDF
+    procedure, private :: init_withCDF
 
   end type tabularMu
 
@@ -43,10 +43,10 @@ contains
     class(tabularMu), intent(in)    :: self
     class(RNG), intent(inout)       :: rand
     real(defReal)                   :: mu
-    real(defReal)                   :: r
+    real(defReal)                   :: randomNumber
 
-    r = rand % get()
-    mu = self % pdf % sample(r)
+    call rand % generate(randomNumber)
+    mu = self % pdf % sample(randomNumber)
 
   end function sample
 
@@ -79,12 +79,12 @@ contains
   !!
   subroutine init_withPDF(self,mu,PDF,interFlag)
     class(tabularMu), intent(inout)       :: self
-    real(defReal),dimension(:),intent(in) :: mu,PDF
-    integer(shortInt),intent(in)          :: interFlag
-    character(100),parameter              :: Here='init (tabularMu_class.f90)'
+    real(defReal), dimension(:), intent(in) :: mu,PDF
+    integer(shortInt), intent(in)          :: interFlag
+    character(100), parameter              :: Here='init (tabularMu_class.f90)'
 
     ! Check if the first element of the mu grid corresponds to -1 and last to 1
-    if ( (mu(1) /= -1.0_defReal) .or. (mu(size(mu)) /= 1.0_defReal)) then
+    if ((mu(1) /= -1.0_defReal) .or. (mu(size(mu)) /= 1.0_defReal)) then
        call fatalError(Here, 'Provided mu does not begin with -1 and ends with 1')
 
     end if
@@ -99,12 +99,12 @@ contains
   !!
   subroutine init_withCDF(self,mu,PDF,CDF,interFlag)
     class(tabularMu), intent(inout)       :: self
-    real(defReal),dimension(:),intent(in) :: mu,PDF,CDF
-    integer(shortInt),intent(in)          :: interFlag
-    character(100),parameter              :: Here='init (tabularMu_class.f90)'
+    real(defReal), dimension(:), intent(in) :: mu,PDF,CDF
+    integer(shortInt), intent(in)          :: interFlag
+    character(100), parameter              :: Here='init (tabularMu_class.f90)'
 
     ! Check if the first element of the mu grid corresponds to -1 and last to 1
-    if ( (mu(1) /= -1.0_defReal) .or. (mu(size(mu)) /= 1.0_defReal)) then
+    if ((mu(1) /= -1.0_defReal) .or. (mu(size(mu)) /= 1.0_defReal)) then
        call fatalError(Here, 'Provided mu does not begin with -1 and ends with 1')
 
     end if
@@ -118,8 +118,8 @@ contains
   !! Construct table from PDF and interpolation flag
   !!
   function new_tabularMu(mu,PDF,interFlag)
-    real(defReal),dimension(:),intent(in) :: mu,PDF
-    integer(shortInt),intent(in)          :: interFlag
+    real(defReal), dimension(:), intent(in) :: mu,PDF
+    integer(shortInt), intent(in)          :: interFlag
     type(tabularMu)                       :: new_tabularMu
 
     call new_tabularMu % init(mu,PDF,interFlag)
@@ -130,8 +130,8 @@ contains
   !! Construct table from PDF and CDF
   !!
   function new_tabularMu_withCdf(mu,PDF,CDF,interFlag) result(new)
-    real(defReal),dimension(:),intent(in) :: mu,PDF,CDF
-    integer(shortInt),intent(in)          :: interFlag
+    real(defReal), dimension(:), intent(in) :: mu,PDF,CDF
+    integer(shortInt), intent(in)          :: interFlag
     type(tabularMu)                       :: new
 
     call new % init(mu,PDF,CDF,interFlag)
@@ -148,10 +148,10 @@ contains
     type(tabularMu)                         :: new
     integer(shortInt)                       :: inter
     integer(shortInt)                       :: N
-    real(defReal),dimension(:),allocatable  :: mu
-    real(defReal),dimension(:),allocatable  :: pdf
-    real(defReal),dimension(:),allocatable  :: cdf
-    character(100),parameter :: Here ='new_tabularMu_fromACE (tabularMu_class.f90)'
+    real(defReal), dimension(:), allocatable  :: mu
+    real(defReal), dimension(:), allocatable  :: pdf
+    real(defReal), dimension(:), allocatable  :: cdf
+    character(100), parameter :: Here ='new_tabularMu_fromACE (tabularMu_class.f90)'
 
     ! Read sequence of data
     inter = ACE % readInt()        ! Read interpolation flag

@@ -117,8 +117,8 @@ module materialMenu_mod
     character(nameLen)                         :: name   = ''
     integer(shortInt)                          :: matIdx = 0
     real(defReal)                              :: T      = ZERO
-    real(defReal),dimension(:),allocatable     :: dens
-    type(nuclideInfo),dimension(:),allocatable :: nuclides
+    real(defReal), dimension(:), allocatable     :: dens
+    type(nuclideInfo), dimension(:), allocatable :: nuclides
     type(dictionary)                           :: extraInfo
     logical(defBool)                           :: hasTMS = .false.
   contains
@@ -134,7 +134,7 @@ module materialMenu_mod
 
 
   !! MODULE COMPONENTS
-  type(materialItem),dimension(:),allocatable,target,public :: materialDefs
+  type(materialItem), dimension(:), allocatable,target, public :: materialDefs
   type(charMap), target, public                             :: nameMap
   type(intMap), public                                      :: colourMap
 
@@ -158,8 +158,8 @@ contains
   !!   None from Here
   !!
   subroutine init(dict)
-    class(dictionary),intent(in)                :: dict
-    character(nameLen),dimension(:),allocatable :: matNames
+    class(dictionary), intent(in)                :: dict
+    character(nameLen), dimension(:), allocatable :: matNames
     integer(shortInt)                           :: i
     character(nameLen)                          :: temp
 
@@ -173,7 +173,7 @@ contains
     allocate(materialDefs(size(matNames)))
 
     ! Load definitions
-    do i=1,size(matNames)
+    do i= 1, size(matNames)
       call materialDefs(i) % init(matNames(i), i, dict % getDictPtr(matNames(i)))
       call nameMap % add(matNames(i), i)
     end do
@@ -199,8 +199,8 @@ contains
     integer(shortInt) :: i
 
     call nameMap % kill()
-    if(allocated(materialDefs)) then
-      do i=1,size(materialDefs)
+    if (allocated(materialDefs)) then
+      do i= 1, size(materialDefs)
         call materialDefs(i) % kill()
       end do
       deallocate(materialDefs)
@@ -249,7 +249,7 @@ contains
     integer(shortInt), intent(in) :: idx
     character(nameLen)            :: name
 
-    if( idx <= 0 .or. nMat() < idx) then
+    if (idx <= 0 .or. nMat() < idx) then
       name = ''
 
     else
@@ -301,8 +301,8 @@ contains
     character(nameLen), dimension(:), allocatable :: keys, moderKeys, filenames
     integer(shortInt), dimension(:), allocatable  :: temp
     integer(shortInt)                             :: i, nSab, foundModer
-    class(dictionary),pointer                     :: compDict, moderDict
-    character(100), parameter :: Here = 'init_materialItem (materialMenu_mod.f90)'
+    class(dictionary), pointer                     :: compDict, moderDict
+    character(*), parameter :: Here = 'init_materialItem (materialMenu_mod.f90)'
 
     ! Return to initial state
     call self % kill()
@@ -341,7 +341,7 @@ contains
 
     ! Load definitions
     foundModer = 0
-    do i =1,size(keys)
+    do i = 1, size(keys)
       ! Check if S(a,b) is on and required for that nuclide
       if ((nSab > 0) .and. moderDict % isPresent(keys(i))) then
         self % nuclides(i) % hasSab = .true.
@@ -377,7 +377,7 @@ contains
     end if
 
     ! Add colour info if present
-    if(dict % isPresent('rgb')) then
+    if (dict % isPresent('rgb')) then
       call dict % get(temp, 'rgb')
 
       if (size(temp) /= 3) then
@@ -407,8 +407,8 @@ contains
     self % T      = ZERO
 
     ! Deallocate allocatable components
-    if(allocated(self % dens)) deallocate(self % dens)
-    if(allocated(self % nuclides)) deallocate(self % nuclides)
+    if (allocated(self % dens)) deallocate(self % dens)
+    if (allocated(self % nuclides)) deallocate(self % nuclides)
     call self % extraInfo % kill()
 
   end subroutine kill_materialItem
@@ -431,7 +431,7 @@ contains
     print '(A)', 'Nuclide Composition:'
     print '(3A13, A20)', 'Atomic #', 'Mass #', 'Evaluation #', 'Density [1/barn/cm]'
 
-    do i =1,size(self % nuclides)
+    do i = 1, size(self % nuclides)
       print '(3I13, ES20.10)', self % nuclides(i) % Z, self % nuclides(i) % A, self % nuclides(i) % T, &
                            self % dens(i)
     end do
@@ -467,7 +467,7 @@ contains
     L = len_trim(key)
 
     ! Check that length is as expected
-    if(L > 9 .or. L < 7) then ! Length cannot fit the format
+    if (L > 9 .or. L < 7) then ! Length cannot fit the format
       isIt = .false.
       return
     end if
@@ -500,9 +500,9 @@ contains
     character(nameLen), intent(in)    :: str
     integer(shortInt)                 :: dot
     logical(defBool)                  :: flag
-    character(100),parameter :: Here = 'init_nuclideInto (materialMenu_mod.f90)'
+    character(*), parameter :: Here = 'init_nuclideInto (materialMenu_mod.f90)'
 
-    if(.not.isNucDefinition(str)) then
+    if (.not.isNucDefinition(str)) then
       call fatalError(Here,'Input is not ZZZAAA.TT formated definition: '//trim(str))
     end if
 
@@ -516,7 +516,7 @@ contains
     self % A = charToInt(str(dot-3:dot-1), error = flag )
     self % T = charToInt(str(dot+1:len_trim(str)), error = flag)
 
-    if(flag) call fatalError(Here,'Failed to convert: '//trim(str)// ' to nuclide information')
+    if (flag) call fatalError(Here,'Failed to convert: '//trim(str)// ' to nuclide information')
 
   end subroutine init_nuclideInfo
 
@@ -563,15 +563,15 @@ contains
   function getMatPtr(idx) result(ptr)
     integer(shortInt), intent(in) :: idx
     type(materialItem), pointer   :: ptr
-    character(100), parameter :: Here = 'getMatPtr (materialMenu_mod.f90)'
+    character(*), parameter :: Here = 'getMatPtr (materialMenu_mod.f90)'
 
     ! Check if materialMenu is initialised
-    if(.not.allocated(materialDefs)) then
+    if (.not.allocated(materialDefs)) then
       call fatalError(Here, "Material definitions were not loaded")
     end if
 
     ! Verify matIdx
-    if( idx <= 0 .or. idx > nMat()) then
+    if (idx <= 0 .or. idx > nMat()) then
       call fatalError(Here,"matIdx: "//numToChar(idx)// &
                            " does not correspond to any defined material")
     end if
@@ -597,7 +597,7 @@ contains
   function nMat() result(N)
     integer(shortInt) :: N
 
-    if(allocated(materialDefs)) then
+    if (allocated(materialDefs)) then
       N = size(materialDefs)
     else
       N = 0

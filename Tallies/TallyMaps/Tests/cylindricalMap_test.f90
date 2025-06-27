@@ -89,12 +89,12 @@ contains
 @Test
   subroutine testRadial(this)
     class(test_cylindricalMap), intent(inout) :: this
-    real(defReal),dimension(4),parameter      :: r = [0.4_defReal, 5.38_defReal, 8.9_defReal, 9.1_defReal]
-    real(defReal), dimension(4),parameter     :: phi = [1.4_defReal, 3.0_defReal, 0.5_defReal, PI/2]
-    real(defReal), dimension(4),parameter     :: z = [1.0_defReal, 39.8_defReal, 0.05_defReal, -12.2_defReal]
-    integer(shortInt),dimension(4),parameter  :: RES_IDX = [0, 2, 4, 5]
-    integer(shortInt),dimension(4)            :: idx
-    type(particleState),dimension(4)          :: states
+    real(defReal), dimension(4), parameter      :: r = [0.4_defReal, 5.38_defReal, 8.9_defReal, 9.1_defReal]
+    real(defReal), dimension(4), parameter     :: phi = [1.4_defReal, 3.0_defReal, 0.5_defReal, PI/2]
+    real(defReal), dimension(4), parameter     :: z = [1.0_defReal, 39.8_defReal, 0.05_defReal, -12.2_defReal]
+    integer(shortInt), dimension(4), parameter  :: RES_IDX = [0, 2, 4, 5]
+    integer(shortInt), dimension(4)            :: idx
+    type(particleState), dimension(4)          :: states
 
     ! Initialise states
     states(:) % r(1) = z
@@ -113,12 +113,12 @@ contains
 @Test
   subroutine testUnstruct(this)
     class(test_cylindricalMap), intent(inout) :: this
-    real(defReal),dimension(4),parameter      :: r = [1.52_defReal, 5.5_defReal, 8.9_defReal, 2.88_defReal]
-    real(defReal), dimension(4),parameter     :: phi = [1.4_defReal, 3.0_defReal, 0.5_defReal, PI/2]
+    real(defReal), dimension(4), parameter      :: r = [1.52_defReal, 5.5_defReal, 8.9_defReal, 2.88_defReal]
+    real(defReal), dimension(4), parameter     :: phi = [1.4_defReal, 3.0_defReal, 0.5_defReal, PI/2]
     real(defReal), dimension(4), parameter    :: z = [1.0_defReal, 39.8_defReal, 0.05_defReal, -12.2_defReal]
-    integer(shortInt),dimension(4),parameter  :: RES_IDX = [1, 3, 0, 2]
-    integer(shortInt),dimension(4)            :: idx
-    type(particleState),dimension(4)          :: states
+    integer(shortInt), dimension(4), parameter  :: RES_IDX = [1, 3, 0, 2]
+    integer(shortInt), dimension(4)            :: idx
+    type(particleState), dimension(4)          :: states
 
     ! Initialise states
     states(:) % r(1) = r * cos(phi)
@@ -141,12 +141,12 @@ contains
 @Test
   subroutine test3d(this)
     class(test_cylindricalMap), intent(inout) :: this
-    real(defReal),dimension(4),parameter      :: r = [1.52_defReal, 5.5_defReal, 18.9_defReal, 12.88_defReal]
-    real(defReal), dimension(4),parameter     :: phi = [1.4_defReal, 3.0_defReal, 0.5_defReal, -3.14_defReal]
+    real(defReal), dimension(4), parameter      :: r = [1.52_defReal, 5.5_defReal, 18.9_defReal, 12.88_defReal]
+    real(defReal), dimension(4), parameter     :: phi = [1.4_defReal, 3.0_defReal, 0.5_defReal, -3.14_defReal]
     real(defReal), dimension(4), parameter    :: z = [6.7_defReal, 2.8_defReal, 1.1_defReal, 3.9_defReal]
-    integer(shortInt),dimension(4),parameter  :: RES_IDX = [111, 123, 0, 17]
-    integer(shortInt),dimension(4)            :: idx
-    type(particleState),dimension(4)          :: states
+    integer(shortInt), dimension(4), parameter  :: RES_IDX = [111, 123, 0, 17]
+    integer(shortInt), dimension(4)            :: idx
+    type(particleState), dimension(4)          :: states
 
     ! Initialise states
     states(:) % r(1) = r * cos(phi)

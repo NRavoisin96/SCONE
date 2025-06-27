@@ -49,7 +49,7 @@ contains
     class(uniformVectorField), intent(inout) :: self
     class(dictionary), intent(in)            :: dict
     real(defReal), dimension(:), allocatable :: temp
-    character(100), parameter :: Here = 'init (uniformVectorField_class.f90)'
+    character(*), parameter :: Here = 'init (uniformVectorField_class.f90)'
 
     ! Load value
     call dict % get(temp, 'value')

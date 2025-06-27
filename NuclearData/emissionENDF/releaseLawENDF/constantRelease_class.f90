@@ -31,9 +31,9 @@ contains
   subroutine init(self,release)
     class(constantRelease), intent(inout) :: self
     real(defReal), intent(in)             :: release
-    character(100),parameter              :: Here='init (constantRelease_class.f90)'
+    character(100), parameter              :: Here='init (constantRelease_class.f90)'
 
-    if( release < 0) call fatalError(Here,'-ve value of release provided!')
+    if (release < 0) call fatalError(Here,'-ve value of release provided!')
     self % secondaryRelease = release
 
   end subroutine init

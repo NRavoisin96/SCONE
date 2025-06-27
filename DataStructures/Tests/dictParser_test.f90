@@ -18,7 +18,7 @@ contains
     class(dictionary), pointer :: dictPtr
     integer(shortInt), dimension(:), allocatable  :: tempIntArray
     real(defReal), dimension(:), allocatable      :: tempRealArray
-    character(*),parameter :: tape = " myInt 7;                                 &
+    character(*), parameter :: tape = " myInt 7;                                 &
                                      &  myChar my;                               &
                                      &  myReal 1.3;                              &
                                      &  weirdFloat 1E-11;                        &

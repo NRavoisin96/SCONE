@@ -15,8 +15,8 @@ module fissionMG_test
   !!
   !! Test data
   !!
-  real(defReal),dimension(*),parameter :: nu = [2.3_defReal, 2.0_defReal, 1.3_defReal]
-  real(defReal),dimension(*),parameter :: chi = [0.333333_defReal, 0.333333_defReal, 0.333334_defReal]
+  real(defReal), dimension(*), parameter :: nu = [2.3_defReal, 2.0_defReal, 1.3_defReal]
+  real(defReal), dimension(*), parameter :: chi = [0.333333_defReal, 0.333333_defReal, 0.333334_defReal]
 
 
 
@@ -29,13 +29,13 @@ contains
 @Test
   subroutine fissionMG_Build_And_Functionality()
     type(fissionMG), target       :: reaction
-    class(reactionHandle),pointer :: handlePtr
-    class(reactionMG),pointer     :: mgPtr
-    type(fissionMG),pointer       :: fissPtr
+    class(reactionHandle), pointer :: handlePtr
+    class(reactionMG), pointer     :: mgPtr
+    type(fissionMG), pointer       :: fissPtr
     type(dictionary),target       :: dictT
     type(dictDeck)                :: data
     type(RNG)                     :: rand
-    real(defReal),parameter :: TOL = 1.0E-6_defReal
+    real(defReal), parameter :: TOL = 1.0E-6_defReal
 
     ! Set pointers
     handlePtr => reaction

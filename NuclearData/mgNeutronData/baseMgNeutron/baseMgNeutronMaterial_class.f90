@@ -68,7 +68,7 @@ module baseMgNeutronMaterial_class
   !!     -> P# [nGxnG]
   !!
   type, public, extends(mgNeutronMaterial) :: baseMgNeutronMaterial
-    real(defReal),dimension(:,:), allocatable :: data
+    real(defReal), dimension(:,:), allocatable :: data
     class(multiScatterMG), allocatable        :: scatter
     type(fissionMG), allocatable              :: fission
 
@@ -96,9 +96,9 @@ contains
     call kill_super(self)
 
     ! Kill local content
-    if(allocated(self % data))    deallocate(self % data)
-    if(allocated(self % scatter)) deallocate(self % scatter)
-    if(allocated(self % fission)) deallocate(self % fission)
+    if (allocated(self % data))    deallocate(self % data)
+    if (allocated(self % scatter)) deallocate(self % scatter)
+    if (allocated(self % fission)) deallocate(self % fission)
 
   end subroutine kill
 
@@ -112,10 +112,10 @@ contains
     type(neutronMacroXSs), intent(out)       :: xss
     integer(shortInt), intent(in)            :: G
     class(RNG), intent(inout)                :: rand
-    character(100), parameter :: Here = ' getMacroXSs (baseMgNeutronMaterial_class.f90)'
+    character(*), parameter :: Here = ' getMacroXSs (baseMgNeutronMaterial_class.f90)'
 
     ! Verify bounds
-    if(G < 1 .or. self % nGroups() < G) then
+    if (G < 1 .or. self % nGroups() < G) then
       call fatalError(Here,'Invalid group number: '//numToChar(G)// &
                            ' Data has only: ' // numToChar(self % nGroups()))
     end if
@@ -126,7 +126,7 @@ contains
     xss % inelasticScatter = self % data(IESCATTER_XS, G)
     xss % capture          = self % data(CAPTURE_XS, G)
 
-    if(self % isFissile()) then
+    if (self % isFissile()) then
       xss % fission        = self % data(FISSION_XS, G)
       xss % nuFission      = self % data(NU_FISSION, G)
     else
@@ -146,7 +146,7 @@ contains
     integer(shortInt), intent(in)            :: G
     class(RNG), intent(inout)                :: rand
     real(defReal)                            :: xs
-    character(100), parameter :: Here = ' getTotalXS (baseMgNeutronMaterial_class.f90)'
+    character(*), parameter :: Here = ' getTotalXS (baseMgNeutronMaterial_class.f90)'
 
     ! Verify bounds
     if (G < 1 .or. self % nGroups() < G) then
@@ -186,12 +186,12 @@ contains
     integer(shortInt)                           :: nG, N, i
     real(defReal), dimension(:), allocatable    :: temp
     type(dictDeck)                              :: deck
-    character(100), parameter :: Here = 'init (baseMgNeutronMaterial_class.f90)'
+    character(*), parameter :: Here = 'init (baseMgNeutronMaterial_class.f90)'
 
 
     ! Read number of groups
     call dict % get(nG, 'numberOfGroups')
-    if(nG < 1) call fatalError(Here,'Number of groups is invalid' // numToChar(nG))
+    if (nG < 1) call fatalError(Here,'Number of groups is invalid' // numToChar(nG))
 
     ! Set fissile flag
     call self % set(fissile = dict % isPresent('fission'))
@@ -217,11 +217,11 @@ contains
     call self % scatter % init(deck, macroAllScatter)
 
     ! Deal with fission
-    if(self % isFissile()) allocate(self % fission)
-    if(self % isFissile()) call self % fission % init(deck, macroFission)
+    if (self % isFissile()) allocate(self % fission)
+    if (self % isFissile()) call self % fission % init(deck, macroFission)
 
     ! Allocate space for data
-    if(self % isFissile()) then
+    if (self % isFissile()) then
       N = 5
     else
       N = 3
@@ -231,24 +231,24 @@ contains
 
     ! Load cross sections
     call dict % get(temp, 'capture')
-    if(size(temp) /= nG) then
+    if (size(temp) /= nG) then
       call fatalError(Here,'Capture XSs have wong size. Must be: ' &
                           // numToChar(nG)//' is '//numToChar(size(temp)))
     end if
     self % data(CAPTURE_XS,:) = temp
 
     ! Extract values of scattering XS
-    if(size(self % scatter % scatterXSs) /= nG) then
+    if (size(self % scatter % scatterXSs) /= nG) then
       call fatalError(Here, 'Somthing went wrong. Inconsistant # of groups in material and reaction&
                             &. Clearly programming error.')
     end if
     self % data(IESCATTER_XS,:) = self % scatter % scatterXSs
 
     ! Load Fission-data
-    if( self % isFissile()) then
+    if (self % isFissile()) then
       ! Load Fission
       call dict % get(temp, 'fission')
-      if(size(temp) /= nG) then
+      if (size(temp) /= nG) then
         call fatalError(Here,'Fission XSs have wong size. Must be: ' &
                             // numToChar(nG)//' is '//numToChar(size(temp)))
       end if
@@ -256,7 +256,7 @@ contains
 
       ! Calculate nuFission
       call dict % get(temp, 'nu')
-      if(size(temp) /= nG) then
+      if (size(temp) /= nG) then
         call fatalError(Here,'Nu vector has wong size. Must be: ' &
                             // numToChar(nG)//' is '//numToChar(size(temp)))
       end if
@@ -264,9 +264,9 @@ contains
     end if
 
     ! Calculate total XS
-    do i =1,nG
+    do i = 1, nG
       self % data(TOTAL_XS, i) = self % data(IESCATTER_XS, i) + self % data(CAPTURE_XS, i)
-      if(self % isFissile()) then
+      if (self % isFissile()) then
         self % data(TOTAL_XS, i) = self % data(TOTAL_XS, i) + self % data(FISSION_XS, i)
       end if
     end do
@@ -285,7 +285,7 @@ contains
     class(baseMgNeutronMaterial), intent(in) :: self
     integer(shortInt)                        :: nG
 
-    if(allocated(self % data)) then
+    if (allocated(self % data)) then
       nG = size(self % data,2)
     else
       nG = 0

@@ -61,8 +61,8 @@ module scoreMemory_class
   !!
   !! Example use case:
   !!
-  !!  do batches=1,20
-  !!    do hist=1,10
+  !!  do batches= 1, 20
+  !!    do hist= 1, 10
   !!      call scoreMem % score(hist,1)        ! Score hist (1,10) in bin 1
   !!      call scoreMem % accumulate(hist,2)   ! Accumulate hist in CSUMs of bin 2
   !!    end do
@@ -79,8 +79,8 @@ module scoreMemory_class
   !!
   type, public :: scoreMemory
       !private
-      real(defReal),dimension(:,:),allocatable :: bins          !! Space for storing cumul data (2nd dim size is always 2!)
-      real(defReal),dimension(:,:),allocatable :: parallelBins  !! Space for scoring for different threads
+      real(defReal), dimension(:,:), allocatable :: bins          !! Space for storing cumul data (2nd dim size is always 2!)
+      real(defReal), dimension(:,:), allocatable :: parallelBins  !! Space for scoring for different threads
       integer(longInt)                         :: N = 0         !! Size of memory (number of bins)
       integer(shortInt)                        :: nThreads = 0  !! Number of threads used for parallelBins
       integer(shortInt)                        :: id            !! Id of the tally
@@ -119,11 +119,11 @@ contains
   !! Optionaly change batchSize from 1 to any +ve number
   !!
   subroutine init(self, N, id, batchSize )
-    class(scoreMemory),intent(inout)      :: self
-    integer(longInt),intent(in)           :: N
-    integer(shortInt),intent(in)          :: id
-    integer(shortInt),optional,intent(in) :: batchSize
-    character(100), parameter :: Here= 'init (scoreMemory_class.f90)'
+    class(scoreMemory), intent(inout)      :: self
+    integer(longInt), intent(in)           :: N
+    integer(shortInt), intent(in)          :: id
+    integer(shortInt),optional, intent(in) :: batchSize
+    character(*), parameter :: Here  = 'init (scoreMemory_class.f90)'
 
     ! Allocate space and zero all bins
     allocate( self % bins(N, DIM2))
@@ -146,8 +146,8 @@ contains
     self % cycles    = 0
     self % batchSize = 1
 
-    if(present(batchSize)) then
-      if(batchSize > 0) then
+    if (present(batchSize)) then
+      if (batchSize > 0) then
         self % batchSize = batchSize
       else
         call fatalError(Here,'Batch Size of: '// numToChar(batchSize) //' is invalid')
@@ -162,8 +162,8 @@ contains
   subroutine kill(self)
    class(scoreMemory), intent(inout) :: self
 
-   if(allocated(self % bins)) deallocate(self % bins)
-   if(allocated(self % parallelBins)) deallocate(self % parallelBins)
+   if (allocated(self % bins)) deallocate(self % bins)
+   if (allocated(self % parallelBins)) deallocate(self % parallelBins)
    self % N = 0
    self % nThreads = 0
    self % batchN = 0
@@ -178,10 +178,10 @@ contains
     real(defReal), intent(in)         :: score
     integer(longInt), intent(in)      :: idx
     integer(shortInt)                 :: thread_idx
-    character(100),parameter :: Here = 'score_defReal (scoreMemory_class.f90)'
+    character(*), parameter :: Here = 'score_defReal (scoreMemory_class.f90)'
 
     ! Verify bounds for the index
-    if( idx < 0_longInt .or. idx > self % N) then
+    if (idx < 0_longInt .or. idx > self % N) then
       call fatalError(Here,'Index '//numToChar(idx)//' is outside bounds of &
                             & memory with size '//numToChar(self % N))
     end if
@@ -224,10 +224,10 @@ contains
     class(scoreMemory), intent(inout) :: self
     real(defReal), intent(in)         :: score
     integer(longInt), intent(in)      :: idx
-    character(100),parameter :: Here = 'accumulate_defReal (scoreMemory_class.f90)'
+    character(*), parameter :: Here = 'accumulate_defReal (scoreMemory_class.f90)'
 
     ! Verify bounds for the index
-    if( idx < 0_longInt .or. idx > self % N) then
+    if (idx < 0_longInt .or. idx > self % N) then
       call fatalError(Here,'Index '//numToChar(idx)//' is outside bounds of &
                             & memory with size '//numToChar(self % N))
     end if
@@ -269,7 +269,7 @@ contains
   !!
   subroutine closeCycle(self, normFactor)
     class(scoreMemory), intent(inout) :: self
-    real(defReal),intent(in)          :: normFactor
+    real(defReal), intent(in)          :: normFactor
     integer(longInt)                  :: i
     real(defReal), save               :: res
     !$omp threadprivate(res)
@@ -277,7 +277,7 @@ contains
     ! Increment Cycle Counter
     self % cycles = self % cycles + 1
 
-    if(mod(self % cycles, self % batchSize) == 0) then ! Close Batch
+    if (mod(self % cycles, self % batchSize) == 0) then ! Close Batch
 
       !$omp parallel do
       do i = 1, self % N
@@ -309,13 +309,13 @@ contains
   !!
   subroutine closeBin(self, normFactor, idx)
     class(scoreMemory), intent(inout) :: self
-    real(defReal),intent(in)          :: normFactor
+    real(defReal), intent(in)          :: normFactor
     integer(longInt), intent(in)      :: idx
     real(defReal)                     :: res
-    character(100),parameter :: Here = 'closeBin (scoreMemory_class.f90)'
+    character(*), parameter :: Here = 'closeBin (scoreMemory_class.f90)'
 
     ! Verify bounds for the index
-    if( idx < 0_longInt .or. idx > self % N) then
+    if (idx < 0_longInt .or. idx > self % N) then
       call fatalError(Here,'Index '//numToChar(idx)//' is outside bounds of &
                             & memory with size '//numToChar(self % N))
     end if
@@ -364,21 +364,21 @@ contains
   elemental subroutine getResult_withSTD(self, mean, STD, idx, samples)
     class(scoreMemory), intent(in)         :: self
     real(defReal), intent(out)             :: mean
-    real(defReal),intent(out)              :: STD
+    real(defReal), intent(out)              :: STD
     integer(longInt), intent(in)           :: idx
     integer(shortInt), intent(in),optional :: samples
     integer(shortInt)                      :: N
     real(defReal)                          :: inv_N, inv_Nm1
 
     !! Verify index. Return 0 if not present
-    if( idx < 0_longInt .or. idx > self % N) then
+    if (idx < 0_longInt .or. idx > self % N) then
       mean = ZERO
       STD = ZERO
       return
     end if
 
     ! Check if # of samples is provided
-    if( present(samples)) then
+    if (present(samples)) then
       N = samples
     else
       N = self % batchN
@@ -389,7 +389,7 @@ contains
 
     ! Calculate STD
     inv_N   = ONE / N
-    if( N /= 1) then
+    if (N /= 1) then
       inv_Nm1 = ONE / (N - 1)
     else
       inv_Nm1 = ONE
@@ -412,13 +412,13 @@ contains
     integer(shortInt)                      :: N
 
     !! Verify index. Return 0 if not present
-    if( idx < 0_longInt .or. idx > self % N) then
+    if (idx < 0_longInt .or. idx > self % N) then
       mean = ZERO
       return
     end if
 
     ! Check if # of samples is provided
-    if( present(samples)) then
+    if (present(samples)) then
       N = samples
     else
       N = self % batchN
@@ -438,7 +438,7 @@ contains
     integer(longInt), intent(in)   :: idx
     real(defReal)                  :: score
 
-    if(idx <= 0_longInt .or. idx > self % N) then
+    if (idx <= 0_longInt .or. idx > self % N) then
       score = ZERO
     else
       score = sum(self % parallelBins(idx, :))

@@ -27,8 +27,8 @@ module muEndfPdf_inter
       import :: RNG,&
                 muEndfPdf, &
                 defReal
-      class(muEndfPdf),intent(in)  :: self
-      class(RNG),intent(inout)     :: rand
+      class(muEndfPdf), intent(in)  :: self
+      class(RNG), intent(inout)     :: rand
       real(defReal)                :: mu
     end function sample
 
@@ -57,9 +57,9 @@ module muEndfPdf_inter
   !! *** OBSOLETE WILL BE REPLACED WITH SLOTS SOON
   !! Pointer wrapper object on muEndfPdf so arrays of pointers can be created
   !!
-  type,public :: muEndfPdf_ptr
+  type, public :: muEndfPdf_ptr
       private
-      class(muEndfPdf),pointer :: ptr => null()
+      class(muEndfPdf), pointer :: ptr => null()
     contains
       generic :: assignment(=) => assignPointer_ptr, assignPointer
       procedure :: sample => sample_ptr
@@ -76,10 +76,10 @@ contains
   !! Copy pointer from pointer wrapper to pointer wrapper
   !!
   subroutine assignPointer_ptr(LHS,RHS)
-    class(muEndfPdf_ptr),intent(out) :: LHS
-    type(muEndfPdf_ptr),intent(in)   :: RHS
+    class(muEndfPdf_ptr), intent(out) :: LHS
+    type(muEndfPdf_ptr), intent(in)   :: RHS
 
-    if(associated(LHS % ptr)) deallocate(LHS % ptr)
+    if (associated(LHS % ptr)) deallocate(LHS % ptr)
     LHS % ptr => RHS % ptr
 
   end subroutine
@@ -89,10 +89,10 @@ contains
   !! Copy pointer to pointer wrapper
   !!
   subroutine assignPointer(LHS,RHS)
-    class(muEndfPdf_ptr),intent(out)    :: LHS
-    class(muEndfPdf),pointer,intent(in) :: RHS
+    class(muEndfPdf_ptr), intent(out)    :: LHS
+    class(muEndfPdf), pointer, intent(in) :: RHS
 
-    if(associated(LHS % ptr)) deallocate(LHS % ptr)
+    if (associated(LHS % ptr)) deallocate(LHS % ptr)
     LHS % ptr => RHS
   end subroutine assignPointer
 
@@ -100,8 +100,8 @@ contains
   !! Tranfer sample call to content
   !!
   function sample_ptr(self,rand) result (mu)
-    class(muEndfPdf_ptr),intent(in)  :: self
-    class(RNG),intent(inout)         :: rand
+    class(muEndfPdf_ptr), intent(in)  :: self
+    class(RNG), intent(inout)         :: rand
     real(defReal)                    :: mu
 
     mu = self % ptr % sample(rand)
@@ -111,8 +111,8 @@ contains
   !! Tranfer probabilityOf call to content
   !!
   function probabilityOf_ptr(self,mu) result(probability)
-    class(muEndfPdf_ptr),intent(in)  :: self
-    real(defReal),intent(in)         :: mu
+    class(muEndfPdf_ptr), intent(in)  :: self
+    real(defReal), intent(in)         :: mu
     real(defReal)                    :: probability
 
     probability = self % ptr % probabilityOf(mu)

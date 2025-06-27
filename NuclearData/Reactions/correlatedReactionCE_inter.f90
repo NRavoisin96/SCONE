@@ -43,7 +43,7 @@ module correlatedReactionCE_inter
   !!
   type, public :: outgoingSamples
     integer(shortInt)                                 :: N = 0
-    type(outSample),dimension(MAX_OUTGOING_PARTICLES) :: samples
+    type(outSample), dimension(MAX_OUTGOING_PARTICLES) :: samples
   end type
 
 

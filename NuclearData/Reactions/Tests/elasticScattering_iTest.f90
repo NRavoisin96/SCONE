@@ -24,11 +24,11 @@ contains
 @Test
   subroutine testElasticNeutronScatteringReaction()
     type(elasticNeutronScatter), target   :: reaction
-    class(reactionHandle),pointer         :: handlePtr
-    class(uncorrelatedReactionCE),pointer :: unCorrPtr
-    type(elasticNeutronScatter),pointer   :: elasticScatterPtr
+    class(reactionHandle), pointer         :: handlePtr
+    class(uncorrelatedReactionCE), pointer :: unCorrPtr
+    type(elasticNeutronScatter), pointer   :: elasticScatterPtr
     type(aceCard)                         :: ACE
-    real(defReal),parameter :: TOL = 1.0E-6_defReal
+    real(defReal), parameter :: TOL = 1.0E-6_defReal
 
     ! Set pointers
     handlePtr => reaction
@@ -88,7 +88,7 @@ contains
   subroutine testElasticNeutronScattering_isotropic()
     type(elasticNeutronScatter)  :: reaction
     type(aceCard)                :: ACE
-    real(defReal),parameter :: TOL = 1.0E-6_defReal
+    real(defReal), parameter :: TOL = 1.0E-6_defReal
 
     ! Build ACE library
     call ACE % readFromFile('./IntegrationTestFiles/52126JEF311.ace', 1)

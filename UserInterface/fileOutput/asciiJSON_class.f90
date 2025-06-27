@@ -190,7 +190,7 @@ contains
   !!
   subroutine startArray(self, shape)
     class(asciiJSON), intent(inout)           :: self
-    integer(shortInt),dimension(:),intent(in) :: shape
+    integer(shortInt), dimension(:), intent(in) :: shape
 
     ! Save the shape buffer
     self % shapeBuffer = shape
@@ -218,7 +218,7 @@ contains
   !!
   subroutine printNum(self, val)
     class(asciiJSON), intent(inout) :: self
-    character(*),intent(in)         :: val
+    character(*), intent(in)         :: val
     integer(shortInt)               :: i, mul
 
     if (self % in_array) then
@@ -257,7 +257,7 @@ contains
   !!
   subroutine printChar(self, val)
     class(asciiJSON), intent(inout) :: self
-    character(*),intent(in)         :: val
+    character(*), intent(in)         :: val
     integer(shortInt)               :: i, mul
 
     if (self % in_array) then

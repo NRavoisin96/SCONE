@@ -41,7 +41,7 @@ module materialMap_class
   !!     # undefBin T; #
   !!   }
   !!
-  type, public,extends(tallyMap1D) :: materialMap
+  type, public, extends(tallyMap1D) :: materialMap
     private
     type(intMap)                                  :: binMap
     integer(shortInt)                             :: default = 0
@@ -78,9 +78,9 @@ contains
   subroutine build(self, materials, trackRest)
     class(materialMap), intent(inout)            :: self
     character(nameLen), dimension(:), intent(in) :: materials
-    logical(defBool),intent(in)                  :: trackRest
+    logical(defBool), intent(in)                  :: trackRest
     integer(shortInt)                            :: N, i, matIdx
-    character(100), parameter :: Here = 'build (materialMap_class.f90)'
+    character(*), parameter :: Here = 'build (materialMap_class.f90)'
 
     ! Find number of materials to bin
     N = size(materials)
@@ -90,7 +90,7 @@ contains
     allocate(self % matIndices(N))
 
     ! Load material indices and bins
-    do i=1,N
+    do i= 1, N
       matIdx = mm_matIdx(materials(i))
       if (matIdx == NOT_FOUND) call fatalError(Here,&
               'Material '//trim(materials(i))//' does not exist in the input materials')
@@ -100,7 +100,7 @@ contains
     end do
 
     ! Set default and number of bins
-    if(trackRest) then
+    if (trackRest) then
       self % Nbins   = N + 1
       self % default = N + 1
 
@@ -119,10 +119,10 @@ contains
   subroutine init(self, dict)
     class(materialMap), intent(inout)           :: self
     class(dictionary), intent(in)               :: dict
-    character(nameLen),dimension(:),allocatable :: matNames
+    character(nameLen), dimension(:), allocatable :: matNames
     character(nameLen)                          :: undefined
     logical(defBool)                            :: trackUndefined
-    character(100), parameter :: Here = 'init (materialMap_class.f90)'
+    character(*), parameter :: Here = 'init (materialMap_class.f90)'
 
     ! Get material names list
     call dict % get(matNames, 'materials')
@@ -208,13 +208,13 @@ contains
     call out % startArray(name,[1,self % Nbins])
 
     ! Print material names
-    do i=1,size(self % matIndices)
+    do i= 1, size(self % matIndices)
       name = mm_matName(self % matIndices(i))
       call out % addValue(name)
     end do
 
     ! Print 'undefined'
-    if ( self % Nbins > size(self % matIndices)) then
+    if (self % Nbins > size(self % matIndices)) then
       name = 'undefined'
       call out % addValue(name)
 

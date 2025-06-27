@@ -21,7 +21,7 @@ module weightMap_test
     procedure :: tearDown
   end type test_weightMap
 
-  real(defReal),dimension(*), parameter :: UNSTRUCT_GRID = [ 0.00000000001_defReal, &
+  real(defReal), dimension(*), parameter :: UNSTRUCT_GRID = [ 0.00000000001_defReal, &
                0.00000003_defReal, 0.000000058_defReal, 0.00000014_defReal, 0.00000028_defReal, &
                0.00000035_defReal, 0.000000625_defReal, 0.000000972_defReal, 0.00000102_defReal,&
                0.000001097_defReal, 0.00000115_defReal, 0.000001855_defReal, 0.000004_defReal,&
@@ -93,11 +93,11 @@ contains
 @Test
   subroutine testLinearGrid(this)
     class(test_weightMap), intent(inout) :: this
-    real(defReal),dimension(6),parameter :: wgt = [7.5774_defReal, 9.3652_defReal, 3.9223_defReal, &
+    real(defReal), dimension(6), parameter :: wgt = [7.5774_defReal, 9.3652_defReal, 3.9223_defReal, &
                                                  6.5548_defReal, 1.7119_defReal, 20.0_defReal]
-    integer(shortInt),dimension(6),parameter :: RES_IDX = [16, 19, 8, 14, 4, 0]
-    integer(shortInt),dimension(6)           :: idx
-    type(particleState),dimension(6)         :: states
+    integer(shortInt), dimension(6), parameter :: RES_IDX = [16, 19, 8, 14, 4, 0]
+    integer(shortInt), dimension(6)           :: idx
+    type(particleState), dimension(6)         :: states
 
     states % wgt = wgt
     idx = this % map_lin % map(states)
@@ -111,15 +111,15 @@ contains
 @Test
   subroutine testLogGrid(this)
     class(test_weightMap), intent(inout) :: this
-    real(defReal),dimension(6),parameter :: wgt = [0.0445008907555061_defReal,   &
+    real(defReal), dimension(6), parameter :: wgt = [0.0445008907555061_defReal,   &
                                                  1.79747463687278e-07_defReal, &
                                                  1.64204055725811e-05_defReal, &
                                                  2.34083673923110e-07_defReal, &
                                                  5.98486350302033e-07_defReal, &
                                                  20.00000000000000000_defReal]
-    integer(shortInt),dimension(6),parameter :: RES_IDX = [15, 1, 6, 1, 2, 0]
-    integer(shortInt),dimension(6)           :: idx
-    type(particleState),dimension(6)         :: states
+    integer(shortInt), dimension(6), parameter :: RES_IDX = [15, 1, 6, 1, 2, 0]
+    integer(shortInt), dimension(6)           :: idx
+    type(particleState), dimension(6)         :: states
 
     states % wgt = wgt
     idx = this % map_log % map(states)
@@ -133,15 +133,15 @@ contains
 @Test
   subroutine testUnstructGrid(this)
     class(test_weightMap), intent(inout) :: this
-    real(defReal),dimension(6),parameter :: wgt = [0.0761191517392624_defReal,   &
+    real(defReal), dimension(6), parameter :: wgt = [0.0761191517392624_defReal,   &
                                                  0.00217742635754091_defReal,  &
                                                  6.38548311340975e-08_defReal, &
                                                  2.52734532533842_defReal,     &
                                                  2.59031729968032e-11_defReal, &
                                                  20.00000000000000000_defReal]
-    integer(shortInt),dimension(6),parameter :: RES_IDX = [18, 16, 3, 23, 1, 0]
-    integer(shortInt),dimension(6)           :: idx
-    type(particleState),dimension(6)         :: states
+    integer(shortInt), dimension(6), parameter :: RES_IDX = [18, 16, 3, 23, 1, 0]
+    integer(shortInt), dimension(6)           :: idx
+    type(particleState), dimension(6)         :: states
 
     states % wgt = wgt
     idx = this % map_unstruct % map(states)

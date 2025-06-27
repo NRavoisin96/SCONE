@@ -38,10 +38,10 @@ module contTabularEnergy_class
   !!   energyLawENDF interface
   !!   init -> Initialise from components
   !!
-  type, public,extends(energyLawENDF):: contTabularEnergy
+  type, public, extends(energyLawENDF):: contTabularEnergy
     private
-    real(defReal),dimension(:),allocatable         :: eGrid
-    type(tabularEnergy),dimension(:),allocatable   :: ePdfs
+    real(defReal), dimension(:), allocatable         :: eGrid
+    type(tabularEnergy), dimension(:), allocatable   :: ePdfs
     integer(shortInt), dimension(:,:), allocatable :: inter
   contains
     ! Superclass interface
@@ -64,12 +64,12 @@ contains
     class(RNG), intent(inout)            :: rand
     real(defReal)                        :: E_out
     integer(shortInt)                    :: idx, flag, inter_idx
-    real(defReal)                        :: r, eps
+    real(defReal)                        :: randomNumber, eps
     real(defReal)                        :: E_min_low, E_max_low
     real(defReal)                        :: E_min_up, E_max_up
     real(defReal)                        :: E_min, E_max
     real(defReal)                        :: factor
-    character(100),parameter             :: Here = 'sample (contTabularEnergy_class.f90)'
+    character(100), parameter             :: Here = 'sample (contTabularEnergy_class.f90)'
 
     idx = binarySearch(self % eGrid,E_in)
     call searchError(idx,Here)
@@ -106,8 +106,9 @@ contains
 
         ! Calculate interpolation between bounds of the distribution from which
         ! outgoing energy was sampled
-        r = rand % get()
-        if(r < eps) then
+
+        call rand % generate(randomNumber)
+        if (randomNumber < eps) then
           E_out = self % ePdfs(idx+1) % sample(rand)
           factor = (E_out- E_min_up)/(E_max_up - E_min_up)
 
@@ -145,7 +146,7 @@ contains
     real(defReal)                        :: prob
     ! integer(shortInt)                    :: idx
     ! real(defReal)                        :: prob_1, prob_0, E_1, E_0
-    character(100),parameter             :: Here = 'probabilityOf (contTabularEnergy_class.f90)'
+    character(100), parameter             :: Here = 'probabilityOf (contTabularEnergy_class.f90)'
 
     call fatalError(Here, 'probabilityOf has not been implemented.')
     prob = ZERO
@@ -169,10 +170,10 @@ contains
   elemental subroutine kill(self)
     class(contTabularEnergy), intent(inout) :: self
 
-    if(allocated(self % eGrid)) deallocate(self % eGrid)
-    if(allocated(self % inter)) deallocate(self% inter)
+    if (allocated(self % eGrid)) deallocate(self % eGrid)
+    if (allocated(self % inter)) deallocate(self% inter)
 
-    if(allocated(self % ePdfs)) then
+    if (allocated(self % ePdfs)) then
       call self % ePdfs % kill()
       deallocate(self % ePdfs)
     end if
@@ -202,17 +203,17 @@ contains
     type(tabularEnergy), dimension(:), intent(in)         :: ePdfs
     integer(shortInt), dimension(:), optional, intent(in) :: bounds
     integer(shortInt), dimension(:), optional, intent(in) :: interENDF
-    character(100), parameter :: Here = 'init (contTabularEnergy_class.f90)'
+    character(*), parameter :: Here = 'init (contTabularEnergy_class.f90)'
 
     ! Check if the provided eGrid and ePdfs match in size and if eGrid is sorted and all its
     ! elements are +ve.
-    if(size(eGrid) /= size(ePdfs))  call fatalError(Here,'eGrid and ePdfs have diffrent size')
-    if(.not.(isSorted(eGrid)))      call fatalError(Here,'eGrid is not sorted ascending')
-    if ( count( eGrid < 0.0 ) > 0 ) call fatalError(Here,'eGrid contains -ve values')
+    if (size(eGrid) /= size(ePdfs))  call fatalError(Here,'eGrid and ePdfs have diffrent size')
+    if (.not.(isSorted(eGrid)))      call fatalError(Here,'eGrid is not sorted ascending')
+    if (count( eGrid < 0.0 ) > 0 ) call fatalError(Here,'eGrid contains -ve values')
 
 
-    if(allocated(self % eGrid)) deallocate(self % eGrid)
-    if(allocated(self % ePdfs)) deallocate(self % ePdfs)
+    if (allocated(self % eGrid)) deallocate(self % eGrid)
+    if (allocated(self % ePdfs)) deallocate(self % ePdfs)
 
     self % eGrid = eGrid
     self % ePdfs = ePdfs
@@ -268,10 +269,10 @@ contains
     type(contTabularEnergy)                      :: new
     integer(shortInt)                            :: NR
     integer(shortInt)                            :: N, i
-    real(defReal),dimension(:),allocatable       :: eGrid
-    integer(shortInt),dimension(:),allocatable   :: locEne
-    type(tabularEnergy),dimension(:),allocatable :: ePdfs
-    character(100),parameter :: Here = 'new_contTabularEnergy_fromACE (contTabularEnergy_class.f90)'
+    real(defReal), dimension(:), allocatable       :: eGrid
+    integer(shortInt), dimension(:), allocatable   :: locEne
+    type(tabularEnergy), dimension(:), allocatable :: ePdfs
+    character(*), parameter :: Here = 'new_contTabularEnergy_fromACE (contTabularEnergy_class.f90)'
 
     ! Read Interpolation data
     NR = ACE % readInt()

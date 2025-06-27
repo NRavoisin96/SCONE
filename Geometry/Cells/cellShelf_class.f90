@@ -258,7 +258,7 @@ contains
     integer(shortInt), intent(in)   :: idx
     integer(shortInt)               :: fill
     integer(shortInt), parameter :: NOT_PRESENT = -7
-    character(100), parameter :: Here = 'getFill (cellShelf_class.f90)'
+    character(*), parameter :: Here = 'getFill (cellShelf_class.f90)'
 
     ! Catch invalid idx
     if (idx < 1 .or. idx > size(self % cells)) then

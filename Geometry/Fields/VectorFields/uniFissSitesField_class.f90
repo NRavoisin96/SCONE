@@ -135,14 +135,14 @@ contains
     integer(shortInt), intent(in)           :: type
     real(defReal), dimension(6)             :: bounds
     real(defReal), dimension(3)             :: bottom, top
-    real(defReal), dimension(3), save       :: rand3, r
+    real(defReal), dimension(3), save       :: randomNumbers, r
     type(particleState), save               :: state
     integer(shortInt)                       :: i
     integer(shortInt), save                 :: j, binIdx, matIdx, uniqueID
     class(nuclearDatabase), pointer         :: nucData
     class(neutronMaterial), pointer, save   :: mat
-    character(100), parameter :: Here = 'estimateVol (uniFissSitesField_class.f90)'
-    !$omp threadprivate(rand3, r, state, j, binIdx, matIdx, uniqueID, mat)
+    character(*), parameter :: Here = 'estimateVol (uniFissSitesField_class.f90)'
+    !$omp threadprivate(randomNumbers, r, state, j, binIdx, matIdx, uniqueID, mat)
 
     allocate(self % volFraction(self % N))
 
@@ -159,7 +159,7 @@ contains
       else
         nucData => ndReg_getNeutronMG()
       end if
-      if(.not.associated(nucData)) call fatalError(Here, 'Failed to retrieve Nuclear Database')
+      if (.not.associated(nucData)) call fatalError(Here, 'Failed to retrieve Nuclear Database')
 
       ! Set bounding region
       bounds = geom % bounds()
@@ -177,16 +177,14 @@ contains
         rejection : do
           ! Protect against infinite loop
           j = j +1
-          if ( j > 1000) then
+          if (j > 1000) then
             call fatalError(Here, 'Infinite loop in sampling of fission sites. Please check that&
                                   & defined volume contains fissile material.')
           end if
 
           ! Sample Position
-          rand3(1) = rand % get()
-          rand3(2) = rand % get()
-          rand3(3) = rand % get()
-          r = (top - bottom) * rand3 + bottom
+          call rand % generate(randomNumbers)
+          r = (top - bottom) * randomNumbers + bottom
 
           ! Find material under position
           call geom % whatIsAt(matIdx, uniqueID, r)

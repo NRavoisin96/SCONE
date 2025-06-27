@@ -52,7 +52,7 @@ module spaceMap_class
   !!    bins (-10.0 -3.0 1.7 30.2);
   !!  }
   !!
-  type, public,extends(tallyMap1D) :: spaceMap
+  type, public, extends(tallyMap1D) :: spaceMap
     private
     type(grid)        :: binBounds
     integer(shortInt) :: N      = 0
@@ -68,8 +68,8 @@ module spaceMap_class
 
     ! Class specific procedures
     generic            :: build => build_fromGrid, build_structured
-    procedure,private  :: build_fromGrid
-    procedure,private  :: build_structured
+    procedure, private  :: build_fromGrid
+    procedure, private  :: build_structured
   end type spaceMap
 
 contains
@@ -84,12 +84,12 @@ contains
     class(dictionary), intent(in)          :: dict
     character(nameLen)                     :: str, type
     real(defReal)                          :: mini, maxi
-    real(defReal),dimension(:),allocatable :: bins
+    real(defReal), dimension(:), allocatable :: bins
     integer(shortInt)                      :: N, axis
     character(100), parameter     :: Here = 'init (spaceMap_class.f90)'
 
-    if(.not.dict % isPresent('grid')) call fatalError(Here,"Keyword 'grid' must be present")
-    if(.not.dict % isPresent('axis')) call fatalError(Here,"Keyword 'axis' must be present")
+    if (.not.dict % isPresent('grid')) call fatalError(Here,"Keyword 'grid' must be present")
+    if (.not.dict % isPresent('axis')) call fatalError(Here,"Keyword 'axis' must be present")
 
     ! Find axis of division
     call dict % get(str,'axis')
@@ -174,7 +174,7 @@ contains
     class(spaceMap), intent(inout)  :: self
     real(defReal), intent(in)       :: mini
     real(defReal), intent(in)       :: maxi
-    integer(shortInt),intent(in)    :: N
+    integer(shortInt), intent(in)    :: N
     integer(shortInt), intent(in)   :: axis
     character(nameLen)              :: type
 
@@ -257,7 +257,7 @@ contains
     name = trim(self % getAxisName()) //'Bounds'
 
     call out % startArray(name,[2,self % N])
-    do i=1,self % N
+    do i= 1, self % N
       ! Print lower bin boundary
       call out % addValue(self % binBounds % bin(i))
 

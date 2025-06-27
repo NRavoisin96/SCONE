@@ -66,7 +66,7 @@ module fixedSourcePhysicsPackage_class
   !!
   !! Physics Package for fixed source calculations
   !!
-  type, public,extends(physicsPackage) :: fixedSourcePhysicsPackage
+  type, public, extends(physicsPackage) :: fixedSourcePhysicsPackage
     private
     ! Building blocks
     class(nuclearDatabase), pointer        :: nucData => null()
@@ -75,7 +75,7 @@ module fixedSourcePhysicsPackage_class
     type(collisionOperator)                :: collOp
     class(transportOperator), allocatable  :: transOp
     class(RNG), pointer                    :: pRNG    => null()
-    type(tallyAdmin),pointer               :: tally   => null()
+    type(tallyAdmin), pointer               :: tally   => null()
 
     ! Settings
     integer(shortInt)  :: N_cycles
@@ -128,7 +128,7 @@ contains
   !!
   subroutine cycles(self, tally, N_cycles)
     class(fixedSourcePhysicsPackage), intent(inout) :: self
-    type(tallyAdmin), pointer,intent(inout)         :: tally
+    type(tallyAdmin), pointer, intent(inout)         :: tally
     integer(shortInt), intent(in)                   :: N_cycles
     integer(shortInt)                               :: i, n, nParticles
     integer(shortInt), save                         :: j, bufferExtra
@@ -138,7 +138,7 @@ contains
     class(transportOperator), allocatable, save     :: transOp
     type(RNG), target, save                         :: pRNG
     real(defReal)                                   :: elapsed_T, end_T, T_toEnd
-    character(100),parameter :: Here ='cycles (fixedSourcePhysicsPackage_class.f90)'
+    character(100), parameter :: Here ='cycles (fixedSourcePhysicsPackage_class.f90)'
     !$omp threadprivate(p, buffer, collOp, transOp, pRNG, j, bufferExtra, transferP)
 
     !$omp parallel
@@ -160,11 +160,11 @@ contains
     call timerReset(self % timerMain)
     call timerStart(self % timerMain)
 
-    do i=1,N_cycles
+    do i= 1, N_cycles
 
       ! Send start of cycle report
       call self % fixedSource % generate(self % thisCycle, nParticles, self % pRNG)
-      if(self % printSource == 1) then
+      if (self % printSource == 1) then
         call self % thisCycle % printToFile(trim(self % outputFile)//'_source'//numToChar(i))
       end if
 
@@ -192,10 +192,10 @@ contains
           ! Transport particle until its death
           history: do
             call transOp % transport(p, tally, buffer, buffer)
-            if(p % isDead) exit history
+            if (p % isDead) exit history
 
             call collOp % collide(p, tally, buffer, buffer)
-            if(p % isDead) exit history
+            if (p % isDead) exit history
           end do history
 
           ! If buffer is quite full, shift some particles to the commonBuffer
@@ -272,7 +272,7 @@ contains
     call out % init(self % outputFormat, filename=self % outputFile)
 
     name = 'seed'
-    call out % printValue(self % pRNG % getSeed(),name)
+    call out % printValue(self % pRNG % getInitialSeed(), name)
 
     name = 'pop'
     call out % printValue(self % pop,name)
@@ -299,12 +299,12 @@ contains
   subroutine init(self, dict)
     class(fixedSourcePhysicsPackage), intent(inout) :: self
     class(dictionary), intent(inout)                :: dict
-    class(dictionary),pointer                       :: tempDict
+    class(dictionary), pointer                       :: tempDict
     integer(shortInt)                               :: seed_temp, commonBufferSize
     integer(longInt)                                :: seed
     character(10)                                   :: time
     character(8)                                    :: date
-    character(:),allocatable                        :: string
+    character(:), allocatable                        :: string
     character(nameLen)                              :: nucData, energy, geomName
     type(outputFile)                                :: test_out
     type(visualiser)                                :: viz
@@ -347,7 +347,7 @@ contains
 
     ! *** It is a bit silly but dictionary cannot store longInt for now
     !     so seeds are limited to 32 bits (can be -ve)
-    if( dict % isPresent('seed')) then
+    if (dict % isPresent('seed')) then
       call dict % get(seed_temp,'seed')
 
     else
@@ -453,7 +453,7 @@ contains
     print *, "/\/\ FIXED SOURCE CALCULATION /\/\"
     print *, "Source batches:       ", numToChar(self % N_cycles)
     print *, "Population per batch: ", numToChar(self % pop)
-    print *, "Initial RNG Seed:     ", numToChar(self % pRNG % getSeed())
+    print *, "Initial RNG Seed:     ", numToChar(self % pRNG % getInitialSeed())
     print *
     print *, repeat("<>",50)
   end subroutine printSettings

@@ -62,8 +62,8 @@ module aceNeutronNuclide_class
   type, public :: reactionMT
     integer(shortInt)                         :: MT       = 0
     integer(shortInt)                         :: firstIdx = 0
-    real(defReal),dimension(:),allocatable    :: xs
-    class(uncorrelatedReactionCE),allocatable :: kinematics
+    real(defReal), dimension(:), allocatable    :: xs
+    class(uncorrelatedReactionCE), allocatable :: kinematics
   end type reactionMT
 
   !!
@@ -178,8 +178,8 @@ contains
     class(RNG), intent(inout)            :: rand
     integer(shortInt)                    :: MT
     integer(shortInt)                    :: idx, i, idxT
-    real(defReal)                        :: f, XS, topXS, bottomXS
-    character(100), parameter :: Here = 'invertInelastic (aceNeutronNuclide_class.f90)'
+    real(defReal)                        :: f, XS, topXS, bottomXS, randomNumber
+    character(*), parameter :: Here = 'invertInelastic (aceNeutronNuclide_class.f90)'
 
     ! Check if it's thermal inelastic scattering or not
     if (self % needsSabInel(E)) then
@@ -195,11 +195,12 @@ contains
     XS = self % mainData(IESCATTER_XS, idx+1) * f + (ONE-f) * self % mainData(IESCATTER_XS, idx)
 
     ! Invert
-    XS = XS * rand % get()
+    call rand % generate(randomNumber)
+    XS = XS * randomNumber
     do i = 1,self % nMT
       ! Get index in MT reaction grid
       idxT = idx - self % MTdata(i) % firstIdx + 1
-      if ( idxT < 1 ) cycle
+      if (idxT < 1 ) cycle
 
       ! Get top and bottom XS
       topXS = self % MTdata(i) % xs(idxT+1)
@@ -235,7 +236,7 @@ contains
     real(defReal)                        :: xs
     integer(shortInt)                    :: idx, idxMT
     real(defReal)                        :: f, topXS, bottomXS
-    character(100), parameter :: Here = 'xsOf (aceNeutronNuclide_class.f90)'
+    character(*), parameter :: Here = 'xsOf (aceNeutronNuclide_class.f90)'
 
     ! Find the index of MT reaction in nuclide
     idxMT = self % idxMT % getOrDefault(MT, 0)
@@ -310,8 +311,8 @@ contains
     call self % elasticScatter % kill()
     call self % fission % kill()
 
-    if(allocated(self % MTdata)) then
-      do i=1,size(self % MTdata)
+    if (allocated(self % MTdata)) then
+      do i= 1, size(self % MTdata)
         call self % MTdata(i) % kinematics % kill()
       end do
     end if
@@ -319,9 +320,9 @@ contains
     ! Local killing
     self % ZAID = ''
     self % nMT  = 0
-    if(allocated(self % MTdata))   deallocate(self % MTdata)
-    if(allocated(self % mainData)) deallocate(self % mainData)
-    if(allocated(self % eGrid))    deallocate(self % eGrid)
+    if (allocated(self % MTdata))   deallocate(self % MTdata)
+    if (allocated(self % mainData)) deallocate(self % mainData)
+    if (allocated(self % eGrid))    deallocate(self % eGrid)
     call self % idxMT % kill()
 
   end subroutine kill
@@ -346,10 +347,10 @@ contains
     integer(shortInt), intent(out)       :: idx
     real(defReal), intent(out)           :: f
     real(defReal), intent(in)            :: E
-    character(100), parameter :: Here = 'search (aceNeutronNuclide_class.f90)'
+    character(*), parameter :: Here = 'search (aceNeutronNuclide_class.f90)'
 
     idx = binarySearch(self % eGrid, E)
-    if(idx <= 0) then
+    if (idx <= 0) then
       call fatalError(Here,'Failed to find energy: '//numToChar(E)//&
                            ' for nuclide '// trim(self % ZAID))
     end if
@@ -591,7 +592,7 @@ contains
     xss % elasticScatter   = val(1)
     xss % capture          = val(2)
 
-    if(self % isFissile()) then
+    if (self % isFissile()) then
       xss % nuFission = xss % nuFission/xss % fission * val(3)
       xss % fission   = val(3)
     end if
@@ -619,7 +620,7 @@ contains
     real(defReal)                         :: maj
     integer(shortInt)                     :: reaction, idx
     real(defReal)                         :: f, E, xs
-    character(100), parameter :: Here = 'getMajXS (aceNeutronNuclide_class.f90)'
+    character(*), parameter :: Here = 'getMajXS (aceNeutronNuclide_class.f90)'
 
     ! Select desired reaction based on requested MT number
     select case (MT)
@@ -748,7 +749,7 @@ contains
     Ngrid = ACE % gridSize()
 
     ! Allocate space for main XSs
-    if(self % isFissile()) then
+    if (self % isFissile()) then
       N = 6
     else
       N = 4
@@ -832,7 +833,7 @@ contains
 
     associate (MTs => [ACE % getFissionMTs(), ACE % getCaptureMTs()])
       do i = 1,size(MTs)
-        if(MTs(i) == N_FISSION) cycle ! MT=18 is already included with FIS block
+        if (MTs(i) == N_FISSION) cycle ! MT=18 is already included with FIS block
         call absMT % push(MTs(i))
       end do
     end associate
@@ -1026,7 +1027,7 @@ contains
     class(RNG), intent(inout)                    :: rand
     type(thermalData), pointer, intent(out)      :: ptr
     integer(shortInt), intent(out)               :: idx
-    real(defReal)                                :: kT1, kT2
+    real(defReal)                                :: kT1, kT2, randomNumber
     character(100), parameter :: Here = "getSabPointer (aceNeutronNuclide_class.f90)"
 
     if (self % stochasticMixing) then
@@ -1037,16 +1038,21 @@ contains
               'Requested temperature '//numToChar(kT)//' not in temperature bounds: '//&
               numToChar(kT1)//' and '//numToChar(kT2))
 
-      if ((kT2 - kT)/(kT2 - kT1) > rand % get()) then
+      call rand % generate(randomNumber)
+      if ((kT2 - kT)/(kT2 - kT1) > randomNumber) then
         ptr => self % thData(1)
         idx = 1
+
       else
         ptr => self % thData(2)
         idx = 2
+
       end if
+
     else
       ptr => self % thData(1)
       idx = 1
+
     end if
 
   end subroutine getSabPointer

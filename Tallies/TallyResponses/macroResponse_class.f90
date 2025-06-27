@@ -34,7 +34,7 @@ module macroResponse_class
   !!     MT   <int>;
   !!  }
   !!
-  type, public,extends(tallyResponse) :: macroResponse
+  type, public, extends(tallyResponse) :: macroResponse
     private
     !! Response MT number
     integer(shortInt) :: MT = 0
@@ -63,7 +63,7 @@ contains
     class(macroResponse), intent(inout) :: self
     class(dictionary), intent(in)       :: dict
     integer(shortInt)                   :: MT
-    character(100), parameter :: Here = 'init ( macroResponse_class.f90)'
+    character(*), parameter :: Here = 'init ( macroResponse_class.f90)'
 
     ! Load MT number
     call dict % get(MT, 'MT')
@@ -85,7 +85,7 @@ contains
   subroutine build(self, MT)
     class(macroResponse), intent(inout) :: self
     integer(shortInt), intent(in)       :: MT
-    character(100), parameter :: Here = 'build ( macroResponse_class.f90)'
+    character(*), parameter :: Here = 'build ( macroResponse_class.f90)'
 
     ! Check that MT number is valid
     select case(MT)

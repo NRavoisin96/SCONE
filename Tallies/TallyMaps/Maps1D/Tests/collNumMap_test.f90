@@ -66,8 +66,8 @@ contains
     class(test_collNumMap), intent(inout)    :: this
     type(particleState)                      :: state
     integer(shortInt)                        :: i
-    integer(shortInt),dimension(5)           :: bins
-    integer(shortInt),dimension(5),parameter :: EXPECTED_BINS = [2, 3, 0, 0, 4]
+    integer(shortInt), dimension(5)           :: bins
+    integer(shortInt), dimension(5), parameter :: EXPECTED_BINS = [2, 3, 0, 0, 4]
 
     do i = 1,5
       state % collisionN = i

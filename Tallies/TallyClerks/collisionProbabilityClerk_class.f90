@@ -98,9 +98,9 @@ module collisionProbabilityClerk_class
   !!    dim2 -> orgin bin
   !!    dim3 -> 1 is values; 2 is STDs
   !!
-  type,public, extends( tallyResult) :: CPMResult
+  type, public, extends( tallyResult) :: CPMResult
     integer(shortInt)                           :: N  = 0 ! Size of CPM
-    real(defReal), dimension(:,:,:),allocatable :: CPM    ! CPM proper
+    real(defReal), dimension(:,:,:), allocatable :: CPM    ! CPM proper
   end type CPMResult
 
 contains
@@ -140,8 +140,8 @@ contains
   !! See tallyClerk_inter for details
   !!
   function validReports(self) result(validCodes)
-    class(collisionProbabilityClerk),intent(in) :: self
-    integer(shortInt),dimension(:),allocatable  :: validCodes
+    class(collisionProbabilityClerk), intent(in) :: self
+    integer(shortInt), dimension(:), allocatable  :: validCodes
 
     validCodes = [inColl_CODE, cycleEnd_Code]
 
@@ -168,7 +168,7 @@ contains
   subroutine reportInColl(self, p, xsData, mem, virtual)
     class(collisionProbabilityClerk), intent(inout) :: self
     class(particle), intent(in)                     :: p
-    class(nuclearDatabase),intent(inout)            :: xsData
+    class(nuclearDatabase), intent(inout)            :: xsData
     type(scoreMemory), intent(inout)                :: mem
     logical(defBool), intent(in)                    :: virtual
     type(particleState)                             :: state
@@ -176,7 +176,7 @@ contains
     integer(longInt)                                :: addr
     real(defReal)                                   :: score
     class(neutronMaterial), pointer                 :: mat
-    character(100), parameter :: Here = 'reportInColl (collisionProbabilityClerk_class.f90)'
+    character(*), parameter :: Here = 'reportInColl (collisionProbabilityClerk_class.f90)'
 
     ! This clerk does not handle virtual scoring yet
     if (virtual) return
@@ -268,7 +268,7 @@ contains
   !!
   pure subroutine getResult(self, res, mem)
     class(collisionProbabilityClerk), intent(in)  :: self
-    class(tallyResult),allocatable, intent(inout) :: res
+    class(tallyResult), allocatable, intent(inout) :: res
     type(scoreMemory), intent(in)                 :: mem
     integer(shortInt)                             :: i, j
     integer(longInt)                              :: addr
@@ -298,7 +298,7 @@ contains
         ! Check size and reallocate space if needed
         ! This is horrible. Hove no time to polish. Blame me (PMC this time)
         if (allocated(res % CPM)) then
-          if( any(shape(res % CPM) /= [self % N, self % N, 2])) then
+          if (any(shape(res % CPM) /= [self % N, self % N, 2])) then
             deallocate(res % CPM)
             allocate(res % CPM(self % N, self % N, 2))
           end if
@@ -384,7 +384,7 @@ contains
     ! Call superclass
     call kill_super(self)
 
-    if(allocated(self % map)) deallocate(self % map)
+    if (allocated(self % map)) deallocate(self % map)
     self % N = 0
     !call self % resp % kill()
 

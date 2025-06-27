@@ -49,7 +49,7 @@ module cellMap_class
   !!     # undefBin T; #
   !!   }
   !!
-  type, public,extends(tallyMap1D) :: cellMap
+  type, public, extends(tallyMap1D) :: cellMap
     private
     type(intMap)                                  :: binMap
     integer(shortInt)                             :: default = 0
@@ -91,7 +91,7 @@ contains
     integer(shortInt)                           :: N, i, ID, geomNumber
     class(geometry), pointer                    :: geom
     class(geometryStd), pointer                 :: geomStd
-    character(100), parameter :: Here = 'build (cellMap_class.f90)'
+    character(*), parameter :: Here = 'build (cellMap_class.f90)'
 
     ! Find number of cells to bin
     N = size(cells)
@@ -126,7 +126,7 @@ contains
     end do
 
     ! Set default and number of bins
-    if(trackRest) then
+    if (trackRest) then
       self % Nbins   = N + 1
       self % default = N + 1
 
@@ -145,10 +145,10 @@ contains
   subroutine init(self, dict)
     class(cellMap), intent(inout)              :: self
     class(dictionary), intent(in)              :: dict
-    integer(shortInt),dimension(:),allocatable :: cellIDs
+    integer(shortInt), dimension(:), allocatable :: cellIDs
     character(nameLen)                         :: undefined
     logical(defBool)                           :: trackUndefined
-    character(100), parameter :: Here = 'init (cellMap_class.f90)'
+    character(*), parameter :: Here = 'init (cellMap_class.f90)'
 
     ! Get cell names list
     call dict % get(cellIDs, 'cells')
@@ -234,12 +234,12 @@ contains
     call out % startArray(name, [1, self % Nbins])
 
     ! Print cell indexes
-    do i=1,size(self % cellIdx)
+    do i= 1, size(self % cellIdx)
       call out % addValue(numToChar(self % cellIdx(i)))
     end do
 
     ! Print 'undefined'
-    if ( self % Nbins > size(self % cellIdx)) then
+    if (self % Nbins > size(self % cellIdx)) then
       name = 'undefined'
       call out % addValue(name)
     end if

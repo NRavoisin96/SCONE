@@ -16,7 +16,7 @@ module thermalScatteringData_iTest
   implicit none
 
   ! Material definitions
-  character(*),parameter :: MAT_INPUT_STR =        &
+  character(*), parameter :: MAT_INPUT_STR =        &
   & "water {                                       &
   &       moder {1001.03 (h-h2o.49); }             &
   &       composition {                            &
@@ -40,7 +40,7 @@ module thermalScatteringData_iTest
   &      }  "
 
   ! CE Neutron Database specification
-  character(*),parameter :: ACE_INPUT_STR = &
+  character(*), parameter :: ACE_INPUT_STR = &
   & "aceLibrary ./IntegrationTestFiles/testLib; "
 
 contains

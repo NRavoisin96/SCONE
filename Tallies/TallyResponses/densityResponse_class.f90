@@ -24,7 +24,7 @@ module densityResponse_class
   !! Interface:
   !!   tallyResponse Interface
   !!
-  type, public,extends(tallyResponse) :: densityResponse
+  type, public, extends(tallyResponse) :: densityResponse
     private
   contains
     procedure :: init

@@ -15,7 +15,7 @@ module tallyFilterSlot_class
   !! Init functions uses tallyFilterFactory to build any type of tallyFilter as specified in
   !! the provided dictionary
   !!
-  type, public,extends(tallyFilter) :: tallyFilterSlot
+  type, public, extends(tallyFilter) :: tallyFilterSlot
     private
     class(tallyFilter), allocatable :: slot
   contains
@@ -74,7 +74,7 @@ contains
   subroutine kill(self)
     class(tallyFilterSlot), intent(inout) :: self
 
-    if(allocated(self % slot)) deallocate(self % slot)
+    if (allocated(self % slot)) deallocate(self % slot)
 
   end subroutine kill
 

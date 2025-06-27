@@ -97,7 +97,7 @@ contains
     integer(shortInt), intent(in)               :: matIdx
     integer(shortInt), intent(in)               :: what
     real(defReal)                               :: xs
-    character(100),parameter :: Here = 'getTrackingXS (baseMgNeutronDatabase_class.f90)'
+    character(*), parameter :: Here = 'getTrackingXS (baseMgNeutronDatabase_class.f90)'
 
     ! Process request
     select case(what)
@@ -192,7 +192,7 @@ contains
     class(baseMgNeutronDatabase), intent(inout) :: self
     class(particle), intent(in)                 :: p
     real(defReal)                               :: xs
-    character(100), parameter :: Here = ' getMajorantXS (baseMgNeutronDatabase_class.f90)'
+    character(*), parameter :: Here = ' getMajorantXS (baseMgNeutronDatabase_class.f90)'
 
     ! Verify bounds
     if (p % G < 1 .or. self % nG < p % G) then
@@ -266,7 +266,7 @@ contains
     class(reactionHandle), pointer           :: reac
 
     ! Catch Invalid index
-    if(idx < 1 .or. idx > size(self % mats)) then
+    if (idx < 1 .or. idx > size(self % mats)) then
       reac => null()
       return
     end if
@@ -297,12 +297,12 @@ contains
   elemental subroutine kill(self)
     class(baseMgNeutronDatabase), intent(inout) :: self
 
-    if(associated(self % mats)) then
+    if (associated(self % mats)) then
       call self % mats % kill()
       deallocate(self % mats)
     end if
 
-    if(allocated(self % activeMats)) deallocate (self % activeMats)
+    if (allocated(self % activeMats)) deallocate (self % activeMats)
     self % nG = 0
 
   end subroutine kill
@@ -313,9 +313,9 @@ contains
   !! See nuclearDatabase documentation for details
   !!
   subroutine init(self, dict, ptr, silent)
-    class(baseMgNeutronDatabase), target,intent(inout) :: self
+    class(baseMgNeutronDatabase), target, intent(inout) :: self
     class(dictionary), intent(in)                      :: dict
-    class(nuclearDatabase), pointer,intent(in)         :: ptr
+    class(nuclearDatabase), pointer, intent(in)         :: ptr
     logical(defBool), intent(in), optional             :: silent
     logical(defBool)                                   :: loud
     integer(shortInt)                                  :: i, nMat
@@ -323,13 +323,13 @@ contains
     character(pathLen)                                 :: path
     character(nameLen)                                 :: scatterKey
     type(dictionary)                                   :: tempDict
-    character(100), parameter :: Here = 'init (baseMgNeutronDatabase_class.f90)'
+    character(*), parameter :: Here = 'init (baseMgNeutronDatabase_class.f90)'
 
     ! Prevent reallocations
     call self % kill()
 
     ! Set build console output flag
-    if(present(silent)) then
+    if (present(silent)) then
       loud = .not.silent
     else
       loud = .true.
@@ -344,13 +344,13 @@ contains
     call dict % get(scatterKey, 'PN')
 
     ! Build materials
-    do i=1,nMat
+    do i= 1, nMat
       ! Get Path to the xsFile
       matDef => mm_getMatPtr(i)
       call matDef % extraInfo % get(path,'xsFile')
 
       ! Print status
-      if(loud) then
+      if (loud) then
         print '(A)', "Building material: " // trim(matDef % name) // " From: " // trim(path)
       end if
 
@@ -363,7 +363,7 @@ contains
     ! Load and verify number of groups
     self % nG = self % mats(1) % nGroups()
     do i = 2,nMat
-      if(self % nG /= self % mats(i) % nGroups()) then
+      if (self % nG /= self % mats(i) % nGroups()) then
         call fatalError(Here,'Inconsistant # of groups in materials in matIdx'//numToChar(i))
       end if
     end do
@@ -382,7 +382,7 @@ contains
     logical(defBool)                            :: loud
     integer(shortInt)                           :: idx
 
-    if(allocated(self % activeMats)) deallocate(self % activeMats)
+    if (allocated(self % activeMats)) deallocate(self % activeMats)
     self % activeMats = activeMat
 
     ! Initialies cross section cache

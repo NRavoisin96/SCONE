@@ -37,9 +37,9 @@ module emissionENDF_class
     logical(defBool)   :: correlated = .false.
 
     ! Emission laws
-    class(angleLawENDF),allocatable      :: muLaw
-    class(energyLawENDF),allocatable     :: eLaw
-    class(correlatedLawENDF),allocatable :: corrLaw
+    class(angleLawENDF), allocatable      :: muLaw
+    class(energyLawENDF), allocatable     :: eLaw
+    class(correlatedLawENDF), allocatable :: corrLaw
 
   contains
     generic   :: init => init_uncorrelated, init_correlated, init_fromACE
@@ -67,7 +67,7 @@ contains
     real(defReal), intent(in)         :: E_in
     class(RNG), intent(inout)         :: rand
 
-    if(self % correlated) then
+    if (self % correlated) then
       call self % corrLaw % sample(mu,E_out,E_in,rand)
 
     else
@@ -99,7 +99,7 @@ contains
     LHS % correlated = RHS % correlated
 
     ! Move allocateion to avoid unnecessary memory allocation
-    if(RHS % correlated) then
+    if (RHS % correlated) then
       call move_alloc(RHS % corrLaw, LHS % corrLaw)
 
     else
@@ -117,7 +117,7 @@ contains
     class(emissionENDF), intent(inout) :: self
     class(angleLawENDF), intent(in)    :: muLaw
     class(energyLawENDF), intent(in)   :: eLaw
-    logical(defBool),intent(in)        :: cmFrame
+    logical(defBool), intent(in)        :: cmFrame
 
     allocate(self % muLaw, source = muLaw)
     allocate(self % eLaw,  source = eLaw )
@@ -132,7 +132,7 @@ contains
   subroutine init_correlated(self,corrLaw,cmFrame)
     class(emissionENDF), intent(inout)   :: self
     class(correlatedLawENDF), intent(in) :: corrLaw
-    logical(defBool),intent(in)          :: cmFrame
+    logical(defBool), intent(in)          :: cmFrame
 
     allocate(self % corrLaw, source = corrLaw)
     self % correlated = .true.
@@ -151,7 +151,7 @@ contains
     integer(shortInt), intent(in) :: MT
     integer(shortInt)             :: LOCB
 
-    if( ACE % isCaptureMT(MT)) then
+    if (ACE % isCaptureMT(MT)) then
       ! Capture Does not have LOCB. Thus build it here.
       ! Will be filled with placeholder LawENDF's
       self % correlated = .false.
@@ -188,7 +188,7 @@ contains
   function new_emissionENDF_uncorrelated(muLaw,eLaw,cmFrame) result(new)
     class(angleLawENDF), intent(in)  :: muLaw
     class(energyLawENDF), intent(in) :: eLaw
-    logical(defBool),intent(in)      :: cmFrame
+    logical(defBool), intent(in)      :: cmFrame
     type(emissionENDF)               :: new
 
     call new % init(muLaw,eLaw,cmFrame)
@@ -200,7 +200,7 @@ contains
   !!
   function new_emissionENDF_correlated(corrLaw,cmFrame) result(new)
     class(correlatedLawENDF), intent(in)  :: corrLaw
-    logical(defBool),intent(in)           :: cmFrame
+    logical(defBool), intent(in)           :: cmFrame
     type(emissionENDF)                    :: new
 
     call new % init(corrLaw,cmFrame)

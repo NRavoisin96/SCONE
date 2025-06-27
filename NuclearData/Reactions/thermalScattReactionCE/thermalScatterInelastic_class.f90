@@ -53,7 +53,7 @@ module thermalScatterInelastic_class
     private
     real(defReal), dimension(:), allocatable       :: eIn
     real(defReal), dimension(:), allocatable       :: CDF
-    type(tabularEnergy),dimension(:),allocatable   :: eOutPdf
+    type(tabularEnergy), dimension(:), allocatable   :: eOutPdf
     type(dataArray), dimension(:), allocatable     :: eOut
     type(angularMatrix), dimension(:), allocatable :: muMatrices
     logical(defBool)   :: isInelContinuous = .false.
@@ -88,7 +88,7 @@ contains
     class(thInelasticScatter), intent(inout) :: self
     class(dataDeck), intent(inout)           :: data
     integer(shortInt), intent(in)            :: MT
-    character(100), parameter :: Here = 'init (thermalScatterInelastic_class.f90)'
+    character(*), parameter :: Here = 'init (thermalScatterInelastic_class.f90)'
 
     ! Select build procedure appropriate for given dataDeck
     select type(data)
@@ -111,9 +111,9 @@ contains
     self % N_muOut = 0
     self % isInelContinuous = .false.
 
-    if(allocated(self % eOut))    deallocate(self % eOut)
-    if(allocated(self % CDF))     deallocate(self % CDF)
-    if(allocated(self % eOutPdf)) deallocate(self % eOutPdf)
+    if (allocated(self % eOut))    deallocate(self % eOut)
+    if (allocated(self % CDF))     deallocate(self % CDF)
+    if (allocated(self % eOutPdf)) deallocate(self % eOutPdf)
     deallocate(self % eIn)
     deallocate(self % muMatrices)
 
@@ -187,7 +187,7 @@ contains
     real(defReal), intent(in)             :: E_out
     real(defReal), intent(in)             :: E_in
     real(defReal)                         :: prob
-    character(100), parameter :: Here = 'probOf (thermalScatterInelastic_class.f90)'
+    character(*), parameter :: Here = 'probOf (thermalScatterInelastic_class.f90)'
 
     ! Avoid compiler warnings
     prob = ONE
@@ -211,9 +211,9 @@ contains
     real(defReal), intent(out), optional  :: lambda
     real(defReal)     :: E_min, E_max
     real(defReal)     :: E1, E2, f, eps
-    real(defReal)     :: mu_ljk, mu1, mu2, mu3, muLeft, muRight
+    real(defReal)     :: mu_ljk, mu1, mu2, mu3, muLeft, muRight, randomNumber
     integer(shortInt) :: l1, l2, l, j, k, i
-    character(100), parameter :: Here = 'sampleOut(thermalScatterInelastic_class)'
+    character(*), parameter :: Here = 'sampleOut(thermalScatterInelastic_class)'
 
     ! Get energy indexes
     l1 = binarySearch(self % eIn, E_in)
@@ -225,16 +225,18 @@ contains
 
     f = (E_in - E1)/(E2 - E1)
 
-    if ( .not. self % isInelContinuous) then
+    if (.not. self % isInelContinuous) then
       ! Discrete treatment
-      j = binarySearch(self % CDF, rand % get())
+      call rand % generate(randomNumber)
+      j = binarySearch(self % CDF, randomNumber)
       E_min = self % eOut(l1) % array(j)
       E_max = self % eOut(l2) % array(j)
 
       E_out = E_min + f * (E_max - E_min)
 
       ! Considering a uniform distribution for the angular bins
-      k = floor(self % N_muOut * rand % get()) + 1
+      call rand % generate(randomNumber)
+      k = floor(self % N_muOut * randomNumber) + 1
       mu2 = self % muMatrices(l1) % muOut(j, k)
       mu3 = self % muMatrices(l2) % muOut(j, k)
 
@@ -263,13 +265,14 @@ contains
         end if
 
         ! Sampling the outgoing angle
-        k = floor(self % N_muOut * rand % get()) + 1
+        call rand % generate(randomNumber)
+        k = floor(self % N_muOut * randomNumber) + 1
         mu_ljk = self % muMatrices(l) % muOut(j, k)
         mu1 = mu_ljk + eps * (self % muMatrices(l) % muOut(j + 1, k) - mu_ljk)
 
         ! Smearing the outgoing angular distribution
         if (k == 1) then
-          muLeft = - ONE - (mu1 + ONE)
+          muLeft = -(TWO + mu1)
         else
           mu2 = self % muMatrices(l) % muOut(j, k - 1)
           mu3 = self % muMatrices(l) % muOut(j + 1, k - 1)
@@ -277,17 +280,18 @@ contains
         end if
 
         if (k == self % N_muOut) then
-          muRight = ONE + (ONE - mu1)
+          muRight = TWO - mu1
         else
           mu2 = self % muMatrices(l) % muOut(j, k + 1)
           mu3 = self % muMatrices(l) % muOut(j + 1, k + 1)
           muRight = mu2 + eps * (mu3 - mu2)
         end if
 
-        mu = mu1 + min(mu1 - muLeft, muRight - mu1) * (rand % get() - HALF)
+        call rand % generate(randomNumber, add = -HALF)
+        mu = mu1 + min(mu1 - muLeft, muRight - mu1) * randomNumber
 
         ! Check if the angle is valid
-        if (mu <= ONE .and. mu >= - ONE) exit sample
+        if (abs(mu) <= ONE) exit sample
 
       end do sample
 
@@ -295,15 +299,15 @@ contains
 
     end if
 
-    if (E_out > 20.0 .or. E_out <= ZERO) then
+    if (E_out > 20.0_defReal .or. E_out <= ZERO) then
       call fatalError(Here,'Failed to find energy: '//numToChar(E_out))
     end if
 
     ! Sample phi
-    phi = rand % get() * TWO_PI
+    call rand % generatePhi(phi)
 
     ! Only prompt particles. Set delay
-    if(present(lambda)) lambda = huge(lambda)
+    if (present(lambda)) lambda = huge(lambda)
 
   end subroutine sampleOut
 
@@ -318,7 +322,7 @@ contains
     real(defReal), dimension(:), allocatable      :: Etmp, PDFtmp, CDFtmp
     integer(shortInt), dimension(:), allocatable  :: loc, Eout
     integer(shortInt)                             :: i, j, Nin, Nout
-    character(100), parameter :: Here = 'buildFromACE (thInelasticScatt_class.f90)'
+    character(*), parameter :: Here = 'buildFromACE (thInelasticScatt_class.f90)'
 
     ! Initialise flags from ACE file
     Nin = ACE % inelasticEnergies()

@@ -7,7 +7,7 @@ module dynArray_class
   private
 
   !! Parmeters
-  integer(shortInt),parameter   :: MIN_SIZE = 5               ! Initial size
+  integer(shortInt), parameter   :: MIN_SIZE = 5               ! Initial size
   real(defReal), parameter      :: EXPAN_RATIO = 1.5_defReal  ! Expansion ratio
 
 
@@ -90,12 +90,12 @@ contains
     class(dynIntArray), intent(inout)          :: self
     integer(shortInt), intent(in)              :: newSize
     integer(shortInt)                          :: nextSize
-    integer(shortInt),dimension(:),allocatable :: tempArray
+    integer(shortInt), dimension(:), allocatable :: tempArray
 
-    if(.not.allocated(self % array)) then
+    if (.not.allocated(self % array)) then
       allocate(self % array( max(MIN_SIZE, newSize)))
 
-    else if( newSize > size(self % array)) then
+    else if (newSize > size(self % array)) then
       ! Calculate next size
       nextSize = int(EXPAN_RATIO * size(self % array))
       nextSize = max(nextSize, newSize)
@@ -128,7 +128,7 @@ contains
     class(dynIntArray), intent(in) :: self
     integer(shortInt)              :: capacity
 
-    if(allocated(self % array)) then
+    if (allocated(self % array)) then
       capacity = size(self % array)
 
     else
@@ -155,7 +155,7 @@ contains
   function expose_shortInt(self) result(res)
     class(dynIntArray), intent(in)              :: self
     integer(shortInt), dimension(self % mySize) :: res
-    character(100), parameter :: Here = 'expose_shortInt (dynArray_Class.f90)'
+    character(*), parameter :: Here = 'expose_shortInt (dynArray_Class.f90)'
 
     if (allocated(self % array)) then
       res = self % array(1: self % mySize)
@@ -172,7 +172,7 @@ contains
     class(dynIntArray), intent(in)              :: self
     integer(shortInt), intent(in)               :: idx
     integer(shortInt)                           :: res
-    character(100), parameter :: Here = 'expose_shortInt (dynArray_Class.f90)'
+    character(*), parameter :: Here = 'expose_shortInt (dynArray_Class.f90)'
 
     if (allocated(self % array)) then
       res = self % array(idx)
@@ -188,7 +188,7 @@ contains
   !!
   subroutine assign_shortInt(LHS, RHS)
     class(dynIntArray), intent(out)            :: LHS
-    integer(shortInt),dimension(:), intent(in) :: RHS
+    integer(shortInt), dimension(:), intent(in) :: RHS
 
     LHS % array = RHS
     LHS % mySize = size(RHS)
@@ -200,9 +200,9 @@ contains
   !!
   subroutine shrink_shortInt(self)
     class(dynIntArray), intent(inout)          :: self
-    integer(shortInt),dimension(:),allocatable :: tempArray
+    integer(shortInt), dimension(:), allocatable :: tempArray
 
-    if(allocated( self % array)) then
+    if (allocated( self % array)) then
       tempArray = self % array(1:self % mySize)
       call move_alloc(tempArray, self % array)
     end if
@@ -216,9 +216,9 @@ contains
   function pop_shortInt(self) result(res)
     class(dynIntArray), intent(inout) :: self
     integer(shortInt)                 :: res
-    character(100),parameter :: Here = 'pop_shortInt (dynArray_class.f90)'
+    character(*), parameter :: Here = 'pop_shortInt (dynArray_class.f90)'
 
-    if(self % isEmpty()) then
+    if (self % isEmpty()) then
       call fatalError(Here,'Poping from empty array')
     end if
 
@@ -244,7 +244,7 @@ contains
     class(dynIntArray), intent(inout) :: self
 
     self % mySize = 0
-    if(allocated(self % array)) deallocate(self % array)
+    if (allocated(self % array)) deallocate(self % array)
 
   end subroutine kill_shortInt
 

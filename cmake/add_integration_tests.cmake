@@ -8,7 +8,7 @@ function(add_integration_tests)
   # Check if the property is already defined
   # If it isn't define it
   get_property(is_defined GLOBAL PROPERTY INTEGRATION_TEST_LIST DEFINED)
-  if(NOT is_defined)
+  if (NOT is_defined)
     define_property(GLOBAL PROPERTY INTEGRATION_TEST_LIST
       BRIEF_DOCS "List of all integration test files"
       FULL_DOCS "List of all pFUnit integration test suite files for preprocessing & compilation")
@@ -17,7 +17,7 @@ function(add_integration_tests)
   # Take files listed in argument list and make their paths absolute
   set(TESTS)
   foreach(t IN LISTS ARGN)
-    if(NOT IS_ABSOLUTE "${t}")
+    if (NOT IS_ABSOLUTE "${t}")
       get_filename_component(t "${t}" ABSOLUTE)
     endif()
     list(APPEND TESTS "${t}")

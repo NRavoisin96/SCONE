@@ -80,7 +80,7 @@ contains
   subroutine init(self, data)
     class(thermalData), intent(inout) :: self
     class(dataDeck), intent(inout)    :: data
-    character(100), parameter :: Here = 'init (thermalScatteringTables_class.f90)'
+    character(*), parameter :: Here = 'init (thermalScatteringTables_class.f90)'
 
     ! Select buld procedure approperiate for given dataDeck
     select type(data)
@@ -118,8 +118,8 @@ contains
 
     deallocate(self % inelastic % eGrid)
     deallocate(self % inelastic % xs)
-    if(allocated(self % elastic % eGrid)) deallocate(self % elastic % eGrid)
-    if(allocated(self % elastic % xs)) deallocate(self % elastic % xs)
+    if (allocated(self % elastic % eGrid)) deallocate(self % elastic % eGrid)
+    if (allocated(self % elastic % xs)) deallocate(self % elastic % xs)
 
   end subroutine kill
 
@@ -138,7 +138,7 @@ contains
     real(defReal), dimension(2)    :: eBounds
     real(defReal)                  :: E1, E2
     integer(shortInt)              :: N1, N2
-    character(100), parameter :: Here = 'getEbounds (thermalScatteringTables_class.f90)'
+    character(*), parameter :: Here = 'getEbounds (thermalScatteringTables_class.f90)'
 
     select case(request)
       case('inelastic')

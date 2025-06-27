@@ -191,8 +191,8 @@ contains
   !! See tallyClerk_inter for details
   !!
   function validReports(self) result(validCodes)
-    class(mgXsClerk),intent(in)                :: self
-    integer(shortInt),dimension(:),allocatable :: validCodes
+    class(mgXsClerk), intent(in)                :: self
+    integer(shortInt), dimension(:), allocatable :: validCodes
 
     validCodes = [inColl_CODE, outColl_CODE, spawn_CODE]
 
@@ -314,7 +314,7 @@ contains
     class(particle), intent(in)          :: p
     integer(shortInt), intent(in)        :: MT
     real(defReal), intent(in)            :: muL
-    class(nuclearDatabase),intent(inout) :: xsData
+    class(nuclearDatabase), intent(inout) :: xsData
     type(scoreMemory), intent(inout)     :: mem
     type(particleState)                  :: preColl, postColl
     real(defReal)                        :: score, prod, mu, mu2, mu3, mu4, mu5
@@ -752,7 +752,7 @@ contains
     class(mgXsClerk), intent(in)               :: self
     class(outputFile), intent(inout)           :: outFile
     type(scoreMemory), intent(in)              :: mem
-    integer(shortInt),dimension(:),allocatable :: resArrayShape
+    integer(shortInt), dimension(:), allocatable :: resArrayShape
     real(defReal), dimension(:,:), allocatable :: fiss, capt, transFL, transOS, &
                                                   nu, chi, P0, P1, P2, P3, P4,  &
                                                   P5, P6, P7, prod
@@ -785,42 +785,42 @@ contains
     ! Print results
     name = 'capture'
     call outFile % startArray(name, resArrayShape)
-    do i=1,product(resArrayShape)
+    do i= 1, product(resArrayShape)
       call outFile % addResult(capt(1,i),capt(2,i))
     end do
     call outFile % endArray()
 
     name = 'fission'
     call outFile % startArray(name, resArrayShape)
-    do i=1,product(resArrayShape)
+    do i= 1, product(resArrayShape)
       call outFile % addResult(fiss(1,i),fiss(2,i))
     end do
     call outFile % endArray()
 
     name = 'transportFluxLimited'
     call outFile % startArray(name, resArrayShape)
-    do i=1,product(resArrayShape)
+    do i= 1, product(resArrayShape)
       call outFile % addResult(transFL(1,i),transFL(2,i))
     end do
     call outFile % endArray()
 
     name = 'transportOutScatter'
     call outFile % startArray(name, resArrayShape)
-    do i=1,product(resArrayShape)
+    do i= 1, product(resArrayShape)
       call outFile % addResult(transOS(1,i),transOS(2,i))
     end do
     call outFile % endArray()
 
     name = 'nu'
     call outFile % startArray(name, resArrayShape)
-    do i=1,product(resArrayShape)
+    do i= 1, product(resArrayShape)
       call outFile % addResult(nu(1,i),nu(2,i))
     end do
     call outFile % endArray()
 
     name = 'chi'
     call outFile % startArray(name, resArrayShape)
-    do i=1,product(resArrayShape)
+    do i= 1, product(resArrayShape)
       call outFile % addResult(chi(1,i),chi(2,i))
     end do
     call outFile % endArray()
@@ -829,21 +829,21 @@ contains
     resArrayShape(1) = resArrayShape(1) * self % energyN
     name = 'P0'
     call outFile % startArray(name, resArrayShape)
-    do i=1,product(resArrayShape)
+    do i= 1, product(resArrayShape)
       call outFile % addResult(P0(1,i),P0(2,i))
     end do
     call outFile % endArray()
 
     name = 'P1'
     call outFile % startArray(name, resArrayShape)
-    do i=1,product(resArrayShape)
+    do i= 1, product(resArrayShape)
       call outFile % addResult(P1(1,i),P1(2,i))
     end do
     call outFile % endArray()
 
     name = 'prod'
     call outFile % startArray(name, resArrayShape)
-    do i=1,product(resArrayShape)
+    do i= 1, product(resArrayShape)
       call outFile % addResult(prod(1,i),prod(2,i))
     end do
     call outFile % endArray()

@@ -39,26 +39,26 @@ set(CMAKE_Fortran_MODULE_DIRECTORY ${PROJECT_BINARY_DIR}/modFiles)
 set(CMAKE_Fortran_FLAGS "-std=f2008 -O3 -g -pedantic -Wall -Wno-unused-dummy-argument -cpp")
 
 # Add extra flags to all Fortran files
-if(COVERAGE)
+if (COVERAGE)
   set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -coverage")
 endif()
 
 # Add Debugging flags to scone library
 # NOTE: GFortran 7.5 may give buggy warnings here
-#   If this is an issue, consider using `-fcheck=bounds,do,mem,pointer`
+#   If this is an issue, consider using `-fcheck=bounds,do,mem, pointer`
 #   https://github.com/CambridgeNuclear/SCONE/pull/15#issuecomment-1384192425
-if(DEBUG)
+if (DEBUG)
   list(APPEND scone_extra_flags "-fcheck=all,no-array-temps" "-Waliasing")
 endif()
 
 
 # If LTO is requested check if it is supported by compiler
 # LTO flags will be set by CMAKE via `set_property` command later
-if(LTO)
+if (LTO)
   include(CheckIPOSupported)
   check_ipo_supported(RESULT has_lto OUTPUT lto_error)
 
-  if(NOT has_lto)
+  if (NOT has_lto)
       message(STATUS "<><><><><><><><><><><><><><><><><><><><><><><><><><>")
       message(FATAL_ERROR "LTO was requested but it is not supported by the compiler. "
                           "Use -DLTO=FALSE option to disable LTO. Error message: <${lto_error}>")
@@ -66,10 +66,10 @@ if(LTO)
 endif()
 
 # Set up OpenMP
-if(OPENMP)
+if (OPENMP)
   find_package(OpenMP)
 
-  if(NOT OpenMP_Fortran_FOUND)
+  if (NOT OpenMP_Fortran_FOUND)
     message(STATUS "<><><><><><><><><><><><><><><><><><><><><><><><><><>")
     message(FATAL_ERROR "It seems that the Fortran compiler does not support OpanMP"
                        "Use -DOPENMP=OFF to disable")
@@ -139,7 +139,7 @@ add_library(scone STATIC ${SRCS})
 target_compile_options(scone PRIVATE ${scone_extra_flags} )
 target_link_libraries(scone  ${LAPACK_LIBRARIES} )
 
-if(LTO)
+if (LTO)
   set_property(TARGET scone PROPERTY INTERPROCEDURAL_OPTIMIZATION TRUE)
 endif()
 
@@ -150,7 +150,7 @@ target_link_libraries(scone.out scone )
 
 ####################################################################################################
 # COMPILE UNIT TESTS
-if(BUILD_TESTS)
+if (BUILD_TESTS)
   enable_testing()
 
   get_property(UNIT_TESTS GLOBAL PROPERTY UNIT_TESTS_LIST)

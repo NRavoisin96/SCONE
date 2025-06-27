@@ -19,7 +19,7 @@ module fluxResponse_class
   !! Interface:
   !!   tallyResponse Interface
   !!
-  type, public,extends(tallyResponse) :: fluxResponse
+  type, public, extends(tallyResponse) :: fluxResponse
     private
   contains
     procedure :: init

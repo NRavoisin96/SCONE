@@ -23,7 +23,7 @@ module aceNeutronDatabase_iTest
   implicit none
 
   ! Material definitions
-  character(*),parameter :: MAT_INPUT_STR = &
+  character(*), parameter :: MAT_INPUT_STR = &
   & "water {                     &
   &       composition {          &
   &       1001.03 5.028E-02;     &
@@ -38,7 +38,7 @@ module aceNeutronDatabase_iTest
   &       }"
 
   ! CE Neutron Database specification
-  character(*),parameter :: ACE_INPUT_STR = &
+  character(*), parameter :: ACE_INPUT_STR = &
   & "aceLibrary ./IntegrationTestFiles/testLib; "
 
 contains
@@ -52,7 +52,7 @@ contains
     class(nuclearDatabase), pointer  :: ptr
     type(dictionary)                 :: matDict
     type(dictionary)                 :: dataDict
-    type(ceNeutronMaterial),pointer  :: mat
+    type(ceNeutronMaterial), pointer  :: mat
     class(ceNeutronNuclide), pointer :: nuc
     type(aceNeutronNuclide), pointer :: nuc2
     class(reactionHandle), pointer   :: reac
@@ -138,7 +138,7 @@ contains
     ! Nuclides 1 -> O-16
     !          2 -> U-233
     !          3 -> H-1
-    do i=1,3
+    do i= 1, 3
       nuc2 => aceNeutronNuclide_TptrCast( data % getNuclide(i))
       select case(trim(adjustl(nuc2 % ZAID)))
         case('1001.03c')

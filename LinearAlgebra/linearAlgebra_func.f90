@@ -62,18 +62,18 @@ module linearAlgebra_func
       implicit none
       character(1), intent(in)                         :: jobvl
       character(1), intent(in)                         :: jobvr
-      integer(int32),intent(in)                        :: N
+      integer(int32), intent(in)                        :: N
       integer(int32), intent(in)                       :: LDA
-      real(real64),dimension(LDA,N),intent(inout)      :: A
-      real(real64),dimension(N), intent(out)           :: WR
-      real(real64),dimension(N), intent(out)           :: WI
+      real(real64), dimension(LDA,N), intent(inout)      :: A
+      real(real64), dimension(N), intent(out)           :: WR
+      real(real64), dimension(N), intent(out)           :: WI
       integer(int32), intent(in)                       :: LDVL
-      real(real64),dimension(LDVL,N), intent(out)      :: VL
-      integer(int32),intent(in)                        :: LDVR
-      real(real64),dimension(LDVR,N),intent(out)       :: VR
-      integer(int32),intent(in)                        :: LWORK
-      real(real64),dimension(max(1,LWORK)),intent(out) :: WORK
-      integer(int32),intent(out)                       :: INFO
+      real(real64), dimension(LDVL,N), intent(out)      :: VL
+      integer(int32), intent(in)                        :: LDVR
+      real(real64), dimension(LDVR,N), intent(out)       :: VR
+      integer(int32), intent(in)                        :: LWORK
+      real(real64), dimension(max(1,LWORK)), intent(out) :: WORK
+      integer(int32), intent(out)                       :: INFO
     end subroutine dgeev
 
     !!
@@ -84,18 +84,18 @@ module linearAlgebra_func
       implicit none
       character(1), intent(in)                         :: jobvl
       character(1), intent(in)                         :: jobvr
-      integer(int32),intent(in)                        :: N
+      integer(int32), intent(in)                        :: N
       integer(int32), intent(in)                       :: LDA
-      real(real32),dimension(LDA,N),intent(inout)      :: A
-      real(real32),dimension(N), intent(out)           :: WR
-      real(real32),dimension(N), intent(out)           :: WI
+      real(real32), dimension(LDA,N), intent(inout)      :: A
+      real(real32), dimension(N), intent(out)           :: WR
+      real(real32), dimension(N), intent(out)           :: WI
       integer(int32), intent(in)                       :: LDVL
-      real(real32),dimension(LDVL,N), intent(out)      :: VL
-      integer(int32),intent(in)                        :: LDVR
-      real(real32),dimension(LDVR,N),intent(out)       :: VR
-      integer(int32),intent(in)                        :: LWORK
-      real(real32),dimension(max(1,LWORK)),intent(out) :: WORK
-      integer(int32),intent(out)                       :: INFO
+      real(real32), dimension(LDVL,N), intent(out)      :: VL
+      integer(int32), intent(in)                        :: LDVR
+      real(real32), dimension(LDVR,N), intent(out)       :: VR
+      integer(int32), intent(in)                        :: LWORK
+      real(real32), dimension(max(1,LWORK)), intent(out) :: WORK
+      integer(int32), intent(out)                       :: INFO
     end subroutine sgeev
   end interface lapack_geev
 
@@ -134,10 +134,10 @@ module linearAlgebra_func
       integer(int32), intent(in)                      :: N
       integer(int32), intent(in)                      :: NRHS
       integer(int32), intent(in)                      :: LDA
-      real(real64),dimension(LDA,N), intent(inout)    :: A
-      integer(int32),dimension(:), intent(out)        :: IPIV
+      real(real64), dimension(LDA,N), intent(inout)    :: A
+      integer(int32), dimension(:), intent(out)        :: IPIV
       integer(int32), intent(in)                      :: LDB
-      real(real64),dimension(LDB,NRHS), intent(inout) :: B
+      real(real64), dimension(LDB,NRHS), intent(inout) :: B
       integer(int32), intent(out)                     :: INFO
     end subroutine dgesv
 
@@ -150,10 +150,10 @@ module linearAlgebra_func
       integer(int32), intent(in)                      :: N
       integer(int32), intent(in)                      :: NRHS
       integer(int32), intent(in)                      :: LDA
-      real(real32),dimension(LDA,N), intent(inout)    :: A
-      integer(int32),dimension(:), intent(out)        :: IPIV
+      real(real32), dimension(LDA,N), intent(inout)    :: A
+      integer(int32), dimension(:), intent(out)        :: IPIV
       integer(int32), intent(in)                      :: LDB
-      real(real32),dimension(LDB,NRHS), intent(inout) :: B
+      real(real32), dimension(LDB,NRHS), intent(inout) :: B
       integer(int32), intent(out)                     :: INFO
     end subroutine sgesv
   end interface lapack_gesv
@@ -191,9 +191,9 @@ module linearAlgebra_func
       use iso_fortran_env, only : real64, int32
       implicit none
       integer(int32), intent(in)           :: N
-      real(real64),dimension(:),intent(in) :: DX
+      real(real64), dimension(:), intent(in) :: DX
       integer(int32), intent(in)           :: INCX
-      real(real64),dimension(:),intent(in) :: DY
+      real(real64), dimension(:), intent(in) :: DY
       integer(int32), intent(in)           :: INCY
       real(real64)                         :: DOT
     end function ddot
@@ -205,9 +205,9 @@ module linearAlgebra_func
       use iso_fortran_env, only : real32, int32
       implicit none
       integer(int32), intent(in)           :: N
-      real(real32),dimension(:),intent(in) :: DX
+      real(real32), dimension(:), intent(in) :: DX
       integer(int32), intent(in)           :: INCX
-      real(real32),dimension(:),intent(in) :: DY
+      real(real32), dimension(:), intent(in) :: DY
       integer(int32), intent(in)           :: INCY
       real(real32)                         :: DOT
     end function sdot
@@ -386,7 +386,7 @@ module linearAlgebra_func
 !!<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 
   !! This variable must be private to each OpenMP thread
-  real(defReal),dimension(:),allocatable,target :: workspace
+  real(defReal), dimension(:), allocatable,target :: workspace
 
 contains
 
@@ -400,23 +400,23 @@ contains
   !! Gives fatalError if input is invalid or solution A is singular
   !!
   subroutine solve(A, x, b)
-    real(defReal),dimension(:,:),intent(in) :: A
-    real(defReal),dimension(:), intent(out) :: x
-    real(defReal),dimension(:), intent(in)  :: b
-    real(defReal),dimension(:,:),pointer    :: A_t, B_t
-    integer(shortInt),dimension(size(x))    :: pivot
+    real(defReal), dimension(:,:), intent(in) :: A
+    real(defReal), dimension(:), intent(out) :: x
+    real(defReal), dimension(:), intent(in)  :: b
+    real(defReal), dimension(:,:), pointer    :: A_t, B_t
+    integer(shortInt), dimension(size(x))    :: pivot
     integer(shortInt)                       :: N, mem, info
-    character(100),parameter :: Here='solve ( linearAlgebra_func.f90)'
+    character(*), parameter :: Here = 'solve ( linearAlgebra_func.f90)'
 
     ! Verify size of the inputs
     N = size(A,1)
-    if(size(b) /= N) then
+    if (size(b) /= N) then
       call fatalError(Here,'Invalid size of RHS vector b. It is not size N')
 
-    else if(size(x) /=N) then
+    else if (size(x) /=N) then
       call fatalError(Here,'Invallid size of result vector x. It is not size N')
 
-    else if ( any(shape(A) /= N)) then
+    else if (any(shape(A) /= N)) then
       call fatalError(Here,'Invalid shape of array A. Is not NxN')
 
     end if
@@ -437,10 +437,10 @@ contains
     ! Perform calculation
     call lapack_gesv(N, 1, A_t, N, pivot, B_t, N, info)
 
-    if( info < 0) then
+    if (info < 0) then
       call fatalError(Here,'LINPACK procedure failed with error: '//numToChar(info))
 
-    else if(info > 0) then
+    else if (info > 0) then
       call fatalError(Here,'LINPACK procedure failed. Matrix A is singular.')
     end if
 
@@ -479,12 +479,12 @@ contains
   !!       robust. TODO: Investigate why BLAS fails and hopefully repair it!
   !!
   subroutine solveAdjointProblem(A,x,s,f)
-    real(defReal),dimension(:,:), intent(in) :: A
-    real(defReal),dimension(:), intent(out)  :: x
-    real(defReal),dimension(:), intent(in)   :: s
-    real(defReal),dimension(:), intent(in)   :: f
-    real(defReal),dimension(:,:),pointer     :: A_t
-    real(defReal),dimension(:),pointer       :: x_t, s_t, f_t, w_t
+    real(defReal), dimension(:,:), intent(in) :: A
+    real(defReal), dimension(:), intent(out)  :: x
+    real(defReal), dimension(:), intent(in)   :: s
+    real(defReal), dimension(:), intent(in)   :: f
+    real(defReal), dimension(:,:), pointer     :: A_t
+    real(defReal), dimension(:), pointer       :: x_t, s_t, f_t, w_t
     integer(shortInt)                        :: N, mem, maxIter, i
     real(defReal)                            :: dot
     logical(defBool)                         :: converged
@@ -492,16 +492,16 @@ contains
 
     ! Verify inputs
     N = size(A,1)
-    if(size(s) /= N) then
+    if (size(s) /= N) then
       call fatalError(Here,'Invalid size of RHS vector s. It is not size N')
 
-    else if(size(x) /=N) then
+    else if (size(x) /=N) then
       call fatalError(Here,'Invalid size of result vector x. It is not size N')
 
-    else if(size(f) /=N) then
+    else if (size(f) /=N) then
       call fatalError(Here,'Invalid size of orthogonalisation vector f. Is is not size N')
 
-    else if ( any(shape(A) /= N)) then
+    else if (any(shape(A) /= N)) then
       call fatalError(Here,'Invalid shape of array A. Is not NxN')
 
     end if
@@ -540,7 +540,7 @@ contains
       w_t = w_t / norm2(w_t)
 
       ! Convergance check
-      if(iand(i,8) == 0) then
+      if (iand(i,8) == 0) then
         dot = dot_product(w_t, x_t)
         if (dot < 1.0E-10_defReal) then
           converged = .true.
@@ -554,7 +554,7 @@ contains
     end do
 
     ! Check for failed iteration
-    if(.not.converged) then
+    if (.not.converged) then
       call fatalError(Here,'Calculation failed to convarged in: ' // numToChar(maxIter) //' steps. &
       & Final residual is: ' // numToChar(dot))
     end if
@@ -579,23 +579,23 @@ contains
   !! Gives fatalError if input is invalid
   !!
   subroutine eig(k, V, A)
-    real(defReal),dimension(:),intent(out)    :: k
-    real(defReal),dimension(:,:), intent(out) :: V
-    real(defReal),dimension(:,:), intent(in)  :: A
+    real(defReal), dimension(:), intent(out)    :: k
+    real(defReal), dimension(:,:), intent(out) :: V
+    real(defReal), dimension(:,:), intent(in)  :: A
     integer(int32)                            :: N, mem, st, info
-    real(defReal),dimension(:,:),pointer      :: A_t, VR_t, VL_t
-    real(defReal),dimension(:),pointer        :: Re, Im, Work
-    character(100),parameter :: Here = 'eig (linearAlgebra_func.f90)'
+    real(defReal), dimension(:,:), pointer      :: A_t, VR_t, VL_t
+    real(defReal), dimension(:), pointer        :: Re, Im, Work
+    character(*), parameter :: Here = 'eig (linearAlgebra_func.f90)'
 
     ! Verify size of inputs
     N = size(A,1)
-    if( any(shape(V) /= N)) then
+    if (any(shape(V) /= N)) then
       call fatalError(Here,'Invalid shape of eigenvector result array. Is not NxN')
 
-    else if(size(k) /= N) then
+    else if (size(k) /= N) then
       call fatalError(Here,'Invalid size of eigenvalue result vectorr. Is not size N')
 
-    else if ( any(shape(A) /= N)) then
+    else if (any(shape(A) /= N)) then
       call fatalError(Here,'Invalid shape of array A. Is not NxN')
 
     end if
@@ -633,7 +633,7 @@ contains
     ! Perform calculation
     call lapack_geev('N','V', N, A_t, N, Re, Im, VL_t, 1, VR_t, N, Work, size(Work), info)
 
-    if( info /= 0) then
+    if (info /= 0) then
       call fatalError(Here,'LINPACK procedure failed with error: '//numToChar(info))
     end if
 
@@ -650,9 +650,9 @@ contains
   subroutine getMem(N)
     integer(shortInt), intent(in) :: N
 
-    if(allocated(workspace)) then
+    if (allocated(workspace)) then
       ! Check that workspace has sufficient size
-      if(size(workspace) < N) then
+      if (size(workspace) < N) then
         deallocate(workspace)
         allocate(workspace(N))
       end if
@@ -670,7 +670,7 @@ contains
   !!
   subroutine kill_linearAlgebra()
 
-    if(allocated(workspace)) deallocate(workspace)
+    if (allocated(workspace)) deallocate(workspace)
 
   end subroutine kill_linearAlgebra
 

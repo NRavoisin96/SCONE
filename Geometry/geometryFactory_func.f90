@@ -48,7 +48,7 @@ contains
     class(geometry), allocatable           :: geom
     logical(defBool)                       :: silent_l
     character(nameLen)                     :: type
-    character(100), parameter :: Here = 'new_geometry (geometryFactory_func.f90)'
+    character(*), parameter :: Here = 'new_geometry (geometryFactory_func.f90)'
 
     ! Get silent flag
     if (present(silent)) then

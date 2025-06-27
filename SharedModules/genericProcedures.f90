@@ -488,7 +488,7 @@ contains
     top = size(array)
 
     ! Check if the element is in array bounds
-    if ( value < array(bottom) .or. value >array(top)) then
+    if (value < array(bottom) .or. value >array(top)) then
       idx = valueOutsideArray
       return
     end if
@@ -501,7 +501,7 @@ contains
       if (bottom == idx) return
 
       ! Binary Step
-      if (array(idx) <= value ) then
+      if (array(idx) <= value) then
         bottom = idx
       else
         top = idx
@@ -532,8 +532,8 @@ contains
   !!   idx == valueOutideArray if value < a(1) .or. value > a(N)
   !!
   pure function linearFloorIdxClosed_Real(array,value) result (idx)
-    real(defReal),dimension(:),intent(in) :: array
-    real(defReal),intent(in)              :: value
+    real(defReal), dimension(:), intent(in) :: array
+    real(defReal), intent(in)              :: value
     integer(shortInt)                     :: idx
 
     if (value > array(size(array)) .or. value < array(1)) then
@@ -542,7 +542,7 @@ contains
     end if
 
     do idx = size(array)-1,1,-1
-      if( array(idx) <= value) return
+      if (array(idx) <= value) return
     end do
 
   end function linearFloorIdxClosed_Real
@@ -566,16 +566,16 @@ contains
   !!   idx == valueOutideArray if value < a(1) .or. value > a(N)
   !!
   function linearFloorIdxClosed_shortInt(array,value) result(idx)
-    integer(shortInt),dimension(:),intent(in) :: Array
-    integer(shortInt),intent(in)              :: Value
+    integer(shortInt), dimension(:), intent(in) :: Array
+    integer(shortInt), intent(in)              :: Value
     integer(shortInt)                         :: idx
-    character(100),parameter                  :: Here='linearFloorIdxClosed_shortInt (genericProcedures.f90)'
+    character(100), parameter                  :: Here='linearFloorIdxClosed_shortInt (genericProcedures.f90)'
 
     ! Check if the value is above the bounds of an array
-    if ( Value >= array(size(array))) call fatalError(Here,'Value is above upper bound of the array')
+    if (Value >= array(size(array))) call fatalError(Here,'Value is above upper bound of the array')
 
     do idx=size(array),1,-1
-      if ( array(idx) <= value ) return
+      if (array(idx) <= value ) return
     end do
 
     call fatalError(Here,'Value is below lower bound of the array')
@@ -602,13 +602,13 @@ contains
   !!   idx == valueOutideArray if value > a(N)
   !!
   pure function linearCeilingIdxOpen_shortInt(array,value) result(idx)
-    integer(shortInt),dimension(:),intent(in) :: Array
-    integer(shortInt),intent(in)              :: Value
+    integer(shortInt), dimension(:), intent(in) :: Array
+    integer(shortInt), intent(in)              :: Value
     integer(shortInt)                         :: idx
-    character(100),parameter                  :: Here='linearCeilingIdxOpen_shortInt (genericProcedures.f90)'
+    character(100), parameter                  :: Here='linearCeilingIdxOpen_shortInt (genericProcedures.f90)'
 
-    do idx=1,size(array)
-      if ( array(idx) >= value ) return
+    do idx= 1, size(array)
+      if (array(idx) >= value ) return
     end do
 
     ! Value is larger than the upper bound of the array
@@ -627,8 +627,8 @@ contains
   !! give nice strings instead of raw integers in the error messages...
   !!
   subroutine searchError(idx,Here)
-    integer(shortInt),intent(in)  :: idx
-    character(*),intent(in)       :: Here
+    integer(shortInt), intent(in)  :: idx
+    character(*), intent(in)       :: Here
 
     if (idx < 0) then
       select case (idx)
@@ -708,14 +708,14 @@ contains
   !!
   pure function removeDuplicates_shortInt(intArray) result(out)
     integer(shortInt), dimension(:), intent(in) :: intArray
-    integer(shortInt), dimension(:),allocatable :: out
-    integer(shortInt),dimension(size(intArray)) :: array
+    integer(shortInt), dimension(:), allocatable :: out
+    integer(shortInt), dimension(size(intArray)) :: array
     integer(shortInt)                           :: i, j, N, test, idx
 
     N = size(intArray)
 
     ! If provided array is of size 0, return size 0 array
-    if (N == 0 ) then
+    if (N == 0) then
       allocate(out(0))
       return
     end if
@@ -725,7 +725,7 @@ contains
     do i=2,N
       test = intArray(i)
       idx = linFind(intArray(1:i-1),test)  ! Check if element is present before i in the array
-      if  (idx == targetNotFound ) then    ! If it isn't copy it to array without duplicates
+      if  (idx == targetNotFound) then    ! If it isn't copy it to array without duplicates
         array(j) = test
         j = j + 1
 
@@ -742,7 +742,7 @@ contains
   !!
   pure function removeDuplicates_Real(realArray) result(out)
     real(defReal), dimension(:), intent(in)   :: realArray
-    real(defReal), dimension(:),allocatable   :: out
+    real(defReal), dimension(:), allocatable   :: out
     real(defReal), dimension(size(realArray)) :: array
     real(defReal)                             :: test
     integer(shortInt)                         :: i, j, N
@@ -750,7 +750,7 @@ contains
     N = size(realArray)
 
     ! If provided array is of size 0, return size 0 array
-    if (N == 0 ) then
+    if (N == 0) then
       allocate(out(0))
       return
     end if
@@ -775,9 +775,9 @@ contains
   !! length greater then 100
   !!
   function removeDuplicates_Char(charArray) result(out)
-    character(nameLen),dimension(:),intent(in)   :: charArray
-    character(nameLen),dimension(:),allocatable  :: out
-    logical(defBool),dimension(:),allocatable    :: unique
+    character(nameLen), dimension(:), intent(in)   :: charArray
+    character(nameLen), dimension(:), allocatable  :: out
+    logical(defBool), dimension(:), allocatable    :: unique
     integer(shortInt)                            :: i,j
 
     if (len(charArray) > len(out)) call fatalError('removeDuplicates_Char (genericProcedures.f90)',&
@@ -792,7 +792,7 @@ contains
         do i = 1,size(charArray)
           search: &
           do j = 1, i-1
-            if( trim(charArray(i)) == trim(charArray(j)) ) then
+            if (trim(charArray(i)) == trim(charArray(j))) then
               unique(i) = .false.
               exit search
             end if
@@ -809,7 +809,7 @@ contains
   !!
   pure function removeDuplicatesSorted_Real(realArray) result(out)
     real(defReal), dimension(:), intent(in)   :: realArray
-    real(defReal), dimension(:),allocatable   :: out
+    real(defReal), dimension(:), allocatable   :: out
     real(defReal), dimension(size(realArray)) :: array
     real(defReal)                             :: test
     integer(shortInt)                         :: i, j, N
@@ -817,7 +817,7 @@ contains
     N = size(realArray)
 
     ! If provided array is of size 0, return size 0 array
-    if (N == 0 ) then
+    if (N == 0) then
       allocate(out(0))
       return
     end if
@@ -841,7 +841,7 @@ contains
   !!
   pure function findDuplicatesSorted_Real(realArray) result(out)
     real(defReal), dimension(:), intent(in)       :: realArray
-    integer(shortInt), dimension(:),allocatable   :: out
+    integer(shortInt), dimension(:), allocatable   :: out
     integer(shortInt), dimension(size(realArray)) :: array
     real(defReal)                                 :: test
     integer(shortInt)                             :: i, j, N
@@ -849,7 +849,7 @@ contains
     N = size(realArray)
 
     ! If provided array is of size 0, return size 0 array
-    if (N == 0 ) then
+    if (N == 0) then
       allocate(out(0))
       return
     end if
@@ -873,9 +873,9 @@ contains
   !! length greater then 100
   !!
   function findDuplicates_Char(charArray) result(out)
-    character(nameLen),dimension(:),intent(in)  :: charArray
-    character(nameLen),dimension(:),allocatable :: out
-    logical(defBool),dimension(:),allocatable   :: unique
+    character(nameLen), dimension(:), intent(in)  :: charArray
+    character(nameLen), dimension(:), allocatable :: out
+    logical(defBool), dimension(:), allocatable   :: unique
     integer(shortInt)                           :: i,j
 
     if (len(charArray) > len(out)) call fatalError('removeDuplicates_Char (genericProcedures.f90)',&
@@ -890,7 +890,7 @@ contains
         do i = 1,size(charArray)
           search: &
           do j = 1, i-1
-            if( trim(charArray(i)) == trim(charArray(j)) ) then
+            if (trim(charArray(i)) == trim(charArray(j))) then
               unique(i) = .false.
               exit search
             end if
@@ -982,13 +982,13 @@ contains
   !! targetNotFound -> target is not present in the array
   !!
   pure function linFind_Char(charArray,target) result(idx)
-    character(*),dimension(:),intent(in) :: charArray
-    character(*),intent(in)              :: target
+    character(*), dimension(:), intent(in) :: charArray
+    character(*), intent(in)              :: target
     integer(shortInt)                    :: idx
 
-    do idx=1,size(charArray)
-     ! if( trim(charArray(idx)) == trim(target) ) return
-      if( adjustl(charArray(idx)) == adjustl(target)) return
+    do idx= 1, size(charArray)
+     ! if (trim(charArray(idx)) == trim(target) ) return
+      if (adjustl(charArray(idx)) == adjustl(target)) return
     end do
     idx = targetNotFound
 
@@ -1003,7 +1003,7 @@ contains
     real(defReal), intent(in)                :: target
     integer(shortInt)                        :: idx
 
-    do idx=1,size(defRealArray)
+    do idx= 1, size(defRealArray)
       if (defRealArray(idx) == target) return
     end do
     idx = targetNotFound
@@ -1028,7 +1028,7 @@ contains
 
     inv_T = ONE/target
 
-    do idx=1,size(defRealArray)
+    do idx= 1, size(defRealArray)
       if (abs(defRealArray(idx) * inv_T - ONE) < tol) return
     end do
     idx = targetNotFound
@@ -1043,7 +1043,7 @@ contains
     integer(shortInt), intent(in)                :: target
     integer(shortInt)                            :: idx
 
-    do idx=1,size(shortIntArray)
+    do idx= 1, size(shortIntArray)
       if (shortIntArray(idx) == target) return
     end do
     idx = targetNotFound
@@ -1053,9 +1053,9 @@ contains
   !! Given 2 arrays, it outputs a third array which is a concatenation of them
   !!
   pure function concatenateArrays_Real(array1,array2) result(out)
-    real(defReal),dimension(:),intent(in)              :: array1
-    real(defReal),dimension(:),intent(in)              :: array2
-    real(defReal),dimension(size(array1)+size(array2)) :: out
+    real(defReal), dimension(:), intent(in)              :: array1
+    real(defReal), dimension(:), intent(in)              :: array2
+    real(defReal), dimension(size(array1)+size(array2)) :: out
     integer(shortInt)                                  :: N, M
 
     N = size(array1)
@@ -1192,13 +1192,13 @@ contains
   !! elements of char Array. Adds a blank at the end of a line
   !!
   pure function arrayConcat(charArray) result(out)
-    character(*),dimension(:),intent(in)       :: charArray
-    character(:),allocatable                   :: out
+    character(*), dimension(:), intent(in)       :: charArray
+    character(:), allocatable                   :: out
     integer(shortInt)                          :: elementLen, trimLen , i
 
     ! Find total length of elements of charArray after adjusting left and trimming
     trimLen=0
-    do i=1,size(charArray)
+    do i= 1, size(charArray)
       elementLen =  len( trim( adjustl( charArray(i))))
       trimLen = trimLen + elementLen
     end do
@@ -1211,7 +1211,7 @@ contains
     out = ''
 
     ! Write elements of the array to output tape
-    do i=1,size(charArray)
+    do i= 1, size(charArray)
       out = out // trim( adjustl(charArray(i))) // ' '
     end do
 
@@ -1221,8 +1221,8 @@ contains
   !! Function that searches counts all occurences of a "symbol" in a "string"
   !!
   pure function countSymbol(string,symbol) result(num)
-    character(*),intent(in)  :: string
-    character(1),intent(in)  :: symbol
+    character(*), intent(in)  :: string
+    character(1), intent(in)  :: symbol
     integer(shortInt)        :: num
     integer(shortInt)        :: start, end, pos
 
@@ -1244,16 +1244,16 @@ contains
   !! terminates and returns -1 when balance becomes -ve.
   !!
   pure function symbolBalance(str,leftS,rightS) result (balance)
-    character(*),intent(in)       :: str
-    character(1),intent(in)       :: leftS
-    character(1),intent(in)       :: rightS
+    character(*), intent(in)       :: str
+    character(1), intent(in)       :: leftS
+    character(1), intent(in)       :: rightS
     integer(shortInt)             :: balance
     integer(shortInt)             :: i
 
     balance = 0
-    do i=1,len(str)
+    do i= 1, len(str)
 
-      if(str(i:i) == leftS) then
+      if (str(i:i) == leftS) then
         balance = balance + 1
 
       elseif(str(i:i) == rightS) then
@@ -1271,10 +1271,10 @@ contains
   !! Finds index of next character in signs in the string
   !!
   pure function indexOfNext(signs,string) result (idx)
-    character(1),dimension(:),intent(in)     :: signs
+    character(1), dimension(:), intent(in)     :: signs
     character(*), intent(in)                 :: string
     integer(shortInt)                        :: idx
-    integer(shortInt),dimension(size(signs)) :: temp_idx
+    integer(shortInt), dimension(size(signs)) :: temp_idx
 
     temp_idx = index(string,signs)
     idx = minval(temp_idx,temp_idx > 0)
@@ -1296,7 +1296,7 @@ contains
     stringCopy = ''
     j = 1
 
-    do i=1,len(string)
+    do i= 1, len(string)
       if (lastBlank) then
         if (string(i:i) /= " ") then
           lastBlank = .false.
@@ -1326,8 +1326,8 @@ contains
     character(1), intent(in)    :: newS
     integer(shortInt)           :: i
 
-    do i=1,len(string)
-      if(string(i:i) == oldS) string(i:i) = newS
+    do i= 1, len(string)
+      if (string(i:i) == oldS) string(i:i) = newS
     end do
 
   end subroutine replaceChar
@@ -1364,7 +1364,7 @@ contains
     real(defReal), intent(in)     :: xMin, xMax, yMin, yMax, x
     integer(shortInt), intent(in) :: endfNum
     real(defReal)                 :: y
-    character(100),parameter      :: Here='RealReal_endf_interpolate (genericProcedures.f90)'
+    character(100), parameter      :: Here='RealReal_endf_interpolate (genericProcedures.f90)'
 
     select case (endfNum) ! Naming Convention for ENDF interpolation (inY-inX) i.e. log-lin => logarithmic in y; linear in x
       case (histogramInterpolation)
@@ -1411,7 +1411,7 @@ contains
   !! Function that check if the array is sorted in ascending order (a(i) >= a(i-1) for all i).
   !!
   pure function isSorted_defReal(array) result (isIt)
-    real(defReal),dimension(:),intent(in) :: array
+    real(defReal), dimension(:), intent(in) :: array
     logical(defBool)                      :: isIt
     integer(shortInt)                     :: i
 
@@ -1430,7 +1430,7 @@ contains
   !! Function that check if the array is sorted in ascending order (a(i) >= a(i-1) for all i).
   !!
   pure function isSorted_shortInt(array) result (isIt)
-    integer(shortInt),dimension(:),intent(in) :: array
+    integer(shortInt), dimension(:), intent(in) :: array
     logical(defBool)                          :: isIt
     integer(shortInt)                         :: i
 
@@ -1449,7 +1449,7 @@ contains
   !! Function that check if the array is sorted in descending order (a(i) <= a(i-1) for all i).
   !!
   pure function isDescending_defReal(array) result (isIt)
-    real(defReal),dimension(:),intent(in) :: array
+    real(defReal), dimension(:), intent(in) :: array
     logical(defBool)                      :: isIt
     integer(shortInt)                     :: i
 
@@ -1468,7 +1468,7 @@ contains
   !! Function that check if the array is sorted in descending order (a(i) <= a(i-1) for all i).
   !!
   pure function isDescending_shortInt(array) result (isIt)
-    integer(shortInt),dimension(:),intent(in) :: array
+    integer(shortInt), dimension(:), intent(in) :: array
     logical(defBool)                          :: isIt
     integer(shortInt)                         :: i
 
@@ -1487,7 +1487,7 @@ contains
   !! Convert shortInt to character
   !!
   function numToChar_shortInt(x) result(c)
-    integer(shortInt),intent(in)  :: x
+    integer(shortInt), intent(in)  :: x
     character(countCharacters(x)) :: c
 
     write(c, '(I0)') x
@@ -1677,11 +1677,11 @@ contains
   !!
   function charToInt(str, error) result(i)
     character(*), intent(in)                 :: str
-    logical(defBool),intent(inout), optional :: error
+    logical(defBool), intent(inout), optional :: error
     integer(shortInt)                        :: i
     integer(shortInt)                        :: state
 
-    if(present(error)) then
+    if (present(error)) then
       read(str,'(I20)', IOSTAT=state) i
       error = state /= 0
     else
@@ -1717,7 +1717,7 @@ contains
     B = sqrt(max(ZERO, ONE - w*w  ))
 
 
-    if ( B > 1E-8) then
+    if (B > 1E-8) then
       newDir(1) = mu * u + A * (u*w*cosPol - v * sinPol) / B
       newDir(2) = mu * v + A * (v*w*cosPol + u * sinPol) / B
       newDir(3) = mu * w - A * B * cosPol
@@ -1752,7 +1752,7 @@ contains
     real(defReal), intent(in)                  :: theta
     real(defReal), intent(in)                  :: psi
     real(defReal) :: sin_phi, cos_phi, sin_t, cos_t, sin_psi, cos_psi, conv
-    character(100), parameter :: Here = 'rotationMatrix (genericProcedures.f90)'
+    character(*), parameter :: Here = 'rotationMatrix (genericProcedures.f90)'
 
     ! Check input data
     if (phi < ZERO .or. phi >= 360.0_defReal) then
@@ -1930,7 +1930,7 @@ contains
       ! Find position of the pivot in the array at the end (maxSmall)
       maxSmall = 0
       do i = 1,size(array)
-        if(array(i) <= array(pivot)) then
+        if (array(i) <= array(pivot)) then
           maxSmall = maxSmall + 1
           call swap(array(i), array(maxSmall))
           if (present(indicesArray)) call swap(indicesArray(i), indicesArray(maxSmall))
@@ -1999,7 +1999,7 @@ contains
       ! Find position of the pivot in the array1 at the end (maxSmall)
       maxSmall = 0
       do i = 1, size(array1)
-        if(array1(i) <= array1(pivot)) then
+        if (array1(i) <= array1(pivot)) then
           maxSmall = maxSmall + 1
           call swap(array1(i), array2(i), array1(maxSmall), array2(maxSmall))
 
@@ -2108,7 +2108,7 @@ contains
     integer(shortInt)             :: i, i_swap
 
     ! Loop over character and copy character with an offset
-    do i=1,len(string)
+    do i= 1, len(string)
       i_swap = modulo(i+N-1,len(string))+1
       shifted(i_swap:i_swap) = string(i:i)
     end do
@@ -2172,10 +2172,10 @@ contains
   !! Prints line of fishes swiming right with an offset
   !!
   subroutine printFishLineR(offset)
-    integer(shortInt),intent(in) :: offset
+    integer(shortInt), intent(in) :: offset
     integer(shortInt)            :: offset_L
     character(100), parameter    :: line = repeat(" ><((((*> ",10)
-    character(100),dimension(10), parameter :: lines = [ &
+    character(100), dimension(10), parameter :: lines = [ &
     " ><((((*>  ><((((*>  ><((((*>  ><((((*>  ><((((*>  ><((((*>  ><((((*>  ><((((*>  ><((((*>  ><((((*> " ,&
     "  ><((((*>  ><((((*>  ><((((*>  ><((((*>  ><((((*>  ><((((*>  ><((((*>  ><((((*>  ><((((*>  ><((((*>" ,&
     ">  ><((((*>  ><((((*>  ><((((*>  ><((((*>  ><((((*>  ><((((*>  ><((((*>  ><((((*>  ><((((*>  ><((((*" ,&

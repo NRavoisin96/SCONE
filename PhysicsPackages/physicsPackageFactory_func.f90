@@ -24,7 +24,7 @@ module physicsPackageFactory_func
   ! It is printed if type was unrecognised
   ! NOTE:
   ! For now  it is necessary to adjust trailing blanks so all enteries have the same length
-  character(nameLen),dimension(*),parameter :: AVAILABLE_physicsPackages = [ 'eigenPhysicsPackage      ',&
+  character(nameLen), dimension(*), parameter :: AVAILABLE_physicsPackages = [ 'eigenPhysicsPackage      ',&
                                                                              'fixedSourcePhysicsPackage',&
                                                                              'vizPhysicsPackage        ',&
                                                                              'rayVolPhysicsPackage     ']
@@ -42,9 +42,9 @@ contains
   !!
   function new_physicsPackage(dict) result(new)
     class(dictionary), intent(inout)  :: dict
-    class(physicsPackage),allocatable :: new
+    class(physicsPackage), allocatable :: new
     character(nameLen)                    :: type
-    character(100),parameter :: Here = 'new_physicsPackage (physicsPackageFactory_func.f90)'
+    character(*), parameter :: Here = 'new_physicsPackage (physicsPackageFactory_func.f90)'
 
     ! Obtain string that specifies type to be built
     call dict % get(type,'type')
@@ -79,8 +79,8 @@ contains
   !!
   function new_physicsPackage_ptr(dict) result(new)
     class(dictionary), intent(inout) :: dict
-    class(physicsPackage),pointer    :: new
-    character(100),parameter  :: Here = 'new_physicsPackage_ptr (physicsPackageFactory_func.f90)'
+    class(physicsPackage), pointer    :: new
+    character(100), parameter  :: Here = 'new_physicsPackage_ptr (physicsPackageFactory_func.f90)'
 
     ! Allocate pointer and copy data from local allocatable
     allocate( new, source = new_physicsPackage(dict) )

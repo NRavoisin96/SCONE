@@ -16,9 +16,9 @@ module polynomialrelease_class
   !! Polynomial representation of Nu data
   !! a_0 + a_1 * x + a_2 * x**2 + ... etc.
   !!
-  type, public,extends(releaseLawENDF) :: polynomialRelease
+  type, public, extends(releaseLawENDF) :: polynomialRelease
       private
-      real(defReal),dimension(:),allocatable :: coeffs  !! Polynomial coefficients [a_0,a_1,...]
+      real(defReal), dimension(:), allocatable :: coeffs  !! Polynomial coefficients [a_0,a_1,...]
     contains
       procedure :: init
       procedure :: releaseAt
@@ -32,7 +32,7 @@ contains
   !!
   subroutine init(self,coeffs)
     class(polynomialRelease), intent(inout)  :: self
-    real(defReal),dimension(:),intent(in)    :: coeffs
+    real(defReal), dimension(:), intent(in)    :: coeffs
 
     if (allocated(self % coeffs)) deallocate(self % coeffs)
 
@@ -62,7 +62,7 @@ contains
   elemental subroutine kill(self)
     class(polynomialRelease), intent(inout) :: self
 
-    if(allocated(self % coeffs)) deallocate(self % coeffs)
+    if (allocated(self % coeffs)) deallocate(self % coeffs)
 
   end subroutine kill
 
@@ -70,7 +70,7 @@ contains
   !! Constructor
   !!
   function new_polynomialRelease(coeffs) result(new)
-    real(defReal),dimension(:),intent(in)   :: coeffs
+    real(defReal), dimension(:), intent(in)   :: coeffs
     type(polynomialRelease)                 :: new
 
     call new % init(coeffs)
@@ -85,7 +85,7 @@ contains
   function new_polynomialRelease_fromACE(ACE) result(new)
     type(aceCard), intent(inout)           :: ACE
     type(polynomialRelease)                :: new
-    real(defReal),dimension(:),allocatable :: coeffs
+    real(defReal), dimension(:), allocatable :: coeffs
     integer(shortInt)                      :: N
 
     ! Read number of coefficients

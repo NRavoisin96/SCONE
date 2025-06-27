@@ -19,18 +19,22 @@ module rng_class
   !!
   type, public :: rng
     private
-    integer(int64) :: rngSeed
-    integer(int64) :: rngCount
-    integer(int64) :: initialSeed
+    integer(int64) :: count = 0, initialSeed = 0, rngSeed = 0
   contains
-    procedure :: init
-    procedure :: get
-    procedure :: getInt
-    procedure :: skip
-    procedure :: stride
-    procedure :: setSeed
-    procedure :: getCount
-    procedure :: getSeed
+    procedure          :: init
+    generic            :: generate => generate_defReal, generate_defRealArray, generate_int, generate_int64
+    procedure, private :: generate_defReal
+    procedure, private :: generate_defRealArray
+    procedure, private :: generate_int
+    procedure, private :: generate_int64
+    procedure          :: generateDistance
+    procedure          :: generateMu
+    procedure          :: generatePhi
+    procedure          :: skip
+    procedure          :: stride
+    procedure          :: setSeed
+    procedure          :: getCount
+    procedure          :: getInitialSeed
   end type rng
 
   !! Parameters
@@ -143,10 +147,11 @@ contains
   !!
   !! Returns value of random number on <0,1)
   !!
-  function get(self) result(rand)
-    class(rng), intent(inout) :: self
-    real(defReal)             :: rand
-    integer(int64)            :: seed
+  subroutine generate_defReal(self, randomNumber, mult, add)
+    class(rng), intent(inout)           :: self
+    real(defReal), intent(out)          :: randomNumber
+    real(defReal), intent(in), optional :: mult, add
+    integer(int64)                      :: seed
 
     ! Get current state of LCG
     seed = self % rngSeed
@@ -158,35 +163,112 @@ contains
     seed = iand(seed + c, bitMask)
 
     ! Convert integer LCG state to real number on <0,1)
-    rand = seed * norm
+    randomNumber = seed * norm
+
+    if (present(mult)) randomNumber = randomNumber * mult
+    if (present(add)) randomNumber = randomNumber + add
 
     ! Update RNG state
     self % rngSeed  = seed
-    self % rngCount = self % rngCount + 1
+    self % count = self % count + 1
 
-  end function get
+  end subroutine generate_defReal
+
+  !!
+  !! Returns value of random number on <0,1)
+  !!
+  subroutine generate_defRealArray(self, randomNumbers, mult, add)
+    class(rng), intent(inout)                  :: self
+    real(defReal), dimension(:), intent(inout) :: randomNumbers
+    real(defReal), intent(in), optional        :: mult, add
+    integer(shortInt)                          :: i
+
+    do i = 1, size(randomNumbers)
+      call self % generate(randomNumbers(i), mult, add)
+
+    end do
+
+  end subroutine generate_defRealArray
+
+  !!
+  !!
+  !!
+  subroutine generate_int(self, randomNumber, mult, add)
+    class(rng), intent(inout)               :: self
+    integer(shortInt), intent(out)          :: randomNumber
+    integer(shortInt), intent(in), optional :: mult, add
+    real(defReal)                           :: randomReal
+
+    call self % generate(randomReal)
+    if (present(mult)) then
+      randomNumber = int(mult * randomReal)
+
+    else
+      randomNumber = int(randomReal)
+
+    end if
+
+    if (present(add)) randomNumber = randomNumber + add
+
+  end subroutine generate_int
 
   !!
   !! Return random integer instead of real
   !!
-  function getInt(self) result(seed)
+  subroutine generate_int64(self, randomNumber)
     class(rng), intent(inout) :: self
-    integer(int64)            :: seed
+    integer(int64)            :: randomNumber
 
     ! Get current state of LCG
-    seed = self % rngSeed
+    randomNumber = self % rngSeed
 
     ! Multiply by multiplier and keep rightmost 63 bits
-    seed = iand(g * seed, bitMask)
+    randomNumber = iand(g * randomNumber, bitMask)
 
     ! Add increment and keep rightmost 63 bits
-    seed = iand(seed + c, bitMask)
+    randomNumber = iand(randomNumber + c, bitMask)
 
     ! Update RNG state
-    self % rngSeed  = seed
-    self % rngCount = self % rngCount + 1
+    self % rngSeed  = randomNumber
+    self % count = self % count + 1
 
-  end function getInt
+  end subroutine generate_int64
+
+  !!
+  !!
+  !!
+  subroutine generateDistance(self, inverseXS, distance)
+    class(rng), intent(inout)  :: self
+    real(defReal), intent(in)  :: inverseXS
+    real(defReal), intent(out) :: distance
+    real(defReal)              :: randomNumber
+
+    call self % generate(randomNumber)
+    distance = -log(randomNumber) * inverseXS
+
+  end subroutine generateDistance
+
+  !!
+  !!
+  !!
+  subroutine generateMu(self, mu)
+    class(rng), intent(inout)  :: self
+    real(defReal), intent(out) :: mu
+
+    call self % generate(mu, TWO, -ONE)
+
+  end subroutine generateMu
+
+  !!
+  !!
+  !!
+  subroutine generatePhi(self, phi)
+    class(rng), intent(inout)  :: self
+    real(defReal), intent(out) :: phi
+
+    call self % generate(phi, mult = TWO_PI)
+
+  end subroutine generatePhi
 
   !!
   !! Move state of the LCG by k forward
@@ -248,8 +330,8 @@ contains
   !!       f -> L (L as defined above)
   !!
   subroutine skip(self, k_in)
-      class(rng),intent(inout)   :: self
-      integer(int64),intent(in)  :: k_in
+      class(rng), intent(inout)   :: self
+      integer(int64), intent(in)  :: k_in
       integer(int64)             :: k         ! number of places to skip
       integer(int64)             :: Gk        ! G**k (mod M)
       integer(int64)             :: Ck        ! c*(g**k-1)/(g-1) (mod M)
@@ -283,7 +365,7 @@ contains
 
       i = 1
       do while( k > 0)
-        if(iand(k, 1_int64) == 1) then ! Right-most bit is 1
+        if (iand(k, 1_int64) == 1) then ! Right-most bit is 1
           Gk = iand(Gk * gSq_to_i, bitMask)  ! Add to Gk
           Ck = iand(Ck * gSq_to_i, bitMask)  ! Add to Ck
           Ck = iand(Ck + L, bitMask)
@@ -329,23 +411,23 @@ contains
   !!
   !! Return total number of psudo-random numbers generated
   !!
-  function getCount(self) result (c)
-    class(rng),intent(in) :: self
-    integer(int64)        :: c
+  elemental function getCount(self) result (count)
+    class(rng), intent(in) :: self
+    integer(int64)        :: count
 
-    c = self % rngCount
+    count = self % count
 
   end function getCount
 
   !!
   !! Returns value of seed used to initialise RNG
   !!
-  function getSeed(self) result(seed)
+  elemental function getInitialSeed(self) result(seed)
     class(rng), intent(in) :: self
     integer(int64)         :: seed
 
     seed = self % initialSeed
 
-  end function getSeed
+  end function getInitialSeed
 
 end module rng_class

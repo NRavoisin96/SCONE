@@ -50,7 +50,7 @@ module aceLibrary_mod
 !! Module Members
 !!<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 
-  type(item),dimension(:),allocatable :: entry
+  type(item), dimension(:), allocatable :: entry
   type(charMap)                       :: map
   character(:), allocatable           :: libFile
 
@@ -78,7 +78,7 @@ contains
     integer(shortInt)        :: i, errorCode, libLen, readStat, last
     character(99)            :: errorMsg
     character(MAX_COL)       :: buffor
-    character(100),parameter :: Here = 'load (aceLibrary_mod.f90)'
+    character(*), parameter :: Here = 'load (aceLibrary_mod.f90)'
 
     ! Clean
     call kill()
@@ -93,17 +93,17 @@ contains
          iostat = errorCode, &
          iomsg = errorMsg)
 
-    if(errorCode /= 0) call fatalError(Here, "File Error: "//trim(adjustl(errorMsg)))
+    if (errorCode /= 0) call fatalError(Here, "File Error: "//trim(adjustl(errorMsg)))
 
     ! Find number of entries in the library
     libLen = 0
     do
       read(unit = library, fmt=READ_FMT, iostat=readStat) buffor
-      if(readStat == IOSTAT_END) exit
+      if (readStat == IOSTAT_END) exit
 
       ! Preform line preprocessing
       call preprocessLine(buffor)
-      if(len_trim(buffor) /= 0) libLen = libLen + 1
+      if (len_trim(buffor) /= 0) libLen = libLen + 1
     end do
     rewind(library)
 
@@ -115,13 +115,13 @@ contains
     i = 1
     do
       read(unit = library, fmt=READ_FMT, iostat=readStat) buffor
-      if(readStat == IOSTAT_END) exit
+      if (readStat == IOSTAT_END) exit
 
       ! Preform line preprocessing
       call preprocessLine(buffor)
 
       ! Read if line is not empty
-      if( len_trim(buffor) /= 0) then
+      if (len_trim(buffor) /= 0) then
         associate ( bounds => splitChar(buffor, DELIM) )
           if (size(bounds, 2) < 3) call fatalError(Here, 'Ill formatted line: ' // trim(buffor))
           ! Read Content
@@ -185,16 +185,16 @@ contains
     character(nameLen), intent(in) :: ZAID
     integer(shortInt)              :: idx
     integer(shortInt), parameter   :: NOT_FOUND = -1
-    character(100), parameter :: Here = 'new_neutronACE (aceLibrary_mod.f90)'
+    character(*), parameter :: Here = 'new_neutronACE (aceLibrary_mod.f90)'
 
     ! Find index of the requested ZAID identifier
     idx = map % getOrDefault(ZAID, NOT_FOUND)
-    if(idx == NOT_FOUND) then
+    if (idx == NOT_FOUND) then
       call fatalError(Here, trim(ZAID) //" was not found in ACE library from: "//trim(libFile))
     end if
 
     ! Verify that type is correct
-    if( entry(idx) % type /= ACE_CE) then
+    if (entry(idx) % type /= ACE_CE) then
       call fatalError(Here,trim(ZAID)//" is not a ACE data with CE XSs.")
     end if
 
@@ -223,7 +223,7 @@ contains
     character(nameLen), intent(in)   :: file
     integer(shortInt)                :: idx
     integer(shortInt), parameter     :: NOT_FOUND = -1
-    character(100), parameter :: Here = 'new_moderACE (aceLibrary_mod.f90)'
+    character(*), parameter :: Here = 'new_moderACE (aceLibrary_mod.f90)'
 
     ! Find index of the requested ZAID identifier
     idx = map % getOrDefault(file, NOT_FOUND)
@@ -232,7 +232,7 @@ contains
     end if
 
     ! Verify that type is correct
-    if( entry(idx) % type /= ACE_SAB) then
+    if (entry(idx) % type /= ACE_SAB) then
       call fatalError(Here,trim(file)//" is not a ACE data with CE XSs.")
     end if
 
@@ -247,9 +247,9 @@ contains
   !!
   subroutine kill()
 
-    if(allocated(entry)) deallocate(entry)
+    if (allocated(entry)) deallocate(entry)
     call map % kill()
-    if(allocated(libFile)) deallocate(libFile)
+    if (allocated(libFile)) deallocate(libFile)
 
   end subroutine kill
 
@@ -269,7 +269,7 @@ contains
     character(*), intent(inout) :: line
     integer(shortInt)           :: i
 
-    do i=1,len(line)
+    do i= 1, len(line)
       select case(line(i:i))
         case(TAB)
           line(i:i) = SPACE

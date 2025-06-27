@@ -28,7 +28,7 @@ module energyGrid_class
   type, public :: energyGrid
     private
     integer(shortInt)                      :: type = UNDEF
-    real(defReal),dimension(:),allocatable :: bins
+    real(defReal), dimension(:), allocatable :: bins
     real(defReal)                          :: step = ZERO
   contains
     ! Initialisation procedures
@@ -55,14 +55,14 @@ contains
     integer(shortInt), intent(in)    :: N
     character(*), intent(in)         :: type
     integer(shortInt)                :: i
-    character(100), parameter :: Here = 'init_equalSpaced ( energyGrid_class.f90)'
+    character(*), parameter :: Here = 'init_equalSpaced ( energyGrid_class.f90)'
 
     ! Verify input
-    if ( N < 1) call fatalError(Here,'Number of bins must be +ve')
+    if (N < 1) call fatalError(Here,'Number of bins must be +ve')
     if ((maxi-mini)/maxi < FP_REL_TOL)  then
       call fatalError(Here,'Minimum value must be smaller then maximum above realtive FP tolerance')
     end if
-    if(any([mini,maxi] < ZERO)) call fatalError(Here,'Energy grid requested contains -ve energies')
+    if (any([mini,maxi] < ZERO)) call fatalError(Here,'Energy grid requested contains -ve energies')
 
     ! Allocate space for bin boundaries
     allocate(self % bins(N+1))
@@ -107,13 +107,13 @@ contains
   !!
   subroutine init_unstruct(self,bins)
     class(energyGrid), intent(inout)       :: self
-    real(defReal),dimension(:), intent(in) :: bins
+    real(defReal), dimension(:), intent(in) :: bins
     character(100), parameter              :: Here = 'init_unstruct ( energyGrid_class.f90)'
 
     ! Verify input
-    if( .not.isDescending(bins)) call fatalError(Here,'Provided energyGrid is not sorted descending')
-    if( size(bins) < 2) call fatalError(Here,'Empty array or array of size 1 was provided')
-    if(any(bins < ZERO)) call fatalError(Here,'Energy grid requested contains -ve energies')
+    if (.not.isDescending(bins)) call fatalError(Here,'Provided energyGrid is not sorted descending')
+    if (size(bins) < 2) call fatalError(Here,'Empty array or array of size 1 was provided')
+    if (any(bins < ZERO)) call fatalError(Here,'Energy grid requested contains -ve energies')
 
     ! Initialise
     self % bins = bins(size(bins):1:-1)
@@ -127,7 +127,7 @@ contains
   elemental subroutine kill(self)
     class(energyGrid), intent(inout) :: self
 
-    if(allocated(self % bins)) deallocate(self % bins)
+    if (allocated(self % bins)) deallocate(self % bins)
     self % step = ZERO
     self % type = UNDEF
 
@@ -164,7 +164,7 @@ contains
   !!
   elemental function search(self, value) result(idx)
     class(energyGrid), intent(in)  :: self
-    real(defReal),intent(in) :: value
+    real(defReal), intent(in) :: value
     integer(shortInt)        :: idx
 
     idx = 0
@@ -184,7 +184,7 @@ contains
     idx = size(self % bins) - idx
 
     ! Check whether errors happend
-    if(idx < 1 .or. idx >= size(self % bins)) idx = valueOutsideArray
+    if (idx < 1 .or. idx >= size(self % bins)) idx = valueOutsideArray
 
   end function search
 
@@ -197,7 +197,7 @@ contains
     class(energyGrid), intent(in) :: self
     integer(shortInt)             :: s
 
-    if(allocated(self % bins)) then
+    if (allocated(self % bins)) then
       s = size(self % bins) -1
     else
       s = 0

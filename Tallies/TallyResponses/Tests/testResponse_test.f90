@@ -53,7 +53,7 @@ contains
   subroutine testResponseing(this)
     class(test_testResponse), intent(inout) :: this
     type(particle)                          :: p
-    class(nuclearDatabase),pointer          :: xsData
+    class(nuclearDatabase), pointer          :: xsData
 
     @assertEqual(1.3_defReal, this % response % get(p, xsData), 1.0E-9_defReal)
 

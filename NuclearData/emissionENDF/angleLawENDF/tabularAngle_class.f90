@@ -24,10 +24,10 @@ module tabularAngle_class
   !!
   !! Contains energy dependant mu data
   !!
-  type,public,extends(angleLawENDF) :: tabularAngle
+  type, public, extends(angleLawENDF) :: tabularAngle
       private
-      real(defReal),dimension(:),allocatable        :: eGrid
-      type(muEndfPdfSlot),dimension(:),allocatable  :: muEndfPdfs
+      real(defReal), dimension(:), allocatable        :: eGrid
+      type(muEndfPdfSlot), dimension(:), allocatable  :: muEndfPdfs
     contains
       procedure :: init
       procedure :: build
@@ -47,8 +47,8 @@ contains
     integer(shortInt), intent(in)                  :: MT
     real(defReal), dimension(:), allocatable       :: eGrid
     integer(shortInt)                              :: N, i
-    integer(shortInt),dimension(:),allocatable     :: muLoc
-    type(muEndfPdfSlot),dimension(:), allocatable  :: muPdfs
+    integer(shortInt), dimension(:), allocatable     :: muLoc
+    type(muEndfPdfSlot), dimension(:), allocatable  :: muPdfs
 
     ! Read initial information
     N     = ACE % readInt()        ! Read size of the energy grid
@@ -59,7 +59,7 @@ contains
     allocate(muPdfs(N))
 
     ! Build array of muPdfs
-    do i=1,size(muLoc)
+    do i= 1, size(muLoc)
       select case(muLoc(i))
         case(0) ! Isotropic mu pdf
           call muPdfs(i) % init(ACE, 'isotropicMu')
@@ -92,16 +92,16 @@ contains
     class(RNG), intent(inout)         :: rand
     real(defReal)                     :: mu
     integer(shortInt)                 :: idx
-    real(defReal)                     :: r, eps
-    character(100),parameter          :: Here='sample (tabularAngle_class.f90)'
+    real(defReal)                     :: randomNumber, eps
+    character(100), parameter          :: Here='sample (tabularAngle_class.f90)'
 
     idx = binarySearch(self % eGrid,E)
     call searchError(idx,Here)
 
     eps = (E - self % eGrid(idx)) / (self % eGrid(idx+1) - self % eGrid(idx))
-    r = rand % get()
+    call rand % generate(randomNumber)
 
-    if(r < eps) then
+    if (randomNumber < eps) then
       mu = self % muEndfPdfs(idx+1) % sample(rand)
     else
       mu = self % muEndfPdfs(idx) % sample(rand)
@@ -119,7 +119,7 @@ contains
     real(defReal)                     :: prob
     integer(shortInt)                 :: idx
     real(defReal)                     :: prob_1, prob_0, E_1, E_0
-    character(100),parameter          :: Here='probabilityOf (tabularAngle_class.f90)'
+    character(100), parameter          :: Here='probabilityOf (tabularAngle_class.f90)'
 
     idx = binarySearch(self % eGrid,E)
     call searchError(idx,Here)
@@ -140,27 +140,27 @@ contains
   !! NOTE : Content in muEndfPdfs slots will be deallocated (moved allocation)
   !!
   subroutine build(self, eGrid, muEndfPdfs)
-    class(tabularAngle),intent(inout)                :: self
-    real(defReal),dimension(:), intent(in)           :: eGrid
-    type(muEndfPdfSlot),dimension(:), intent(inout)  :: muEndfPdfs
+    class(tabularAngle), intent(inout)                :: self
+    real(defReal), dimension(:), intent(in)           :: eGrid
+    type(muEndfPdfSlot), dimension(:), intent(inout)  :: muEndfPdfs
     integer(shortInt)                                 :: i
-    character(100),parameter                    :: Here='init (tabularAngle_class.f90)'
+    character(100), parameter                    :: Here='init (tabularAngle_class.f90)'
 
     ! Perform checks
-    if(size(eGrid) /= size(muEndfPdfs)) call fatalError(Here,'eGrid and muEndfPdfs have diffrent size')
+    if (size(eGrid) /= size(muEndfPdfs)) call fatalError(Here,'eGrid and muEndfPdfs have diffrent size')
 
-    if(.not.(isSorted(eGrid)))    call fatalError(Here,'eGrid is not sorted ascending')
-    if(any( eGrid < 0.0 ))        call fatalError(Here,'eGrid contains -ve values')
+    if (.not.(isSorted(eGrid)))    call fatalError(Here,'eGrid is not sorted ascending')
+    if (any( eGrid < 0.0 ))        call fatalError(Here,'eGrid contains -ve values')
 
-    if(allocated(self % eGrid))      deallocate(self % eGrid)
-    if(allocated(self % muEndfPdfs)) deallocate(self % muEndfPdfs)
+    if (allocated(self % eGrid))      deallocate(self % eGrid)
+    if (allocated(self % muEndfPdfs)) deallocate(self % muEndfPdfs)
 
     ! Copy energy grid and move allocation of muEndfPdfSlots
     self % eGrid  = eGrid
 
     allocate(self % muEndfPdfs(size(eGrid)))
 
-    do i=1,size(muEndfPdfs)
+    do i= 1, size(muEndfPdfs)
       call self % muEndfPdfs(i) % moveAllocFrom( muEndfPdfs(i) )
 
     end do
@@ -172,8 +172,8 @@ contains
   !! NOTE : Content in muEndfPdfs slots will be deallocated (moved allocation)
   !!
   function new_tabularAngle(eGrid,muEndfPdfs) result(new)
-    real(defReal),dimension(:), intent(in)          :: eGrid
-    type(muEndfPdfSlot),dimension(:), intent(inout) :: muEndfPdfs
+    real(defReal), dimension(:), intent(in)          :: eGrid
+    type(muEndfPdfSlot), dimension(:), intent(inout) :: muEndfPdfs
     type(tabularAngle)                              :: new
 
     call new % build(eGrid, muEndfPdfs)
@@ -200,11 +200,11 @@ contains
     class(tabularAngle), intent(inout) :: self
 
     ! Kill angular PDFs
-    if(allocated(self % muEndfPdfs)) call self % muEndfPdfs % kill()
+    if (allocated(self % muEndfPdfs)) call self % muEndfPdfs % kill()
 
     ! Deallocate arrays
-    if(allocated(self % eGrid))      deallocate(self % eGrid)
-    if(allocated(self % muEndfPdfs)) deallocate(self % muEndfPdfs)
+    if (allocated(self % eGrid))      deallocate(self % eGrid)
+    if (allocated(self % muEndfPdfs)) deallocate(self % muEndfPdfs)
 
 
   end subroutine kill

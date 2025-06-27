@@ -13,7 +13,7 @@ module releaseLawENDFfactory_func
   private
 
 
-  integer(shortInt),parameter :: POLYNOMIAL_NU = 1 ,&
+  integer(shortInt), parameter :: POLYNOMIAL_NU = 1 ,&
                                  TABULAR_NU    = 2
 
 
@@ -31,11 +31,11 @@ contains
   subroutine new_releaseLawENDF(new, ACE, MT)
     type(aceCard), intent(inout)      :: ACE
     integer(shortInt), intent(in)     :: MT
-    class(releaseLawENDF),allocatable :: new
+    class(releaseLawENDF), allocatable :: new
     integer(shortInt)                 :: TY
-    character(100), parameter :: Here = 'new_releaseLawENDF ( releaseLawENDFfatory_func.f90)'
+    character(*), parameter :: Here = 'new_releaseLawENDF ( releaseLawENDFfatory_func.f90)'
 
-    if(allocated(new)) deallocate(new)
+    if (allocated(new)) deallocate(new)
 
     ! Read neutron Release (TY value)
     TY = ACE % neutronReleaseMT(MT)
@@ -58,14 +58,14 @@ contains
   !! If NU data does not exist returns errror
   !!
   subroutine new_totalNu(new, ACE)
-    class(releaseLawENDF), allocatable,intent(inout) :: new
+    class(releaseLawENDF), allocatable, intent(inout) :: new
     type(aceCard), intent(inout)                     :: ACE
-    character(100), parameter :: Here = 'new_totalNu ( releaseLawENDFfatory_func.f90)'
+    character(*), parameter :: Here = 'new_totalNu ( releaseLawENDFfatory_func.f90)'
 
-    if(allocated(new)) deallocate(new)
+    if (allocated(new)) deallocate(new)
 
     ! Check if the data exists
-    if(.not.ACE % hasNuTotal()) then
+    if (.not.ACE % hasNuTotal()) then
       call fatalError(Here, 'Total NU data is not present')
 
     end if
@@ -84,12 +84,12 @@ contains
   subroutine new_promptNu(new, ACE)
     class(releaseLawENDF), allocatable, intent(inout) :: new
     type(aceCard), intent(inout)                      :: ACE
-    character(100), parameter :: Here = 'new_promptNu ( releaseLawENDFfatory_func.f90)'
+    character(*), parameter :: Here = 'new_promptNu ( releaseLawENDFfatory_func.f90)'
 
-    if(allocated(new)) deallocate(new)
+    if (allocated(new)) deallocate(new)
 
     ! Check if the data exists
-    if(.not.ACE % hasNuPrompt()) then
+    if (.not.ACE % hasNuPrompt()) then
       call fatalError(Here, 'Prompt NU data is not present')
 
     end if
@@ -107,12 +107,12 @@ contains
   subroutine new_delayedNu(new, ACE)
     class(releaseLawENDF), allocatable, intent(inout) :: new
     type(aceCard), intent(inout)                      :: ACE
-    character(100), parameter :: Here = 'new_delayedNu ( releaseLawENDFfatory_func.f90)'
+    character(*), parameter :: Here = 'new_delayedNu ( releaseLawENDFfatory_func.f90)'
 
-    if(allocated(new)) deallocate(new)
+    if (allocated(new)) deallocate(new)
 
     ! Check if the data exists
-    if(.not.ACE % hasNuDelayed()) then
+    if (.not.ACE % hasNuDelayed()) then
       call fatalError(Here, 'Delayed NU data is not present')
 
     end if
@@ -131,10 +131,10 @@ contains
     class(releaseLawENDF), allocatable, intent(inout) :: new_nu
     type(aceCard), intent(inout)                      :: ACE
     integer(shortInt)                                 :: LNU
-    character(100), parameter :: Here = 'allocateNu ( releaseLawENDFfatory_func.f90)'
+    character(*), parameter :: Here = 'allocateNu ( releaseLawENDFfatory_func.f90)'
 
     ! Deallocate new_nu if allocated
-    if(allocated (new_nu)) deallocate(new_nu)
+    if (allocated (new_nu)) deallocate(new_nu)
 
     ! Read type of Nu data
     LNU = ACE % readInt()

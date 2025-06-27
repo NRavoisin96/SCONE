@@ -33,7 +33,7 @@ module fissionMG_class
   !!   buildFromDict -> builds fissionMG from a SCONE dictionary
   !!
   type, public, extends(reactionMG) :: fissionMG
-    real(defReal),dimension(:,:),allocatable :: data
+    real(defReal), dimension(:,:), allocatable :: data
   contains
     ! Superclass procedures
     procedure :: init
@@ -52,7 +52,7 @@ module fissionMG_class
   !!
   !! Reaction indices
   !!
-  integer(shortInt),parameter :: NU_DAT = 1, CHI_DAT = 2
+  integer(shortInt), parameter :: NU_DAT = 1, CHI_DAT = 2
 
 contains
 
@@ -69,7 +69,7 @@ contains
     class(fissionMG), intent(inout) :: self
     class(dataDeck), intent(inout)  :: data
     integer(shortInt), intent(in)   :: MT
-    character(100), parameter :: Here = 'init (fissionMG_class.f90)'
+    character(*), parameter :: Here = 'init (fissionMG_class.f90)'
 
     ! Verify that MT is OK
     if (MT /= macroFission) then
@@ -93,7 +93,7 @@ contains
   elemental subroutine kill(self)
     class(fissionMG), intent(inout) :: self
 
-    if(allocated(self % data)) deallocate(self % data)
+    if (allocated(self % data)) deallocate(self % data)
 
   end subroutine kill
 
@@ -107,7 +107,7 @@ contains
     integer(shortInt), intent(in) :: G
     real(defReal)                 :: N
 
-    if( G > 0 .and. G <= size(self % data, 1)) then
+    if (G > 0 .and. G <= size(self % data, 1)) then
       N = self % data(G, NU_DAT)
 
     else
@@ -178,18 +178,19 @@ contains
     integer(shortInt), intent(out) :: G_out
     integer(shortInt), intent(in)  :: G_in
     class(RNG), intent(inout)      :: rand
-    real(defReal)                  :: rem
-    character(100),parameter :: Here = 'sampleOut (fissionMG_class.f90)'
+    real(defReal)                  :: randomNumber
+    character(*), parameter :: Here = 'sampleOut (fissionMG_class.f90)'
 
     ! Sample mu and phi -> isotropic
-    mu = TWO * rand % get() - ONE
-    phi = TWO_PI * rand % get()
+    call rand % generateMu(mu)
+    call rand % generatePhi(phi)
 
     ! Sample G_out
-    rem = rand % get()
-    do G_out=1,size(self % data(:,CHI_DAT))
-      rem = rem - self % data(G_out, CHI_DAT)
-      if(rem < ZERO) return
+    call rand % generate(randomNumber)
+    do G_out= 1, size(self % data(:,CHI_DAT))
+      randomNumber = randomNumber - self % data(G_out, CHI_DAT)
+      if (randomNumber < ZERO) return
+
     end do
 
     call fatalError(Here,'WTF? Sampling failed. Unnormalised CHI or rand above 1?!')
@@ -211,8 +212,8 @@ contains
     class(dictionary), intent(in)          :: dict
     integer(shortInt)                      :: nG
     real(defReal)                          :: S
-    real(defReal),dimension(:),allocatable :: temp
-    character(100),parameter :: Here = 'buildFromDict (fissionMG_class.f90)'
+    real(defReal), dimension(:), allocatable :: temp
+    character(*), parameter :: Here = 'buildFromDict (fissionMG_class.f90)'
 
     ! Get number of groups
     call dict % get(nG, 'numberOfGroups')
@@ -222,7 +223,7 @@ contains
 
     ! Get nu
     call dict % get(temp, 'nu')
-    if(size(temp) /= ng) then
+    if (size(temp) /= ng) then
       call fatalError(Here, 'Invalid number of values of nu. Given: '// numToChar(size(temp)) // &
                             ' Expected: ' // numToChar(nG))
     end if
@@ -230,7 +231,7 @@ contains
 
     ! Get Chi
     call dict % get(temp, 'chi')
-    if(size(temp) /= ng) then
+    if (size(temp) /= ng) then
       call fatalError(Here, 'Invalid number of values of chi. Given: '// numToChar(size(temp)) // &
                             ' Expected: ' // numToChar(nG))
     end if
@@ -238,7 +239,7 @@ contains
 
     ! Check normalisation of chi
     S = sum(self % data(:,CHI_DAT))
-    if( abs(S-ONE) > 0.01 * FP_REL_TOL) then
+    if (abs(S-ONE) > 0.01 * FP_REL_TOL) then
       print *,'Chi is not normalised. Relative error wrt ONE:'// numToChar(abs(S-ONE))//&
               ' The normalisation has been adjusted automatically'
       self % data(:,CHI_DAT) = self % data(:,CHI_DAT) / S

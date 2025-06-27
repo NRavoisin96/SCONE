@@ -193,11 +193,11 @@ contains
 
     ! Inelastic Scattering
     xs = xs - self % inelasticScatter
-    if(xs > ZERO) C = C + 1
+    if (xs > ZERO) C = C + 1
 
     ! Capture
     xs = xs - self % capture
-    if(xs > ZERO) C = C + 1
+    if (xs > ZERO) C = C + 1
 
     ! Choose MT number
     select case(C)
@@ -254,11 +254,11 @@ contains
 
     ! Inelastic Scattering
     xs = xs - self % inelasticScatter
-    if(xs > ZERO) C = C + 1
+    if (xs > ZERO) C = C + 1
 
     ! Capture
     xs = xs - self % capture
-    if(xs > ZERO) C = C + 1
+    if (xs > ZERO) C = C + 1
 
     ! Choose MT number
     select case(C)

@@ -33,13 +33,13 @@ contains
     type(testEnergyLaw)                           :: testEL
     class(energyLawENDF), allocatable             :: energyLaw
     integer(shortInt)                             :: i
-    real(defReal),dimension(4), parameter :: E_Outs = [ 13.0_defReal, 18.0_defReal, 9.0_defReal, 13.0_defReal]
+    real(defReal), dimension(4), parameter :: E_Outs = [ 13.0_defReal, 18.0_defReal, 9.0_defReal, 13.0_defReal]
 
     ! Allocate space
     call this % law % init(6)
 
     ! Load energy laws
-    do i=1,4
+    do i= 1, 4
       testEL % E_out = E_outs(i)
       allocate(energyLaw, source = testEL)
       call this % law % addLaw(energyLaw, eGrid, pdf)
@@ -88,7 +88,7 @@ contains
 @Test
   subroutine testSampling(this)
     class(test_multipleEnergyLaws), intent(inout) :: this
-    real(defReal),dimension(1200)                 :: samples
+    real(defReal), dimension(1200)                 :: samples
     type(RNG)                                     :: rand
     real(defReal)                                 :: E_in
     integer(shortInt)                             :: i
@@ -99,7 +99,7 @@ contains
 
     ! Draw samples with low capping
     E_in = 5.0_defReal
-    do i=1,400
+    do i= 1, 400
       samples(i) = this % law % sample(E_in, rand)
     end do
 

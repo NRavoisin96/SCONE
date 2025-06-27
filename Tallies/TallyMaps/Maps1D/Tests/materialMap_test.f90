@@ -17,8 +17,8 @@ module materialMap_test
 @testCase
   type, extends(TestCase) :: test_materialMap
     private
-    type(materialMap),allocatable :: map_noUndef
-    type(materialMap),allocatable :: map_Undef
+    type(materialMap), allocatable :: map_noUndef
+    type(materialMap), allocatable :: map_Undef
   contains
     procedure :: setUp
     procedure :: tearDown
@@ -28,8 +28,8 @@ module materialMap_test
   !!
   !! Test parameters
   !!
-  character(*),dimension(*),parameter :: MAT_NAMES=['mat1','mat2','mat3','mat4','mat5']
-  character(*),dimension(*),parameter :: MAT_IN_MAP =['mat2','mat3','mat5']
+  character(*), dimension(*), parameter :: MAT_NAMES=['mat1','mat2','mat3','mat4','mat5']
+  character(*), dimension(*), parameter :: MAT_IN_MAP =['mat2','mat3','mat5']
 
   !!
   !! Material Definitions
@@ -62,7 +62,7 @@ contains
 !    call dict % store('handles', tempDict2)
 !
 !    ! Create materials dictionary of empty dictionaries
-!    do i=1,size(MAT_NAMES)
+!    do i= 1, size(MAT_NAMES)
 !      call tempDict1 % store(MAT_NAMES(i), tempDict3)
 !
 !    end do
@@ -111,10 +111,10 @@ contains
     class(test_materialMap), intent(inout)   :: this
     type(particleState)                      :: state
     integer(shortInt)                        :: i
-    integer(shortInt),dimension(5)           :: bins
-    integer(shortInt),dimension(5),parameter :: EXPECTED_BINS = [0, 1, 2, 0, 3]
+    integer(shortInt), dimension(5)           :: bins
+    integer(shortInt), dimension(5), parameter :: EXPECTED_BINS = [0, 1, 2, 0, 3]
 
-    do i=1,5
+    do i= 1, 5
       state % matIdx = i
       bins(i) = this % map_noUndef % map(state)
     end do
@@ -132,10 +132,10 @@ contains
     class(test_materialMap), intent(inout)   :: this
     type(particleState)                      :: state
     integer(shortInt)                        :: i
-    integer(shortInt),dimension(5)           :: bins
-    integer(shortInt),dimension(5),parameter :: EXPECTED_BINS = [4, 1, 2, 4, 3]
+    integer(shortInt), dimension(5)           :: bins
+    integer(shortInt), dimension(5), parameter :: EXPECTED_BINS = [4, 1, 2, 4, 3]
 
-    do i=1,5
+    do i= 1, 5
       state % matIdx = i
       bins(i) = this % map_undef % map(state)
     end do

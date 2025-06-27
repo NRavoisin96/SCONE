@@ -4,7 +4,7 @@ module preDefEnergyGrids
 
   implicit none
 
-  real(defReal),dimension(70),parameter :: wims69 = [ &
+  real(defReal), dimension(70), parameter :: wims69 = [ &
     1.0000000000E+01_defReal,&
     6.0655000000E+00_defReal,&
     3.6790000000E+00_defReal,&
@@ -76,7 +76,7 @@ module preDefEnergyGrids
     5.0000000000E-09_defReal,&
     1.0000000000E-11_defReal]
 
-real(defReal),dimension(173),parameter :: wims172 = [ &
+real(defReal), dimension(173), parameter :: wims172 = [ &
     1.9640300000E+01_defReal,&
     1.7332500000E+01_defReal,&
     1.4918200000E+01_defReal,&
@@ -251,7 +251,7 @@ real(defReal),dimension(173),parameter :: wims172 = [ &
     3.0000000000E-09_defReal,&
     1.0000000000E-11_defReal]
 
-real(defReal),dimension(41),parameter :: casmo40 = [ &
+real(defReal), dimension(41), parameter :: casmo40 = [ &
     1.0000000000E+01_defReal,&
     6.0655000000E+00_defReal,&
     3.6790000000E+00_defReal,&
@@ -294,7 +294,7 @@ real(defReal),dimension(41),parameter :: casmo40 = [ &
     1.5000000000E-08_defReal,&
     1.0000000000E-11_defReal]
 
-real(defReal),dimension(24),parameter :: casmo23 = [ &
+real(defReal), dimension(24), parameter :: casmo23 = [ &
     1.0000000E+01_defReal,&
     6.0655000E+00_defReal,&
     3.6790000E+00_defReal,&
@@ -320,7 +320,7 @@ real(defReal),dimension(24),parameter :: casmo23 = [ &
     3.0000000E-08_defReal,&
     1.0000000E-11_defReal]
 
-real(defReal),dimension(13),parameter :: casmo12 = [ &
+real(defReal), dimension(13), parameter :: casmo12 = [ &
     1.00000E+01_defReal,&
     2.23100E+00_defReal,&
     8.21000E-01_defReal,&
@@ -335,7 +335,7 @@ real(defReal),dimension(13),parameter :: casmo12 = [ &
     3.00000E-08_defReal,&
     1.00000E-11_defReal]
 
-real(defReal),dimension(8),parameter :: casmo7 = [ &
+real(defReal), dimension(8), parameter :: casmo7 = [ &
     1.00000E+01_defReal,&
     8.21000E-01_defReal,&
     5.53000E-03_defReal,&
@@ -345,7 +345,7 @@ real(defReal),dimension(8),parameter :: casmo7 = [ &
     5.80000E-08_defReal,&
     1.00000E-11_defReal]
 
-real(defReal),dimension(34),parameter :: ecco33 = [ &
+real(defReal), dimension(34), parameter :: ecco33 = [ &
     1.964033E+01_defReal,&
     1.000000E+01_defReal,&
     6.065307E+00_defReal,&
@@ -381,7 +381,7 @@ real(defReal),dimension(34),parameter :: ecco33 = [ &
     1.000000E-07_defReal,&
     1.000010E-11_defReal]
 
-real(defReal),dimension(176),parameter :: vitaminj = [ &
+real(defReal), dimension(176), parameter :: vitaminj = [ &
     1.964000E+01_defReal,&
     1.733300E+01_defReal,&
     1.690500E+01_defReal,&

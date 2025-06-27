@@ -57,7 +57,7 @@ module timer_mod
   !!   toSec  -> returns real number with the estimate of seconds accumulated
   !!   toChar -> print elapsed time to human readable format hhh:mm:ss format
   !!
-  type,public :: stopWatch
+  type, public :: stopWatch
     private
     integer(longInt) :: start_c   = 0
     integer(longInt) :: elapsed_c = 0
@@ -69,13 +69,13 @@ module timer_mod
   end type stopWatch
 
   !! Module members
-  character(nameLen),dimension(:),allocatable :: timerNames
-  type(stopWatch),dimension(:),allocatable    :: timers
+  character(nameLen), dimension(:), allocatable :: timerNames
+  type(stopWatch), dimension(:), allocatable    :: timers
   integer(shortInt)                           :: idx = 0
 
   !! Module parameters
-  real(defReal),parameter     :: GROWTH_RATIO = 1.6_defReal
-  integer(shortInt),parameter :: MIN_SIZE = 5
+  real(defReal), parameter     :: GROWTH_RATIO = 1.6_defReal
+  integer(shortInt), parameter :: MIN_SIZE = 5
 
 contains
 
@@ -99,9 +99,9 @@ contains
   subroutine growIfNeeded()
     logical(defBool)                            :: nameAlloc, timersAlloc
     integer(shortInt)                           :: newSize, S
-    character(nameLen),dimension(:),allocatable :: namesTemp
-    type(stopWatch),dimension(:),allocatable    :: timerTemp
-    character(100),parameter :: Here ='growIfNeeded (timer_mod.f90)'
+    character(nameLen), dimension(:), allocatable :: namesTemp
+    type(stopWatch), dimension(:), allocatable    :: timerTemp
+    character(100), parameter :: Here ='growIfNeeded (timer_mod.f90)'
 
     ! Check allocation status
     nameAlloc   = allocated(timerNames)
@@ -111,7 +111,7 @@ contains
     S = 0
 
     ! Calculate the required size
-    if(nameAlloc .and. timersAlloc) then
+    if (nameAlloc .and. timersAlloc) then
       ! If allocated load real size
       S = size(timers)
       newSize = S
@@ -119,7 +119,7 @@ contains
       ! Check if reallocation is needed and calculate new size
       if (idx >= size(timers)) newSize = int(newSize * GROWTH_RATIO)
 
-    else if( nameAlloc .neqv. timersAlloc) then ! Strange error has happend!
+    else if (nameAlloc .neqv. timersAlloc) then ! Strange error has happend!
       call fatalError(Here,'Timers and timers names array have diffrent allocation status. WTF?')
       newSize = 0
 
@@ -129,13 +129,13 @@ contains
     end if
 
     ! Reallocate if needed
-    if( newSize > S) then
+    if (newSize > S) then
       allocate(namesTemp(newSize))
       allocate(timerTemp(newSize))
 
       ! Copy only if already allocated. Avoid SEG errors
-      if(nameAlloc)   namesTemp(1:idx) = timerNames
-      if(timersAlloc) timerTemp(1:idx) = timers
+      if (nameAlloc)   namesTemp(1:idx) = timerNames
+      if (timersAlloc) timerTemp(1:idx) = timers
 
       ! Move allocation
       call move_alloc(namesTemp, timerNames)
@@ -156,7 +156,7 @@ contains
   !!   None.
   !!
   elemental function secToChar(sec) result(time)
-    real(defReal),intent(in)     :: sec
+    real(defReal), intent(in)     :: sec
     real(defReal)                :: elapsed
     character(nameLen)           :: time
     integer(shortInt)            :: hour, minute, second

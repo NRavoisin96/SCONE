@@ -63,7 +63,7 @@ module dancoffBellClerk_class
   !!   modMat  (m4 m5 m98);      // List of moderator material names
   !!  }
   !!
-  type, public,extends(tallyClerk) :: dancoffBellClerk
+  type, public, extends(tallyClerk) :: dancoffBellClerk
     private
     type(intMap)         :: materialSet
     type(energyFilter)   :: filter
@@ -97,8 +97,8 @@ contains
     class(dictionary), intent(in)               :: dict
     character(nameLen), intent(in)              :: name
     real(defReal)                               :: Emax, Emin
-    character(nameLen),dimension(:),allocatable :: fuelNames, modNames
-    integer(shortInt),dimension(:), allocatable :: fuelIdx, modIdx
+    character(nameLen), dimension(:), allocatable :: fuelNames, modNames
+    integer(shortInt), dimension(:), allocatable :: fuelIdx, modIdx
     integer(shortInt)                           :: i
     character(100), parameter :: Here ='init (dancoffBellClerk_class.f90)'
 
@@ -122,7 +122,7 @@ contains
       fuelIdx(i) = mm_matIdx(fuelNames(i))
     end do
 
-    do i =1,size(modNames)
+    do i = 1, size(modNames)
       modIdx(i) = mm_matIdx(modNames(i))
     end do
 
@@ -153,8 +153,8 @@ contains
   !! See tallyClerk_inter for details
   !!
   function validReports(self) result(validCodes)
-    class(dancoffBellClerk),intent(in)         :: self
-    integer(shortInt),dimension(:),allocatable :: validCodes
+    class(dancoffBellClerk), intent(in)         :: self
+    integer(shortInt), dimension(:), allocatable :: validCodes
 
     validCodes = [trans_CODE, cycleEnd_CODE]
 
@@ -181,26 +181,26 @@ contains
   subroutine reportTrans(self, p, xsData, mem)
     class(dancoffBellClerk), intent(inout) :: self
     class(particle), intent(in)            :: p
-    class(nuclearDatabase),intent(inout)   :: xsData
+    class(nuclearDatabase), intent(inout)   :: xsData
     type(scoreMemory), intent(inout)       :: mem
     real(defReal)                          :: SigmaTot
     integer(shortInt)                      :: T_end, T_start
     real(defReal)                          :: w_end
     type(particleState)                    :: state
 
-    character(100),parameter :: Here = 'reportTrans (dancoffBellClerk_class.f90)'
+    character(*), parameter :: Here = 'reportTrans (dancoffBellClerk_class.f90)'
 
     ! Find start material type; Exit if not fuel
     T_start = self % materialSet % getOrDefault(p % preTransition % matIdx, OUTSIDE)
-    if( T_start /= FUEL) return
+    if (T_start /= FUEL) return
 
     ! Exit if outside energy range
     state = p
-    if(.not.self % filter % isPass(state)) return
+    if (.not.self % filter % isPass(state)) return
 
     ! Find end material type; Exit if not fuel or moderator
     T_end = self % materialSet % getOrDefault(p % getMatIdx(), OUTSIDE)
-    if(T_end == OUTSIDE) return
+    if (T_end == OUTSIDE) return
 
     ! Obtain starting and ending weights
     w_end   = p % w
@@ -234,7 +234,7 @@ contains
     type(scoreMemory), intent(inout)        :: mem
     real(defReal)                           :: escSigmaT, fuelWgt
 
-    if( mem % lastCycle() ) then
+    if (mem % lastCycle()) then
       escSigmaT = mem % getScore(self % getMemAddress() + ESC_PROB_TOTXS)
       fuelWgt   = mem % getScore(self % getMemAddress() + STAY_PROB)
       print *, escSigmaT, fuelWgt

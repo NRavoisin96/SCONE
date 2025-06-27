@@ -8,9 +8,9 @@ module kalbachTable_class
   implicit none
   private
 
-  integer(shortInt),parameter  :: histogram  = tabPdfHistogram, &
+  integer(shortInt), parameter  :: histogram  = tabPdfHistogram, &
                                   linLin     = tabPdfLinLin
-  real(defReal),parameter      :: tolerance = 1.0e-6
+  real(defReal), parameter      :: tolerance = 1.0e-6
 
   interface linearSearch
     module procedure linearFloorIdxClosed_Real
@@ -22,11 +22,11 @@ module kalbachTable_class
   !!
   type, public :: kalbachTable
     private
-    real(defReal),dimension(:),allocatable       :: x
-    real(defReal),dimension(:),allocatable       :: pdf
-    real(defReal),dimension(:),allocatable       :: cdf
-    real(defReal),dimension(:),allocatable       :: R
-    real(defReal),dimension(:),allocatable       :: A
+    real(defReal), dimension(:), allocatable       :: x
+    real(defReal), dimension(:), allocatable       :: pdf
+    real(defReal), dimension(:), allocatable       :: cdf
+    real(defReal), dimension(:), allocatable       :: R
+    real(defReal), dimension(:), allocatable       :: A
     integer(shortInt)                            :: flag  = -2       !Interpolation flag
   contains
     generic   :: init          => initPdf, initCdf
@@ -48,13 +48,13 @@ contains
   !!
   subroutine sample(self, rand, x, R, A)
     class(kalbachTable), intent(in)  :: self
-    real(defReal),intent(in)         :: rand
-    real(defReal),intent(out)        :: x
-    real(defReal),intent(out)        :: R
-    real(defReal),intent(out)        :: A
+    real(defReal), intent(in)         :: rand
+    real(defReal), intent(out)        :: x
+    real(defReal), intent(out)        :: R
+    real(defReal), intent(out)        :: A
     integer(shortInt)                :: idx
     real(defReal)                    :: f, delta, ci, pi, ONEmf
-    character(100),parameter         :: Here='sample (kalbachTable_class.f90)'
+    character(100), parameter         :: Here='sample (kalbachTable_class.f90)'
 
     idx = linearSearch(self % cdf,rand)
     call searchError(idx,Here)
@@ -122,7 +122,7 @@ contains
     real(defReal), intent(out)      :: R
     real(defReal), intent(out)      :: A
     integer(shortInt)               :: idx
-    character(100),parameter        :: Here='init (kalbachTable_class.f90)'
+    character(100), parameter        :: Here='init (kalbachTable_class.f90)'
 
     idx = linearSearch(self % x, x)
     call searchError(idx,Here)
@@ -152,11 +152,11 @@ contains
     class(kalbachTable), intent(inout) :: self
 
     ! Deallocate table
-    if(allocated(self % x))   deallocate(self % x)
-    if(allocated(self % pdf)) deallocate(self % pdf)
-    if(allocated(self % cdf)) deallocate(self % cdf)
-    if(allocated(self % R))   deallocate(self % R)
-    if(allocated(self % A))   deallocate(self % A)
+    if (allocated(self % x))   deallocate(self % x)
+    if (allocated(self % pdf)) deallocate(self % pdf)
+    if (allocated(self % cdf)) deallocate(self % cdf)
+    if (allocated(self % R))   deallocate(self % R)
+    if (allocated(self % A))   deallocate(self % A)
 
     ! Set intepolation flag
     self % flag = -2
@@ -169,28 +169,28 @@ contains
   !!
   subroutine initPdf(self,x,pdf,R,A,flag)
     class(kalbachTable), intent(inout)     :: self
-    real(defReal),dimension(:),intent(in)  :: x
-    real(defReal),dimension(:),intent(in)  :: pdf
-    real(defReal),dimension(:),intent(in)  :: R
-    real(defReal),dimension(:),intent(in)  :: A
-    integer(shortInt),intent(in)           :: flag ! Interpolation scheme flag
+    real(defReal), dimension(:), intent(in)  :: x
+    real(defReal), dimension(:), intent(in)  :: pdf
+    real(defReal), dimension(:), intent(in)  :: R
+    real(defReal), dimension(:), intent(in)  :: A
+    integer(shortInt), intent(in)           :: flag ! Interpolation scheme flag
     integer(shortInt)                      :: i
-    character(100),parameter               :: Here='init (kalbachTable_class.f90)'
+    character(100), parameter               :: Here='init (kalbachTable_class.f90)'
 
     ! Check Input
-    if( size(x) /= size(pdf)) call fatalError(Here,'PDF and x have diffrent size')
-    if( size(x) /= size(R))   call fatalError(Here,'R and x have diffrent size')
-    if( size(x) /= size(A))   call fatalError(Here,'A and x have diffrent size')
+    if (size(x) /= size(pdf)) call fatalError(Here,'PDF and x have diffrent size')
+    if (size(x) /= size(R))   call fatalError(Here,'R and x have diffrent size')
+    if (size(x) /= size(A))   call fatalError(Here,'A and x have diffrent size')
 
-    if( .not.(isSorted(x)))   call fatalError(Here,'Provided x grid is not sorted not descending')
-    if ( any( pdf < 0.0 ))    call fatalError(Here,'Provided PDF contains -ve values')
+    if (.not.(isSorted(x)))   call fatalError(Here,'Provided x grid is not sorted not descending')
+    if (any( pdf < 0.0 ))    call fatalError(Here,'Provided PDF contains -ve values')
 
     ! Initialise Data
-    if(allocated(self % x))   deallocate(self % x)
-    if(allocated(self % pdf)) deallocate(self % pdf)
-    if(allocated(self % cdf)) deallocate(self % cdf)
-    if(allocated(self % R))   deallocate(self % R)
-    if(allocated(self % A))   deallocate(self % A)
+    if (allocated(self % x))   deallocate(self % x)
+    if (allocated(self % pdf)) deallocate(self % pdf)
+    if (allocated(self % cdf)) deallocate(self % cdf)
+    if (allocated(self % R))   deallocate(self % R)
+    if (allocated(self % A))   deallocate(self % A)
 
     ! Allocate cdf
     allocate(self % cdf(size(x)))
@@ -240,38 +240,38 @@ contains
   !!
   subroutine initCdf(self,x,pdf,cdf,R,A,flag)
     class(kalbachTable), intent(inout)     :: self
-    real(defReal),dimension(:),intent(in)  :: x
-    real(defReal),dimension(:),intent(in)  :: pdf
-    real(defReal),dimension(:),intent(in)  :: cdf
-    real(defReal),dimension(:),intent(in)  :: R
-    real(defReal),dimension(:),intent(in)  :: A
-    integer(shortInt),intent(in)           :: flag ! Interpolation scheme flag
-    character(100),parameter               :: Here='init (tabularPdf_class.f90)'
+    real(defReal), dimension(:), intent(in)  :: x
+    real(defReal), dimension(:), intent(in)  :: pdf
+    real(defReal), dimension(:), intent(in)  :: cdf
+    real(defReal), dimension(:), intent(in)  :: R
+    real(defReal), dimension(:), intent(in)  :: A
+    integer(shortInt), intent(in)           :: flag ! Interpolation scheme flag
+    character(100), parameter               :: Here='init (tabularPdf_class.f90)'
 
     ! Check Input
-    if( size(x) /= size(pdf)) call fatalError(Here,'PDF and x have diffrent size')
-    if( size(x) /= size(cdf)) call fatalError(Here,'CDF and x have diffrent size')
-    if( size(x) /= size(R))   call fatalError(Here,'R and x have diffrent size')
-    if( size(x) /= size(A))   call fatalError(Here,'A and x have diffrent size')
+    if (size(x) /= size(pdf)) call fatalError(Here,'PDF and x have diffrent size')
+    if (size(x) /= size(cdf)) call fatalError(Here,'CDF and x have diffrent size')
+    if (size(x) /= size(R))   call fatalError(Here,'R and x have diffrent size')
+    if (size(x) /= size(A))   call fatalError(Here,'A and x have diffrent size')
 
-    if( .not.(isSorted(x)))   call fatalError(Here,'Provided x grid is not sorted not decending')
-    if( .not.(isSorted(cdf))) call fatalError(Here,'Provided CDF is not sorted not descending')
+    if (.not.(isSorted(x)))   call fatalError(Here,'Provided x grid is not sorted not decending')
+    if (.not.(isSorted(cdf))) call fatalError(Here,'Provided CDF is not sorted not descending')
 
-    if ( any( pdf < 0.0 ))    call fatalError(Here,'Provided PDF contains -ve values')
-    if ( any( cdf < 0.0 ))    call fatalError(Here,'Provided CDF contains -ve values')
+    if (any( pdf < 0.0 ))    call fatalError(Here,'Provided PDF contains -ve values')
+    if (any( cdf < 0.0 ))    call fatalError(Here,'Provided CDF contains -ve values')
 
-    if( abs(cdf(1)) > tolerance ) call fatalError(Here,'Provided CDF does not begin with 0')
+    if (abs(cdf(1)) > tolerance ) call fatalError(Here,'Provided CDF does not begin with 0')
 
-    if( abs(cdf(size(cdf))-1.0_defReal) > tolerance) then
+    if (abs(cdf(size(cdf))-1.0_defReal) > tolerance) then
       call fatalError(Here,'Provided CDF does not end with 1')
     end if
 
     ! Initialise Data
-    if(allocated(self % x))   deallocate(self % x)
-    if(allocated(self % pdf)) deallocate(self % pdf)
-    if(allocated(self % cdf)) deallocate(self % cdf)
-    if(allocated(self % R))   deallocate(self % R)
-    if(allocated(self % A))   deallocate(self % A)
+    if (allocated(self % x))   deallocate(self % x)
+    if (allocated(self % pdf)) deallocate(self % pdf)
+    if (allocated(self % cdf)) deallocate(self % cdf)
+    if (allocated(self % R))   deallocate(self % R)
+    if (allocated(self % A))   deallocate(self % A)
 
     self % x   = x
     self % pdf = pdf

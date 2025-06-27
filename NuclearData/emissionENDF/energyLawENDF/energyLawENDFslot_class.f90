@@ -7,7 +7,7 @@ module energyLawENDFslot_class
   implicit none
   private
 
-  type, public,extends(energyLawENDF) :: energyLawENDFslot
+  type, public, extends(energyLawENDF) :: energyLawENDFslot
     private
     class(energyLawENDF), allocatable :: slot
   contains
@@ -56,7 +56,7 @@ contains
   elemental subroutine kill(self)
     class(energyLawENDFslot), intent(inout) :: self
 
-    if(allocated(self % slot)) then
+    if (allocated(self % slot)) then
       call self % slot % kill()
       deallocate(self % slot)
     end if
@@ -72,7 +72,7 @@ contains
     class(energyLawENDFslot), intent(inout) :: LHS
     class(energyLawENDF), intent(in)        :: RHS
 
-    if(allocated(LHS % slot)) deallocate (LHS % slot)
+    if (allocated(LHS % slot)) deallocate (LHS % slot)
 
     allocate(LHS % slot, source = RHS)
 
@@ -83,9 +83,9 @@ contains
   !!
   subroutine moveAllocFrom(LHS,RHS)
     class(energyLawENDFslot), intent(inout)         :: LHS
-    class(energyLawENDF),allocatable, intent(inout) :: RHS
+    class(energyLawENDF), allocatable, intent(inout) :: RHS
 
-    if(allocated(LHS % slot)) deallocate (LHS % slot)
+    if (allocated(LHS % slot)) deallocate (LHS % slot)
 
     call move_alloc(RHS, LHS % slot)
 

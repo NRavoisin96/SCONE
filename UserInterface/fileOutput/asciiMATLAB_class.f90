@@ -10,7 +10,7 @@ module asciiMATLAB_class
   private
 
   !! Local parameters
-  character(1),parameter :: BLANK = ' ', &
+  character(1), parameter :: BLANK = ' ', &
                             NEWLINE = new_line(BLANK) ,&
                             APOS    = char(39) ,&
                             BRAKET_L  = '{' ,&
@@ -193,7 +193,7 @@ contains
   !!
   subroutine startArray(self, shape)
     class(asciiMATLAB), intent(inout)         :: self
-    integer(shortInt),dimension(:),intent(in) :: shape
+    integer(shortInt), dimension(:), intent(in) :: shape
     character(100), parameter :: Here ='startArray (asciiMATLAB_class.f90)'
 
     ! Update state
@@ -203,7 +203,7 @@ contains
     self % shapeBuffer = shape
 
     ! Write start of array
-    if( size(self % shapeBuffer) == 1) then
+    if (size(self % shapeBuffer) == 1) then
       call self % append('[ ')
 
     else
@@ -231,8 +231,8 @@ contains
     call self % append(']')
 
     ! Finish reshape function for higher rank arrays
-    if( size(self % shapeBuffer) > 1) then
-      do i=1,size(self % shapeBuffer)
+    if (size(self % shapeBuffer) > 1) then
+      do i= 1, size(self % shapeBuffer)
         call self % append(',' // numToChar(self % shapeBuffer(i)))
       end do
       call self % append(')')
@@ -247,13 +247,13 @@ contains
   !!
   subroutine printNum(self, val)
     class(asciiMATLAB), intent(inout) :: self
-    character(*),intent(in)           :: val
+    character(*), intent(in)           :: val
     character(100), parameter :: Here ='printNum (asciiMATLAB_class.f90)'
 
-    if(self % state == IN_ARRAY) then
+    if (self % state == IN_ARRAY) then
       call self % append(val//',')
 
-    else if( self % state == IN_ENTRY) then
+    else if (self % state == IN_ENTRY) then
       call self % append(val)
 
     end if
@@ -267,13 +267,13 @@ contains
   !!
   subroutine printChar(self, val)
     class(asciiMATLAB), intent(inout) :: self
-    character(*),intent(in)           :: val
+    character(*), intent(in)           :: val
     character(100), parameter :: Here ='printChar (asciiMATLAB_class.f90)'
 
-    if(self % state == IN_ARRAY) then
+    if (self % state == IN_ARRAY) then
       call self % append(BRAKET_L // APOS // val // APOS // BRAKET_R // ",")
 
-    else if( self % state == IN_ENTRY) then
+    else if (self % state == IN_ENTRY) then
       call self % append(BRAKET_L // APOS // val // APOS // BRAKET_R )
 
     end if

@@ -17,7 +17,7 @@ module noAngle_class
   !! Null object for lack of mu data
   !! Can be used as a placeholder for reactions that are no scattering
   !!
-  type, public,extends(angleLawENDF) :: noAngle
+  type, public, extends(angleLawENDF) :: noAngle
     private
   contains
     procedure :: init

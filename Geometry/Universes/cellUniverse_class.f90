@@ -215,7 +215,7 @@ contains
     call kill_super(self)
 
     ! Local
-    if(allocated(self % cells)) deallocate(self % cells)
+    if (allocated(self % cells)) deallocate(self % cells)
 
   end subroutine kill
 

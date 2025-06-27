@@ -23,9 +23,9 @@ module tallyClerkSlot_class
   !! Slot to store polymorphic instances of tallyClerks in an array
   !! Duplicates an interface
   !!
-  type, public,extends(tallyClerk) :: tallyClerkSlot
+  type, public, extends(tallyClerk) :: tallyClerkSlot
     private
-    class(tallyClerk),allocatable :: slot
+    class(tallyClerk), allocatable :: slot
   contains
     ! Duplicate interface of the tallyClerk
     ! Procedures used during build
@@ -75,7 +75,7 @@ contains
     class(tallyClerkSlot), intent(inout) :: self
     class(dictionary), intent(in)        :: dict
     character(nameLen), intent(in)       :: name
-    character(100),parameter :: Here = 'init (tallyClerkSlot.f90)'
+    character(*), parameter :: Here = 'init (tallyClerkSlot.f90)'
 
     call new_tallyClerk(self % slot, dict, name)
 
@@ -92,7 +92,7 @@ contains
     ! Superclass
     call kill_super(self)
 
-    if(allocated(self % slot)) then
+    if (allocated(self % slot)) then
       call self % slot % kill()
       deallocate(self % slot)
     end if
@@ -106,8 +106,8 @@ contains
   !! See tallyClerk_inter for details
   !!
   function validReports(self) result(validCodes)
-    class(tallyClerkSlot),intent(in)           :: self
-    integer(shortInt),dimension(:),allocatable :: validCodes
+    class(tallyClerkSlot), intent(in)           :: self
+    integer(shortInt), dimension(:), allocatable :: validCodes
 
     ! Pass call to instance in the slot
     validCodes = self % slot % validReports()
@@ -359,9 +359,9 @@ contains
   !!
   subroutine copy(LHS,RHS)
     class(tallyClerkSlot), intent(inout)      :: LHS
-    class(tallyClerk),intent(in)              :: RHS
+    class(tallyClerk), intent(in)              :: RHS
 
-    if(allocated(LHS % slot)) deallocate (LHS % slot)
+    if (allocated(LHS % slot)) deallocate (LHS % slot)
 
     allocate(LHS % slot, source = RHS)
 

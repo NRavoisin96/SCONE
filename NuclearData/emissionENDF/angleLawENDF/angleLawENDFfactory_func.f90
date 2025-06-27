@@ -24,17 +24,17 @@ contains
   !! aceCard can be in any poistion. Its position changes at output.
   !!
   subroutine new_angleLawENDF(new, ACE, MT)
-    class(angleLawENDF),allocatable,intent(inout)    :: new
+    class(angleLawENDF), allocatable, intent(inout)    :: new
     type(aceCard), intent(inout)                     :: ACE
     integer(shortInt), intent(in)                    :: MT
     integer(shortInt)                                :: LOCB
-    character(100),parameter :: Here='new_angleLawENDF (angleLawENDFfactory_func.f90)'
+    character(*), parameter :: Here = 'new_angleLawENDF (angleLawENDFfactory_func.f90)'
 
     ! Deallocate new if allocated
-    if(allocated(new)) deallocate(new)
+    if (allocated(new)) deallocate(new)
 
     ! Check if reaction is absorbtion
-    if( ACE % isCaptureMT(MT)) then ! Reaction is absorbtion MT > 100
+    if (ACE % isCaptureMT(MT)) then ! Reaction is absorbtion MT > 100
       allocate(new, source = noAngle() )
       return
 
@@ -44,13 +44,13 @@ contains
     LOCB = ACE % LOCBforMT(MT)
 
     ! Return error if LOCB corresponds to LAW 44
-    if(LOCB == LOCB_CORRELATED) then
+    if (LOCB == LOCB_CORRELATED) then
       call fatalError(Here,'Cannot build angle law for correlated angle-energy')
 
     end if
 
     ! Return if LOCB corresponds to LOCB_ISOTROPIC
-    if(LOCB == LOCB_ISOTROPIC) then
+    if (LOCB == LOCB_ISOTROPIC) then
       allocate(new, source = isotropicAngle() )
       return
     end if

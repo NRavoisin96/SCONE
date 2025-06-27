@@ -292,7 +292,7 @@ contains
     integer(shortInt), intent(in)           :: matIdx
     integer(shortInt), intent(in)           :: what
     real(defReal)                           :: xs
-    character(100),parameter :: Here = 'getTrackingXS (ceNeutronDatabase_inter.f90)'
+    character(*), parameter :: Here = 'getTrackingXS (ceNeutronDatabase_inter.f90)'
 
     ! Process request
     select case(what)
@@ -340,7 +340,7 @@ contains
     class(particle), intent(in)             :: p
     integer(shortInt), intent(in)           :: matIdx
     real(defReal)                           :: xs
-    character(100),parameter :: Here = 'getTrackMatXS (ceNeutronDatabase_inter.f90)'
+    character(*), parameter :: Here = 'getTrackMatXS (ceNeutronDatabase_inter.f90)'
 
     ! Check dynamic type of the particle
     if (p % isMG .or. p % type /= P_NEUTRON) then
@@ -368,7 +368,7 @@ contains
     class(particle), intent(in)             :: p
     integer(shortInt), intent(in)           :: matIdx
     real(defReal)                           :: xs
-    character(100),parameter :: Here = 'getTotalMatXS (ceNeutronDatabase_inter.f90)'
+    character(*), parameter :: Here = 'getTotalMatXS (ceNeutronDatabase_inter.f90)'
 
     ! Check dynamic type of the particle
     if (p % isMG .or. p % type /= P_NEUTRON) then
@@ -395,7 +395,7 @@ contains
     class(ceNeutronDatabase), intent(inout) :: self
     class(particle), intent(in)             :: p
     real(defReal)                           :: xs
-    character(100),parameter :: Here = 'getMajorantXS (ceNeutronDatabase_inter.f90)'
+    character(*), parameter :: Here = 'getMajorantXS (ceNeutronDatabase_inter.f90)'
 
     ! Check dynamic type of the particle
     if (p % isMG .or. p % type /= P_NEUTRON) then

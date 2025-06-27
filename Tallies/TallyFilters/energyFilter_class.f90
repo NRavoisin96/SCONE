@@ -46,7 +46,7 @@ module energyFilter_class
   !!     Glow 17;
   !! }
   !!
-  type, public,extends(tallyFilter) :: energyFilter
+  type, public, extends(tallyFilter) :: energyFilter
     private
     real(defReal)     :: Emin
     real(defReal)     :: Emax
@@ -80,7 +80,7 @@ contains
     hasMG = dict % isPresent('Glow') .or. dict % isPresent('Gtop')
     hasCE = dict % isPresent('Emin') .or. dict % isPresent('Emax')
 
-    if(hasMG .and. hasCE) then
+    if (hasMG .and. hasCE) then
       ! CE-MG case
       call dict % get(E1,'Emin')
       call dict % get(E2,'Emax')
@@ -88,7 +88,7 @@ contains
       call dict % get(Glow,'Glow')
       call self % build(E1, E2, Gtop, Glow)
 
-    else if(hasMG) then
+    else if (hasMG) then
       ! MG Case
       call dict % get(Gtop,'Gtop')
       call dict % get(Glow,'Glow')
@@ -114,7 +114,7 @@ contains
     integer(shortInt)                :: G
 
     ! MG particle
-    if(state % isMG) then
+    if (state % isMG) then
       G = state % G
       passed = (self % Gtop <= G) .and. (G <= self % Glow)
 
@@ -140,13 +140,13 @@ contains
     class(energyFilter), intent(inout) :: self
     real(defReal), intent(in)          :: Emin
     real(defReal), intent(in)          :: Emax
-    character(100), parameter :: Here = 'build_CE (energyFilter_class.f90)'
+    character(*), parameter :: Here = 'build_CE (energyFilter_class.f90)'
 
     self % Emin = Emin
     self % Emax = Emax
 
     ! Verify bounds
-    if( self % Emax <= self % Emin) then
+    if (self % Emax <= self % Emin) then
       call fatalError(Here,'Emin='// numToChar(self % Emin) //' is larger or equal to Emax=' // numToChar(self % Emax))
     end if
 
@@ -170,13 +170,13 @@ contains
     class(energyFilter), intent(inout) :: self
     integer(shortInt), intent(in)      :: Gtop
     integer(shortInt), intent(in)      :: Glow
-    character(100), parameter :: Here = 'build_MG (energyFilter_class.f90)'
+    character(*), parameter :: Here = 'build_MG (energyFilter_class.f90)'
 
     self % Gtop = Gtop
     self % Glow = Glow
 
     ! Verify bounds
-    if( self % Gtop > self % Glow) then
+    if (self % Gtop > self % Glow) then
       call fatalError(Here,'Gtop='// numToChar(self % Gtop) //' is larger then Glow=' // numToChar(self % Glow))
     end if
 
@@ -205,13 +205,13 @@ contains
     real(defReal), intent(in)          :: Emax
     integer(shortInt), intent(in)      :: Gtop
     integer(shortInt), intent(in)      :: Glow
-    character(100), parameter :: Here = 'build_CEMG (energyFilter_class.f90)'
+    character(*), parameter :: Here = 'build_CEMG (energyFilter_class.f90)'
 
     self % Gtop = Gtop
     self % Glow = Glow
 
     ! Verify bounds
-    if( self % Gtop > self % Glow) then
+    if (self % Gtop > self % Glow) then
       call fatalError(Here,'Gtop='// numToChar(self % Gtop) //' is larger then Glow=' // numToChar(self % Glow))
     end if
 
@@ -219,7 +219,7 @@ contains
     self % Emax = Emax
 
     ! Verify bounds
-    if( self % Emax <= self % Emin) then
+    if (self % Emax <= self % Emin) then
       call fatalError(Here,'Emin='// numToChar(self % Emin) //' is larger or equal to Emax=' // numToChar(self % Emax))
     end if
 

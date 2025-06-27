@@ -49,7 +49,7 @@ function( ADD_PFUNIT_SOURCES out_var )
 
       # create the output directory if it doesn't exist
       get_filename_component( dir "${out_file}" PATH )
-      if( NOT IS_DIRECTORY "${dir}" )
+      if (NOT IS_DIRECTORY "${dir}" )
         file( MAKE_DIRECTORY "${dir}" )
       endif( NOT IS_DIRECTORY "${dir}" )
 

@@ -13,8 +13,8 @@ module outputFile_class
   implicit none
   private
 
-  character(*),parameter :: DEF_REAL_FORMAT = '(ES12.5)'
-  character(*),parameter :: DEF_INT_FORMAT  = '(I12)'
+  character(*), parameter :: DEF_REAL_FORMAT = '(ES12.5)'
+  character(*), parameter :: DEF_INT_FORMAT  = '(I12)'
 
   integer(shortInt), parameter :: NOT_ARRAY      = 0, &
                                   UNDEF_ARRAY    = 1, &
@@ -144,7 +144,7 @@ module outputFile_class
     type(stackChar)    :: block_name_stack
 
     ! Buffers
-    integer(shortInt),dimension(:), allocatable :: shapeBuffer
+    integer(shortInt), dimension(:), allocatable :: shapeBuffer
     type(charMapStack)                          :: usedNames
 
     ! Formats
@@ -180,22 +180,22 @@ module outputFile_class
                               addValue_char_scalar, addValue_char_rank1
 
     ! Private procedures to write single entry
-    procedure,private :: printValue_defReal
-    procedure,private :: printValue_shortInt
-    procedure,private :: printValue_longInt
-    procedure,private :: printValue_char
+    procedure, private :: printValue_defReal
+    procedure, private :: printValue_shortInt
+    procedure, private :: printValue_longInt
+    procedure, private :: printValue_char
 
     ! Private array writing procedures
-    procedure,private :: addResult_scalar
-    procedure,private :: addResult_rank1
-    procedure,private :: addValue_defReal_scalar
-    procedure,private :: addValue_defReal_rank1
-    procedure,private :: addValue_shortInt_scalar
-    procedure,private :: addValue_shortInt_rank1
-    procedure,private :: addValue_longInt_scalar
-    procedure,private :: addValue_longInt_rank1
-    procedure,private :: addValue_char_scalar
-    procedure,private :: addValue_char_rank1
+    procedure, private :: addResult_scalar
+    procedure, private :: addResult_rank1
+    procedure, private :: addValue_defReal_scalar
+    procedure, private :: addValue_defReal_rank1
+    procedure, private :: addValue_shortInt_scalar
+    procedure, private :: addValue_shortInt_rank1
+    procedure, private :: addValue_longInt_scalar
+    procedure, private :: addValue_longInt_rank1
+    procedure, private :: addValue_char_scalar
+    procedure, private :: addValue_char_rank1
 
     ! Function to print numbers using format set in the given  output_file
     generic :: num2Char => num2Char_defReal, num2Char_shortInt, num2Char_longInt
@@ -220,7 +220,7 @@ contains
   subroutine init(self, type, fatalErrors, filename)
     class(outputFile), intent(inout)      :: self
     character(*), intent(in)              :: type
-    logical(defBool), optional,intent(in) :: fatalErrors
+    logical(defBool), optional, intent(in) :: fatalErrors
     character(*), optional, intent(in)    :: filename
     integer(shortInt)                     :: error
     character(99)                         :: errorMsg
@@ -266,7 +266,7 @@ contains
     call self % usedNames % push()
 
     ! Change fatalErrors setting
-    if(present(fatalErrors)) then
+    if (present(fatalErrors)) then
       self % fatalErrors = fatalErrors
     end if
 
@@ -349,7 +349,7 @@ contains
     character(*), intent(in)         :: where
     character(*), intent(in)         :: what
 
-    if(self % fatalErrors) then ! Kill ran with fatalError
+    if (self % fatalErrors) then ! Kill ran with fatalError
       call fatalError(where, what)
 
     else ! Set noErrors to false and log error
@@ -409,7 +409,7 @@ contains
   !!
   function getErrorLog(self) result(errorLog)
     class(outputFile), intent(in) :: self
-    character(:),allocatable      :: errorLog
+    character(:), allocatable      :: errorLog
 
     errorLog = self % errorLog % expose()
 
@@ -439,7 +439,7 @@ contains
     call self % usedNames % add(name, self % blockLevel)
 
     ! Check that currently is not writing array
-    if ( self % arrayType /= NOT_ARRAY) then
+    if (self % arrayType /= NOT_ARRAY) then
       call self % logError(Here,'In block: '// self % current_block_name // &
                                 ' Cannot begin new block: '//name//          &
                                 ' Because is writing array: '// self % current_array_name)
@@ -471,17 +471,17 @@ contains
     character(100), parameter :: Here ='endBlock (outputFile_class.f90)'
 
     ! Check that currently is not writing array
-    if ( self % arrayType /= NOT_ARRAY) then
+    if (self % arrayType /= NOT_ARRAY) then
       call self % logError(Here,'In block: '// self % current_block_name // &
                                 ' Cannot exit from block: '//                &
                                 ' Because is writing array: '// self % current_array_name)
     end if
 
     ! Check that is not in root block
-    if ( self % blockLevel == 0 ) call self % logError(Here,'Trying to exit from root block')
+    if (self % blockLevel == 0 ) call self % logError(Here,'Trying to exit from root block')
 
     ! Update state. Protect against blockLevel == 0
-    if ( self % blockLevel > 0) then
+    if (self % blockLevel > 0) then
       self % blockLevel = self % blockLevel - 1
       call self % block_name_stack % pop( self % current_block_name)
     end if
@@ -512,7 +512,7 @@ contains
   subroutine startArray(self, name, shape)
     class(outputFile), intent(inout) :: self
     character(nameLen), intent(in)   :: name
-    integer(shortInt),dimension(:)   :: shape
+    integer(shortInt), dimension(:)   :: shape
     character(100), parameter :: Here ='startArray (outputFile_class.f90)'
 
     ! Check that name is unique in current block
@@ -522,7 +522,7 @@ contains
     call self % usedNames % add(name, self % blockLevel)
 
     ! Check that currently is not writing array
-    if ( self % arrayType /= NOT_ARRAY) then
+    if (self % arrayType /= NOT_ARRAY) then
       call self % logError(Here,'In block: '// self % current_block_name // &
                                 ' Cannot start new array: '//name//          &
                                 ' Because is writing array: '// self % current_array_name)
@@ -562,10 +562,10 @@ contains
   !!
   subroutine endArray(self)
     class(outputFile), intent(inout) :: self
-    character(100), parameter :: Here = 'endArray ( outputFile_class.f90)'
+    character(*), parameter :: Here = 'endArray ( outputFile_class.f90)'
 
     ! Check that all entries for current array were given
-    if(self % arrayTop /= self % arrayLimit) then
+    if (self % arrayTop /= self % arrayLimit) then
       call self % logError(Here, 'Cannot close array: ' // trim(self % current_array_name) // &
                                  ' in block: ' // trim(self % current_block_name)         //  &
                                  ' Because only: '// numToChar(self % arrayTop)          //   &
@@ -602,10 +602,10 @@ contains
     class(outputFile), intent(inout) :: self
     real(defReal), intent(in)        :: val
     real(defReal), intent(in)        :: std
-    character(100),parameter :: Here ='addResult_scalar (outputFile_class.f90)'
+    character(100), parameter :: Here ='addResult_scalar (outputFile_class.f90)'
 
     ! Check is array is undefined
-    if( self % arrayType == UNDEF_ARRAY) then
+    if (self % arrayType == UNDEF_ARRAY) then
       ! Update state
       self % arrayType = RES_ARRAY
       self % arrayTop  = 0
@@ -616,9 +616,9 @@ contains
     end if
 
     ! Check for writing into non-existant array, array of mixed elements or array overflow
-    if ( self % arrayType == NOT_ARRAY) call self % logError(Here,'Trying to add result without starting array')
-    if ( self % arrayType /= RES_ARRAY) call self % logError(Here,'Arrays with mixed content are not allowed')
-    if ( self % arrayTop + 2 > self % arrayLimit) then
+    if (self % arrayType == NOT_ARRAY) call self % logError(Here,'Trying to add result without starting array')
+    if (self % arrayType /= RES_ARRAY) call self % logError(Here,'Arrays with mixed content are not allowed')
+    if (self % arrayTop + 2 > self % arrayLimit) then
       call self % logError(Here,'Array overflow. To many elements were provided')
     end if
 
@@ -649,7 +649,7 @@ contains
     real(defReal), dimension(:), intent(in)  :: val
     real(defReal), dimension(:), intent(in)  :: std
     integer(shortInt)                        :: N, i
-    character(100),parameter :: Here ='addResult_rank1 (outputFile_class.f90)'
+    character(100), parameter :: Here ='addResult_rank1 (outputFile_class.f90)'
 
     N = size(val)
     if (N /= size(std)) call self % logError(Here, 'val and std have different size.')
@@ -676,10 +676,10 @@ contains
   !!
   subroutine printResult(self, val, std, name)
     class(outputFile), intent(inout)  :: self
-    real(defReal),intent(in)          :: val
-    real(defReal),intent(in)          :: std
+    real(defReal), intent(in)          :: val
+    real(defReal), intent(in)          :: std
     character(nameLen), intent(in)    :: name
-    character(100), parameter :: Here = 'printResult (outputFile_class.f90)'
+    character(*), parameter :: Here = 'printResult (outputFile_class.f90)'
 
     ! Check that name is unique in current block
     if (self % usedNames % isPresent(name, self % blockLevel)) call self % logNameReuse(name)
@@ -688,7 +688,7 @@ contains
     call self % usedNames % add(name, self % blockLevel)
 
     ! Check that currently is not writing array
-    if ( self % arrayType /= NOT_ARRAY) then
+    if (self % arrayType /= NOT_ARRAY) then
       call self % logError(Here,'In block: '// self % current_block_name // &
                                 ' Cannot print new entry: '//name//          &
                                 ' Becouse is writing array: '// self % current_array_name)
@@ -719,10 +719,10 @@ contains
   subroutine addValue_defReal_scalar(self, val)
     class(outputFile), intent(inout) :: self
     real(defReal), intent(in)        :: val
-    character(100),parameter :: Here ='addValue_defReal_scalar (outputFile_class.f90)'
+    character(100), parameter :: Here ='addValue_defReal_scalar (outputFile_class.f90)'
 
     ! Check is array is undefined
-    if( self % arrayType == UNDEF_ARRAY) then
+    if (self % arrayType == UNDEF_ARRAY) then
       ! Update state
       self % arrayType = VAL_ARRAY_REAL
       self % arrayTop  = 0
@@ -733,13 +733,13 @@ contains
     end if
 
     ! Check for writing into non-existant array, array of mixed elements or array overflow
-    if ( self % arrayType == NOT_ARRAY) then
+    if (self % arrayType == NOT_ARRAY) then
       call self % logError(Here,'Trying to add result without starting array')
 
-    else if ( self % arrayType /= VAL_ARRAY_REAL) then
+    else if (self % arrayType /= VAL_ARRAY_REAL) then
       call self % logError(Here,'Arrays with mixed content are not allowed')
 
-    else if ( self % arrayTop + 1 > self % arrayLimit) then
+    else if (self % arrayTop + 1 > self % arrayLimit) then
       call self % logError(Here,'Array overflow. To many elements were provided')
 
     end if
@@ -770,7 +770,7 @@ contains
     integer(shortInt)                       ::  i
 
     ! Add all individual entries
-    do i=1,size(val)
+    do i= 1, size(val)
       call self % addValue_defReal_scalar(val(i))
     end do
 
@@ -790,9 +790,9 @@ contains
   !!
   subroutine printValue_defReal(self, val, name)
     class(outputFile), intent(inout)  :: self
-    real(defReal),intent(in)          :: val
+    real(defReal), intent(in)          :: val
     character(nameLen), intent(in)    :: name
-    character(100), parameter :: Here = 'printValue_defReal (outputFile_class.f90)'
+    character(*), parameter :: Here = 'printValue_defReal (outputFile_class.f90)'
 
     ! Check that name is unique in current block
     if (self % usedNames % isPresent(name, self % blockLevel)) call self % logNameReuse(name)
@@ -801,7 +801,7 @@ contains
     call self % usedNames % add(name, self % blockLevel)
 
     ! Check that currently is not writing array
-    if ( self % arrayType /= NOT_ARRAY) then
+    if (self % arrayType /= NOT_ARRAY) then
       call self % logError(Here,'In block: '// self % current_block_name // &
                                ' Cannot print new entry: '//name//          &
                                ' Becouse is writing array: '// self % current_array_name)
@@ -830,7 +830,7 @@ contains
     class(outputFile), intent(inout) :: self
     integer(shortInt), intent(in)    :: val
     integer(longInt)                 :: val_t
-    character(100),parameter :: Here ='addValue_shortInt_scalar (outputFile_class.f90)'
+    character(100), parameter :: Here ='addValue_shortInt_scalar (outputFile_class.f90)'
 
     val_t = val
     call self % addValue_longInt_scalar(val_t)
@@ -855,7 +855,7 @@ contains
     integer(shortInt)                           ::  i
 
     ! Add all individual entries
-    do i=1,size(val)
+    do i= 1, size(val)
       call self % addValue_shortInt_scalar(val(i))
     end do
 
@@ -877,7 +877,7 @@ contains
     class(outputFile), intent(inout)  :: self
     integer(shortInt), intent(in)     :: val
     character(nameLen), intent(in)    :: name
-    character(100), parameter :: Here = 'printValue_shortInt (outputFile_class.f90)'
+    character(*), parameter :: Here = 'printValue_shortInt (outputFile_class.f90)'
 
     ! Check that name is unique in current block
     if (self % usedNames % isPresent(name, self % blockLevel)) call self % logNameReuse(name)
@@ -886,7 +886,7 @@ contains
     call self % usedNames % add(name, self % blockLevel)
 
     ! Check that currently is not writing array
-    if ( self % arrayType /= NOT_ARRAY) then
+    if (self % arrayType /= NOT_ARRAY) then
       call self % logError(Here,'In block: '// self % current_block_name // &
                                 ' Cannot print new entry: '//name//          &
                                 ' Becouse is writing array: '// self % current_array_name)
@@ -914,10 +914,10 @@ contains
   subroutine addValue_longInt_scalar(self, val)
     class(outputFile), intent(inout) :: self
     integer(longInt), intent(in)     :: val
-    character(100),parameter :: Here ='addValue_longInt_scalar (outputFile_class.f90)'
+    character(100), parameter :: Here ='addValue_longInt_scalar (outputFile_class.f90)'
 
     ! Check is array is undefined
-    if( self % arrayType == UNDEF_ARRAY) then
+    if (self % arrayType == UNDEF_ARRAY) then
       ! Update state
       self % arrayType = VAL_ARRAY_INT
       self % arrayTop  = 0
@@ -928,13 +928,13 @@ contains
     end if
 
     ! Check for writing into non-existant array, array of mixed elements or array overflow
-    if ( self % arrayType == NOT_ARRAY) then
+    if (self % arrayType == NOT_ARRAY) then
       call self % logError(Here,'Trying to add result without starting array')
 
-    else if ( self % arrayType /= VAL_ARRAY_INT) then
+    else if (self % arrayType /= VAL_ARRAY_INT) then
       call self % logError(Here,'Arrays with mixed content are not allowed')
 
-    else if ( self % arrayTop + 1 > self % arrayLimit) then
+    else if (self % arrayTop + 1 > self % arrayLimit) then
       call self % logError(Here,'Array overflow. To many elements were provided')
 
     end if
@@ -965,7 +965,7 @@ contains
     integer(shortInt)                           ::  i
 
     ! Add all individual entries
-    do i=1,size(val)
+    do i= 1, size(val)
       call self % addValue_longInt_scalar(val(i))
     end do
 
@@ -987,7 +987,7 @@ contains
     class(outputFile), intent(inout)  :: self
     integer(longInt), intent(in)      :: val
     character(nameLen), intent(in)    :: name
-    character(100), parameter :: Here = 'printValue_longInt (outputFile_class.f90)'
+    character(*), parameter :: Here = 'printValue_longInt (outputFile_class.f90)'
 
     ! Check that name is unique in current block
     if (self % usedNames % isPresent(name, self % blockLevel)) call self % logNameReuse(name)
@@ -996,7 +996,7 @@ contains
     call self % usedNames % add(name, self % blockLevel)
 
     ! Check that currently is not writing array
-    if ( self % arrayType /= NOT_ARRAY) then
+    if (self % arrayType /= NOT_ARRAY) then
       call self % logError(Here,'In block: '// self % current_block_name // &
                                 ' Cannot print new entry: '//name//          &
                                 ' Becouse is writing array: '// self % current_array_name)
@@ -1024,10 +1024,10 @@ contains
   subroutine addValue_char_scalar(self, val)
     class(outputFile), intent(inout) :: self
     character(*), intent(in)         :: val
-    character(100),parameter :: Here ='addValue_char_scalar (outputFile_class.f90)'
+    character(100), parameter :: Here ='addValue_char_scalar (outputFile_class.f90)'
 
     ! Check is array is undefined
-    if( self % arrayType == UNDEF_ARRAY) then
+    if (self % arrayType == UNDEF_ARRAY) then
       ! Update state
       self % arrayType = VAL_ARRAY_CHAR
       self % arrayTop  = 0
@@ -1038,13 +1038,13 @@ contains
     end if
 
     ! Check for writing into non-existant array, array of mixed elements or array overflow
-    if ( self % arrayType == NOT_ARRAY) then
+    if (self % arrayType == NOT_ARRAY) then
       call self % logError(Here,'Trying to add result without starting array')
 
-    else if ( self % arrayType /= VAL_ARRAY_CHAR) then
+    else if (self % arrayType /= VAL_ARRAY_CHAR) then
       call self % logError(Here,'Arrays with mixed content are not allowed')
 
-    else if ( self % arrayTop + 1 > self % arrayLimit) then
+    else if (self % arrayTop + 1 > self % arrayLimit) then
       call self % logError(Here,'Array overflow. To many elements were provided')
 
     end if
@@ -1097,7 +1097,7 @@ contains
     class(outputFile), intent(inout)  :: self
     character(*), intent(in)          :: val
     character(nameLen), intent(in)    :: name
-    character(100), parameter :: Here = 'printValue_char (outputFile_class.f90)'
+    character(*), parameter :: Here = 'printValue_char (outputFile_class.f90)'
 
     ! Check that name is unique in current block
     if (self % usedNames % isPresent(name, self % blockLevel)) call self % logNameReuse(name)
@@ -1106,7 +1106,7 @@ contains
     call self % usedNames % add(name, self % blockLevel)
 
     ! Check that currently is not writing array
-    if ( self % arrayType /= NOT_ARRAY) then
+    if (self % arrayType /= NOT_ARRAY) then
       call self % logError(Here,'In block: '// self % current_block_name // &
                                 ' Cannot print new entry: '//name//          &
                                 ' Becouse is writing array: '// self % current_array_name)
@@ -1291,7 +1291,7 @@ contains
   subroutine kill_charMapStack(self)
     class(charMapStack), intent(inout) :: self
 
-    if(allocated(self % stack)) deallocate(self % stack)
+    if (allocated(self % stack)) deallocate(self % stack)
     self % lvl = 0
 
   end subroutine kill_charMapStack

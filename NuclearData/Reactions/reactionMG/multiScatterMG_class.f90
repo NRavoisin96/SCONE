@@ -53,9 +53,9 @@ module multiScatterMG_class
   !!   superclass!
   !!
   type, public, extends(reactionMG) :: multiScatterMG
-    real(defReal),dimension(:),allocatable    :: scatterXSs
-    real(defReal),dimension(:,:),allocatable  :: P0
-    real(defReal), dimension(:,:),allocatable :: prod
+    real(defReal), dimension(:), allocatable    :: scatterXSs
+    real(defReal), dimension(:,:), allocatable  :: P0
+    real(defReal), dimension(:,:), allocatable :: prod
   contains
     ! Superclass procedures
     procedure :: init
@@ -91,7 +91,7 @@ contains
     class(multiScatterMG), intent(inout) :: self
     class(dataDeck), intent(inout)       :: data
     integer(shortInt), intent(in)        :: MT
-    character(100), parameter :: Here = 'init (multiScatterMG_class.f90)'
+    character(*), parameter :: Here = 'init (multiScatterMG_class.f90)'
 
     ! Select dynamic type of data deck and build
     select type(data)
@@ -111,9 +111,9 @@ contains
     class(multiScatterMG), intent(inout) :: self
 
     ! Clean memory
-    if(allocated(self % scatterXSs)) deallocate(self % scatterXSs)
-    if(allocated(self % P0))         deallocate(self % P0)
-    if(allocated(self % prod))       deallocate(self % prod)
+    if (allocated(self % scatterXSs)) deallocate(self % scatterXSs)
+    if (allocated(self % P0))         deallocate(self % P0)
+    if (allocated(self % prod))       deallocate(self % prod)
 
   end subroutine kill
 
@@ -203,14 +203,14 @@ contains
     integer(shortInt), intent(out) :: G_out
     integer(shortInt), intent(in)  :: G_in
     class(RNG), intent(inout)      :: rand
-    character(100),parameter :: Here = 'sampleOut (multiScatterMG_class.f90)'
+    character(*), parameter :: Here = 'sampleOut (multiScatterMG_class.f90)'
 
     ! Sample G_out
     G_out = self % sampleGout(G_in, rand)
 
     ! Sample deflection
-    mu  = TWO * rand % get() - ONE
-    phi = TWO_PI * rand % get()
+    call rand % generateMu(mu)
+    call rand % generatePhi(phi)
 
   end subroutine sampleOut
 
@@ -232,8 +232,8 @@ contains
     integer(shortInt), intent(in)     :: G_in
     class(RNG), intent(inout)         :: rand
     integer(shortInt)                 :: G_out
-    real(defReal)                     :: rem
-    character(100),parameter :: Here = 'sampleGout (multiScatterMG_class.f90)'
+    real(defReal)                     :: randomNumber
+    character(*), parameter :: Here = 'sampleGout (multiScatterMG_class.f90)'
 
     ! Check range
     if (G_in < 0 .or. G_in > size(self % scatterXSs)) then
@@ -241,10 +241,11 @@ contains
     end if
 
     ! Perform sampling
-    rem = rand % get() * self % scatterXSs(G_in)
+    call rand % generate(randomNumber, mult = self % scatterXSs(G_in))
     do G_out = 1,size(self % scatterXSs)
-      rem = rem - self % P0(G_out, G_in)
-      if(rem < ZERO) return
+      randomNumber = randomNumber - self % P0(G_out, G_in)
+      if (randomNumber < ZERO) return
+
     end do
 
     ! Sampling failed
@@ -269,7 +270,7 @@ contains
     integer(shortInt), intent(in)     :: G
     real(defReal)                     :: xs
 
-    if( G < 0 .or. G > size(self % scatterXSs)) then
+    if (G < 0 .or. G > size(self % scatterXSs)) then
       xs = ZERO
     else
       xs = self % scatterXSs(G)
@@ -297,7 +298,7 @@ contains
     real(defReal)                     :: prod
 
     ! Check range
-    if( min(G_out, G_in) > 0 .and. max(G_out,G_in) <=  size(self % scatterXSs)) then
+    if (min(G_out, G_in) > 0 .and. max(G_out,G_in) <=  size(self % scatterXSs)) then
       prod = self % prod(G_out, G_in)
 
     else
@@ -319,17 +320,17 @@ contains
   subroutine buildFromDict(self, dict)
     class(multiScatterMG), intent(inout)    :: self
     class(dictionary), intent(in)           :: dict
-    real(defReal),dimension(:),allocatable  :: temp
+    real(defReal), dimension(:), allocatable  :: temp
     integer(shortInt)                       :: nG
-    character(100),parameter :: Here = 'buildFromDict (multiScatterMG_class.f90)'
+    character(*), parameter :: Here = 'buildFromDict (multiScatterMG_class.f90)'
 
     ! Read number of groups
     call dict % get(nG,'numberOfGroups')
-    if(nG <= 0) call fatalError(Here, 'Not +ve number of energy groups')
+    if (nG <= 0) call fatalError(Here, 'Not +ve number of energy groups')
 
     ! Read scattering matrix
     call dict % get(temp, 'P0')
-    if( size(temp) /= nG*nG) then
+    if (size(temp) /= nG*nG) then
       call fatalError(Here,'Invalid size of P0. Expected: '//numToChar(nG**2)//&
                            ' got: '//numToChar(size(temp)))
     end if
@@ -337,7 +338,7 @@ contains
 
     ! Read production matrix
     call dict % get(temp, 'scatteringMultiplicity')
-    if( size(temp) /= nG*nG) then
+    if (size(temp) /= nG*nG) then
       call fatalError(Here,'Invalid size of scatteringMultiplicity. Expected: '//numToChar(nG**2)//&
                            ' got: '//numToChar(size(temp)))
     end if

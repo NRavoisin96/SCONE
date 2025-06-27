@@ -129,10 +129,10 @@ contains
     integer(longInt)                           :: seed
     character(10)                              :: time
     character(8)                               :: date
-    character(:),allocatable                   :: string
-    class(dictionary),pointer                  :: tempDict
+    character(:), allocatable                   :: string
+    class(dictionary), pointer                  :: tempDict
     character(nameLen)                         :: geomName
-    character(100), parameter :: Here = 'init (rayVolPhysicsPackage_class.f90)'
+    character(*), parameter :: Here = 'init (rayVolPhysicsPackage_class.f90)'
 
     ! Load settings
     call dict % get(self % mfp, 'mfp')
@@ -155,7 +155,7 @@ contains
     self % timerMain = registerTimer('transportTime')
 
     ! Initialise RNG
-    if( dict % isPresent('seed')) then
+    if (dict % isPresent('seed')) then
       call dict % get(seed_temp,'seed')
 
     else
@@ -217,13 +217,13 @@ contains
     class(rayVolPhysicsPackage), intent(inout) :: self
     class(RNG), intent(inout)                  :: rand
     type(coordList)                     :: coords
-    real(defReal), dimension(3)         :: rand3, bottom, top
+    real(defReal), dimension(3)         :: randomNumbers, bottom, top
     real(defReal), dimension(3)         :: r, u
     real(defReal)                       :: mu, phi
     integer(shortInt)                   :: gen, ray, matIdx, uniqueId, i
     type(RNG), save                     :: pRNG
     real(defReal)                       :: elapsed_T, end_T, T_toEnd, av_speed, cycle_T
-    character(100), parameter :: Here = 'cycles (rayVolPhysicsPackage_class.f90)'
+    character(*), parameter :: Here = 'cycles (rayVolPhysicsPackage_class.f90)'
     !$omp threadprivate(pRNG)
 
     !$omp parallel
@@ -242,7 +242,7 @@ contains
 
     ! Perform clculation
     do gen = 1, self % N_cycles
-      !$omp parallel do private(r, u, mu, phi, i, rand3, matIdx, uniqueID, coords)
+      !$omp parallel do private(r, u, mu, phi, i, randomNumbers, matIdx, uniqueID, coords)
       do ray = 1, self % pop
 
         ! Set seed
@@ -250,15 +250,13 @@ contains
 
         ! Find starting point that is inside the geometry
         i = 0
-        mu = TWO * rand % get() - ONE
-        phi = TWO_PI * rand % get()
+        call rand % generateMu(mu)
+        call rand % generatePhi(phi)
         u = rotateVector([ONE, ZERO, ZERO], mu, phi)
 
         rejection : do
-          rand3(1) = pRNG % get()
-          rand3(2) = pRNG % get()
-          rand3(3) = pRNG % get()
-          r = bottom + (top - bottom) * rand3
+          call rand % generate(randomNumbers)
+          r = bottom + (top - bottom) * randomNumbers
 
           ! Exit if point is inside the geometry
           call self % geom % whatIsAt(matIdx, uniqueId, r, u)
@@ -332,11 +330,11 @@ contains
     class(rayVolPhysicsPackage), intent(inout) :: self
     class(RNG), intent(inout)                  :: rand
     type(coordList), intent(inout)             :: coords
-    real(defReal)                              :: dist, mu, phi, maxDist, rn
+    real(defReal)                              :: distance, mu, phi, maxDist, randomNumber
     real(defReal), dimension(3)                :: r, r_pre, u_pre
     integer(shortInt)                          :: event, matIdx, uniqueId, mat_mid, unique_mid
     type(distCache)                            :: cache_space
-    character(100), parameter :: Here = 'trackRay (rayVolPhysicsPackage_class.f90)'
+    character(*), parameter :: Here = 'trackRay (rayVolPhysicsPackage_class.f90)'
 
     ! Keep compiler happy
     r_pre = ZERO
@@ -345,14 +343,14 @@ contains
 
     hist : do
       ! Sample distance
-      dist = -log(rand % get()) * self % mfp
+      call rand % generateDistance(self % mfp, distance)
 
       event = LOST_EV
       do while (event /= COLL_EV)
         ! Save pre-movement state
         matIdx = coords % getMatIdx()
         uniqueId = coords % getUniqueId()
-        maxDist = dist
+        maxDist = distance
         if (self % robust) then
           r_pre = coords % getPosition(1)
           u_pre = coords % getDirection(1)
@@ -361,16 +359,16 @@ contains
 
         ! Move in geometry
         if (self % cache) then
-          call self % geom % move_withCache(coords, dist, event, cache_space)
+          call self % geom % move_withCache(coords, distance, event, cache_space)
 
         else
-          call self % geom % move(coords, dist, event)
+          call self % geom % move(coords, distance, event)
 
         end if
 
         ! If robust verify matIdx in the mid point
         if (self % robust) then
-          r = r_pre + u_pre * HALF * dist
+          r = r_pre + u_pre * HALF * distance
           call self % geom % whatIsAt(mat_mid, unique_mid, r, u_pre)
 
           if (matIdx /= mat_mid) then
@@ -389,23 +387,23 @@ contains
 
         ! Score result
         !$omp atomic
-        self % totDist = self % totDist + dist
+        self % totDist = self % totDist + distance
         if (matIdx /= VOID_MAT) then
           !$omp atomic
-          self % res(matIdx, SCORE) = self % res(matIdx, SCORE) + dist
+          self % res(matIdx, SCORE) = self % res(matIdx, SCORE) + distance
         end if
 
         ! Set to remaining distance
-        dist = maxDist - dist
+        distance = maxDist - distance
       end do
 
       ! Kill the ray
-      rn = rand % get()
-      if (self % abs_prob > rn .or. coords % getMatIdx() == OUTSIDE_MAT) exit hist
+      call rand % generate(randomNumber)
+      if (randomNumber < self % abs_prob .or. coords % getMatIdx() == OUTSIDE_MAT) exit hist
 
       ! Scatter the ray
-      mu = TWO * rand % get() - ONE
-      phi = TWO_PI * rand % get()
+      call rand % generateMu(mu)
+      call rand % generatePhi(phi)
       call coords % rotate(mu, phi)
 
     end do hist
@@ -457,7 +455,7 @@ contains
     print *, "/\/\ RAY-TRACING RELATIVE VOLUME CALCULATION /\/\"
     print *, "Total Cycles:    ", numToChar(self % N_cycles)
     print *, "Rays per cycle: ", numToChar(self % pop)
-    print *, "Initial RNG Seed:   ", numToChar(self % rand % getSeed())
+    print *, "Initial RNG Seed:   ", numToChar(self % rand % getInitialSeed())
     print *
     print *, repeat("<>", MAX_COL/2)
 

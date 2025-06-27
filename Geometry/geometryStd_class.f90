@@ -173,7 +173,7 @@ contains
 
     ! Change infinite dimensions to ZERO
     do i = 1, 3
-      if(bounds(i) <= -INF .and. bounds(i + 3) >= INF) then
+      if (bounds(i) <= -INF .and. bounds(i + 3) >= INF) then
         bounds(i) = ZERO
         bounds(i + 3) = ZERO
       end if

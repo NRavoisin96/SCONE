@@ -33,7 +33,7 @@ module tallyResult_class
   !!
   !! var = tallyResultScalar(name, value, STD)
   !!
-  type,public, extends(tallyResult) :: tallyResultScalar
+  type, public, extends(tallyResult) :: tallyResultScalar
     character(nameLen) :: clerkName
     real(defReal)      :: value
     real(defReal)      :: STD
@@ -42,7 +42,7 @@ module tallyResult_class
   !!
   !! Class that is returned when there is no defined result
   !!
-  type,public,extends(tallyResult) :: tallyResultEmpty
+  type, public, extends(tallyResult) :: tallyResultEmpty
 
   end type tallyResultEmpty
 

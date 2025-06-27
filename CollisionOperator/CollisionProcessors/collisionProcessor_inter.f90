@@ -97,8 +97,8 @@ module collisionProcessor_inter
       class(particle), intent(inout)           :: p
       type(tallyAdmin), intent(inout)          :: tally
       type(collisionData), intent(inout)       :: collDat
-      class(particleDungeon),intent(inout)     :: thisCycle
-      class(particleDungeon),intent(inout)     :: nextCycle
+      class(particleDungeon), intent(inout)     :: thisCycle
+      class(particleDungeon), intent(inout)     :: nextCycle
     end subroutine collisionAction
   end interface
 
@@ -111,12 +111,12 @@ contains
     class(collisionProcessor), intent(inout) :: self
     class(particle), intent(inout)           :: p
     type(tallyAdmin), intent(inout)          :: tally
-    class(particleDungeon),intent(inout)     :: thisCycle
-    class(particleDungeon),intent(inout)     :: nextCycle
+    class(particleDungeon), intent(inout)     :: thisCycle
+    class(particleDungeon), intent(inout)     :: nextCycle
     type(collisionData)                      :: collDat
     logical(defBool)                         :: virtual
     integer(shortInt)                        :: addCollision
-    character(100),parameter                 :: Here = 'collide (collisionProcessor.f90)'
+    character(100), parameter                 :: Here = 'collide (collisionProcessor.f90)'
 
     ! Load material index into data package
     collDat % matIdx = p % getMatIdx()

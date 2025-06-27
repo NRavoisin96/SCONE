@@ -25,9 +25,9 @@ module equiBin32Mu_class
   !! Class that stores PDF of mu in 32 equiprobable bins.
   !! Extends muEndfPdf abstract interface
   !!
-  type, public,extends(muEndfPdf) :: equiBin32Mu
+  type, public, extends(muEndfPdf) :: equiBin32Mu
     private
-    real(defReal),dimension(33) :: boundaries = ZERO
+    real(defReal), dimension(33) :: boundaries = ZERO
   contains
     ! Superclass procedures
     procedure :: sample
@@ -48,14 +48,15 @@ contains
     class(RNG), intent(inout)       :: rand
     real(defReal)                   :: mu
     integer(shortInt)               :: bin
-    real(defReal)                   :: f
+    real(defReal)                   :: randomNumber
 
     ! Sample bin
-    bin = floor(32 * rand % get())
+    call rand % generate(randomNumber)
+    bin = floor(32 * randomNumber)
 
     ! Sample angle within bin
-    f = rand % get()
-    mu = (ONE-f)*self % boundaries(bin) + f* self% boundaries(bin+1)
+    call rand % generate(randomNumber)
+    mu = (ONE - randomNumber) * self % boundaries(bin) + randomNumber * self% boundaries(bin + 1)
 
   end function sample
 
@@ -68,7 +69,7 @@ contains
     real(defReal)                   :: prob
     integer(shortInt)               :: idx
     real(defReal)                   :: binWidth
-    character(100),parameter        :: Here='probabilityOf (equiBin32Mu_class.f90)'
+    character(100), parameter        :: Here='probabilityOf (equiBin32Mu_class.f90)'
 
     ! Find bin location
     idx = linSearch(self % boundaries, mu)
@@ -99,10 +100,10 @@ contains
   subroutine build(self,boundaries)
     class(equiBin32Mu), intent(inout)        :: self
     real(defReal), dimension(33), intent(in) :: boundaries
-    character(100),parameter                 :: Here='init (equiBin32Mu_class.f90)'
+    character(100), parameter                 :: Here='init (equiBin32Mu_class.f90)'
 
     ! Check if the first element of the bin corresponds to -1 and last to 1
-    if ( (boundaries(1) /= -1.0_defReal) .or. (boundaries(33) /= 1.0_defReal)) then
+    if ((boundaries(1) /= -1.0_defReal) .or. (boundaries(33) /= 1.0_defReal)) then
 
        call fatalError(Here, 'Provided bin boundaries do not begin with -1 and end with 1')
 
@@ -116,7 +117,7 @@ contains
   !! Constructor from array of bin boundaries
   !!
   function new_equiBin32Mu(boundaries) result(new)
-    real(defReal),dimension(33), intent(in) :: boundaries
+    real(defReal), dimension(33), intent(in) :: boundaries
     type(equiBin32Mu)                       :: new
 
     ! Allocate space and call initialisation procedure
@@ -131,7 +132,7 @@ contains
   function new_equiBin32Mu_fromACE(ACE) result(new)
     type(aceCard), intent(inout) :: ACE
     type(equiBin32Mu)            :: new
-    real(defReal),dimension(33)  :: boundaries
+    real(defReal), dimension(33)  :: boundaries
 
     ! Read Boundaries from ACE library
     boundaries = ACE % readRealArray(33)

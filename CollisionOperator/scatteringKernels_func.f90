@@ -105,10 +105,10 @@ contains
     real(defReal), intent(in)               :: kT
     class(RNG), intent(inout)               :: rand
     logical(defBool)                        :: accept
-    real(defReal),dimension(3)              :: V_t
+    real(defReal), dimension(3)              :: V_t
     real(defReal)                           :: alpha, mu, phi
     real(defReal)                           :: X, Y
-    real(defReal)                           :: rel_v, r1
+    real(defReal)                           :: rel_v
 
     ! Calculate neutron Y = beta *V_n
     ! beta = sqrt(A*Mn/2kT). Note velocity scaling by sqrt(Mn/2).
@@ -128,8 +128,7 @@ contains
     end do rejectionLoop
 
     ! Calculate azimuthal angle for target and obtain target direction
-    r1 = rand % get()
-    phi = TWO * PI * r1
+    call rand % generatePhi(phi)
 
     V_t = rotateVector(dir, mu, phi)
 
@@ -154,10 +153,10 @@ contains
     real(defReal), intent(in)               :: tempMaj
     class(RNG), intent(inout)               :: rand
     logical(defBool)                        :: accept
-    real(defReal),dimension(3)              :: V_t
+    real(defReal), dimension(3)              :: V_t
     real(defReal)                           :: alpha, mu, phi, DBRC_acc
     real(defReal)                           :: X, Y
-    real(defReal)                           :: r1, r2
+    real(defReal)                           :: randomNumber
     real(defReal)                           :: rel_v, rel_E, xs_rel_v
 
     ! Calculate neutron Y = beta *V_n
@@ -184,18 +183,15 @@ contains
 
       ! Introduce DBRC acceptance condition
       DBRC_acc = (xs_rel_v / tempMaj)
-      r1 = rand % get()
 
       ! Accept or reject with DBRC
-      if (DBRC_acc > r1) then
-        exit rejectionLoop
-      end if
+      call rand % generate(randomNumber)
+      if (randomNumber < DBRC_acc) exit rejectionLoop
 
     end do rejectionLoop
 
     ! Calculate azimuthal angle for target and obtain target direction
-    r2 = rand % get()
-    phi = 2.0 * PI * r2
+    call rand % generatePhi(phi)
 
     V_t = rotateVector(dir, mu, phi)
 
@@ -279,15 +275,13 @@ contains
   !! Then uses method based on Johnk's theorem and sum of Gamma distributed random variables
   !!
   function sample_x2expx2(rand) result(sample)
-    class(RNG), intent(inout) :: rand
-    real(defReal)             :: sample
-    real(defReal)             :: r1, r2, r3
-    real(defReal)             :: beta, gamma05, cosine
+    class(RNG), intent(inout)   :: rand
+    real(defReal)               :: sample
+    real(defReal)               :: beta, gamma05, cosine
+    real(defReal), dimension(3) :: randomNumbers
 
     ! Obtain all random numbers
-    r1 = rand % get()
-    r2 = rand % get()
-    r3 = rand % get()
+    call rand % generate(randomNumbers)
 
     ! Define B(a,b) as a RANDOM VARIABLE governed by beta(a,b) distribution
     ! Similarly define G(a,b) as a RANDOM VARIABLE governed by gamma(a,b) distribution
@@ -295,18 +289,15 @@ contains
 
     ! Obtain sample of B(0.5,0.5) distribution based on Johnk's Theorem. Sample of cosine
     ! instead of using rejection scheme
-    cosine = cos(0.5*PI*r1)
+    cosine = cos(HALF * PI * randomNumbers(1))
     beta = cosine * cosine
 
     ! Obtain sample of G(0.5,1) using the fact that G(0.5,1) = B(0.5,0.5) * G(1,1)
     ! G(1,1) is just exponential distribution
-    gamma05 = -log(r2) * beta
+    gamma05 = -log(randomNumbers(2)) * beta
 
     ! Obtain sample of G(3/2,1) using the facte that G(3/2,1) = G(0.5,1) + G(1,1)
-    sample = -log(r3) + gamma05
-
-    ! Change variables back to x from y=x^2
-    sample = sqrt(sample)
+    sample = sqrt(gamma05 - log(randomNumbers(3)))
 
   end function sample_x2expx2
 
@@ -317,19 +308,15 @@ contains
   !! Sampling Gamma(2,1) is trivial using sum of Gamma distributed random variables
   !!
   function sample_x3expx2(rand) result(sample)
-    class(RNG), intent(inout) :: rand
-    real(defReal)             :: sample
-    real(defReal)             :: r1, r2
+    class(RNG), intent(inout)   :: rand
+    real(defReal)               :: sample
+    real(defReal), dimension(2) :: randomNumbers
 
     ! Obtain random numbers
-    r1 = rand % get()
-    r2 = rand % get()
+    call rand % generate(randomNumbers)
 
     ! Sample Gamma(2,1) by summing two samples of Gamma(1,1) [exponential distribution]
-    sample = -log(r1) - log(r2)
-
-    ! Change variables back to x
-    sample = sqrt(sample)
+    sample = sqrt(-log(product(randomNumbers)))
 
   end function sample_x3expx2
 
@@ -348,23 +335,24 @@ contains
     class(RNG), intent(inout)     :: rand
     real(defReal), intent(in)     :: Y
     real(defReal), intent(in)     :: alpha
-    real(defReal)                 :: r1, r2, r3, P_acc
+    real(defReal)                 :: P_acc
+    real(defReal), dimension(3)   :: randomNumbers
 
     ! Obtain random numbers
-    r1 = rand % get()
-    r2 = rand % get()
-    r3 = rand % get()
+    call rand % generate(randomNumbers)
 
     ! Sample X = beta * V_t
     ! Uses helper functions below
-    if ( r1 > alpha ) then
+    if (alpha < randomNumbers(1)) then
       X = sample_x2expx2(rand)
+
     else
       X = sample_x3expx2(rand)
+
     end if
 
     ! Sample polar angle of target velocity wrt. neutron direction
-    mu = TWO * r2 - ONE;
+    mu = TWO * randomNumbers(2) - ONE;
 
     ! Calculate relative velocity between neutron and target
     rel_v = sqrt(Y * Y + X * X - TWO * X * Y * mu)
@@ -373,7 +361,7 @@ contains
     P_acc = rel_v / (Y + X)
 
     ! Verify acceptance condition
-    accept = P_acc > r3
+    accept = randomNumbers(3) < P_acc
 
   end subroutine sample_targetVelocity
 

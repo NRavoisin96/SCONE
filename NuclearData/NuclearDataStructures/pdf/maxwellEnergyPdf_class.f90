@@ -22,8 +22,8 @@ module maxwellEnergyPdf_class
     generic   :: probabilityOf => probabilityOf_full ,&
                                   probabilityOf_withC
 
-    procedure,private :: probabilityOf_full
-    procedure,private :: probabilityOf_withC
+    procedure, private :: probabilityOf_full
+    procedure, private :: probabilityOf_withC
 
   end type maxwellEnergyPdf
 
@@ -35,16 +35,14 @@ contains
   !!
   function sample_Johnk(self,kT,rand) result (E)
     class(maxwellEnergyPdf), intent(in) :: self
-    real(defReal),intent(in)            :: kT
+    real(defReal), intent(in)            :: kT
     class(RNG), intent(inout)           :: rand
     real(defReal)                       :: E
-    real(defReal)                       :: r1, r2, r3
     real(defReal)                       :: beta, gamma05, cosine
+    real(defReal), dimension(3)         :: randomNumbers
 
     ! Obtain all random numbers
-    r1 = rand % get()
-    r2 = rand % get()
-    r3 = rand % get()
+    call rand % generate(randomNumbers)
 
     ! Define B(a,b) as a RANDOM VARIABLE governed by beta(a,b) distribution
     ! Similarly define G(a,b) as a RANDOM VARIABLE governed by gamma(a,b) distribution
@@ -53,17 +51,17 @@ contains
     ! Obtain sample of B(0.5,0.5) distribution based on Johnk's Theorem. Sample of cosine
     ! instead of using rejection scheme
 
-    cosine = cos(0.5*PI*r1)
+    cosine = cos(HALF * PI * randomNumbers(1))
     beta = cosine * cosine
 
     ! Obtain sample of G(0.5,1) using the fact that G(0.5,1) = B(0.5,0.5) * G(1,1)
     ! G(1,1) is just exponential distribution
 
-    gamma05 = -log(r2) * beta
+    gamma05 = -log(randomNumbers(2)) * beta
 
     ! Obtain sample of G(3/2,1) using the facte that G(3/2,1) = G(0.5,1) + G(1,1)
 
-    E = (-log(r3) + gamma05) * kT
+    E = (gamma05 - log(randomNumbers(3))) * kT
 
   end function sample_Johnk
 

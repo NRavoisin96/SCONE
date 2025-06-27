@@ -263,7 +263,7 @@ contains
     end if
 
     nBCs = size(BCs)
-    if(nBCs < nRequired) call fatalError(Here, &
+    if (nBCs < nRequired) call fatalError(Here, &
     'Boundary conditions must have size '//numToChar(nRequired)//'. Has: '//numToChar(nBCs)//'.')
 
     ! Verify BC flags.

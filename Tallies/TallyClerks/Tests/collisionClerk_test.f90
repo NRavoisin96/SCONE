@@ -76,12 +76,12 @@ contains
 
     ! Determine number of bins
     Nbins = 1
-    if(tst % has2Res) Nbins = Nbins * 2
-    if(tst % hasMap)  Nbins = Nbins * 7
+    if (tst % has2Res) Nbins = Nbins * 2
+    if (tst % hasMap)  Nbins = Nbins * 7
 
     ! Allocate result arrays
-    tst % bins    = [(int(i,longInt), i=1,Nbins)]
-    tst % results = [(ZERO, i=1,Nbins)]
+    tst % bins    = [(int(i,longInt), i= 1, Nbins)]
+    tst % results = [(ZERO, i= 1, Nbins)]
 
     ! Set appropriate results (wgt * 1/totXs)
     score1 = 0.7_defReal / 0.3_defReal
@@ -132,7 +132,7 @@ contains
   subroutine testScoring(this)
     class(test_collisionClerk), intent(inout) :: this
     logical(defBool)                          :: hasFilter, hasMap, has2Res
-    character(:),allocatable                  :: case
+    character(:), allocatable                  :: case
     type(collisionClerk)                      :: clerk
     type(scoreMemory)                         :: mem
     type(particle)                            :: p
@@ -151,9 +151,9 @@ contains
 
     ! Build case description
     case = 'Vanilla case with: '
-    if(hasFilter) case = case // ' Filter '
-    if(hasMap)    case = case // ' Map '
-    if(has2Res)   case = case // ' 2nd Response '
+    if (hasFilter) case = case // ' Filter '
+    if (hasMap)    case = case // ' Map '
+    if (has2Res)   case = case // ' 2nd Response '
 
     ! Define filter dictionary
     call filterDict % init(3)
@@ -185,11 +185,11 @@ contains
     call clerkDict % store(res2Name, res2Dict)
 
     ! Store filter or map
-    if(hasFilter) call clerkDict % store('filter', filterDict)
-    if(hasMap)    call clerkDict % store('map', mapDict)
+    if (hasFilter) call clerkDict % store('filter', filterDict)
+    if (hasMap)    call clerkDict % store('map', mapDict)
 
     ! Store responses used
-    if(has2Res) then
+    if (has2Res) then
       call clerkDict % store('response', [res1Name, res2Name])
     else
       call clerkDict % store('response', [res1Name])
@@ -222,7 +222,7 @@ contains
     call mem % closeCycle(ONE)
 
     ! Verify results of scoring
-    do i=1,size(this % bins)
+    do i= 1, size(this % bins)
       call mem % getResult(res, this % bins(i))
       @assertEqual(this % results(i), res, TOL, case // 'BIN : ' //numToChar(i) )
     end do
@@ -250,7 +250,7 @@ contains
   subroutine testScoringVirtual(this)
     class(test_collisionClerk), intent(inout) :: this
     logical(defBool)                          :: hasFilter, hasMap, has2Res
-    character(:),allocatable                  :: case
+    character(:), allocatable                  :: case
     type(collisionClerk)                      :: clerk
     type(scoreMemory)                         :: mem
     type(particle)                            :: p
@@ -269,9 +269,9 @@ contains
 
     ! Build case description
     case = 'Vanilla case with: '
-    if(hasFilter) case = case // ' Filter '
-    if(hasMap)    case = case // ' Map '
-    if(has2Res)   case = case // ' 2nd Response '
+    if (hasFilter) case = case // ' Filter '
+    if (hasMap)    case = case // ' Map '
+    if (has2Res)   case = case // ' 2nd Response '
 
     ! Define filter dictionary
     call filterDict % init(3)
@@ -302,11 +302,11 @@ contains
     call clerkDict % store(res2Name, res2Dict)
 
     ! Store filter or map
-    if(hasFilter) call clerkDict % store('filter', filterDict)
-    if(hasMap)    call clerkDict % store('map', mapDict)
+    if (hasFilter) call clerkDict % store('filter', filterDict)
+    if (hasMap)    call clerkDict % store('map', mapDict)
 
     ! Store responses used
-    if(has2Res) then
+    if (has2Res) then
       call clerkDict % store('response', [res1Name, res2Name])
     else
       call clerkDict % store('response', [res1Name])
@@ -341,7 +341,7 @@ contains
     call mem % closeCycle(ONE)
 
     ! Verify results of scoring
-    do i=1,size(this % bins)
+    do i= 1, size(this % bins)
       call mem % getResult(res, this % bins(i))
       @assertEqual(this % results(i), res, TOL, case // 'BIN : ' //numToChar(i) )
     end do

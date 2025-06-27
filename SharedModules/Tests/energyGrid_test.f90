@@ -128,7 +128,7 @@ contains
 @Test
   subroutine testBinLin(this)
     class(test_energyGrid), intent(inout) :: this
-    real(defReal),parameter :: TOL =1.0E-9
+    real(defReal), parameter :: TOL =1.0E-9
 
     ! Valid Bins
     @assertEqual(20.0_defReal, this % linGrid % bin(1), TOL * 20.0_defReal)
@@ -147,7 +147,7 @@ contains
 @Test
   subroutine testBinLog(this)
     class(test_energyGrid), intent(inout) :: this
-    real(defReal),parameter :: TOL =1.0E-9
+    real(defReal), parameter :: TOL =1.0E-9
 
     ! Valid bins
     @assertEqual(1.0_defReal, this % logGrid % bin(1), TOL * 1.0_defReal)
@@ -167,7 +167,7 @@ contains
 @Test
   subroutine testBinUnstruct(this)
     class(test_energyGrid), intent(inout) :: this
-    real(defReal),parameter :: TOL =1.0E-9
+    real(defReal), parameter :: TOL =1.0E-9
 
     ! Valid bins
     @assertEqual(10.00000_defReal, this % unstructGrid % bin(1), TOL * 10.00000_defReal)

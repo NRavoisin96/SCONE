@@ -159,7 +159,7 @@ contains
     do i = 1, nRadiiSquared
       ! Retrieve surface tolerance of current cylinder and check if particle is inside it.
       surfTol = mul * self % annuli(i) % getSurfTol()
-      if(rPlanesSquared < self % radiiSquared(i) + surfTol) then
+      if (rPlanesSquared < self % radiiSquared(i) + surfTol) then
         call coords % setLocalId(i)
         return
 
@@ -275,8 +275,8 @@ contains
     call kill_super(self)
 
     ! Kill local
-    if(allocated(self % radiiSquared)) deallocate(self % radiiSquared)
-    if(allocated(self % annuli)) deallocate(self % annuli)
+    if (allocated(self % radiiSquared)) deallocate(self % radiiSquared)
+    if (allocated(self % annuli)) deallocate(self % annuli)
 
   end subroutine kill
 

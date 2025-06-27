@@ -57,7 +57,7 @@ module energyMap_class
   !!     name wims69;
   !!   }
   !!
-  type, public,extends(tallyMap1D) :: energyMap
+  type, public, extends(tallyMap1D) :: energyMap
     private
     type(grid)        :: binBounds
     integer(shortInt) :: N = 0
@@ -114,7 +114,7 @@ contains
     class(energyMap), intent(inout) :: self
     real(defReal), intent(in)       :: mini
     real(defReal), intent(in)       :: maxi
-    integer(shortInt),intent(in)    :: N
+    integer(shortInt), intent(in)    :: N
     character(nameLen), intent(in)  :: type
 
     self % N = N
@@ -135,10 +135,10 @@ contains
   subroutine build_predef(self, name)
     class(energyMap), intent(inout)        :: self
     character(nameLen), intent(in)         :: name
-    real(defReal),dimension(:),allocatable :: bins
+    real(defReal), dimension(:), allocatable :: bins
     integer(shortInt)                      :: i, j, N
     real(defReal)                          :: temp
-    character(100), parameter :: Here = 'build_predef (energyMap_class.f90)'
+    character(*), parameter :: Here = 'build_predef (energyMap_class.f90)'
 
     select case(name)
       case('wims69')
@@ -193,12 +193,12 @@ contains
     class(dictionary), intent(in)          :: dict
     character(nameLen)                     :: str, type
     real(defReal)                          :: mini, maxi
-    real(defReal),dimension(:),allocatable :: bins
+    real(defReal), dimension(:), allocatable :: bins
     integer(shortInt)                      :: N
     character(nameLen)                     :: name
     character(100), parameter     :: Here = 'init (energyMap_class.f90)'
 
-    if(.not.dict % isPresent('grid')) call fatalError(Here,"Keyword 'grid' must be present")
+    if (.not.dict % isPresent('grid')) call fatalError(Here,"Keyword 'grid' must be present")
 
     ! Read grid definition keyword
     call dict % get(str,'grid')
@@ -279,7 +279,7 @@ contains
     integer(shortInt)                :: idx
 
     ! Catch MG particle
-    if( state % isMG) then
+    if (state % isMG) then
       idx = 0
       return
     end if
@@ -318,12 +318,12 @@ contains
     name = trim(self % getAxisName()) //'Bounds'
 
     call out % startArray(name,[self % N,2])
-    do i=1,self % N
+    do i= 1, self % N
       ! Print lower bin boundary
       call out % addValue(self % binBounds % bin(i))
     end do
 
-    do i=1,self % N
+    do i= 1, self % N
       ! Print upper bin boundar
       call out % addValue(self % binBounds % bin(i+1))
     end do

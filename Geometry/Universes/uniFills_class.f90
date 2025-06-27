@@ -92,7 +92,7 @@ contains
   subroutine init(self, N)
     class(uniFills), intent(inout) :: self
     integer(shortInt), intent(in)  :: N
-    character(100), parameter :: Here = 'init (uniFills_class.f90)'
+    character(*), parameter :: Here = 'init (uniFills_class.f90)'
 
     if (N <= 0) call fatalError(Here, 'Given not +ve number of universes: '//numToChar(N))
     allocate(self % uni(N))
@@ -116,7 +116,7 @@ contains
     integer(shortInt), intent(in)                               :: id
     integer(shortInt), dimension(:), allocatable, intent(inout) :: fill
     integer(shortInt) :: top
-    character(100), parameter :: Here = 'addUniverse (uniFills_class.f90)'
+    character(*), parameter :: Here = 'addUniverse (uniFills_class.f90)'
 
     ! Get top
     if (allocated(self % uni)) then
@@ -160,7 +160,7 @@ contains
     class(uniFills), intent(inout) :: self
     type(intMap), intent(in)       :: map
     integer(shortInt)              :: i, j, uniIdx
-    character(100), parameter :: Here = 'finishBuild (uniFills_class.f90)'
+    character(*), parameter :: Here = 'finishBuild (uniFills_class.f90)'
 
     ! Check for gaps
     do i = 1, size(self % uni)
@@ -197,7 +197,7 @@ contains
     class(uniFills), intent(inout) :: self
     integer(shortInt), intent(in)  :: idx
     integer(shortInt) :: top
-    character(100), parameter :: Here = 'setRoot (uniFills_class.f90)'
+    character(*), parameter :: Here = 'setRoot (uniFills_class.f90)'
 
     ! Get top
     if (allocated(self % uni)) then
@@ -224,7 +224,7 @@ contains
     class(uniFills), intent(inout) :: self
 
     self % root = UNSET_ROOT
-    if(allocated(self % uni)) deallocate(self % uni)
+    if (allocated(self % uni)) deallocate(self % uni)
 
   end subroutine kill
 
@@ -244,7 +244,7 @@ contains
     class(uniFills), intent(in)     :: self
     logical(defBool)                :: hasCycles
     integer(shortInt), dimension(0) :: empty
-    character(100), parameter :: Here = 'hasCycles (uniFills_class.f90)'
+    character(*), parameter :: Here = 'hasCycles (uniFills_class.f90)'
 
     ! Check that root is set
     if (self % root == UNSET_ROOT) then
@@ -270,7 +270,7 @@ contains
   function maxNesting(self) result(N)
     class(uniFills), intent(in) :: self
     integer(shortInt)           :: N
-    character(100), parameter :: Here = 'maxNesting (uniFills_class.f90)'
+    character(*), parameter :: Here = 'maxNesting (uniFills_class.f90)'
 
     ! Check that root is set
     if (self % root == UNSET_ROOT) then
@@ -370,7 +370,7 @@ contains
     class(uniFills), intent(in) :: self
     type(intMap), intent(out)   :: map
     integer(shortInt)           :: i
-    character(100), parameter :: Here = 'countInstances (uniFills_class.f90)'
+    character(*), parameter :: Here = 'countInstances (uniFills_class.f90)'
 
     ! Check that root is set
     if (self % root == UNSET_ROOT) then
@@ -410,7 +410,7 @@ contains
     integer(shortInt), intent(in)               :: idx
     logical(defBool)                            :: isIt
     integer(shortInt)                           :: i, pos, fill
-    character(100), parameter :: Here = 'isRepeated (uniFills_class.f90)'
+    character(*), parameter :: Here = 'isRepeated (uniFills_class.f90)'
 
     ! Check if index is valid
     if (idx <= 0 .or. idx > size(self % uni)) then
@@ -423,7 +423,7 @@ contains
     do i = 1, size(self % uni(idx) % fill)
       fill = self % uni(idx) % fill(i)
 
-      if ( fill < 0) then
+      if (fill < 0) then
         ! Check if fill is the in path including current node
         pos = linFind(path, abs(fill))
         isIt = pos /= targetNotFound .or. abs(fill) == idx
@@ -457,7 +457,7 @@ contains
     integer(shortInt), intent(in)   :: idx
     integer(shortInt)               :: N
     integer(shortInt)               :: i, fill
-    character(100), parameter :: Here = 'countDepth (uniFills_class.f90)'
+    character(*), parameter :: Here = 'countDepth (uniFills_class.f90)'
 
     ! Check if index is valid
     if (idx <= 0 .or. idx > size(self % uni)) then
@@ -493,7 +493,7 @@ contains
     integer(shortInt), intent(in) :: idx
     logical(defBool)              :: hasIt
     integer(shortInt)             :: i, fill
-    character(100), parameter :: Here = 'outsideBelow (uniFills_class.f90)'
+    character(*), parameter :: Here = 'outsideBelow (uniFills_class.f90)'
 
     ! Check if index is valid
     if (idx <= 0 .or. idx > size(self % uni)) then
@@ -507,10 +507,10 @@ contains
       hasIt = fill == OUTSIDE_MAT
 
       ! If fill is nested universe serach there
-      if(fill < 0) hasIt = self % outsideBelow(abs(fill))
+      if (fill < 0) hasIt = self % outsideBelow(abs(fill))
 
       ! Return if outside was found
-      if(hasIt) return
+      if (hasIt) return
 
     end do
 
@@ -531,7 +531,7 @@ contains
     type(intMap), intent(inout)   :: set
     integer(shortInt), intent(in) :: idx
     integer(shortInt)             :: i, fill
-    character(100), parameter :: Here = 'collectUsed (uniFills_class.f90)'
+    character(*), parameter :: Here = 'collectUsed (uniFills_class.f90)'
 
     ! Check if index is valid
     if (idx <= 0 .or. idx > size(self % uni)) then
@@ -544,7 +544,7 @@ contains
       fill = self % uni(idx) % fill(i)
 
       ! If fill is nested universe add it to set and go down the graph
-      if(fill < 0) then
+      if (fill < 0) then
         call set % add(abs(fill), USED)
         call self % collectUsed(set, abs(fill))
       end if
@@ -566,7 +566,7 @@ contains
     type(intMap), intent(inout)   :: map
     integer(shortInt), intent(in) :: idx
     integer(shortInt)             :: count, i, fill
-    character(100), parameter :: Here = 'countInstancesBelow (uniFills_class.f90)'
+    character(*), parameter :: Here = 'countInstancesBelow (uniFills_class.f90)'
 
     ! Check if index is valid
     if (idx <= 0 .or. idx > size(self % uni)) then
@@ -583,7 +583,7 @@ contains
       fill = self % uni(idx) % fill(i)
 
       ! If fill is nested universe count it and its contents
-      if(fill < 0) then
+      if (fill < 0) then
         call self % countInstancesBelow(map, abs(fill))
       end if
 

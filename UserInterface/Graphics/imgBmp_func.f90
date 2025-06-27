@@ -84,7 +84,7 @@ contains
     integer(shortInt), dimension(:,:), intent(in) :: map
     character(:), allocatable                     :: str
     integer(shortInt)                             :: offset, L, padBits, NX, NY
-    character(100), parameter :: Here = 'imgBmp (imgBmp_func.f90)'
+    character(*), parameter :: Here = 'imgBmp (imgBmp_func.f90)'
 
     ! Check map
     if (any(map < 0 .or. map >= 2**24 )) then
@@ -128,10 +128,10 @@ contains
     character(N, byte)            :: str
     integer(shortInt)             :: i, temp, max
     integer(shortInt), parameter  :: mask8 = 255
-    character(100), parameter :: Here = 'intToByte (imgBmp_func.f90)'
+    character(*), parameter :: Here = 'intToByte (imgBmp_func.f90)'
 
     ! Generate Maximum Integer that can be represented
-    if ( N <= 3) then
+    if (N <= 3) then
       max = ibset(0, N*8)
     else
       max = huge(num)
@@ -255,10 +255,10 @@ contains
     integer(shortInt), intent(in)                 :: padbyte
     character(:), allocatable                     :: str
     integer(shortInt)                             :: NX, NY, N_total, pos, i, j
-    character(100), parameter :: Here = 'bmpPixelData (imgBmp_func.f90)'
+    character(*), parameter :: Here = 'bmpPixelData (imgBmp_func.f90)'
 
     ! Check padding
-    if ( padbyte < 0 .or. 3 < padbyte) then
+    if (padbyte < 0 .or. 3 < padbyte) then
       call fatalError(Here, 'Invalid number of padding bytes. &
                             &Must be 1-3, is: '//numToChar(padbyte))
     end if

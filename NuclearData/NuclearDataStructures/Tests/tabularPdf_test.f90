@@ -27,12 +27,12 @@ contains
   !!
   subroutine setUp(this)
     class(test_tabularPdf), intent(inout) :: this
-    integer(shortInt),parameter :: R = defReal
-    real(defReal),dimension(4), parameter :: Grid = [ 1.0_R, 2.0_R, 3.0_R, 4.0_R]
-    real(defReal),dimension(4), parameter :: PDF_L  = [ 0.0_R, 0.5_R, 0.5_R, 0.0_R]
-    real(defReal),dimension(4), parameter :: CDF_L  = [ 0.0_R, 0.25_R, 0.75_R, 1.0_R]
-    real(defReal),dimension(4), parameter :: PDF_H  = [ 0.3_R, 0.5_R, 0.2_R, 0.2_R]
-    real(defReal),dimension(4), parameter :: CDF_H  = [ 0.0_R, 0.3_R, 0.8_R, 1.0_R]
+    integer(shortInt), parameter :: R = defReal
+    real(defReal), dimension(4), parameter :: Grid = [ 1.0_R, 2.0_R, 3.0_R, 4.0_R]
+    real(defReal), dimension(4), parameter :: PDF_L  = [ 0.0_R, 0.5_R, 0.5_R, 0.0_R]
+    real(defReal), dimension(4), parameter :: CDF_L  = [ 0.0_R, 0.25_R, 0.75_R, 1.0_R]
+    real(defReal), dimension(4), parameter :: PDF_H  = [ 0.3_R, 0.5_R, 0.2_R, 0.2_R]
+    real(defReal), dimension(4), parameter :: CDF_H  = [ 0.0_R, 0.3_R, 0.8_R, 1.0_R]
 
     ! Initialise Linear interpolation table with and without provided CDF
     ! Symmetric trapezoidal PDF between 1-4
@@ -68,7 +68,7 @@ contains
 @Test
   subroutine testReadingTable(this)
     class(test_tabularPdf), intent(inout) :: this
-    real(defReal),parameter               :: TOL = 1.0E-9
+    real(defReal), parameter               :: TOL = 1.0E-9
 
     ! Test linear pdf
     @assertEqual(0.5_defReal, this % pdf_lin % probabilityOf(2.1_defReal), TOL)
@@ -98,7 +98,7 @@ contains
 @Test
   subroutine testGettingBounds(this)
     class(test_tabularPdf), intent(inout) :: this
-    real(defReal),parameter               :: TOL = 1.0E-9
+    real(defReal), parameter               :: TOL = 1.0E-9
     real(defReal)                         :: bottom, top
 
     call this % pdf_lin % bounds(bottom, top)
@@ -125,7 +125,7 @@ contains
 @Test
   subroutine testSample(this)
     class(test_tabularPdf), intent(inout) :: this
-    real(defReal),parameter               :: TOL = 1.0E-9
+    real(defReal), parameter               :: TOL = 1.0E-9
 
     ! Linear PDFs
     @assertEqual(2.5_defReal, this % pdf_lin % sample(0.5_defReal), TOL)
@@ -167,7 +167,7 @@ contains
 @Test
   subroutine testSampleWithBin(this)
     class(test_tabularPdf), intent(inout) :: this
-    real(defReal),parameter               :: TOL = 1.0E-9
+    real(defReal), parameter               :: TOL = 1.0E-9
     integer(shortInt)                     :: bin
 
     ! Linear PDFs

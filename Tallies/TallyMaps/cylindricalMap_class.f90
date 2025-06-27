@@ -83,7 +83,7 @@ contains
     character(nameLen)                       :: type
     real(defReal)                            :: Rmin, Rmax, axMin, axMax, vol
     integer(shortInt)                        :: i
-    character(100), parameter :: Here = 'init (cylindricalMap_class.f90)'
+    character(*), parameter :: Here = 'init (cylindricalMap_class.f90)'
 
     ! Check orientation of the cylinder
     if (dict % isPresent('orientation')) then

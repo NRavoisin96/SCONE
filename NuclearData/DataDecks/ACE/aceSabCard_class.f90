@@ -26,20 +26,20 @@ module aceSabCard_class
     private
 
     ! Public Components
-    character(nameLen),public :: ZAID = ''   ! 10 character name ZZZAAA.nnC
-    real(defReal),public      :: AW   = -ONE ! Atomic weight ratio. Atomic weight divided by the neutron mass
-    real(defReal),public      :: TZ   = -ONE ! Temperature at which data were processed [MeV]
-    character(10),public      :: HD   = ' '  ! 10 character date when data wre processed
-    character(70),public      :: HK   = ' '  ! 70 character comment
-    character(10),public      :: HM   = ' '  ! 10 character MAT indentifier
+    character(nameLen), public :: ZAID = ''   ! 10 character name ZZZAAA.nnC
+    real(defReal), public      :: AW   = -ONE ! Atomic weight ratio. Atomic weight divided by the neutron mass
+    real(defReal), public      :: TZ   = -ONE ! Temperature at which data were processed [MeV]
+    character(10), public      :: HD   = ' '  ! 10 character date when data wre processed
+    character(70), public      :: HK   = ' '  ! 70 character comment
+    character(10), public      :: HM   = ' '  ! 10 character MAT indentifier
 
     ! Private Components
     integer(shortInt)         :: head = 0    ! Current read location on XSS
 
     ! RAW ACE TABLES *** PUBLIC in DEBUG * WILL BE PRIVATE
-    integer(shortInt),dimension(16)        :: NXS
-    integer(shortInt),dimension(32)        :: JXS
-    real(defReal),dimension(:),allocatable :: XSS
+    integer(shortInt), dimension(16)        :: NXS
+    integer(shortInt), dimension(32)        :: JXS
+    real(defReal), dimension(:), allocatable :: XSS
 
     ! Elastic scattering flags
     logical(defBool)    :: hasElasticXs = .false. ! True if there are elastic scattering data
@@ -48,7 +48,7 @@ module aceSabCard_class
     ! Sampling parameters
     integer(shortInt)   :: inelOutgoingE   ! Number of inelastic outgoing energies
     integer(shortInt)   :: elOutgoingMu    ! Number of elastic outgoing cosines
-    real(defReal),dimension(:),allocatable :: inelCDF ! CDF for inelastic scattering outgoing energy
+    real(defReal), dimension(:), allocatable :: inelCDF ! CDF for inelastic scattering outgoing energy
 
   contains
     ! Superclass procedures
@@ -88,8 +88,8 @@ module aceSabCard_class
     procedure :: readFromFile
 
     ! Private procedures
-    procedure,private :: setInelastic
-    procedure,private :: setElastic
+    procedure, private :: setInelastic
+    procedure, private :: setElastic
 
   end type aceSabCard
 
@@ -102,7 +102,7 @@ contains
   !!
   pure function myType(self) result(type)
     class(aceSabCard), intent(in) :: self
-    character(:),allocatable      :: type
+    character(:), allocatable      :: type
 
     type = 'aceSabCard_class'
 
@@ -133,7 +133,7 @@ contains
   function real2Int_array(r,Where) result(i)
     real(defReal), dimension(:), intent(in) :: r
     character(*), intent(in)                :: Where
-    integer(shortInt),dimension(size(r))    :: i
+    integer(shortInt), dimension(size(r))    :: i
 
     if (all(isInteger(r))) then
       i = int(r,shortInt)
@@ -159,9 +159,9 @@ contains
   function ESZ_elastic(self, request) result(array)
     class(aceSabCard), intent(in)                     :: self
     character(*), intent(in)                          :: request
-    real(defReal),dimension(self % elasticEnergies()) :: array
+    real(defReal), dimension(self % elasticEnergies()) :: array
     integer(shortInt)                                 :: ptr, N
-    character(100), parameter :: Here = 'ESZ_elastic (aceSabCard_class.f90)'
+    character(*), parameter :: Here = 'ESZ_elastic (aceSabCard_class.f90)'
 
     ! Obtain size of the XS grid
     N = self % elasticEnergies()
@@ -201,9 +201,9 @@ contains
   function ESZ_inelastic(self, request) result(array)
     class(aceSabCard), intent(in)                       :: self
     character(*), intent(in)                            :: request
-    real(defReal),dimension(self % inelasticEnergies()) :: array
+    real(defReal), dimension(self % inelasticEnergies()) :: array
     integer(shortInt)                                   :: ptr, N
-    character(100), parameter :: Here = 'ESZ_inelastic (aceSabCard_class.f90)'
+    character(*), parameter :: Here = 'ESZ_inelastic (aceSabCard_class.f90)'
 
     ! Obtain size of the XS grid
     N = self % inelasticEnergies()
@@ -269,9 +269,9 @@ contains
   !!
   subroutine setToElastic(self)
     class(aceSabCard), intent(inout) :: self
-    character(100),parameter :: Here ='setToElastic (aceSabCard_class.f90)'
+    character(100), parameter :: Here ='setToElastic (aceSabCard_class.f90)'
 
-    if(self % hasElasticXs) then
+    if (self % hasElasticXs) then
       self % head = self % JXS(4) + 1
     else
       call fatalError(Here,'Elastic cross sections are not present!')
@@ -297,9 +297,9 @@ contains
   !!
   subroutine setToElasticOut(self)
     class(aceSabCard), intent(inout) :: self
-    character(100),parameter :: Here ='setToElasticOut (aceSabCard_class.f90)'
+    character(100), parameter :: Here ='setToElasticOut (aceSabCard_class.f90)'
 
-    if(self % hasElasticXs) then
+    if (self % hasElasticXs) then
       self % head = self % JXS(6)
     else
       call fatalError(Here,'Elastic cross sections are not present!')
@@ -368,7 +368,7 @@ contains
   !!
   pure  function getCDF(self) result(CDF)
     class(aceSabCard), intent(in) :: self
-    real(defReal),dimension(self % inelOutgoingE + 1)    :: CDF
+    real(defReal), dimension(self % inelOutgoingE + 1)    :: CDF
 
     CDF = self % inelCDF
 
@@ -418,7 +418,7 @@ contains
   function readInt(self) result(i)
     class(aceSabCard), intent(inout) :: self
     integer(shortInt)                :: i
-    character(100),parameter :: Here ='readInt (aceSabCard_class.f90)'
+    character(100), parameter :: Here ='readInt (aceSabCard_class.f90)'
 
     ! Check head status
     if (self % head <= 0) call fatalError(Here,'Reading with unset (not +ve) head')
@@ -437,10 +437,10 @@ contains
   function readReal(self) result(r)
     class(aceSabCard), intent(inout) :: self
     real(defReal)                    :: r
-    character(100),parameter :: Here ='readReal (aceSabCard_class.f90)'
+    character(100), parameter :: Here ='readReal (aceSabCard_class.f90)'
 
     ! Check head status
-    if(self % head <= 0) call fatalError(Here,'Reading with unset (not +ve) head')
+    if (self % head <= 0) call fatalError(Here,'Reading with unset (not +ve) head')
 
     ! Read value
     r = self % XSS(self % head)
@@ -460,9 +460,9 @@ contains
   function readIntArray(self,N) result(i)
     class(aceSabCard), intent(inout)  :: self
     integer(shortInt), intent(in)     :: N
-    integer(shortInt),dimension(N)    :: i
+    integer(shortInt), dimension(N)    :: i
     integer(shortInt)                 :: ptr
-    character(100),parameter :: Here ='readIntArray (aceSabCard_class.f90)'
+    character(100), parameter :: Here ='readIntArray (aceSabCard_class.f90)'
 
     ! Check head status
     if (self % head <= 0) call fatalError(Here,'Reading with unset (not +ve) head')
@@ -482,12 +482,12 @@ contains
   function readRealArray(self,N) result(r)
     class(aceSabCard), intent(inout)  :: self
     integer(shortInt), intent(in)     :: N
-    real(defReal),dimension(N)        :: r
+    real(defReal), dimension(N)        :: r
     integer(shortInt)                 :: ptr
-    character(100),parameter :: Here ='readRealArray (aceSabCard_class.f90)'
+    character(100), parameter :: Here ='readRealArray (aceSabCard_class.f90)'
 
     ! Check head status
-    if(self % head <= 0) call fatalError(Here,'Reading with unset (not +ve) head')
+    if (self % head <= 0) call fatalError(Here,'Reading with unset (not +ve) head')
 
     ! Read value
     ptr = self % head
@@ -529,7 +529,7 @@ contains
     integer(shortInt), intent(in)    :: root
     integer(shortInt), intent(in)    :: offset
     integer(shortInt)                :: pos
-    character(100), parameter :: Here = 'setRelativeTo (aceSabCard_class.f90)'
+    character(*), parameter :: Here = 'setRelativeTo (aceSabCard_class.f90)'
 
     ! Validate root
     if (root < 1 .or. root > self % NXS(1)) then
@@ -539,7 +539,7 @@ contains
     pos = root + offset
 
     ! Validate position
-    if(pos < 1 .or. pos > self % NXS(1)) then
+    if (pos < 1 .or. pos > self % NXS(1)) then
       call fatalError(Here,trim(self % ZAID)//' position reached outside the bounds')
     end if
 
@@ -555,7 +555,7 @@ contains
   !!  fatalerror if NXS(7) value is not recognised
   !!
   subroutine setInelastic(self)
-    class(aceSabCard),intent(inout) :: self
+    class(aceSabCard), intent(inout) :: self
     integer(shortInt)               :: i
     character(100), parameter :: Here ='setInelastic (aceSabCard_class.f90)'
 
@@ -627,7 +627,7 @@ contains
     character(pathLen)                :: localFilePath
     integer(shortInt)                 :: i, xssLen
     character(13)                     :: skip
-    character(100),parameter :: Here ='readFromFile (aceSabCard_class.f90)'
+    character(100), parameter :: Here ='readFromFile (aceSabCard_class.f90)'
 
     ! Copy filepath and make shure it is left adjusted
     localFilePath = trim(adjustl(filePath))
@@ -660,7 +660,7 @@ contains
     read(aceFile,'(A70, A10)') self % HK, self % HM
 
     ! Skip enteries for IZ(I) and AW(I) tabels -> they are legacy empty entery
-    do i=1,4
+    do i= 1, 4
       read(aceFile,*)
     end do
 
@@ -671,14 +671,14 @@ contains
     ! Make an attempt to reuse the memory for XSS
 
     ! Get current length of XSS array
-    if(allocated(self % XSS)) then
+    if (allocated(self % XSS)) then
       xssLen = size(self % XSS)
     else
       xssLen = 0
     end if
 
-    if(self % NXS(1) > xssLen) then
-      if(allocated(self % XSS)) deallocate(self % XSS)
+    if (self % NXS(1) > xssLen) then
+      if (allocated(self % XSS)) deallocate(self % XSS)
       allocate(self % XSS(self % NXS(1)))
     end if
 

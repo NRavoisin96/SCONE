@@ -37,7 +37,7 @@ module collNumMap_class
   !!     collNumbers ( 0 1 2 3 5 10 );
   !!   }
   !!
-  type, public,extends(tallyMap1D) :: collNumMap
+  type, public, extends(tallyMap1D) :: collNumMap
     private
     type(intMap)                                 :: binMap
     integer(shortInt)                            :: default = 0
@@ -73,7 +73,7 @@ contains
     class(collNumMap), intent(inout)            :: self
     integer(shortInt), dimension(:), intent(in) :: collNumbers
     integer(shortInt)                           :: i, N
-    character(100), parameter :: Here = 'build (collNumMap_class.f90)'
+    character(*), parameter :: Here = 'build (collNumMap_class.f90)'
 
     ! Find number of collision numbers to bin
     N = size(collNumbers)

@@ -103,7 +103,7 @@ contains
   elemental subroutine kill(self)
     class(tallyResponseSlot), intent(inout) :: self
 
-    if(allocated(self % slot)) deallocate(self % slot)
+    if (allocated(self % slot)) deallocate(self % slot)
 
   end subroutine kill
 

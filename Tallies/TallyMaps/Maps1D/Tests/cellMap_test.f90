@@ -17,8 +17,8 @@ module cellMap_test
 @testCase
   type, extends(TestCase) :: test_cellMap
     private
-    type(cellMap),allocatable :: map_noUndef
-    type(cellMap),allocatable :: map_Undef
+    type(cellMap), allocatable :: map_noUndef
+    type(cellMap), allocatable :: map_Undef
   contains
     procedure :: setUp
     procedure :: tearDown
@@ -42,7 +42,7 @@ module cellMap_test
   & root {id 2; type rootUniverse; border 9; fill u<1>;} &
   & uni2 {id 1; type cellUniverse; cells (2 1 5 3);} "
 
-  integer(shortInt),dimension(*),parameter :: CELL_IN_MAP = [2, 5, 3]
+  integer(shortInt), dimension(*), parameter :: CELL_IN_MAP = [2, 5, 3]
 
 contains
 
@@ -119,8 +119,8 @@ contains
     class(test_cellMap), intent(inout)       :: this
     type(particleState)                      :: state
     integer(shortInt)                        :: i
-    integer(shortInt),dimension(5)           :: bins
-    integer(shortInt),dimension(5),parameter :: EXPECTED_BINS = [1, 0, 2, 3, 0]
+    integer(shortInt), dimension(5)           :: bins
+    integer(shortInt), dimension(5), parameter :: EXPECTED_BINS = [1, 0, 2, 3, 0]
 
     do i = 1, size(EXPECTED_BINS)
       state % cellIdx = i
@@ -139,8 +139,8 @@ contains
     class(test_cellMap), intent(inout)       :: this
     type(particleState)                      :: state
     integer(shortInt)                        :: i
-    integer(shortInt),dimension(5)           :: bins
-    integer(shortInt),dimension(5),parameter :: EXPECTED_BINS = [1, 4, 2, 3, 4]
+    integer(shortInt), dimension(5)           :: bins
+    integer(shortInt), dimension(5), parameter :: EXPECTED_BINS = [1, 4, 2, 3, 4]
 
     do i = 1, size(EXPECTED_BINS)
       state % cellIdx = i

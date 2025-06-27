@@ -52,7 +52,7 @@ module keffImplicitClerk_class
   !!
   !! }
   !!
-  type, public,extends(tallyClerk) :: keffImplicitClerk
+  type, public, extends(tallyClerk) :: keffImplicitClerk
     private
     real(defReal)    :: targetSTD = ZERO
     ! Settings
@@ -100,7 +100,7 @@ contains
     call dict % getOrDefault(chr,'trigger','no')
 
     ! Read convergance target
-    if( charCmp(chr,'yes')) then
+    if (charCmp(chr,'yes')) then
       call dict % get(self % targetSTD,'SDtarget')
 
     end if
@@ -131,8 +131,8 @@ contains
   !! See tallyClerk_inter for details
   !!
   function validReports(self) result(validCodes)
-    class(keffImplicitClerk),intent(in)           :: self
-    integer(shortInt),dimension(:),allocatable :: validCodes
+    class(keffImplicitClerk), intent(in)           :: self
+    integer(shortInt), dimension(:), allocatable :: validCodes
 
     validCodes = [inColl_CODE, outColl_CODE, cycleEnd_CODE, hist_CODE]
 
@@ -159,7 +159,7 @@ contains
   subroutine reportInColl(self, p, xsData, mem, virtual)
     class(keffImplicitClerk), intent(inout)  :: self
     class(particle), intent(in)              :: p
-    class(nuclearDatabase),intent(inout)     :: xsData
+    class(nuclearDatabase), intent(inout)     :: xsData
     type(scoreMemory), intent(inout)         :: mem
     logical(defBool), intent(in)             :: virtual
     type(neutronMacroXSs)                    :: xss
@@ -211,7 +211,7 @@ contains
     class(particle), intent(in)             :: p
     integer(shortInt), intent(in)           :: MT
     real(defReal), intent(in)               :: muL
-    class(nuclearDatabase),intent(inout)    :: xsData
+    class(nuclearDatabase), intent(inout)    :: xsData
     type(scoreMemory), intent(inout)        :: mem
     real(defReal)                           :: score
 
@@ -247,7 +247,7 @@ contains
   subroutine reportHist(self, p, xsData, mem)
     class(keffImplicitClerk), intent(inout) :: self
     class(particle), intent(in)             :: p
-    class(nuclearDatabase),intent(inout)    :: xsData
+    class(nuclearDatabase), intent(inout)    :: xsData
     type(scoreMemory), intent(inout)        :: mem
     real(defReal)                           :: histWgt
 

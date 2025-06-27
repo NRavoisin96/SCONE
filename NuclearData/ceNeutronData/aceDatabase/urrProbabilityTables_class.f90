@@ -77,7 +77,7 @@ contains
   subroutine init(self, data)
     class(urrProbabilityTables), intent(inout) :: self
     class(dataDeck), intent(inout)             :: data
-    character(100), parameter :: Here = 'init (urrProbabilityTables_class.f90)'
+    character(*), parameter :: Here = 'init (urrProbabilityTables_class.f90)'
 
     ! Select buld procedure approperiate for given dataDeck
     select type(data)
@@ -232,7 +232,7 @@ contains
         self % table(i) % CDF(self % nTable) = ONE
 
       elseif (any(self % table(i) % tot < ZERO) .or. any(self % table(i) % el < ZERO) .or. &
-              any(self % table(i) % fiss < ZERO) .or. any(self % table(i) % capt < ZERO) ) then
+              any(self % table(i) % fiss < ZERO) .or. any(self % table(i) % capt < ZERO)) then
         print '(A)', "Probability table discarded because negative cross-sections present "
         call self % kill()
         return

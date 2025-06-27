@@ -88,7 +88,7 @@ contains
     call array % empty()
 
     ! Build by elements
-    do i=1,7
+    do i= 1, 7
       call array % add(2 * i)
     end do
 

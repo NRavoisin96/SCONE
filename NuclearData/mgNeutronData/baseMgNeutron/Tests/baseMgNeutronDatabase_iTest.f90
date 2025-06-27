@@ -29,7 +29,7 @@ module baseMgNeutronDatabase_iTest
   implicit none
 
   ! Material definitions
-  character(*),parameter :: MAT_INPUT_STR = "   &
+  character(*), parameter :: MAT_INPUT_STR = "   &
   &mat1 { temp 273;                              &
   &       composition {                          &
   &       1001.03 5.028E-02;                     &
@@ -59,10 +59,10 @@ contains
     type(dictionary)                     :: matMenuDict
     type(particle)                       :: p
     type(neutronMacroXSs)                :: xss
-    type(baseMgNeutronMaterial),pointer  :: mat
-    class(baseMgNeutronMaterial),pointer :: matClass
+    type(baseMgNeutronMaterial), pointer  :: mat
+    class(baseMgNeutronMaterial), pointer :: matClass
     class(reactionHandle), pointer       :: reac
-    real(defReal),parameter :: TOL = 1.0E-6_defReal
+    real(defReal), parameter :: TOL = 1.0E-6_defReal
 
 
     data_ptr => database
@@ -185,10 +185,10 @@ contains
     type(dictionary)                     :: matMenuDict
     type(particle)                       :: p
     type(neutronMacroXSs)                :: xss
-    type(baseMgNeutronMaterial),pointer  :: mat
-    class(baseMgNeutronMaterial),pointer :: matClass
+    type(baseMgNeutronMaterial), pointer  :: mat
+    class(baseMgNeutronMaterial), pointer :: matClass
     class(reactionHandle), pointer       :: reac
-    real(defReal),parameter :: TOL = 1.0E-6_defReal
+    real(defReal), parameter :: TOL = 1.0E-6_defReal
 
 
     data_ptr => database

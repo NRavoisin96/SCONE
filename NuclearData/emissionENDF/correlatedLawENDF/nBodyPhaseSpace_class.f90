@@ -97,17 +97,18 @@ contains
   !! See description of the class for details about the sampling algorithm
   !!
   subroutine sample(self, mu, E_out, E_in, rand)
-    class(nBodyPhaseSpace), intent(in) :: self
-    real(defReal), intent(out)         :: mu
-    real(defReal), intent(out)         :: E_out
-    real(defReal), intent(in)          :: E_in
-    class(RNG), intent(inout)          :: rand
-    real(defReal)                      :: G1, G2, r1, r2, r3, r4, r5, r6, Emax
-    type(maxwellEnergyPdf)             :: maxwellPdf
-    character(100),parameter :: Here ='smaple (nBodyPhaseSpace_class.f90)'
+    class(nBodyPhaseSpace), intent(in)       :: self
+    real(defReal), intent(out)               :: mu
+    real(defReal), intent(out)               :: E_out
+    real(defReal), intent(in)                :: E_in
+    class(RNG), intent(inout)                :: rand
+    real(defReal)                            :: G1, G2, Emax
+    real(defReal), dimension(:), allocatable :: randomNumbers
+    type(maxwellEnergyPdf)                   :: maxwellPdf
+    character(100), parameter                 :: Here ='smaple (nBodyPhaseSpace_class.f90)'
 
     ! Sample mu
-    mu = TWO * rand % get() - ONE
+    call rand % generateMu(mu)
 
     ! Sample energy
     ! Get sample of G1 = Gamma(1.5,1) from maxwell distribution
@@ -120,20 +121,16 @@ contains
 
       case(4)
         ! Get sample of G2 = Gamma(3,1) from 3 exponential distributions
-        r1 = rand % get()
-        r2 = rand % get()
-        r3 = rand % get()
-        G2 = -log(r1 * r2 * r3)
+        allocate(randomNumbers(3))
+        call rand % generate(randomNumbers)
+        G2 = -log(product(randomNumbers))
 
       case(5)
         ! Get sample of G2 = Gamma(4.5,1) from 4 exponential distribution and 1 beta(0.5, 0.5)
-        r1 = rand % get()
-        r2 = rand % get()
-        r3 = rand % get()
-        r4 = rand % get()
-        r5 = rand % get()
-        r6 = rand % get()
-        G2 = -log(r1*r2*r3*r4) - cos(TWO*PI*r5) * cos(HALF*PI*r5) * log(r6)
+        allocate(randomNumbers(6))
+        call rand % generate(randomNumbers)
+        G2 = -log(product(randomNumbers(1:4))) - &
+             cos(TWO_PI * randomNumbers(5)) * cos(HALF * PI * randomNumbers(5)) * log(randomNumbers(6))
 
       case default ! Should never happen
         call fatalError(Here,'Wrong number of 2nd-ary particles on run-time')
@@ -158,7 +155,7 @@ contains
     real(defReal)                      :: prob
     real(defReal)                      :: Emax
     real(defReal)                      :: C
-    character(100),parameter :: Here ='probabilityOf (nBodyPhaseSpace_class.f90)'
+    character(100), parameter :: Here ='probabilityOf (nBodyPhaseSpace_class.f90)'
 
     ! Calculate maximum energy
     Emax = (self % Ap - ONE) / self % Ap * (E_in * self % A / (self % A + ONE) + self % Q)
@@ -207,15 +204,15 @@ contains
   !!
   function invalid(self, msg) result(isWrong)
     class(nBodyPhaseSpace), intent(in)              :: self
-    character(:),allocatable, intent(out), optional :: msg
+    character(:), allocatable, intent(out), optional :: msg
     logical(defBool)                                :: isWrong
 
     isWrong = .false.
 
     ! Verify value of N
-    if( 5 < self % N .or. self % N < 3 ) then
+    if (5 < self % N .or. self % N < 3) then
       isWrong = .true.
-      if(present(msg))  then
+      if (present(msg))  then
         msg = 'Invalid number of outgoin particles: '// numToChar(self % N) //' must be 3, 4 or 5'
       end if
       return
@@ -224,7 +221,7 @@ contains
     ! Verify sign of atomic rations
     if (self % A < ZERO .or. self % Ap < ZERO) then
       isWrong = .true.
-      if(present(msg))  then
+      if (present(msg))  then
         msg = 'A: ' // numToChar(self % A) // 'or Ap: '// numToChar(self % A) // ' is -ve'
       end if
       return
@@ -241,7 +238,7 @@ contains
     class(aceCard), intent(inout)         :: ACE
     real(defReal), intent(in)             :: Q
     real(defReal), intent(in)             :: A
-    character(:),allocatable              :: msg
+    character(:), allocatable              :: msg
     character(100), parameter :: Here ='init_fromACE (nBodyPhaseSpace_class.f90)'
 
     ! Read and store data
@@ -251,7 +248,7 @@ contains
     self % A  = A
 
     ! Varify correctness
-    if(self % invalid(msg)) call fatalError(Here, msg)
+    if (self % invalid(msg)) call fatalError(Here, msg)
 
   end subroutine init_fromACE
 
@@ -278,7 +275,7 @@ contains
     real(defReal), intent(in)     :: Q
     real(defReal), intent(in)     :: A
     type(nBodyPhaseSpace)         :: new
-    character(:),allocatable      :: msg
+    character(:), allocatable      :: msg
     character(100), parameter :: Here ='new_nBodyPhaseSpace_fromValues (nBodyPhaseSpace_class.f90)'
 
     new % N  = N
@@ -287,7 +284,7 @@ contains
     new % A  = A
 
     ! Varify correctness
-    if(new % invalid(msg)) call fatalError(Here, msg)
+    if (new % invalid(msg)) call fatalError(Here, msg)
 
   end function new_nBodyPhaseSpace_fromValues
 

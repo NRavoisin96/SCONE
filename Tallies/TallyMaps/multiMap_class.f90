@@ -68,7 +68,7 @@ contains
     class(dictionary), intent(in)                 :: dict
     character(nameLen), dimension(:), allocatable :: mapNames
     integer(shortInt)                             :: i, mul
-!    character(100), parameter :: Here = 'init (multiMap_class.f90)'
+!    character(*), parameter :: Here = 'init (multiMap_class.f90)'
 
     ! Read order of maps requested
     call dict % get(mapNames, 'maps')
@@ -78,14 +78,14 @@ contains
     allocate(self % multi(size(mapNames)))
 
     ! Build maps
-    do i=1,size(self % maps)
+    do i= 1, size(self % maps)
       call new_tallyMap1D( self % maps(i) % slot, dict % getDictPtr(mapNames(i)))
 
     end do
 
     ! Calculate multipliers
     mul = 1
-    do i=1,size(self % maps)
+    do i= 1, size(self % maps)
       self % multi(i) = mul
       mul = mul * self % maps(i) % slot % bins(1)
     end do
@@ -103,14 +103,14 @@ contains
     integer(shortInt)             :: N
     integer(shortInt)             :: i
 
-    if(D == 0) then
+    if (D == 0) then
       ! Perform multiplicative reduction over all dimensions
       N = 1
       do i = 1,size(self % maps)
         N = N * self % maps(i) % slot % bins(1)
       end do
 
-    else if( 0 < D .and. D <= size(self % maps) ) then
+    else if (0 < D .and. D <= size(self % maps)) then
       N = self % maps(D) % slot % bins(1)
 
     else
@@ -158,11 +158,11 @@ contains
     integer(shortInt)                :: i
 
     idx = 1
-    do i=1,size(self % maps)
+    do i= 1, size(self % maps)
       binIdx = self % maps(i) % slot % map(state)
 
       ! Short-circuit evaluation if out-of division
-      if(binIdx == 0) then
+      if (binIdx == 0) then
         idx = 0
         return
       end if
@@ -210,15 +210,15 @@ contains
     integer(shortInt)              :: i
 
     ! Kill maps
-    if(allocated(self % maps)) then
-      do i=1,size(self % maps)
+    if (allocated(self % maps)) then
+      do i= 1, size(self % maps)
         call self % maps(i) % slot % kill()
       end do
       deallocate(self % maps)
     end if
 
     ! Free rest of space space
-    if(allocated(self % multi)) deallocate(self % multi)
+    if (allocated(self % multi)) deallocate(self % multi)
 
   end subroutine kill
 

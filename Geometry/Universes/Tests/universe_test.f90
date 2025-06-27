@@ -23,7 +23,7 @@ contains
   subroutine test_charToFill()
     type(charMap)      :: mats
     character(nameLen) :: name
-    character(100), parameter :: Here = 'parentScope'
+    character(*), parameter :: Here = 'parentScope'
 
     ! Load some material names and their (fake) matIdxs
     name = 'mat13'

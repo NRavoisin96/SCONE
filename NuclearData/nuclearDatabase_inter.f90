@@ -277,7 +277,7 @@ module nuclearDatabase_inter
       class(nuclearDatabase), intent(in) :: self
       integer(shortInt), intent(in)      :: MT
       integer(shortInt), intent(in)      :: idx
-      class(reactionHandle),pointer      :: reac
+      class(reactionHandle), pointer      :: reac
     end function getReaction
 
     !!

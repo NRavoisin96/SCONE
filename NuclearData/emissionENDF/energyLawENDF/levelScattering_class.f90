@@ -26,7 +26,7 @@ module levelScattering_class
   !!       exothermic scattering
   !!   LDAT2 -> (A/(A+1))^2 must be in [0,1]
   !!
-  type, public,extends(energyLawENDF) :: levelScattering
+  type, public, extends(energyLawENDF) :: levelScattering
     private
     real(defReal) :: LDAT1 = ZERO
     real(defReal) :: LDAT2 = ZERO ! (A/(A+1))^2
@@ -69,7 +69,7 @@ contains
 
     ! Check if E_out is equal to outgoing energy for a given E_in
     E_temp = self % LDAT2 * (E_in- self % LDAT1)
-    if(E_out == E_temp) then
+    if (E_out == E_temp) then
       prob = ONE
 
     else
@@ -103,11 +103,11 @@ contains
     class(levelScattering), intent(inout) :: self
     real(defReal), intent(in)             :: LDAT1
     real(defReal), intent(in)             :: LDAT2
-    character(100),parameter :: Here='init (levelScattering_class.f90)'
+    character(*), parameter :: Here = 'init (levelScattering_class.f90)'
 
     ! Perform sanity checks
-    if( LDAT2 <  ZERO ) call fatalError(Here,'LDAT2 is -ve:' // numToChar(LDAT2))
-    if( LDAT2 >= ONE  ) call fatalError(HEre,'LDAT2 is >= 1.0:' // numToChar(LDAT2))
+    if (LDAT2 <  ZERO ) call fatalError(Here,'LDAT2 is -ve:' // numToChar(LDAT2))
+    if (LDAT2 >= ONE  ) call fatalError(HEre,'LDAT2 is >= 1.0:' // numToChar(LDAT2))
 
     ! Assign values
     self % LDAT1 = LDAT1

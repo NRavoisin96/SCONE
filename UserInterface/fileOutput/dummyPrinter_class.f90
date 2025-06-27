@@ -18,7 +18,7 @@ module dummyPrinter_class
   !! NOTE:
   !!  Does not check calls sequence, which is responsibility of oputputFile class!
   !!
-  type, public,extends(asciiOutput) :: dummyPrinter
+  type, public, extends(asciiOutput) :: dummyPrinter
     private
 
   contains
@@ -127,7 +127,7 @@ contains
   !!
   subroutine startArray(self, shape)
     class(dummyPrinter), intent(inout) :: self
-    integer(shortInt),dimension(:),intent(in)     :: shape
+    integer(shortInt), dimension(:), intent(in)     :: shape
 
   end subroutine startArray
 
@@ -149,7 +149,7 @@ contains
   !!
   subroutine printNum(self, val)
     class(dummyPrinter), intent(inout) :: self
-    character(*),intent(in)           :: val
+    character(*), intent(in)           :: val
 
 
   end subroutine printNum
@@ -161,7 +161,7 @@ contains
   !!
   subroutine printChar(self, val)
     class(dummyPrinter), intent(inout) :: self
-    character(*),intent(in)           :: val
+    character(*), intent(in)           :: val
 
   end subroutine printChar
 

@@ -55,7 +55,7 @@ module ceNeutronNuclide_inter
   type, public, abstract, extends(nuclideHandle) :: ceNeutronNuclide
     private
     integer(shortInt)                :: nucIdx  =  0
-    class(ceNeutronDatabase),pointer :: data    => null()
+    class(ceNeutronDatabase), pointer :: data    => null()
     logical(defBool)                 :: fissile = .false.
     real(defReal)                    :: mass    =  ZERO
     real(defReal)                    :: kT      =  ZERO
@@ -262,7 +262,7 @@ contains
     real(defReal), intent(in), optional                     :: mass
     real(defReal), intent(in), optional                     :: kT
     logical(defBool), intent(in), optional                  :: dbrc
-    character(100), parameter :: Here = 'set (ceNuetronNuclide_inter.f90)'
+    character(*), parameter :: Here = 'set (ceNuetronNuclide_inter.f90)'
 
     if (present(nucIdx))    self % nucIdx  = nucIdx
     if (present(database))  self % data    => database

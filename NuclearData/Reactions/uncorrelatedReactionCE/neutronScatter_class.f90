@@ -59,9 +59,9 @@ module neutronScatter_class
     real(defReal)      :: N_out      = ZERO
 
     ! Emission laws
-    class(angleLawENDF),allocatable      :: muLaw
-    class(energyLawENDF),allocatable     :: eLaw
-    class(correlatedLawENDF),allocatable :: corrLaw
+    class(angleLawENDF), allocatable      :: muLaw
+    class(energyLawENDF), allocatable     :: eLaw
+    class(correlatedLawENDF), allocatable :: corrLaw
   contains
     !! Superclass interface
     procedure :: init
@@ -92,7 +92,7 @@ contains
     class(neutronScatter), intent(inout) :: self
     class(dataDeck), intent(inout)              :: data
     integer(shortInt), intent(in)               :: MT
-    character(100), parameter :: Here = 'init (neutronScatter_class.f90)'
+    character(*), parameter :: Here = 'init (neutronScatter_class.f90)'
 
     ! Select buld procedure approperiate for given dataDeck
     select type(data)
@@ -119,14 +119,14 @@ contains
     self % N_out      = ZERO
 
     ! Kill ENDF distributions
-    if(allocated(self % muLaw))   call self % muLaw % kill()
-    if(allocated(self % eLaw))    call self % eLaw % kill()
-    if(allocated(self % corrLaw)) call self % corrLaw % kill()
+    if (allocated(self % muLaw))   call self % muLaw % kill()
+    if (allocated(self % eLaw))    call self % eLaw % kill()
+    if (allocated(self % corrLaw)) call self % corrLaw % kill()
 
     ! Deallocate ENDF distributions
-    if(allocated(self % muLaw))   deallocate(self % muLaw)
-    if(allocated(self % eLaw))    deallocate(self % eLaw)
-    if(allocated(self % corrLaw)) deallocate(self % corrLaw)
+    if (allocated(self % muLaw))   deallocate(self % muLaw)
+    if (allocated(self % eLaw))    deallocate(self % eLaw)
+    if (allocated(self % corrLaw)) deallocate(self % corrLaw)
 
   end subroutine kill
 
@@ -200,7 +200,7 @@ contains
     real(defReal), intent(out), optional     :: lambda
 
     ! Sample energy an angle
-    if( self % correlated) then
+    if (self % correlated) then
       call self % corrLaw % sample(mu, E_out, E_in, rand)
 
     else
@@ -210,10 +210,10 @@ contains
     end if
 
     ! Sample phi
-    phi = rand % get() * TWO_PI
+    call rand % generatePhi(phi)
 
     ! Only prompt particles. Set delay
-    if(present(lambda)) lambda = huge(lambda)
+    if (present(lambda)) lambda = huge(lambda)
 
   end subroutine sampleOut
 
@@ -232,7 +232,7 @@ contains
 
     ! Check range
     if (abs(mu) <= ONE .and. E_out > ZERO) then
-      if(self % correlated) then
+      if (self % correlated) then
         prob = self % corrLaw % probabilityOf(mu, E_out, E_in)
       else
         prob = self % muLaw % probabilityOf(mu, E_in)
@@ -267,9 +267,9 @@ contains
     type(aceCard), intent(inout)         :: ACE
     integer(shortInt), intent(in)        :: MT
     integer(shortInt)                    :: LOCB, TY
-    character(100),parameter :: Here ='buildFromACE (neutronScatter_class.f90)'
+    character(100), parameter :: Here ='buildFromACE (neutronScatter_class.f90)'
 
-    if( ACE % isCaptureMT(MT)) then
+    if (ACE % isCaptureMT(MT)) then
       call fatalError(Here, 'Requested reaction with MT: '//numToChar(MT)//&
                              ' does not produce 2nd-ary neutrons')
     end if
@@ -282,7 +282,7 @@ contains
 
     ! Read number of 2nd-ary particles
     TY = ACE % neutronReleaseMT(MT)
-    if(TY == 19 .or. TY > 100) then
+    if (TY == 19 .or. TY > 100) then
       call fatalError(Here,'Reaction with MT: '// numToChar(MT)//&
                            ' has energy dependent neutron yield. It is not supported')
     elseif(TY < 0) then

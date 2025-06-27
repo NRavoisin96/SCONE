@@ -53,7 +53,7 @@ contains
     class(particleDungeon), intent(inout)                  :: nextCycle
     real(defReal)                                          :: majorant_inv, sigmaT, ratio
     integer(shortInt)                                      :: matIdx
-    character(100), parameter :: Here = 'hybridTracking (transportOIperatorHT_class.f90)'
+    character(*), parameter :: Here = 'hybridTracking (transportOIperatorHT_class.f90)'
 
     ! Get majornat XS inverse: 1/Sigma_majorant
     matIdx = p % getMatIdx()
@@ -83,8 +83,8 @@ contains
     type(tallyAdmin), intent(inout)           :: tally
     class(particleDungeon), intent(inout)     :: thisCycle
     class(particleDungeon), intent(inout)     :: nextCycle
-    real(defReal)                             :: majorant_inv, sigmaT, distance
-    character(100), parameter :: Here = 'deltaTracking (transportOperatorHT_class.f90)'
+    real(defReal)                             :: majorant_inv, sigmaT, distance, randomNumber
+    character(*), parameter :: Here = 'deltaTracking (transportOperatorHT_class.f90)'
 
     ! Get majorant XS inverse: 1/Sigma_majorant
     majorant_inv = ONE / self % xsData % getTrackingXS(p, p % getMatIdx(), MAJORANT_XS)
@@ -92,8 +92,8 @@ contains
    ! Should never happen! Prevents Inf distances
     if (abs(majorant_inv) > huge(majorant_inv)) call fatalError(Here, "Majorant is 0")
 
-    DTLoop:do
-      distance = -log( p % pRNG % get() ) * majorant_inv
+    DTLoop: do
+      call p % pRNG % generateDistance(majorant_inv, distance)
 
       ! Move particle in the geometry
       call self % geom % teleport(p % coords, distance)
@@ -107,7 +107,7 @@ contains
       end if
 
       ! Check for void
-      if(p % getMatIdx() == VOID_MAT) then
+      if (p % getMatIdx() == VOID_MAT) then
         call tally % reportInColl(p, .true.)
         cycle DTLoop
 
@@ -125,8 +125,10 @@ contains
 
       ! Roll RNG to determine if the collision is real or virtual
       ! Exit the loop if the collision is real, report collision if virtual
-      if (p % pRNG % get() < sigmaT * majorant_inv) then
+      call p % pRNG % generate(randomNumber)
+      if (randomNumber < sigmaT * majorant_inv) then
         exit DTLoop
+
       else
         call tally % reportInColl(p, .true.)
 
@@ -145,24 +147,24 @@ contains
     class(transportOperatorHT), intent(inout) :: self
     class(particle), intent(inout)            :: p
     type(tallyAdmin), intent(inout)           :: tally
-    class(particleDungeon),intent(inout)      :: thisCycle
-    class(particleDungeon),intent(inout)      :: nextCycle
+    class(particleDungeon), intent(inout)      :: thisCycle
+    class(particleDungeon), intent(inout)      :: nextCycle
     integer(shortInt)                         :: event
-    real(defReal)                             :: sigmaT, dist
-    character(100), parameter :: Here = 'surfaceTracking (transportOperatorHT_class.f90)'
+    real(defReal)                             :: inverseSigmaT, distance
+    character(*), parameter :: Here = 'surfaceTracking (transportOperatorHT_class.f90)'
   
     STLoop: do
 
       ! Obtain the local cross-section
       if (p % getMatIdx() == VOID_MAT) then
-        dist = INF
+        distance = INF
 
       else
-        sigmaT = self % xsData % getTrackingXS(p, p % getMatIdx(), MATERIAL_XS)
-        dist = -log( p % pRNG % get()) / sigmaT
+        inverseSigmaT = ONE / self % xsData % getTrackingXS(p, p % getMatIdx(), MATERIAL_XS)
+        call p % pRNG % generateDistance(inverseSigmaT, distance)
 
         ! Should never happen! Catches NaN distances
-        if (dist /= dist) call fatalError(Here, "Distance is NaN")
+        if (distance /= distance) call fatalError(Here, "Distance is NaN")
 
       end if
 
@@ -170,10 +172,10 @@ contains
       call p % savePrePath()
 
       ! Move to the next stop. NOTE: "move" resets dist to distanced moved!
-      call self % geom % move(p % coords, dist, event)
+      call self % geom % move(p % coords, distance, event)
 
       ! Send tally report for a path moved
-      call tally % reportPath(p, dist)
+      call tally % reportPath(p, distance)
 
       ! Kill particle if it has leaked
       if (p % getMatIdx() == OUTSIDE_FILL) then

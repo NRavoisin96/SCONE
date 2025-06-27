@@ -58,7 +58,7 @@ contains
     real(defReal), intent(in)            :: E_in
     real(defReal)                        :: prob
 
-    if (mu == self % mu .and. E_out == self % E_out ) then
+    if (mu == self % mu .and. E_out == self % E_out) then
       prob = ONE
     else
       prob = ZERO

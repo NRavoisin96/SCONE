@@ -111,7 +111,7 @@ contains
     class(ceNeutronMaterial), intent(in) :: self
     type(neutronMacroXSs), intent(out)   :: xss
     class(particle), intent(in)          :: p
-    character(100), parameter :: Here = 'getMacroXSs_byP (ceNeutronMaterial_class.f90)'
+    character(*), parameter :: Here = 'getMacroXSs_byP (ceNeutronMaterial_class.f90)'
 
     if (.not.p % isMG) then
       call self % getMacroXSs(xss, p % E, p % pRNG)
@@ -142,7 +142,7 @@ contains
     class(ceNeutronMaterial), intent(inout)     :: self
     real(defReal), dimension(:), intent(in)     :: dens
     integer(shortInt), dimension(:), intent(in) :: nucIdxs
-    character(100), parameter :: Here = 'setComposition (ceNeutronMaterial_class.f90)'
+    character(*), parameter :: Here = 'setComposition (ceNeutronMaterial_class.f90)'
 
     ! Check input
     if (size(dens) /= size(nucIdxs)) call fatalError(Here,'Different sizes of density and nuclide vector')
@@ -192,7 +192,7 @@ contains
     real(defReal), intent(in), optional                     :: temp
     real(defReal), intent(in), optional                     :: eUpperSab
     real(defReal), intent(in), optional                     :: eLowerURR
-    character(100), parameter :: Here = 'set (ceNeutronMaterial_class.f90)'
+    character(*), parameter :: Here = 'set (ceNeutronMaterial_class.f90)'
 
     if (present(name))      self % name    = name
     if (present(database))  self % data    => database
@@ -315,16 +315,13 @@ contains
     class(ceNeutronNuclide), pointer     :: nuc
     integer(shortInt)                    :: i
     real(defReal)                        :: P_acc, eMin, eMax, A, eRel, &
-                                            trackMatXS, totNucXS, dens
-    character(100), parameter :: Here = 'sampleNuclide (ceNeutronMaterial_class.f90)'
+                                            trackMatXS, totNucXS, dens, randomNumber
+    character(*), parameter :: Here = 'sampleNuclide (ceNeutronMaterial_class.f90)'
 
     ! Get material tracking XS
-    if (E /= materialCache(self % matIdx) % E_track) then
-      call self % data % updateTrackMatXS(E, self % matIdx, rand)
-    end if
+    if (E /= materialCache(self % matIdx) % E_track) call self % data % updateTrackMatXS(E, self % matIdx, rand)
 
-    trackMatXS = materialCache(self % matIdx) % trackXS * rand % get()
-
+    call rand % generate(trackMatXS, mult = materialCache(self % matIdx) % trackXS)
     ! Loop over nuclides
     do i = 1,size(self % nuclides)
 
@@ -383,7 +380,8 @@ contains
             P_acc = nucCache % xss % total * nucCache % doppCorr / totNucXS
 
             ! Accept or reject the sampled nuclide
-            if (rand % get() >= P_acc) nucIdx = REJECTED
+            call rand % generate(randomNumber)
+            if (P_acc <= randomNumber) nucIdx = REJECTED
 
             ! Overwrite energy to be used to sample reaction
             eOut = eRel
@@ -433,7 +431,7 @@ contains
     class(ceNeutronNuclide), pointer     :: nuc
     integer(shortInt)                    :: nucIdx, i
     real(defReal)                        :: xs, doppCorr, A, nuckT, deltakT
-    character(100), parameter :: Here = 'sampleFission (ceNeutronMaterial_class.f90)'
+    character(*), parameter :: Here = 'sampleFission (ceNeutronMaterial_class.f90)'
 
     ! Short-cut for nonFissile material
     if (.not. self % fissile) then
@@ -447,7 +445,7 @@ contains
     materialCache(self % matIdx) % E_rel = ZERO
     call self % data % updateMacroXSs(E, self % matIdx, rand)
 
-    xs = materialCache(self % matIdx) % xss % nuFission * rand % get()
+    call rand % generate(xs, mult = materialCache(self % matIdx) % xss % nuFission)
 
     ! Loop over all nuclides
     do i = 1,size(self % nuclides)
@@ -508,7 +506,7 @@ contains
     class(ceNeutronNuclide), pointer     :: nuc
     integer(shortInt)                    :: nucIdx, i
     real(defReal)                        :: xs, doppCorr, A, nuckT, deltakT
-    character(100), parameter :: Here = 'sampleScatter (ceNeutronMaterial_class.f90)'
+    character(*), parameter :: Here = 'sampleScatter (ceNeutronMaterial_class.f90)'
 
     ! Calculate material macroscopic cross section of all scattering
     ! The cache is updated without checking the energy to get the correct results with TMS
@@ -516,8 +514,8 @@ contains
     materialCache(self % matIdx) % E_rel = ZERO
     call self % data % updateMacroXSs(E, self % matIdx, rand)
 
-    xs = rand % get() * (materialCache(self % matIdx) % xss % elasticScatter + &
-                         materialCache(self % matIdx) % xss % inelasticScatter)
+    call rand % generate(xs, mult = materialCache(self % matIdx) % xss % elasticScatter + &
+                                    materialCache(self % matIdx) % xss % inelasticScatter)
 
     ! Loop over all nuclides
     do i = 1,size(self % nuclides)
@@ -580,7 +578,7 @@ contains
     class(ceNeutronNuclide), pointer     :: nuc
     integer(shortInt)                    :: nucIdx, i
     real(defReal)                        :: xs, doppCorr, A, nuckT, deltakT
-    character(100), parameter :: Here = 'sampleScatterWithFission (ceNeutronMaterial_class.f90)'
+    character(*), parameter :: Here = 'sampleScatterWithFission (ceNeutronMaterial_class.f90)'
 
     ! Calculate material macroscopic cross section of all scattering and fission
     ! The cache is updated without checking the energy to get the correct results with TMS
@@ -588,9 +586,9 @@ contains
     materialCache(self % matIdx) % E_rel = ZERO
     call self % data % updateMacroXSs(E, self % matIdx, rand)
 
-    xs = rand % get() * (materialCache(self % matIdx) % xss % elasticScatter + &
-                         materialCache(self % matIdx) % xss % inelasticScatter + &
-                         materialCache(self % matIdx) % xss % fission)
+    call rand % generate(xs, mult = materialCache(self % matIdx) % xss % elasticScatter + &
+                                    materialCache(self % matIdx) % xss % inelasticScatter + &
+                                    materialCache(self % matIdx) % xss % fission)
 
     ! Loop over all nuclides
     do i = 1,size(self % nuclides)

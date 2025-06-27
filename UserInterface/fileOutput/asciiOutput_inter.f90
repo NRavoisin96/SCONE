@@ -151,7 +151,7 @@ module asciiOutput_inter
       import :: asciiOutput, &
                 shortInt
       class(asciiOutput), intent(inout)         :: self
-      integer(shortInt),dimension(:),intent(in) :: shape
+      integer(shortInt), dimension(:), intent(in) :: shape
     end subroutine startArray
 
     !!
@@ -173,7 +173,7 @@ module asciiOutput_inter
     subroutine printNum(self, val)
       import :: asciiOutput
       class(asciiOutput), intent(inout) :: self
-      character(*),intent(in)           :: val
+      character(*), intent(in)           :: val
     end subroutine printNum
 
     !!
@@ -187,7 +187,7 @@ module asciiOutput_inter
     subroutine printChar(self, val)
       import :: asciiOutput
       class(asciiOutput), intent(inout) :: self
-      character(*),intent(in)           :: val
+      character(*), intent(in)           :: val
     end subroutine printChar
   end interface
 

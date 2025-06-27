@@ -103,7 +103,7 @@ contains
   subroutine makeViz(self)
     class(visualiser), intent(inout)             :: self
     class(dictionary), pointer                   :: tempDict
-    character(nameLen),dimension(:), allocatable :: keysArr
+    character(nameLen), dimension(:), allocatable :: keysArr
     integer(shortInt)                            :: i
     character(nameLen)                           :: type
     character(nameLen) :: here ='makeViz (visualiser_class.f90)'
@@ -112,7 +112,7 @@ contains
     ! (if the visualisation method is available)
     call self % vizDict % keys(keysArr,'dict')
 
-    do i=1,size(keysArr)
+    do i= 1, size(keysArr)
       tempDict => self % vizDict % getDictPtr(keysArr(i))
       call tempDict % get(type,'type')
       select case(type)
@@ -235,7 +235,7 @@ contains
     integer(shortInt)                              :: offset
     character(10)                                  :: time
     character(8)                                   :: date
-    character(100), parameter :: Here = 'makeBmpImg (visualiser_class.f90)'
+    character(*), parameter :: Here = 'makeBmpImg (visualiser_class.f90)'
 
     ! Get plot parameters
 

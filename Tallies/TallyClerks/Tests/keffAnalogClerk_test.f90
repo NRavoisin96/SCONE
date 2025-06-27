@@ -61,7 +61,7 @@ contains
     type(particle)                             :: p
     real(defReal)                              :: k, STD
     class(tallyResult), allocatable            :: res
-    real(defReal),parameter :: TOL = 1.0E-9
+    real(defReal), parameter :: TOL = 1.0E-9
 
     ! Initialise objects
     call pit % init(4)
@@ -131,7 +131,7 @@ contains
     type(particle)                             :: p
     real(defReal)                              :: k, STD
     class(tallyResult), allocatable            :: res
-    real(defReal),parameter :: TOL = 1.0E-9
+    real(defReal), parameter :: TOL = 1.0E-9
 
     ! Initialise objects
     call pit % init(4)

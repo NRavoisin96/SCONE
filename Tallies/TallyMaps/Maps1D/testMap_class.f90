@@ -14,7 +14,7 @@ module testMap_class
   !! Very simple map used for testing of other components only
   !!   Given state it returns bin = matIdx or 0 if matIdx > maxIdx given in dictionary
   !!
-  type, public,extends(tallyMap1D) :: testMap
+  type, public, extends(tallyMap1D) :: testMap
     private
     integer(shortInt) :: maxIdx = 0
   contains
@@ -65,7 +65,7 @@ contains
     class(particleState), intent(in) :: state
     integer(shortInt)                :: idx
 
-    if(state % matIdx < 0 .or. state % matIdx > self % maxIdx) then
+    if (state % matIdx < 0 .or. state % matIdx > self % maxIdx) then
       idx = 0
     else
       idx = state % matIdx

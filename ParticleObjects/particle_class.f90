@@ -13,7 +13,7 @@ module particle_class
   !!
   !! Particle types paramethers
   !!
-  integer(shortInt), parameter,public :: P_NEUTRON = 1, &
+  integer(shortInt), parameter, public :: P_NEUTRON = 1, &
                                          P_PHOTON  = 2
 
   !!
@@ -49,8 +49,8 @@ module particle_class
   !!
   type, public :: particleState
     real(defReal)              :: wgt  = ZERO       ! Particle weight
-    real(defReal),dimension(3) :: r    = ZERO       ! Global position
-    real(defReal),dimension(3) :: dir  = ZERO       ! Global direction
+    real(defReal), dimension(3) :: r    = ZERO       ! Global position
+    real(defReal), dimension(3) :: dir  = ZERO       ! Global direction
     real(defReal)              :: E    = ZERO       ! Energy
     integer(shortInt)          :: G    = 0          ! Energy group
     logical(defBool)           :: isMG = .false.    ! Is neutron multi-group
@@ -69,7 +69,7 @@ module particle_class
     procedure  :: kill           => kill_particleState
 
     ! Private procedures
-    procedure,private :: equal_particleState
+    procedure, private :: equal_particleState
 
   end type particleState
 
@@ -158,9 +158,9 @@ module particle_class
     procedure            :: typeToChar
 
     !! Private - Implementation specific procedures
-    procedure,private                   :: buildCE
-    procedure,private                   :: buildMG
-    procedure,non_overridable,private   :: particle_fromParticleState
+    procedure, private                   :: buildCE
+    procedure, private                   :: buildMG
+    procedure,non_overridable, private   :: particle_fromParticleState
 
   end type particle
 
@@ -183,12 +183,12 @@ contains
   !!
   pure subroutine buildCE(self, r, dir, E, w, t, type)
     class(particle), intent(inout)          :: self
-    real(defReal),dimension(3),intent(in)   :: r
-    real(defReal),dimension(3),intent(in)   :: dir
-    real(defReal),intent(in)                :: E
-    real(defReal),intent(in)                :: w
-    real(defReal),optional,intent(in)       :: t
-    integer(shortInt),intent(in),optional   :: type
+    real(defReal), dimension(3), intent(in)   :: r
+    real(defReal), dimension(3), intent(in)   :: dir
+    real(defReal), intent(in)                :: E
+    real(defReal), intent(in)                :: w
+    real(defReal),optional, intent(in)       :: t
+    integer(shortInt), intent(in),optional   :: type
 
     call self % coords % init(r, dir)
     self % E  = E
@@ -198,13 +198,13 @@ contains
     self % isDead = .false.
     self % isMG   = .false.
 
-    if(present(t)) then
+    if (present(t)) then
       self % time = t
     else
       self % time = ZERO
     end if
 
-    if(present(type)) then
+    if (present(type)) then
       self % type = type
     else
       self % type = P_NEUTRON
@@ -225,12 +225,12 @@ contains
   !!
   subroutine buildMG(self, r, dir, G, w, t, type)
     class(particle), intent(inout)          :: self
-    real(defReal),dimension(3),intent(in)   :: r
-    real(defReal),dimension(3),intent(in)   :: dir
-    real(defReal),intent(in)                :: w
-    integer(shortInt),intent(in)            :: G
-    real(defReal),intent(in),optional       :: t
-    integer(shortInt),intent(in),optional   :: type
+    real(defReal), dimension(3), intent(in)   :: r
+    real(defReal), dimension(3), intent(in)   :: dir
+    real(defReal), intent(in)                :: w
+    integer(shortInt), intent(in)            :: G
+    real(defReal), intent(in),optional       :: t
+    integer(shortInt), intent(in),optional   :: type
 
     call self % coords % init(r, dir)
     self % G  = G
@@ -240,13 +240,13 @@ contains
     self % isDead = .false.
     self % isMG   = .true.
 
-    if(present(t)) then
+    if (present(t)) then
       self % time = t
     else
       self % time = ZERO
     end if
 
-    if(present(type)) then
+    if (present(type)) then
       self % type = type
     else
       self % type = P_NEUTRON
@@ -631,7 +631,7 @@ contains
     character(:), allocatable   :: c
     character(2)                :: eType
 
-    if( self % isMG) then
+    if (self % isMG) then
       eType = 'MG'
     else
       eType = 'CE'
@@ -693,7 +693,7 @@ contains
     isEqual = isEqual .and. LHS % collisionN == RHS % collisionN
     isEqual = isEqual .and. LHS % broodID    == RHS % broodID
 
-    if( LHS % isMG ) then
+    if (LHS % isMG) then
       isEqual = isEqual .and. LHS % G == RHS % G
     else
       isEqual = isEqual .and. LHS % E == RHS % E
@@ -763,7 +763,7 @@ contains
   !!
   pure function printType(type) result(name)
     integer(shortInt), intent(in) :: type
-    character(:),allocatable      :: name
+    character(:), allocatable      :: name
 
     select case(type)
       case(P_NEUTRON)

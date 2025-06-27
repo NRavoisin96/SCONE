@@ -24,7 +24,7 @@ module sourceFactory_func
   ! It is printed if type was unrecognised
   ! NOTE:
   ! For now  it is necessary to adjust trailing blanks so all entries have the same length
-  character(nameLen),dimension(*),parameter :: AVAILABLE_sources = [ 'pointSource   ',&
+  character(nameLen), dimension(*), parameter :: AVAILABLE_sources = [ 'pointSource   ',&
                                                                      'fissionSource ',&
                                                                      'materialSource']
 
@@ -35,14 +35,14 @@ contains
   !! If new is allocated it deallocates it
   !!
   subroutine new_source(new, dict, geom)
-    class(source),allocatable, intent(inout) :: new
+    class(source), allocatable, intent(inout) :: new
     class(dictionary), intent(in)            :: dict
     class(geometry), pointer, intent(in)     :: geom
     character(nameLen)                       :: type
-    character(100),parameter :: Here = 'new_source (sourceFactory_func.f90)'
+    character(*), parameter :: Here = 'new_source (sourceFactory_func.f90)'
 
     ! Deallocate new if allocated
-    if(allocated(new)) deallocate(new)
+    if (allocated(new)) deallocate(new)
 
     ! Obtain string that specifies type to be built
     call dict % get(type,'type')

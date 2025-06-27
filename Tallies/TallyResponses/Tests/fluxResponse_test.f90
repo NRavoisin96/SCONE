@@ -48,7 +48,7 @@ contains
   subroutine fluxResponseing(this)
     class(test_fluxResponse), intent(inout) :: this
     type(particle)                          :: p
-    class(nuclearDatabase),pointer          :: xsData
+    class(nuclearDatabase), pointer          :: xsData
 
     @assertEqual(ONE, this % response % get(p, xsData), 1.0E-9_defReal)
 

@@ -21,7 +21,7 @@ module transportOperatorFactory_func
   ! It is printed if type was unrecognised
   ! NOTE:
   ! For now  it is necessary to adjust trailing blanks so all enteries have the same length
-  character(nameLen),dimension(*),parameter :: AVALIBLE_transportOps = [ 'transportOperatorST', &
+  character(nameLen), dimension(*), parameter :: AVALIBLE_transportOps = [ 'transportOperatorST', &
                                                                          'transportOperatorDT', &
                                                                          'transportOperatorHT']
 
@@ -34,12 +34,12 @@ contains
   !! If new is allocated it deallocates it
   !!
   subroutine new_transportOperator(new, dict)
-    class(transportOperator),allocatable, intent(inout):: new
+    class(transportOperator), allocatable, intent(inout):: new
     class(dictionary), intent(in)                      :: dict
     character(nameLen)                                 :: type
-    character(100),parameter :: Here = 'new_transportOperator (transportOperatorFactory_func.f90)'
+    character(*), parameter :: Here = 'new_transportOperator (transportOperatorFactory_func.f90)'
 
-    if(allocated(new)) deallocate(new)
+    if (allocated(new)) deallocate(new)
 
     ! Obtain string that specifies type to be built
     call dict % get(type,'type')

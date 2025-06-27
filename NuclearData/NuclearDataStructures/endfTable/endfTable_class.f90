@@ -42,13 +42,13 @@ module endfTable_class
   !!
   type, public :: endfTable
     private
-    real(defReal),dimension(:),allocatable     :: x
-    real(defReal),dimension(:),allocatable     :: y
+    real(defReal), dimension(:), allocatable     :: x
+    real(defReal), dimension(:), allocatable     :: y
 
     integer(shortInt)                          :: nRegions  = -1
 
-    integer(shortInt),dimension(:),allocatable :: bounds
-    integer(shortInt),dimension(:),allocatable :: interENDF
+    integer(shortInt), dimension(:), allocatable :: bounds
+    integer(shortInt), dimension(:), allocatable :: interENDF
 
   contains
     procedure :: at
@@ -76,15 +76,15 @@ contains
   !!
   subroutine initSimple(self, x, y)
     class(endfTable), intent(inout)       :: self
-    real(defReal),dimension(:),intent(in) :: x
-    real(defReal),dimension(:),intent(in) :: y
-    character(100),parameter              :: Here='initSimple (endfTable_class.f90)'
+    real(defReal), dimension(:), intent(in) :: x
+    real(defReal), dimension(:), intent(in) :: y
+    character(100), parameter              :: Here='initSimple (endfTable_class.f90)'
 
     call self % kill()
 
     ! Check if x and y match and if x is sorted acending array.
     if (size(x) /= size(y))  call fatalError(Here,'x and y have diffrent size!')
-    if ( .not.(isSorted(x))) call fatalError(Here,'x is not sorted increasing')
+    if (.not.(isSorted(x))) call fatalError(Here,'x is not sorted increasing')
 
     ! Assign data
     self % x = x
@@ -111,22 +111,22 @@ contains
   !!
   subroutine initInter(self, x, y, bounds, interENDF)
     class(endfTable), intent(inout)             :: self
-    real(defReal),dimension(:),intent(in)     :: x,y
-    integer(shortInt),dimension(:),intent(in) :: bounds, interENDF
-    character(100),parameter                  :: Here='initInter (endfTable_class.f90)'
+    real(defReal), dimension(:), intent(in)     :: x,y
+    integer(shortInt), dimension(:), intent(in) :: bounds, interENDF
+    character(100), parameter                  :: Here='initInter (endfTable_class.f90)'
 
     call self % kill()
 
     ! Perform Checks
     ! X and Y grid Error Cheks
     if (size(x) /= size(y))  call fatalError(Here,'x and y have diffrent size!')
-    if ( .not.(isSorted(x))) call fatalError(Here,'x is not sorted increasing')
+    if (.not.(isSorted(x))) call fatalError(Here,'x is not sorted increasing')
 
     ! Bounds and interENDF Error Checks
     if (size(bounds) /= size(interENDF)) call fatalError(Here, 'bounds and interENDF have different size')
-    if ( any(bounds < 1) ) call fatalError(Here,'bounds has -ve values')
+    if (any(bounds < 1) ) call fatalError(Here,'bounds has -ve values')
     if (.not.isSorted(bounds)) call fatalError(Here,'bounds is not sorted')
-    if ( maxval(bounds) > size(x)) call fatalError(Here,'bounds contains values larger then size(x)')
+    if (maxval(bounds) > size(x)) call fatalError(Here,'bounds contains values larger then size(x)')
     if (bounds(size(bounds)) /= size(x)) call fatalError(Here, 'Incomplete interpolation scheme.')
 
     ! Verify ENDF interpolation flags
@@ -158,17 +158,17 @@ contains
   !!   fatalError if x-value is outside range of x-grid
   !!
   function at(self, x) result (y)
-    class(endfTable),intent(in) :: self
+    class(endfTable), intent(in) :: self
     real(defReal), intent(in)   :: x
     real(defReal)               :: y
     integer(shortInt)           :: x_idx
     integer(shortInt)           :: bounds_idx
     real(defReal)               :: x_1, x_0, y_1, y_0
-    character(100),parameter    :: Here='at (endfTable_class.f90)'
+    character(100), parameter    :: Here='at (endfTable_class.f90)'
 
     ! Find index
     x_idx = floorSearch(self % x, x)
-    if( x_idx < 0) then
+    if (x_idx < 0) then
       call fatalError(Here,'Search of grid failed with error code:' // numToChar(x_idx))
     end if
 
@@ -211,7 +211,7 @@ contains
   subroutine reloadY(self, y)
     class(endfTable), intent(inout)         :: self
     real(defReal), dimension(:), intent(in) :: y
-    character(100), parameter :: Here = 'reload endfTable_class.f90'
+    character(*), parameter :: Here = 'reload endfTable_class.f90'
 
     if (.not.allocated(self % y)) then
       call fatalError(Here, 'Cannot reload y-values on uninitialised table.')
@@ -251,7 +251,7 @@ contains
     integer(shortInt)                       :: i, flag, reg, val
     real(defReal)                           :: x0, x1, y0, y1
     real(defReal)                           :: csum
-    character(100), parameter :: Here = 'integral (endfTable_class.f90)'
+    character(*), parameter :: Here = 'integral (endfTable_class.f90)'
 
     ! Preconditions
     if (.not.isSorted(x)) then
@@ -301,7 +301,7 @@ contains
       ! Increase csum
       ! Need to allow two neighbouring bins having same value of x
       ! In ENDF this is used to create tables with discontinuities
-      if ( x1 /= x0) then
+      if (x1 /= x0) then
         csum = csum + endf_bin_integral(x0, x1, y0, y1, x1, flag)
       end if
 
@@ -314,10 +314,10 @@ contains
   elemental subroutine kill(self)
     class(endfTable), intent(inout) :: self
 
-    if(allocated(self % x)) deallocate(self % x)
-    if(allocated(self % y)) deallocate(self % y)
-    if(allocated(self % bounds)) deallocate(self % bounds)
-    if(allocated(self % interENDF)) deallocate(self % interENDF)
+    if (allocated(self % x)) deallocate(self % x)
+    if (allocated(self % y)) deallocate(self % y)
+    if (allocated(self % bounds)) deallocate(self % bounds)
+    if (allocated(self % interENDF)) deallocate(self % interENDF)
     self % nRegions = 0
 
   end subroutine kill
@@ -350,7 +350,7 @@ contains
     integer(shortInt), intent(in) :: flag
     real(defReal)                 :: int
     real(defReal)                 :: f
-    character(100), parameter :: Here = 'endf_bin_integral (endfTable_class.f90)'
+    character(*), parameter :: Here = 'endf_bin_integral (endfTable_class.f90)'
 
     select case(flag)
       case (histogramInterpolation)

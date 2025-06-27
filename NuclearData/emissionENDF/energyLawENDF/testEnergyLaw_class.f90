@@ -18,7 +18,7 @@ module testEnergyLaw_class
   !!   sample        -> returns E_out
   !!   probabilityOf -> returns 1.0 if E_in == E_out (no floating point tolerance!)
   !!
-  type, public,extends(energyLawENDF) :: testEnergyLaw
+  type, public, extends(energyLawENDF) :: testEnergyLaw
     real(defReal) :: E_out = ZERO
   contains
     ! Interface procedures
@@ -64,7 +64,7 @@ contains
     real(defReal), intent(in)             :: E_out,E_in
     real(defReal)                         :: prob
 
-    if( E_out == self % E_out) then
+    if (E_out == self % E_out) then
       prob = ONE
     else
       prob = ZERO

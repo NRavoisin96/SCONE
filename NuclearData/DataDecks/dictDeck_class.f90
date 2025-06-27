@@ -16,7 +16,7 @@ module dictDeck_class
   !!   dict -> pointer to the dictionary
   !!
   type, public, extends(dataDeck) :: dictDeck
-    class(dictionary),pointer :: dict => null()
+    class(dictionary), pointer :: dict => null()
   contains
     procedure :: myType
   end type dictDeck
@@ -31,7 +31,7 @@ contains
   !!
   pure function myType(self) result(type)
     class(dictDeck), intent(in) :: self
-    character(:),allocatable    :: type
+    character(:), allocatable    :: type
 
     type = 'dictDeck'
   end function myType

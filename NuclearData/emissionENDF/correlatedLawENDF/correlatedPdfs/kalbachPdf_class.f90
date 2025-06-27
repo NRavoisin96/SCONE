@@ -30,8 +30,8 @@ module kalbachPdf_class
 
     ! Initialisation procedures
     generic           :: init          => init_withPDF, init_withCDF
-    procedure,private :: init_withPDF
-    procedure,private :: init_withCDF
+    procedure, private :: init_withPDF
+    procedure, private :: init_withCDF
   end type kalbachPdf
 
 contains
@@ -41,28 +41,25 @@ contains
   !!
   subroutine sample(self,mu,E_out,rand)
     class(kalbachPdf), intent(in)   :: self
-    real(defReal),intent(out)       :: mu
-    real(defReal),intent(out)       :: E_out
-    class(RNG),intent(inout)        :: rand
+    real(defReal), intent(out)       :: mu
+    real(defReal), intent(out)       :: E_out
+    class(RNG), intent(inout)        :: rand
     real(defReal)                   :: R,A,T
-    real(defReal)                   :: r1,r2,r3
+    real(defReal), dimension(3)     :: randomNumbers
 
     ! Generate random number
-    r1 = rand % get()
+    call rand % generate(randomNumbers)
 
     ! Sample outgoing energy
-    call self % table % sample(r1,E_out,R,A)
+    call self % table % sample(randomNumbers(1),E_out,R,A)
 
     ! Sample mu -> scheme copied from MCNP manual Chapter 2
-    r2 = rand % get()
-    r3 = rand % get()
-
-    if( r2 >= R) then
-      T = (TWO * r3 - ONE)*sinh(A)
-      mu = log(T+sqrt(T*T+ONE))/A
+    if (randomNumbers(2) >= R) then
+      T = (TWO * randomNumbers(3) - ONE) * sinh(A)
+      mu = log(T + sqrt(T * T + ONE)) / A
 
     else
-      mu = log(r3 * exp(A) + (ONE-r3) * exp(-A))/A
+      mu = log(randomNumbers(3) * exp(A) + (ONE - randomNumbers(3)) * exp(-A)) / A
 
     end if
 
@@ -85,8 +82,8 @@ contains
   !!
   function probabilityOf(self,mu,E_out) result (prob)
     class(kalbachPdf), intent(in)   :: self
-    real(defReal),intent(in)        :: mu
-    real(defReal),intent(in)        :: E_out
+    real(defReal), intent(in)        :: mu
+    real(defReal), intent(in)        :: E_out
     real(defReal)                   :: prob
     real(defReal)                   :: P_Eout, R, A, P_mu
 
@@ -117,15 +114,15 @@ contains
   !!
   subroutine init_withPDF(self,E,pdf,R,A,interFlag)
     class(kalbachPdf), intent(inout)       :: self
-    real(defReal),dimension(:),intent(in)  :: E
-    real(defReal),dimension(:),intent(in)  :: pdf
-    real(defReal),dimension(:),intent(in)  :: R
-    real(defReal),dimension(:),intent(in)  :: A
-    integer(shortInt),intent(in)           :: interFlag
-    character(100),parameter :: Here ='init_withPDF (kalbachPdf_class.f90)'
+    real(defReal), dimension(:), intent(in)  :: E
+    real(defReal), dimension(:), intent(in)  :: pdf
+    real(defReal), dimension(:), intent(in)  :: R
+    real(defReal), dimension(:), intent(in)  :: A
+    integer(shortInt), intent(in)           :: interFlag
+    character(100), parameter :: Here ='init_withPDF (kalbachPdf_class.f90)'
 
     ! Perform checks
-    if(any( E < 0.0 ) ) call fatalError(Here,'E contains -ve values')
+    if (any( E < 0.0 ) ) call fatalError(Here,'E contains -ve values')
 
     ! Initialise table
     call self % table % init(E,pdf,R,A,interFlag)
@@ -138,16 +135,16 @@ contains
   !!
   subroutine init_withCDF(self,E,pdf,cdf,R,A,interFlag)
     class(kalbachPdf), intent(inout)       :: self
-    real(defReal),dimension(:),intent(in)  :: E
-    real(defReal),dimension(:),intent(in)  :: pdf
-    real(defReal),dimension(:),intent(in)  :: cdf
-    real(defReal),dimension(:),intent(in)  :: R
-    real(defReal),dimension(:),intent(in)  :: A
-    integer(shortInt),intent(in)           :: interFlag
-    character(100),parameter :: Here ='init_withCDF (kalbachPdf_class.f90)'
+    real(defReal), dimension(:), intent(in)  :: E
+    real(defReal), dimension(:), intent(in)  :: pdf
+    real(defReal), dimension(:), intent(in)  :: cdf
+    real(defReal), dimension(:), intent(in)  :: R
+    real(defReal), dimension(:), intent(in)  :: A
+    integer(shortInt), intent(in)           :: interFlag
+    character(100), parameter :: Here ='init_withCDF (kalbachPdf_class.f90)'
 
     ! Perform checks
-    if(any( E < 0.0 ) ) call fatalError(Here,'E contains -ve values')
+    if (any( E < 0.0 ) ) call fatalError(Here,'E contains -ve values')
 
     ! Initialise table
     call self % table % init(E,pdf,cdf,R,A,interFlag)
@@ -158,11 +155,11 @@ contains
   !! Constructor with PDF
   !!
   function new_kalbachPdf_withPDF(E,pdf,R,A,interFlag) result(new)
-    real(defReal),dimension(:),intent(in)  :: E
-    real(defReal),dimension(:),intent(in)  :: pdf
-    real(defReal),dimension(:),intent(in)  :: R
-    real(defReal),dimension(:),intent(in)  :: A
-    integer(shortInt),intent(in)           :: interFlag
+    real(defReal), dimension(:), intent(in)  :: E
+    real(defReal), dimension(:), intent(in)  :: pdf
+    real(defReal), dimension(:), intent(in)  :: R
+    real(defReal), dimension(:), intent(in)  :: A
+    integer(shortInt), intent(in)           :: interFlag
     type(kalbachPdf)                       :: new
 
     ! Initialise
@@ -174,12 +171,12 @@ contains
   !! Constructor with PDF and CDF
   !!
   function new_kalbachPdf_withCDF(E,pdf,cdf,R,A,interFlag) result(new)
-    real(defReal),dimension(:),intent(in)  :: E
-    real(defReal),dimension(:),intent(in)  :: pdf
-    real(defReal),dimension(:),intent(in)  :: cdf
-    real(defReal),dimension(:),intent(in)  :: R
-    real(defReal),dimension(:),intent(in)  :: A
-    integer(shortInt),intent(in)           :: interFlag
+    real(defReal), dimension(:), intent(in)  :: E
+    real(defReal), dimension(:), intent(in)  :: pdf
+    real(defReal), dimension(:), intent(in)  :: cdf
+    real(defReal), dimension(:), intent(in)  :: R
+    real(defReal), dimension(:), intent(in)  :: A
+    integer(shortInt), intent(in)           :: interFlag
     type(kalbachPdf)                       :: new
 
     ! Initialise
@@ -194,11 +191,11 @@ contains
   function new_kalbachPdf_fromACE(ACE) result(new)
     type(aceCard), intent(inout)            :: ACE
     type(kalbachPdf)                        :: new
-    real(defReal),dimension(:),allocatable  :: E
-    real(defReal),dimension(:),allocatable  :: pdf
-    real(defReal),dimension(:),allocatable  :: cdf
-    real(defReal),dimension(:),allocatable  :: R
-    real(defReal),dimension(:),allocatable  :: A
+    real(defReal), dimension(:), allocatable  :: E
+    real(defReal), dimension(:), allocatable  :: pdf
+    real(defReal), dimension(:), allocatable  :: cdf
+    real(defReal), dimension(:), allocatable  :: R
+    real(defReal), dimension(:), allocatable  :: A
     integer(shortInt)                       :: interFlag
     integer(shortInt)                       :: N
 

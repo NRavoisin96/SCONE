@@ -40,8 +40,8 @@ module shannonEntropyClerk_class
     private
     !! Map defining the discretisation
     class(tallyMap), allocatable                   :: map
-    real(defReal),dimension(:),allocatable         :: prob             !! probability of being in a given bin
-    real(defReal),dimension(:),allocatable, public :: value            !! cycle-wise value of entropy
+    real(defReal), dimension(:), allocatable         :: prob             !! probability of being in a given bin
+    real(defReal), dimension(:), allocatable, public :: value            !! cycle-wise value of entropy
     integer(shortInt)                              :: N = 0            !! Number of bins
     integer(shortInt)                              :: maxCycles = 0    !! Number of tally cycles
     integer(shortInt)                              :: currentCycle = 0 !! track current cycle
@@ -99,8 +99,8 @@ contains
   !! Returns array of codes that represent diffrent reports
   !!
   function validReports(self) result(validCodes)
-    class(shannonEntropyClerk),intent(in)      :: self
-    integer(shortInt),dimension(:),allocatable :: validCodes
+    class(shannonEntropyClerk), intent(in)      :: self
+    integer(shortInt), dimension(:), allocatable :: validCodes
 
     validCodes = [cycleEnd_Code]
 
@@ -137,7 +137,7 @@ contains
       do i = 1,end % popSize()
         associate( state => end % get(i) )
           idx = self % map % map(state)
-          if( idx > 0) self % prob(idx) = self % prob(idx) + state % wgt
+          if (idx > 0) self % prob(idx) = self % prob(idx) + state % wgt
         end associate
       end do
 
@@ -186,7 +186,7 @@ contains
 
     call outFile % startArray(name, [self % maxCycles])
 
-    do i=1,self % maxCycles
+    do i= 1, self % maxCycles
       call outFile % addValue(self % value(i))
     end do
     call outFile % endArray()
@@ -201,9 +201,9 @@ contains
   elemental subroutine kill(self)
     class(shannonEntropyClerk), intent(inout) :: self
 
-    if(allocated(self % map)) deallocate(self % map)
-    if(allocated(self % prob)) deallocate(self % prob)
-    if(allocated(self % value)) deallocate(self % value)
+    if (allocated(self % map)) deallocate(self % map)
+    if (allocated(self % prob)) deallocate(self % prob)
+    if (allocated(self % value)) deallocate(self % value)
     self % N = 0
     self % currentCycle = 0
     self % maxCycles = 0

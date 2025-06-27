@@ -8,17 +8,17 @@ module intMap_class
   private
 
   !! Local parameters
-  integer(shortInt),parameter :: EMPTY     = 0
-  integer(shortInt),parameter :: TAKEN     = 1
-  integer(shortInt),parameter :: DELETED   = 2
-  integer(shortInt),parameter :: END_TOKEN = -789
-  real(defReal),parameter     :: MAX_LOAD  = 0.6
+  integer(shortInt), parameter :: EMPTY     = 0
+  integer(shortInt), parameter :: TAKEN     = 1
+  integer(shortInt), parameter :: DELETED   = 2
+  integer(shortInt), parameter :: END_TOKEN = -789
+  real(defReal), parameter     :: MAX_LOAD  = 0.6
 
   !!
   !! Helper type to wrap key and value
   !! Also contains status of the entry
   !!
-  type,private :: content
+  type, private :: content
     integer(shortInt) :: status = EMPTY
     integer(shortInt) :: key = 0
     integer(shortInt) :: val
@@ -106,9 +106,9 @@ contains
     integer(shortInt), intent(in):: N
     integer(shortInt)            :: N_bar
     integer(shortInt)            :: nextPow2
-    character(100), parameter :: Here = 'init (intMap_class.f90)'
+    character(*), parameter :: Here = 'init (intMap_class.f90)'
 
-    if( N <= 0) call fatalError(Here,'Size needs to be +ve')
+    if (N <= 0) call fatalError(Here,'Size needs to be +ve')
 
     ! Clean map
     call self % kill()
@@ -142,7 +142,7 @@ contains
     class(intMap), intent(inout) :: self
 
     ! Deallocate space
-    if(allocated(self % map)) deallocate(self % map)
+    if (allocated(self % map)) deallocate(self % map)
 
     ! Set default values of parameters
     self % N    = 0
@@ -205,12 +205,12 @@ contains
     ! Find next non empty place
     do while (self % map(hash) % status /= EMPTY)
       ! Exit if the entry with the same key was found
-      if( self % map(hash) % key == key) exit
+      if (self % map(hash) % key == key) exit
 
       ! Increment position
       hash = hash + 1
       ! Go to the beggining of table if overflow
-      if(hash > self % N) hash = 1
+      if (hash > self % N) hash = 1
 
     end do
 
@@ -244,10 +244,10 @@ contains
     integer(shortInt), intent(in) :: key
     integer(shortInt)             :: val
     integer(shortInt)             :: hash
-    character(100), parameter :: Here = 'get (intMap_class.f90)'
+    character(*), parameter :: Here = 'get (intMap_class.f90)'
 
     ! Give error if map is uninitialised (empty)
-    if( self % Load == 0) then
+    if (self % Load == 0) then
       call fatalError(Here,'Target key: '// numToChar(key) // ' was not found. Map is empty')
     end if
 
@@ -257,7 +257,7 @@ contains
     ! Look for the entry
     do while (self % map(hash) % status /= EMPTY)
       ! Exit if the entry with the same kay was found
-      if( self % map(hash) % status == TAKEN .and. self % map(hash) % key == key) then
+      if (self % map(hash) % status == TAKEN .and. self % map(hash) % key == key) then
         val = self % map(hash) % val
         return
 
@@ -265,7 +265,7 @@ contains
       ! Increment position
       hash = hash + 1
       ! Go to the beggining of table if overflow
-      if(hash > self % N) hash = 1
+      if (hash > self % N) hash = 1
 
     end do
 
@@ -298,7 +298,7 @@ contains
     integer(shortInt)             :: hash
 
     ! Give default if map is uninitialised (empty)
-    if( .not.allocated(self % map)) then
+    if (.not.allocated(self % map)) then
       val = default
       return
     end if
@@ -309,7 +309,7 @@ contains
     ! Look for the entry
     do while (self % map(hash) % status /= EMPTY)
       ! Exit if the entry with the same kay was found
-      if( self % map(hash) % status == TAKEN .and. self % map(hash) % key == key) then
+      if (self % map(hash) % status == TAKEN .and. self % map(hash) % key == key) then
         val = self % map(hash) % val
         return
 
@@ -317,7 +317,7 @@ contains
       ! Increment position
       hash = hash + 1
       ! Go to the beggining of table if overflow
-      if(hash > self % N) hash = 1
+      if (hash > self % N) hash = 1
 
     end do
 
@@ -343,7 +343,7 @@ contains
     integer(shortInt)             :: hash
 
     ! Quit if map is empty
-    if(self % load == 0) return
+    if (self % load == 0) return
 
     ! Calculate Hash
     hash = knuthHash(key, self % Nexp) + 1
@@ -351,7 +351,7 @@ contains
     ! Look for the entry
     do while (self % map(hash) % status /= EMPTY)
       ! Exit if the entry with the same key was found
-      if( self % map(hash) % key == key) then
+      if (self % map(hash) % key == key) then
         self % map(hash) % status = DELETED
         self % L = self % L - 1
         return
@@ -360,7 +360,7 @@ contains
       ! Increment position
       hash = hash + 1
       ! Go to the beggining of table if overflow
-      if(hash > self % N) hash = 1
+      if (hash > self % N) hash = 1
 
     end do
 
@@ -390,7 +390,7 @@ contains
 
     ! First non-empty element
     do idx = 1, self % N
-      if( self % map(idx) % status == TAKEN) return
+      if (self % map(idx) % status == TAKEN) return
     end do
 
     ! Should never be executed
@@ -414,13 +414,13 @@ contains
     class(intMap), intent(in)     :: self
     integer(shortInt), intent(in) :: idx
     integer(shortInt)             :: val
-    character(100), parameter :: Here = 'atVal (intMap_class.f90)'
+    character(*), parameter :: Here = 'atVal (intMap_class.f90)'
 
     ! Check bounds
     if (idx <= 0 .or. idx > self % N) then
       call fatalError(Here, "Index is outside of bounds or map is uninitialised:" // numToChar(idx))
 
-    else if ( self % map(idx) % status /= TAKEN) then
+    else if (self % map(idx) % status /= TAKEN) then
       call fatalError(Here, "Index refers to unoccupied entry:" // numToChar(idx))
     end if
 
@@ -445,13 +445,13 @@ contains
     class(intMap), intent(in)     :: self
     integer(shortInt), intent(in) :: idx
     integer(shortInt)             :: key
-    character(100), parameter :: Here = 'atKey (intMap_class.f90)'
+    character(*), parameter :: Here = 'atKey (intMap_class.f90)'
 
     ! Check bounds and status
     if (idx <= 0 .or. idx > self % N) then
       call fatalError(Here, "Index is outside of bounds or map is uninitialised:" // numToChar(idx))
 
-    else if ( self % map(idx) % status /= TAKEN) then
+    else if (self % map(idx) % status /= TAKEN) then
       call fatalError(Here, "Index refers to unoccupied entry:" // numToChar(idx))
     end if
 
@@ -477,13 +477,13 @@ contains
     class(intMap), intent(inout) :: self
     integer(shortInt), intent(in) :: val
     integer(shortInt), intent(in) :: idx
-    character(100), parameter :: Here = 'atSet (intMap_class.f90)'
+    character(*), parameter :: Here = 'atSet (intMap_class.f90)'
 
     ! Check bounds and status
     if (idx <= 0 .or. idx > self % N) then
       call fatalError(Here, "Index is outside of bounds or map is uninitialised:" // numToChar(idx))
 
-    else if ( self % map(idx) % status /= TAKEN) then
+    else if (self % map(idx) % status /= TAKEN) then
       call fatalError(Here, "Index refers to unoccupied entry:" // numToChar(idx))
     end if
 
@@ -510,7 +510,7 @@ contains
     class(intMap), intent(in)     :: self
     integer(shortInt), intent(in) :: idx
     integer(shortInt)             :: next_idx
-    character(100), parameter :: Here = 'next (intMap_class.f90)'
+    character(*), parameter :: Here = 'next (intMap_class.f90)'
 
     ! Check bounds and status
     if (idx <= 0 .or. idx > self % N) then
@@ -519,7 +519,7 @@ contains
 
     ! Loop until the next element
     do next_idx = idx +1, self % N
-      if(self % map(next_idx) % status == TAKEN) return
+      if (self % map(next_idx) % status == TAKEN) return
     end do
 
     ! Reached the end of array
@@ -568,9 +568,9 @@ contains
     call tempMap % init( self % Load * 2)
 
     ! Loop throuth current table and rehash non-empty entries
-    do i=1,self % N
+    do i= 1, self % N
       associate (entry => self % map(i) )
-        if(entry % status == TAKEN) then
+        if (entry % status == TAKEN) then
           call tempMap % add( entry % key, entry % val)
 
         end if

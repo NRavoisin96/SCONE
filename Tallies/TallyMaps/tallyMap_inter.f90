@@ -161,10 +161,10 @@ contains
   !!
   pure function binArrayShape(self) result(sh)
     class(tallyMap), intent(in)                      :: self
-    integer(shortInt),dimension(self % dimensions()) :: sh
+    integer(shortInt), dimension(self % dimensions()) :: sh
     integer(shortInt)                                :: i
 
-    do i=1,self % dimensions()
+    do i= 1, self % dimensions()
       sh(i) = self % bins(i)
     end do
 

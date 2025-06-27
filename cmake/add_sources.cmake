@@ -8,7 +8,7 @@ function(add_sources)
   # Check if the property is already defined
   # If it isn't define it
   get_property(is_defined GLOBAL PROPERTY SRCS_LIST DEFINED)
-  if(NOT is_defined)
+  if (NOT is_defined)
     define_property(GLOBAL PROPERTY SRCS_LIST
       BRIEF_DOCS "List of source files"
       FULL_DOCS "List of source files to be compiled in one library")
@@ -17,7 +17,7 @@ function(add_sources)
   # Take files listed in argument list and make their paths absolute
   set(SRCS)
   foreach(s IN LISTS ARGN)
-    if(NOT IS_ABSOLUTE "${s}")
+    if (NOT IS_ABSOLUTE "${s}")
       get_filename_component(s "${s}" ABSOLUTE)
     endif()
     list(APPEND SRCS "${s}")

@@ -81,7 +81,7 @@ contains
     type(dirPar), intent(in) :: testParam
     type(test_spaceMap)      :: tst
     type(dictionary)         :: tempDict
-    real(defReal),dimension(*),parameter :: BIN_DIV = [-10.0, -8.0, -6.0, -4.0, -2.0, 0.0, &
+    real(defReal), dimension(*), parameter :: BIN_DIV = [-10.0, -8.0, -6.0, -4.0, -2.0, 0.0, &
                                                         2.0,   4.0,  6.0,  8.0,  10.0]
 
     ! Load direction
@@ -119,10 +119,10 @@ contains
 @Test(testParameters={getParameters()})
   subroutine testStructuredGrid(this)
     class(test_spaceMap), intent(inout)      :: this
-    real(defReal),dimension(2),parameter     :: POS = [0.5_defReal, -10.1_defReal]
-    integer(shortInt),dimension(2),parameter :: RES = [11, 0]
-    integer(shortInt),dimension(2)           :: idx
-    type(particleState),dimension(2)         :: states
+    real(defReal), dimension(2), parameter     :: POS = [0.5_defReal, -10.1_defReal]
+    integer(shortInt), dimension(2), parameter :: RES = [11, 0]
+    integer(shortInt), dimension(2)           :: idx
+    type(particleState), dimension(2)         :: states
 
     states % r(this % dir) = POS
     idx = this % map_struct % map(states)
@@ -137,10 +137,10 @@ contains
 @Test(testParameters={getParameters()})
   subroutine testUnstructuredGrid(this)
     class(test_spaceMap), intent(inout)      :: this
-    real(defReal),dimension(2),parameter     :: POS = [0.5_defReal, -10.1_defReal]
-    integer(shortInt),dimension(2),parameter :: RES = [6, 0]
-    integer(shortInt),dimension(2)           :: idx
-    type(particleState),dimension(2)         :: states
+    real(defReal), dimension(2), parameter     :: POS = [0.5_defReal, -10.1_defReal]
+    integer(shortInt), dimension(2), parameter :: RES = [6, 0]
+    integer(shortInt), dimension(2)           :: idx
+    type(particleState), dimension(2)         :: states
 
     states % r(this % dir) = POS
     idx = this % map_unstruct % map(states)

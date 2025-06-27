@@ -147,7 +147,7 @@ contains
     integer(shortInt), optional, intent(in) :: nMaj
     integer(shortInt), optional, intent(in) :: nZaid
     integer(shortInt)                       :: nLoc
-    character(100),parameter :: Here = 'init (ceNeutronCache_mod.f90)'
+    character(*), parameter :: Here = 'init (ceNeutronCache_mod.f90)'
 
     ! Make sure memory is clean
     call kill()

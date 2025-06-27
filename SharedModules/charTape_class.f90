@@ -18,7 +18,7 @@ module charTape_class
     private
     integer(shortInt)        :: end    = 0
     integer(shortInt)        :: leng   = 0
-    character(:),allocatable :: tape
+    character(:), allocatable :: tape
   contains
     generic    :: append => append_tape, append_char
     procedure  :: expose
@@ -69,7 +69,7 @@ contains
     integer(shortInt), optional, intent(in) :: end
     integer(shortInt)                       :: pos
     integer(shortInt)                       :: end_loc
-    character(100), parameter :: Here = 'scan (charTape_class.f90)'
+    character(*), parameter :: Here = 'scan (charTape_class.f90)'
 
     ! Set end of the search interval
     if (present(end)) then
@@ -79,7 +79,7 @@ contains
     end if
 
     ! Deal with errors
-    if(start <= 0) then
+    if (start <= 0) then
       call fatalError(Here, 'Start cannot be -ve. Wa given: '//numToChar(start))
     elseif(start > end_loc) then
       call fatalError(Here,'Start: '//numToChar(start)//' is beyond length of search interval: '//&
@@ -110,7 +110,7 @@ contains
     integer(shortInt), intent(in) :: start
     integer(shortInt), intent(in) :: end
     character(end-start + 1)      :: c
-    character(100), parameter :: Here = 'segment (charTape_class.f90)'
+    character(*), parameter :: Here = 'segment (charTape_class.f90)'
 
     ! Process potential erros
     if (start <= 0) then
@@ -203,7 +203,7 @@ contains
     end = self % end
 
     ! Protect against degenerate tape
-    if ( tape % end > 0 .and. allocated(tape % tape)) then
+    if (tape % end > 0 .and. allocated(tape % tape)) then
       ! Resize if necessary
       call self % resize(end + tape % end)
 
@@ -246,15 +246,15 @@ contains
   subroutine resize(self,N)
     class(charTape), intent(inout) :: self
     integer(shortInt), intent(in)  :: N
-    character(:),allocatable       :: temp
+    character(:), allocatable       :: temp
 
     ! Return if length is OK
-    if( N < self % leng) return
+    if (N < self % leng) return
 
     self % leng = ceiling(N * GROWTH_RATIO)
 
     ! Extend or allocate tape
-    if(allocated(self % tape)) then
+    if (allocated(self % tape)) then
       allocate( character(self % leng) :: temp)
       temp(1:self % end) = self % tape
       call move_alloc(temp, self % tape)

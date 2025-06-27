@@ -67,7 +67,7 @@ module eigenPhysicsPackage_class
   !!
   !! Physics Package for eigenvalue calculations
   !!
-  type, public,extends(physicsPackage) :: eigenPhysicsPackage
+  type, public, extends(physicsPackage) :: eigenPhysicsPackage
     private
     ! Building blocks
     class(nuclearDatabase), pointer        :: nucData       => null()
@@ -77,11 +77,11 @@ module eigenPhysicsPackage_class
     class(transportOperator), allocatable  :: transOp
     class(source), allocatable             :: initSource
     class(RNG), pointer                    :: pRNG          => null()
-    type(tallyAdmin),pointer               :: inactiveTally => null()
-    type(tallyAdmin),pointer               :: activeTally   => null()
-    type(tallyAdmin),pointer               :: inactiveAtch  => null()
-    type(tallyAdmin),pointer               :: activeAtch    => null()
-    class(uniFissSitesField),pointer       :: ufsField      => null()
+    type(tallyAdmin), pointer               :: inactiveTally => null()
+    type(tallyAdmin), pointer               :: activeTally   => null()
+    type(tallyAdmin), pointer               :: inactiveAtch  => null()
+    type(tallyAdmin), pointer               :: activeAtch    => null()
+    class(uniFissSitesField), pointer       :: ufsField      => null()
 
 
     ! Settings
@@ -141,19 +141,19 @@ contains
   !!
   subroutine cycles(self, tally, tallyAtch, N_cycles)
     class(eigenPhysicsPackage), intent(inout) :: self
-    type(tallyAdmin), pointer,intent(inout)   :: tally
-    type(tallyAdmin), pointer,intent(inout)   :: tallyAtch
+    type(tallyAdmin), pointer, intent(inout)   :: tally
+    type(tallyAdmin), pointer, intent(inout)   :: tallyAtch
     integer(shortInt), intent(in)             :: N_cycles
     type(particleDungeon), save               :: buffer
     integer(shortInt)                         :: i, n, Nstart, Nend, nParticles
-    class(tallyResult),allocatable            :: res
+    class(tallyResult), allocatable            :: res
     type(collisionOperator), save             :: collOp
-    class(transportOperator),allocatable,save :: transOp
+    class(transportOperator), allocatable,save :: transOp
     type(RNG), target, save                   :: pRNG
     type(particle), save                      :: neutron
     real(defReal)                             :: k_old, k_new
     real(defReal)                             :: elapsed_T, end_T, T_toEnd
-    character(100),parameter :: Here ='cycles (eigenPhysicsPackage_class.f90)'
+    character(100), parameter :: Here ='cycles (eigenPhysicsPackage_class.f90)'
     !$omp threadprivate(neutron, buffer, collOp, transOp, pRNG)
 
     !$omp parallel
@@ -175,7 +175,7 @@ contains
     call timerReset(self % timerMain)
     call timerStart(self % timerMain)
 
-    do i=1,N_cycles
+    do i= 1, N_cycles
 
       ! Send start of cycle report
       Nstart = self % thisCycle % popSize()
@@ -207,10 +207,10 @@ contains
           ! Transport particle until its death
           history: do
             call transOp % transport(neutron, tally, buffer, self % nextCycle)
-            if(neutron % isDead) exit history
+            if (neutron % isDead) exit history
 
             call collOp % collide(neutron, tally, buffer, self % nextCycle)
-            if(neutron % isDead) exit history
+            if (neutron % isDead) exit history
           end do history
 
           ! Clear out buffer
@@ -241,7 +241,7 @@ contains
       ! Normalise population
       call self % nextCycle % normSize(self % pop, self % pRNG)
 
-      if(self % printSource == 1) then
+      if (self % printSource == 1) then
         call self % nextCycle % printToFile(trim(self % outputFile)//'_source'//numToChar(i))
       end if
 
@@ -326,7 +326,7 @@ contains
     call out % init(self % outputFormat, filename=self % outputFile)
 
     name = 'seed'
-    call out % printValue(self % pRNG % getSeed(),name)
+    call out % printValue(self % pRNG % getInitialSeed(), name)
 
     name = 'pop'
     call out % printValue(self % pop,name)
@@ -368,13 +368,13 @@ contains
   subroutine init(self, dict)
     class(eigenPhysicsPackage), intent(inout) :: self
     class(dictionary), intent(inout)          :: dict
-    class(dictionary),pointer                 :: tempDict
+    class(dictionary), pointer                 :: tempDict
     type(dictionary)                          :: locDict1, locDict2
     integer(shortInt)                         :: seed_temp
     integer(longInt)                          :: seed
     character(10)                             :: time
     character(8)                              :: date
-    character(:),allocatable                  :: string
+    character(:), allocatable                  :: string
     character(nameLen)                        :: nucData, energy, geomName
     type(outputFile)                          :: test_out
     type(visualiser)                          :: viz
@@ -419,7 +419,7 @@ contains
 
     ! *** It is a bit silly but dictionary cannot store longInt for now
     !     so seeds are limited to 32 bits (can be -ve)
-    if( dict % isPresent('seed')) then
+    if (dict % isPresent('seed')) then
       call dict % get(seed_temp,'seed')
 
     else
@@ -571,7 +571,7 @@ contains
     print *, "Inactive Cycles:    ", numToChar(self % N_inactive)
     print *, "Active Cycles:      ", numToChar(self % N_active)
     print *, "Neutron Population: ", numToChar(self % pop)
-    print *, "Initial RNG Seed:   ", numToChar(self % pRNG % getSeed())
+    print *, "Initial RNG Seed:   ", numToChar(self % pRNG % getInitialSeed())
     print *
     print *, repeat("<>",50)
   end subroutine printSettings

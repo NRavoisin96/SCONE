@@ -74,7 +74,7 @@ contains
     class(thElasticScatter), intent(inout) :: self
     class(dataDeck), intent(inout)         :: data
     integer(shortInt), intent(in)          :: MT
-    character(100), parameter :: Here = 'init (elasticNeutronScatter_class.f90)'
+    character(*), parameter :: Here = 'init (elasticNeutronScatter_class.f90)'
 
     ! Select buld procedure approperiate for given dataDeck
     select type(data)
@@ -98,7 +98,7 @@ contains
     self % N_muOut = 0
     self % elasticTable = .false.
 
-    if(allocated(self % muMatrix)) deallocate(self % muMatrix)
+    if (allocated(self % muMatrix)) deallocate(self % muMatrix)
     deallocate(self % eIn)
     deallocate(self % pValues)
 
@@ -173,9 +173,9 @@ contains
     class(RNG), intent(inout)                :: rand
     real(defReal), intent(out), optional     :: lambda
     real(defReal), dimension(:), allocatable :: prob
-    real(defReal)        :: E1, E2, f, mu_l1k, mu1, mu2, mu3, muLeft, muRight, r
+    real(defReal)        :: E1, E2, f, mu_l1k, mu1, mu2, mu3, muLeft, muRight, randomNumber
     integer(shortInt)    :: l1, l2, k, i
-    character(100), parameter :: Here = 'sampleOut(thermalScatterElastic_class)'
+    character(*), parameter :: Here = 'sampleOut(thermalScatterElastic_class)'
 
     ! Set energy
     E_out = E_in
@@ -200,7 +200,8 @@ contains
       sample: do i = 1, 100
 
         ! Sample the outgoing angle
-        k = floor(self % N_muOut * rand % get()) + 1
+        call rand % generate(randomNumber)
+        k = floor(self % N_muOut * randomNumber) + 1
         mu_l1k = self % muMatrix(l1,k)
         mu1 = mu_l1k + f * (self % muMatrix(l2,k) - mu_l1k)
 
@@ -220,11 +221,11 @@ contains
           mu3 = self % muMatrix(l2, k + 1)
           muRight = mu2 + f * (mu3 - mu2)
         end if
-
-        mu = mu1 + min(mu1 - muLeft, muRight - mu1) * (rand % get() - HALF)
+        call rand % generate(randomNumber, add = -HALF)
+        mu = mu1 + min(mu1 - muLeft, muRight - mu1) * randomNumber
 
         ! Check if the angle is valid
-        if (mu <= ONE .and. mu >= - ONE) exit sample
+        if (abs(mu) <= ONE) exit sample
 
       end do sample
 
@@ -244,8 +245,8 @@ contains
       ! Sample a Bragg edge at a smaller energy than E_in
       prob = self % pValues(1:l2)
       prob(1) = ZERO
-      r = rand % get() * prob(l2)
-      k = binarySearch(prob, r)
+      call rand % generate(randomNumber, mult = prob(l2))
+      k = binarySearch(prob, randomNumber)
 
       E2 = self % eIn(k)
       ! Compute angle
@@ -257,10 +258,10 @@ contains
     end if
 
     ! Sample phi
-    phi = rand % get() * TWO_PI
+    call rand % generatePhi(phi)
 
     ! Only prompt particles. Set delay
-    if(present(lambda)) lambda = huge(lambda)
+    if (present(lambda)) lambda = huge(lambda)
 
   end subroutine sampleOut
 
@@ -277,7 +278,7 @@ contains
     real(defReal), intent(in)           :: E_out
     real(defReal), intent(in)           :: E_in
     real(defReal)                       :: prob
-    character(100), parameter :: Here = 'probOf (thermalScatterElastic_class.f90)'
+    character(*), parameter :: Here = 'probOf (thermalScatterElastic_class.f90)'
 
     ! Avoid compiler warnings
     prob = ONE
@@ -293,7 +294,7 @@ contains
     class(thElasticScatter), intent(inout) :: self
     type(aceSabCard), intent(inout)        :: ACE
     integer(shortInt)                      :: Nin, i
-    character(100), parameter :: Here = 'buildFromACE (thElasticScatt_class.f90)'
+    character(*), parameter :: Here = 'buildFromACE (thElasticScatt_class.f90)'
 
     ! Get scattering grids
     self % eIn = ACE % ESZ_elastic('energyGrid')

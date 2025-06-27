@@ -97,7 +97,7 @@ contains
     type(tallyAdmin), intent(inout)         :: tally
     class(particleDungeon), intent(inout)   :: thisCycle
     class(particleDungeon), intent(inout)   :: nextCycle
-    character(100),parameter :: Here ='transport (transportOperator_inter.f90)'
+    character(100), parameter :: Here ='transport (transportOperator_inter.f90)'
 
     ! Get nuclear data pointer form the particle
     self % xsData => ndReg_get(p % getType())

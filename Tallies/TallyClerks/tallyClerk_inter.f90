@@ -130,8 +130,8 @@ module tallyClerk_inter
     function validReports(self) result(validCodes)
       import :: tallyClerk ,&
                 shortInt
-      class(tallyClerk),intent(in)               :: self
-      integer(shortInt),dimension(:),allocatable :: validCodes
+      class(tallyClerk), intent(in)               :: self
+      integer(shortInt), dimension(:), allocatable :: validCodes
     end function validReports
 
     !!
@@ -236,7 +236,7 @@ contains
     class(nuclearDatabase), intent(inout) :: xsData
     type(scoreMemory), intent(inout)      :: mem
     logical(defBool), intent(in)          :: virtual
-    character(100),parameter    :: Here = 'reportInColl (tallyClerk_inter.f90)'
+    character(100), parameter    :: Here = 'reportInColl (tallyClerk_inter.f90)'
 
     call fatalError(Here,'Report was sent to an instance that does not support it.')
 
@@ -265,7 +265,7 @@ contains
     real(defReal), intent(in)             :: muL
     class(nuclearDatabase), intent(inout) :: xsData
     type(scoreMemory), intent(inout)      :: mem
-    character(100),parameter  :: Here = 'reportOutColl (tallyClerk_inter.f90)'
+    character(100), parameter  :: Here = 'reportOutColl (tallyClerk_inter.f90)'
 
     call fatalError(Here,'Report was sent to an instance that does not support it.')
 
@@ -291,7 +291,7 @@ contains
     real(defReal), intent(in)             :: L
     class(nuclearDatabase), intent(inout) :: xsData
     type(scoreMemory), intent(inout)      :: mem
-    character(100),parameter  :: Here = 'reportPath (tallyClerk_inter.f90)'
+    character(100), parameter  :: Here = 'reportPath (tallyClerk_inter.f90)'
 
     call fatalError(Here,'Report was sent to an instance that does not support it.')
 
@@ -315,7 +315,7 @@ contains
     class(particle), intent(in)           :: p
     class(nuclearDatabase), intent(inout) :: xsData
     type(scoreMemory), intent(inout)      :: mem
-    character(100),parameter  :: Here = 'reportTrans (tallyClerk_inter.f90)'
+    character(100), parameter  :: Here = 'reportTrans (tallyClerk_inter.f90)'
 
     call fatalError(Here,'Report was sent to an instance that does not support it.')
 
@@ -343,7 +343,7 @@ contains
     class(particleState), intent(in)      :: pNew
     class(nuclearDatabase), intent(inout) :: xsData
     type(scoreMemory), intent(inout)      :: mem
-    character(100),parameter  :: Here = 'reportSpawn (tallyClerk_inter.f90)'
+    character(100), parameter  :: Here = 'reportSpawn (tallyClerk_inter.f90)'
 
     call fatalError(Here,'Report was sent to an instance that does not support it.')
 
@@ -367,7 +367,7 @@ contains
     class(particle), intent(in)           :: p
     class(nuclearDatabase), intent(inout) :: xsData
     type(scoreMemory), intent(inout)      :: mem
-    character(100),parameter  :: Here = 'reportHist (tallyClerk_inter.f90)'
+    character(100), parameter  :: Here = 'reportHist (tallyClerk_inter.f90)'
 
     call fatalError(Here,'Report was sent to an instance that does not support it.')
 
@@ -389,7 +389,7 @@ contains
     class(tallyClerk), intent(inout)    :: self
     class(particleDungeon), intent(in)  :: start
     type(scoreMemory), intent(inout)    :: mem
-    character(100),parameter  :: Here = 'reportCycleStart (tallyClerk_inter.f90)'
+    character(100), parameter  :: Here = 'reportCycleStart (tallyClerk_inter.f90)'
 
     call fatalError(Here,'Report was sent to an instance that does not support it.')
 
@@ -411,7 +411,7 @@ contains
     class(tallyClerk), intent(inout)   :: self
     class(particleDungeon), intent(in) :: end
     type(scoreMemory), intent(inout)   :: mem
-    character(100),parameter  :: Here = 'reportCycleEnd (tallyClerk_inter.f90)'
+    character(100), parameter  :: Here = 'reportCycleEnd (tallyClerk_inter.f90)'
 
     call fatalError(Here,'Report was sent to an instance that does not support it.')
 
@@ -433,7 +433,7 @@ contains
     class(tallyClerk), intent(in)    :: self
     type(scoreMemory), intent(inout) :: mem
     logical(defBool)                 :: isIt
-    character(100),parameter  :: Here = 'isConverged (tallyClerk_inter.f90)'
+    character(100), parameter  :: Here = 'isConverged (tallyClerk_inter.f90)'
 
     call fatalError(Here,'Convergence check is not implemented in the instance')
 
@@ -494,10 +494,10 @@ contains
   !!
   pure subroutine getResult(self, res, mem)
     class(tallyClerk), intent(in)                  :: self
-    class(tallyResult),allocatable, intent(inout)  :: res
+    class(tallyResult), allocatable, intent(inout)  :: res
     type(scoreMemory), intent(in)                  :: mem
 
-    if(allocated(res)) deallocate(res)
+    if (allocated(res)) deallocate(res)
     allocate(tallyResultEmpty :: res)
 
   end subroutine getResult

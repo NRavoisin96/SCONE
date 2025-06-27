@@ -292,7 +292,7 @@ contains
     integer(shortInt), dimension(2) :: plane
     integer(shortInt)               :: ax, i, j, matIdx, uniqueID
     logical(defBool)                :: printMat
-    character(100), parameter :: Here = 'slicePlot (geometry_inter.f90)'
+    character(*), parameter :: Here = 'slicePlot (geometry_inter.f90)'
 
     ! Select plane of the plot
     select case (dir)

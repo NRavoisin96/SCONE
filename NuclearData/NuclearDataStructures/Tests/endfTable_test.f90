@@ -106,10 +106,10 @@ contains
   !!
 @Test
   subroutine testLinLinTable()
-    real(defReal),dimension(*),parameter :: x = [-1.0_defReal, 2.0_defReal, 2.5_defReal, 3.5_defReal]
-    real(defReal),dimension(*),parameter :: y = [17.0_defReal, -2.0_defReal, 0.0_defReal, 1.5_defReal]
+    real(defReal), dimension(*), parameter :: x = [-1.0_defReal, 2.0_defReal, 2.5_defReal, 3.5_defReal]
+    real(defReal), dimension(*), parameter :: y = [17.0_defReal, -2.0_defReal, 0.0_defReal, 1.5_defReal]
     type(endfTable)                      :: tab
-    real(defReal),parameter :: TOL = 1.0E-6
+    real(defReal), parameter :: TOL = 1.0E-6
 
     call tab % init(x, y)
 
@@ -138,7 +138,7 @@ contains
     real(defReal), dimension(*), parameter :: y = [0.0_defReal, 1.0_defReal, 0.5_defReal, 0.0_defReal]
     type(endfTable)                        :: tab
     real(defReal), dimension(4)            :: out, val, points
-    real(defReal),parameter :: TOL = 1.0E-6
+    real(defReal), parameter :: TOL = 1.0E-6
 
     call tab % init(x, y)
 
@@ -162,10 +162,10 @@ contains
   !!
 @Test
   subroutine testOneRegionInterpolation()
-    real(defReal),dimension(*),parameter :: x = [-1.0_defReal, 2.0_defReal, 2.5_defReal, 3.5_defReal]
-    real(defReal),dimension(*),parameter :: y = [17.0_defReal, -2.0_defReal, 0.0_defReal, 1.5_defReal]
+    real(defReal), dimension(*), parameter :: x = [-1.0_defReal, 2.0_defReal, 2.5_defReal, 3.5_defReal]
+    real(defReal), dimension(*), parameter :: y = [17.0_defReal, -2.0_defReal, 0.0_defReal, 1.5_defReal]
     type(endfTable)                      :: tab
-    real(defReal),parameter :: TOL = 1.0E-6
+    real(defReal), parameter :: TOL = 1.0E-6
 
     ! Initialise with histogram interpolation
     call tab % init(x, y, [4], [histogramInterpolation])
@@ -196,7 +196,7 @@ contains
                                                    0.5_defReal, 0.25_defReal, 0.125_defReal ]
     type(endfTable)                        :: tab
     real(defReal), dimension(6)            :: out, val, p
-    real(defReal),parameter                :: TOL = 1.0E-6
+    real(defReal), parameter                :: TOL = 1.0E-6
 
     call tab % init(x, y, [6], [loglogInterpolation])
 
@@ -228,10 +228,10 @@ contains
   !!
 @Test
   subroutine testMultipleInterRegions()
-    real(defReal),dimension(*),parameter :: x = [-1.0_defReal, 2.0_defReal, 2.5_defReal, 2.5_defReal, 3.5_defReal]
-    real(defReal),dimension(*),parameter :: y = [17.0_defReal, 2.0_defReal, 0.0_defReal, 1.0_defReal, 1.5_defReal]
+    real(defReal), dimension(*), parameter :: x = [-1.0_defReal, 2.0_defReal, 2.5_defReal, 2.5_defReal, 3.5_defReal]
+    real(defReal), dimension(*), parameter :: y = [17.0_defReal, 2.0_defReal, 0.0_defReal, 1.0_defReal, 1.5_defReal]
     type(endfTable)                      :: tab
-    real(defReal),parameter :: TOL = 1.0E-6
+    real(defReal), parameter :: TOL = 1.0E-6
 
     ! Initialise with linLog, logLin and logLog interpolations
     call tab % init(x, y, [2,4,5], [loglinInterpolation, linLogInterpolation, logLogInterpolation])
@@ -268,7 +268,7 @@ contains
     type(endfTable)                        :: tab
     real(defReal), dimension(7)            :: out, val
     real(defReal), dimension(3)            :: p, val2
-    real(defReal),parameter                :: TOL = 1.0E-6
+    real(defReal), parameter                :: TOL = 1.0E-6
 
     ! Calculate y values
     y(1) = 2.0_defReal

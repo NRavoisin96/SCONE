@@ -54,7 +54,7 @@ module fissionSource_class
   !!     #bottom (0.0 0.0 0.0); #
   !!   }
   !!
-  type, public,extends(source) :: fissionSource
+  type, public, extends(source) :: fissionSource
     private
     logical(defBool)            :: isMG   = .false.
     real(defReal), dimension(3) :: bottom = ZERO
@@ -82,7 +82,7 @@ contains
     character(nameLen)                       :: type
     real(defReal), dimension(6)              :: bounds
     real(defReal), allocatable, dimension(:) :: temp
-    character(100), parameter :: Here = 'init (fissionSource_class.f90)'
+    character(*), parameter :: Here = 'init (fissionSource_class.f90)'
 
     ! Provide geometry info to source
     self % geom => geom
@@ -154,10 +154,10 @@ contains
     class(ceNeutronMaterial), pointer    :: matCE
     type(fissionCE), pointer             :: fissCE
     type(fissionMG), pointer             :: fissMG
-    real(defReal), dimension(3)          :: r, rand3
+    real(defReal), dimension(3)          :: r, randomNumbers
     real(defReal)                        :: mu, phi, E_out, E_up, E_down
     integer(shortInt)                    :: matIdx, uniqueID, nucIdx, i, G_out
-    character(100), parameter :: Here = 'sampleParticle (fissionSource_class.f90)'
+    character(*), parameter :: Here = 'sampleParticle (fissionSource_class.f90)'
 
     ! Get pointer to appropriate nuclear database
     if (self % isMG) then
@@ -165,7 +165,7 @@ contains
     else
       nucData => ndReg_getNeutronCE()
     end if
-    if(.not.associated(nucData)) call fatalError(Here, 'Failed to retrieve Nuclear Database')
+    if (.not.associated(nucData)) call fatalError(Here, 'Failed to retrieve Nuclear Database')
 
     i = 0
     rejection : do
@@ -177,10 +177,8 @@ contains
       end if
 
       ! Sample Position
-      rand3(1) = rand % get()
-      rand3(2) = rand % get()
-      rand3(3) = rand % get()
-      r = (self % top - self % bottom) * rand3 + self % bottom
+      call rand % generate(randomNumbers)
+      r = (self % top - self % bottom) * randomNumbers + self % bottom
 
       ! Find material under position
       call self % geom % whatIsAt(matIdx, uniqueID, r)
@@ -219,7 +217,7 @@ contains
 
           ! Get reaction object
           fissCE => fissionCE_TptrCast(nucData % getReaction(N_FISSION, nucIdx))
-          if(.not.associated(fissCE)) then
+          if (.not.associated(fissCE)) then
             call fatalError(Here, "Failed to get CE Fission Reaction Object")
           end if
 
@@ -237,7 +235,7 @@ contains
         class is (mgNeutronDatabase)
           ! Get reaction object
           fissMG => fissionMG_TptrCast(nucData % getReaction(macroFission, matIdx))
-          if(.not.associated(fissMG)) then
+          if (.not.associated(fissMG)) then
             call fatalError(Here, "Failed to get MG Fission Reaction Object")
           end if
 

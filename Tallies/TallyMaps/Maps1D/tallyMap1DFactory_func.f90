@@ -46,7 +46,7 @@ module tallyMap1DFactory_func
   ! It is printed if type was unrecognised
   ! NOTE:
   ! For now  it is necessary to adjust trailing blanks so all enteries have the same length
-  character(nameLen),dimension(*),parameter, public :: AVAILABLE_tallyMaps1D = ['energyMap   ',&
+  character(nameLen), dimension(*), parameter, public :: AVAILABLE_tallyMaps1D = ['energyMap   ',&
                                                                                 'spaceMap    ',&
                                                                                 'materialMap ',&
                                                                                 'homogMatMap ',&
@@ -72,13 +72,13 @@ contains
   !!   Will return an error if type of tallyMap1D is not recognised
   !!
   subroutine new_tallyMap1D(new, dict)
-    class(tallyMap1D),allocatable, intent(inout) :: new
+    class(tallyMap1D), allocatable, intent(inout) :: new
     class(dictionary), intent(in)                :: dict
     character(nameLen)                           :: type
-    character(100),parameter  :: Here = 'new_tallyMap1D (tallyMap1DFactory_func.f90)'
+    character(100), parameter  :: Here = 'new_tallyMap1D (tallyMap1DFactory_func.f90)'
 
     ! Deallocate new if allocated
-    if(allocated(new)) deallocate(new)
+    if (allocated(new)) deallocate(new)
 
     ! Obtain string that specifies type to be built
     call dict % get(type,'type')
@@ -144,7 +144,7 @@ contains
     class(tallyMap1D), allocatable              :: temp
 
     ! Deallocate if allocated
-    if(allocated(new)) deallocate(new)
+    if (allocated(new)) deallocate(new)
 
     ! Build an instance
     call new_tallyMap1D(temp, dict)

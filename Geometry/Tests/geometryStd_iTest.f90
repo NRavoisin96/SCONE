@@ -25,7 +25,7 @@ contains
     integer(shortInt)           :: i, idx, matIdx, uniqueID, event
     type(dictionary)            :: dict
     real(defReal), dimension(3) :: r, u, r_ref, u_ref
-    type(dictionary),pointer    :: tempDict
+    type(dictionary), pointer    :: tempDict
     character(nameLen)          :: name
     type(coordList)             :: coords
     character(nameLen), dimension(:), allocatable :: keys
@@ -227,7 +227,7 @@ contains
     type(charMap)               :: mats
     integer(shortInt)           :: idxW, idxF, i
     type(dictionary)            :: dict
-    type(dictionary),pointer    :: tempDict
+    type(dictionary), pointer    :: tempDict
     character(nameLen)          :: name
     character(nameLen), dimension(:), allocatable :: keys
     integer(shortInt), dimension(20,20)    :: img

@@ -89,17 +89,17 @@ module endfConstants
                                   ! SCONE's fake MT for particle splitting event
                                   N_N_SPLIT       = 1005
 
-  integer(shortInt),private    :: i  ! Local, private integer to use array constructor
-  integer(shortInt),parameter  :: N_Nl(40)      = [(50+i, i =1,40)]
-  integer(shortInt),parameter  :: N_2Nl(16)     = [(874+i, i =1,16)]
+  integer(shortInt), private    :: i  ! Local, private integer to use array constructor
+  integer(shortInt), parameter  :: N_Nl(40)      = [(50+i, i = 1, 40)]
+  integer(shortInt), parameter  :: N_2Nl(16)     = [(874+i, i = 1, 16)]
 
   ! Microscopic lumped reaction channels special MT numbers
-  integer(shortInt),parameter  :: anyScatter    = -102, &
+  integer(shortInt), parameter  :: anyScatter    = -102, &
                                   anyCapture    = -201, &
                                   anyFission    = -118
 
   ! List of Fake MT numbers for macroscopic XSs. Stolen from Serpent
-  integer(shortInt),parameter  :: macroTotal     = -1 ,&
+  integer(shortInt), parameter  :: macroTotal     = -1 ,&
                                   macroCapture   = -2 ,&
                                   macroEscatter  = -3 ,&
                                   macroIEscatter = -4 ,&
@@ -122,7 +122,7 @@ module endfConstants
   ! Data Formats and Procedures for the Evaluated Nuclear Data Files ENDF/B-VI and ENDF/B-VII,
   ! National Nuclear Data Center Brookhaven National Laboratory, Upton, NY, 2012, 11973–5000.
   !
-  integer(shortInt),parameter  :: tabularEquiprobableEnergyBins = 1  ,&
+  integer(shortInt), parameter  :: tabularEquiprobableEnergyBins = 1  ,&
                                   discretePhotonEnergy          = 2  ,&
                                   levelScatteringLaw            = 3  ,&
                                   continuousTabularDistribution = 4  ,&

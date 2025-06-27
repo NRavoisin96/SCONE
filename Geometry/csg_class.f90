@@ -115,7 +115,7 @@ contains
     end if
 
     ! Build Universes
-    if(loud) print *, "Building Universes"
+    if (loud) print *, "Building Universes"
     call self % unis % init(dict % getDictPtr('universes'), mats, fills, &
                             self % cells, &
                             self % surfs, &

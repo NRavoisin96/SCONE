@@ -50,7 +50,7 @@ contains
   subroutine densityResponseing(this)
     class(test_densityResponse), intent(inout) :: this
     type(particle)                             :: p
-    class(nuclearDatabase),pointer             :: xsData
+    class(nuclearDatabase), pointer             :: xsData
     real(defReal)                              :: res
 
     ! Test neutron density with different particle energies

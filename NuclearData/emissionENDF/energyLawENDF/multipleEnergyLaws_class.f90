@@ -47,7 +47,7 @@ module multipleEnergyLaws_class
   !!   init   -> Initialise by setting aside space for N energy laws
   !!   addLaw -> Add an energy law to the object
   !!
-  type, public,extends(energyLawENDF) :: multipleEnergyLaws
+  type, public, extends(energyLawENDF) :: multipleEnergyLaws
     private
     type(tableWrap), dimension(:), allocatable         :: prob
     type(energyLawENDFSlot), dimension(:), allocatable :: laws
@@ -76,15 +76,15 @@ contains
     real(defReal), intent(in)             :: E_in
     class(RNG), intent(inout)             :: rand
     real(defReal)                         :: E_out
-    real(defReal)                         :: r, E, prob
+    real(defReal)                         :: randomNumber, E, prob
     integer(shortInt)                     :: i
-    character(100), parameter :: Here = 'sample (multipleEnergyLaws_class.f90)'
+    character(*), parameter :: Here = 'sample (multipleEnergyLaws_class.f90)'
 
     ! Generate random number
-    r = rand % get()
+    call rand % generate(randomNumber)
 
     ! Find law index and sample
-    do i =1,self % num
+    do i = 1, self % num
       ! Get probibility
       E = E_in
       E = max(E, self % prob(i) % E_min)
@@ -92,12 +92,12 @@ contains
       prob = self % prob(i) % table % at(E)
 
       ! Check acceptance probability
-      if ( r < prob) then
+      if (randomNumber < prob) then
         E_out = self % laws(i) % sample(E_in, rand)
         return
       end if
       ! Decrement roll value
-      r = r - prob
+      randomNumber = randomNumber - prob
     end do
 
     ! Error message
@@ -121,7 +121,7 @@ contains
     prob = ZERO
 
     ! Calculate probability
-    do i =1,self % num
+    do i = 1, self % num
       E = E_in
       E = max(E, self % prob(i) % E_min)
       E = min(E, self % prob(i) % E_max)
@@ -138,12 +138,12 @@ contains
   elemental subroutine kill(self)
     class(multipleEnergyLaws), intent(inout) :: self
 
-    if(allocated(self % prob)) then
+    if (allocated(self % prob)) then
       call self % prob % table % kill()
       deallocate(self % prob)
     end if
 
-    if(allocated(self % laws)) then
+    if (allocated(self % laws)) then
       call self % laws % kill()
       deallocate(self % laws)
     end if
@@ -165,16 +165,16 @@ contains
   subroutine init(self, N)
     class(multipleEnergyLaws), intent(inout) :: self
     integer(shortInt), intent(in)            :: N
-    character(100),parameter :: Here ='init (multipleEnergyLaws_class.f90)'
+    character(100), parameter :: Here ='init (multipleEnergyLaws_class.f90)'
 
     ! Verify N
-    if ( N <= 0) then
+    if (N <= 0) then
       call fatalError(Here, 'Invalid number of energy Laws. Must be +ve. Is: ' // numToChar(N))
     end if
 
     ! Deallocate if allocated
-    if(allocated(self % prob)) deallocate(self % prob)
-    if(allocated(self % laws )) deallocate(self % laws)
+    if (allocated(self % prob)) deallocate(self % prob)
+    if (allocated(self % laws )) deallocate(self % laws)
 
     ! Allocate space
     allocate(self % prob(N))
@@ -208,35 +208,35 @@ contains
   !!
   subroutine addLaw(self, law, eGrid, pdf, bounds, interENDF)
     class(multipleEnergyLaws), intent(inout)             :: self
-    class(energyLawENDF),allocatable, intent(inout)      :: law
+    class(energyLawENDF), allocatable, intent(inout)      :: law
     real(defReal), dimension(:), intent(in)              :: eGrid
     real(defReal), dimension(:), intent(in)              :: pdf
     integer(shortInt), dimension(:), intent(in),optional :: bounds
     integer(shortInt), dimension(:), intent(in),optional :: interENDF
-    character(100), parameter :: Here = 'addLaw (multipleEnergyLaws_class.f90)'
+    character(*), parameter :: Here = 'addLaw (multipleEnergyLaws_class.f90)'
 
     ! Check if space is availible
     self % num = self % num + 1
-    if( self % num > size(self % prob)) then
+    if (self % num > size(self % prob)) then
       call fatalError(Here, 'Cannot add another law. Maximum was already reached')
     end if
 
     ! Check for -ve entries
-    if(any(eGrid < ZERO) .or. any(pdf < 0)) then
+    if (any(eGrid < ZERO) .or. any(pdf < 0)) then
       call fatalError(Here, '-ve entries in eGrid or pdf values ')
     end if
 
     ! Check if energy law is allocated
-    if(.not.allocated(law)) then
+    if (.not.allocated(law)) then
       call fatalError(Here, 'Unallocated energy law was given.')
     end if
 
     ! Verify if bounds and interENDF were provided
     ! Build endfTable
-    if(present(bounds) .and. present(interENDF)) then
+    if (present(bounds) .and. present(interENDF)) then
       call self % prob(self % num) % table % init(eGrid, pdf, bounds, interENDF)
 
-    else if( present(bounds) .eqv. present(interENDF)) then
+    else if (present(bounds) .eqv. present(interENDF)) then
       call self % prob(self % num) % table % init(eGrid, pdf)
 
     else

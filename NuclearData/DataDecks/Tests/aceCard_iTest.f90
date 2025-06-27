@@ -18,8 +18,8 @@ contains
 @Test
   subroutine testAceReloading_fissionData()
     type(aceCard) :: ACE
-    character(*),parameter :: path1 = './IntegrationTestFiles/91231JEF311.ace'
-    character(*),parameter :: path2 = './IntegrationTestFiles/91232JEF311.ace'
+    character(*), parameter :: path1 = './IntegrationTestFiles/91231JEF311.ace'
+    character(*), parameter :: path2 = './IntegrationTestFiles/91232JEF311.ace'
     real(defReal), parameter :: TOL = 1.0E-6_defReal
 
     ! Load 1st Card with Delayed Fission Neutrons

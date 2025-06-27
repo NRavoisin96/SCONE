@@ -30,7 +30,7 @@ module keffAnalogClerk_class
   !!   type keffAnalogClerk;
   !! }
   !!
-  type, public,extends(tallyClerk) :: keffAnalogClerk
+  type, public, extends(tallyClerk) :: keffAnalogClerk
     private
     real(defReal) :: startPopWgt = ZERO
     real(defReal) :: endPopWgt   = ZERO
@@ -57,7 +57,7 @@ module keffAnalogClerk_class
   !! Public Members:
   !!   keff -> Result, keff(1) is criticality, keff(2) is STD
   !!
-  type,public, extends(tallyResult) :: keffResult
+  type, public, extends(tallyResult) :: keffResult
     real(defReal), dimension(2) :: keff = [ONE, ZERO]
   end type keffResult
 
@@ -73,7 +73,7 @@ contains
     class(keffAnalogClerk), intent(inout) :: self
     class(dictionary), intent(in)        :: dict
     character(nameLen), intent(in)       :: name
-    character(100),parameter :: Here = 'init (keffAnalogClerk.f90)'
+    character(*), parameter :: Here = 'init (keffAnalogClerk.f90)'
 
     ! Needs no settings, just load name
     call self % setName(name)
@@ -104,8 +104,8 @@ contains
   !! See tallyClerk_inter for details
   !!
   function validReports(self) result(validCodes)
-    class(keffAnalogClerk),intent(in)           :: self
-    integer(shortInt),dimension(:),allocatable :: validCodes
+    class(keffAnalogClerk), intent(in)           :: self
+    integer(shortInt), dimension(:), allocatable :: validCodes
 
     validCodes = [ cycleStart_CODE, cycleEnd_CODE ]
 
@@ -155,7 +155,7 @@ contains
     self % endPopWgt = self % endPopWgt + end % popWeight()
 
     ! Close batch
-    if( mem % lastCycle() ) then
+    if (mem % lastCycle()) then
       k_norm = end % k_eff
 
       ! Calculate and score analog estimate of k-eff

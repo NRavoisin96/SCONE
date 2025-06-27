@@ -57,7 +57,7 @@ module reactionMG_inter
     pure function release(self, G) result(N)
       import :: defReal, shortInt, reactionMG
       class(reactionMG), intent(in) :: self
-      integer(shortInt),intent(in)  :: G
+      integer(shortInt), intent(in)  :: G
       real(defReal)                 :: N
     end function release
 
@@ -76,7 +76,7 @@ module reactionMG_inter
     pure function releasePrompt(self, G) result(N)
       import :: defReal, shortInt, reactionMG
       class(reactionMG), intent(in) :: self
-      integer(shortInt),intent(in)  :: G
+      integer(shortInt), intent(in)  :: G
       real(defReal)                 :: N
     end function releasePrompt
 
@@ -95,7 +95,7 @@ module reactionMG_inter
     pure function releaseDelayed(self, G) result(N)
       import :: defReal, shortInt, reactionMG
       class(reactionMG), intent(in) :: self
-      integer(shortInt),intent(in)  :: G
+      integer(shortInt), intent(in)  :: G
       real(defReal)                 :: N
     end function releaseDelayed
 

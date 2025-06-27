@@ -189,9 +189,9 @@ contains
 @Test
   subroutine testLooping(this)
     class(test_charMap), intent(inout)        :: this
-    integer(shortInt),dimension(6),parameter  :: VALS = [VAL1, VAL2, VAL3, VAL4, VAL5, VAL7]
-    character(nameLen),dimension(6),parameter :: KEYS = [KEY1, KEY2, KEY3, KEY4, KEY5, KEY7]
-    character(nameLen),dimension(6)           :: KEYS_PAST
+    integer(shortInt), dimension(6), parameter  :: VALS = [VAL1, VAL2, VAL3, VAL4, VAL5, VAL7]
+    character(nameLen), dimension(6), parameter :: KEYS = [KEY1, KEY2, KEY3, KEY4, KEY5, KEY7]
+    character(nameLen), dimension(6)           :: KEYS_PAST
     integer(shortInt)                         :: counter, it, tVal
     character(nameLen)                        :: tKey
 

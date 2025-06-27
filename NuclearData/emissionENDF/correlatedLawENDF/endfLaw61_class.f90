@@ -24,7 +24,7 @@ module endfLaw61_class
   type, public, extends(correlatedLawENDF) :: endfLaw61
     private
     real(defReal), dimension(:), allocatable :: eGrid
-    type(law61Pdf),dimension(:), allocatable :: pdfs
+    type(law61Pdf), dimension(:), allocatable :: pdfs
   contains
     ! Interface implementation
     procedure :: sample
@@ -52,8 +52,8 @@ contains
     real(defReal)                :: E_min_up, E_max_up
     real(defReal)                :: E_min, E_max
     real(defReal)                :: factor
-    real(defReal)                :: r, eps
-    character(100),parameter     :: Here='sample (kendfLaw61_class.f90)'
+    real(defReal)                :: randomNumber, eps
+    character(100), parameter     :: Here='sample (kendfLaw61_class.f90)'
 
     ! Find Interval index
     idx = binarySearch(self % eGrid, E_in)
@@ -61,7 +61,6 @@ contains
 
     ! Calculate threshold and sample random number
     eps = (E_in - self % eGrid(idx)) / (self % eGrid(idx+1) - self % eGrid(idx))
-    r = rand % get()
 
     ! NOTE: Unlike in the equivalent tabular distribution for mu bounds of the
     !       energy distribution change between bins. We need to interpolate them
@@ -77,7 +76,8 @@ contains
 
     ! Calculate interpolation between bounds of the distribution from which
     ! outgoing energy was sampled
-    if(r < eps) then
+    call rand % generate(randomNumber)
+    if (randomNumber < eps) then
       call self % pdfs(idx+1) % sample(mu, E_out, rand)
       factor = (E_out- E_min_up)/(E_max_up - E_min_up)
 
@@ -88,7 +88,7 @@ contains
     end if
 
     ! Interpolate outgoing energy
-    E_out = E_min *(ONE - factor) + factor * E_max
+    E_out = E_min * (ONE - factor) + factor * E_max
 
   end subroutine sample
 
@@ -103,7 +103,7 @@ contains
     real(defReal)                :: prob
     integer(shortInt)            :: idx
     real(defReal)                :: prob_1, prob_0, E_1, E_0
-    character(100),parameter     :: Here='probabilityOf (endfLaw61_class.f90)'
+    character(100), parameter     :: Here='probabilityOf (endfLaw61_class.f90)'
 
     ! Find interval index
     idx = binarySearch(self % eGrid,E_in)
@@ -127,9 +127,9 @@ contains
   elemental subroutine kill(self)
     class(endfLaw61), intent(inout) :: self
 
-    if(allocated(self % eGrid)) deallocate(self % eGrid)
+    if (allocated(self % eGrid)) deallocate(self % eGrid)
 
-    if(allocated(self % pdfs)) then
+    if (allocated(self % pdfs)) then
       !call self % pdfs % kill()
       deallocate(self % pdfs)
     end if
@@ -145,8 +145,8 @@ contains
     class(endfLaw61), intent(inout)            :: self
     class(aceCard), intent(inout)              :: ACE
     integer(shortInt)                          :: NR, numE, i
-    integer(shortInt),dimension(:),allocatable :: L
-    character(100),parameter :: Here = 'init_fromACE (endfLaw61_class.f90)'
+    integer(shortInt), dimension(:), allocatable :: L
+    character(*), parameter :: Here = 'init_fromACE (endfLaw61_class.f90)'
 
     ! Read number of interpolation regions.
     NR = ACE % readInt()
@@ -165,7 +165,7 @@ contains
     allocate(self % pdfs(numE))
 
     ! Read mu-E PDFs
-    do i=1, numE
+    do i= 1,  numE
       call ACE % setToEnergyLaw(L(i))
       call self % pdfs(i) % init(ACE)
 

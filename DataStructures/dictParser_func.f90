@@ -61,7 +61,7 @@ contains
     integer(shortInt)           :: unit, stat
     character(1)                :: buffer, lastChar
     character(100)              :: errorMsg
-    character(100),parameter    :: Here = 'readFileContents (dictParser_func.f90)'
+    character(100), parameter    :: Here = 'readFileContents (dictParser_func.f90)'
 
     ! Open file and read its contents to a charTape
     open (newunit=unit, file=filePath, status="old", action="read", &
@@ -153,7 +153,7 @@ contains
     character(*), intent(in)         :: filePath
     type(charTape)                   :: file
     integer(shortInt)                :: pos
-    character(100),parameter :: Here = 'fileToDict (dictParser_func.f90)'
+    character(*), parameter :: Here = 'fileToDict (dictParser_func.f90)'
 
     call readFileContents(file, filePath)
 
@@ -170,7 +170,7 @@ contains
 
     ! Make sure there are no leftovers in the file
     ! Remember that pos will be 1 over last '}'
-    if(pos-1 /= file % length()) then
+    if (pos-1 /= file % length()) then
       call fatalError(Here,"Not entire file was read. It means that there must be an &
                            &extra '}' bracket somwhere. ")
     end if
@@ -199,12 +199,12 @@ contains
     character(len(data))             :: loc_data
     type(charTape)                   :: file
     integer(shortInt)                :: i, pos
-    character(100),parameter :: Here = 'charToDict (dictParser_func.f90)'
-    character(2),dimension(2),parameter :: cmtSigns    = ['! ','//']
+    character(*), parameter :: Here = 'charToDict (dictParser_func.f90)'
+    character(2), dimension(2), parameter :: cmtSigns    = ['! ','//']
 
     ! Check that data string has no comment
     do i = 1, size(cmtSigns)
-      if(index(data, trim(cmtSigns(i))) /= 0) then
+      if (index(data, trim(cmtSigns(i))) /= 0) then
         call fatalError(Here, 'Detected line comment sign: ' // trim(cmtSigns(i)) //&
                               ' Comments are nor allowed in dictionary made of character string')
       end if
@@ -231,7 +231,7 @@ contains
 
     ! Make sure there are no leftovers in the file
     ! Remember that pos will be 1 over last '}'
-    if(pos-1 /= file % length()) then
+    if (pos-1 /= file % length()) then
       call fatalError(Here,"Not entire string was read. It means that there must be an &
                            &extra '}' bracket somewhere. ")
     end if
@@ -265,12 +265,12 @@ contains
     character(nameLen)               :: name
     character(nameLen + 5)           :: buffer
     character(1)                     :: token
-    character(100), parameter :: Here = 'parseDict (dictParser_func.f90)'
+    character(*), parameter :: Here = 'parseDict (dictParser_func.f90)'
 
     ! Find next location & token
     do while (pos < tape % length())
       nextSymbol = tape % scanFrom(pos,';{}')
-      if(nextSymbol == 0) call fatalError(Here,"There are tokens ';{}' in the charTape!'")
+      if (nextSymbol == 0) call fatalError(Here,"There are tokens ';{}' in the charTape!'")
       fin = pos + nextSymbol - 1
       token = tape % get(fin)
 
@@ -282,7 +282,7 @@ contains
         case('{') ! Beginning of subdictionary
           ! Get name and see if it fits into nameLen characters
           buffer = trim(adjustl(tape % segment(pos, fin - 1)))
-          if( len_trim(buffer) <= nameLen) then
+          if (len_trim(buffer) <= nameLen) then
             name = trim(buffer)
           else
             call fatalError(Here, 'Subdictionary name: '//trim(buffer)//'... must fit into: '//&
@@ -290,7 +290,7 @@ contains
           end if
 
           ! Check that name does not contain any blanks
-          if(scan(trim(name),' ') /= 0) then
+          if (scan(trim(name),' ') /= 0) then
             call fatalError(Here, 'Subdictionary name: '//trim(buffer)//' cannot contain spaces.')
           end if
 
@@ -350,7 +350,7 @@ contains
     character(pathLen)               :: buffer
     character(nameLen)               :: name
     type(reader)                     :: converter
-    character(100), parameter :: Here = 'readEntry (dictParser_func.f90)'
+    character(*), parameter :: Here = 'readEntry (dictParser_func.f90)'
 
     ! Catch Invalid Entry
     if (end <= start) then
@@ -361,7 +361,7 @@ contains
     ! Separate name from content
     p1 = start
     buffer = readWord(p1, end, tape)
-    if(len_trim(buffer) == 0) then
+    if (len_trim(buffer) == 0) then
       call fatalError(Here,'There is an entry composed of blanks only. &
                            &Must have two ; with only spaces in-between. ' )
 
@@ -378,7 +378,7 @@ contains
     l1 = tape % scanFrom(p1, '(', end)
     l2 = tape % scanFrom(p1, ')', end)
 
-    if(l1 == 0 .and. l2 == 0) then ! Read single entry
+    if (l1 == 0 .and. l2 == 0) then ! Read single entry
       buffer = readWord( p1, end, tape)
       ! Convert
       call converter % convert(buffer)
@@ -420,7 +420,7 @@ contains
 
       ! Verify that there are no multiple entries
       ! After List
-      if(l2 /= end) then
+      if (l2 /= end) then
         l2 = l2 + 1
         buffer = readWord(l2, end, tape)
         if (len_trim(buffer) > 0) then
@@ -474,7 +474,7 @@ contains
     integer(shortInt), dimension(:), allocatable  :: temp_int
     real(defReal), dimension(:), allocatable      :: temp_real
     character(nameLen), dimension(:), allocatable :: temp_char
-    character(100), parameter :: Here = 'readList (dictParser_func.f90)'
+    character(*), parameter :: Here = 'readList (dictParser_func.f90)'
 
     if (end < start) then
       call fatalError(Here,'In: '//trim(name)//' End: '//numToChar(end)//' < Start: '//&
@@ -499,19 +499,19 @@ contains
       N = N +1
       select case(listType)
         case(CONV_INT)
-          if(converter % type == CONV_REAL) then
+          if (converter % type == CONV_REAL) then
             listType = CONV_REAL
           elseif(converter % type == CONV_CHAR) then
             call fatalError(Here,'In: '//trim(name)//" Mixed Numbers/Character lists are not allowed")
           end if
 
         case(CONV_REAL)
-          if(converter % type == CONV_CHAR) then
+          if (converter % type == CONV_CHAR) then
             call fatalError(Here, 'In: '//trim(name)//" Mixed Numbers/Character lists are not allowed" )
           end if
 
         case(CONV_CHAR)
-          if(converter % type /= CONV_CHAR) then
+          if (converter % type /= CONV_CHAR) then
             call fatalError(Here, 'In: '//trim(name)//" Mixed Numbers/Character lists are not allowed" )
           end if
 
@@ -525,10 +525,10 @@ contains
       case(CONV_INT)
         allocate(temp_int(N))
         p1 = start
-        do i=1,N
+        do i= 1, N
           call converter % convert( readWord(p1, end, tape))
           temp_int(i) = converter % i
-          if(converter % type /= CONV_INT) then
+          if (converter % type /= CONV_INT) then
             call fatalError(Here,'In: '//trim(name)//' WTF?  Not-Int in IntList!')
           end if
         end do
@@ -537,7 +537,7 @@ contains
       case(CONV_REAL)
         allocate(temp_real(N))
         p1 = start
-        do i=1,N
+        do i= 1, N
           call converter % convert( readWord(p1, end, tape))
           if (converter % type == CONV_REAL) then
             temp_real(i) = converter % r
@@ -552,10 +552,10 @@ contains
       case(CONV_CHAR)
         allocate(temp_char(N))
         p1 = start
-        do i=1,N
+        do i= 1, N
           call converter % convert( readWord(p1, end, tape))
           if (converter % type /= CONV_CHAR) call fatalError(Here ,'WTF? Not-char in CharList!')
-          if(len_trim(converter % c) <= nameLen ) then
+          if (len_trim(converter % c) <= nameLen) then
             temp_char(i) = trim(converter % c)
           else
             call fatalError(Here,'In: '//trim(name)//' CharList Entry: '//converter % c//' is to &
@@ -662,7 +662,7 @@ contains
     class(reader), intent(inout)   :: self
     character(*), intent(in)       :: buffer
     integer(shortInt)              :: readErr
-    character(100),parameter :: Here = 'convert_reader (dictParser_func.f90)'
+    character(*), parameter :: Here = 'convert_reader (dictParser_func.f90)'
 
     ! Try to read data as a INTEGER and check if this gives an error
     read(unit = buffer, fmt = "(I20)" , iostat = readErr) self % i

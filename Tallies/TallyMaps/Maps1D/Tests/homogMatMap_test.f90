@@ -17,8 +17,8 @@ module homogMatMap_test
 @testCase
   type, extends(TestCase) :: test_homogMatMap
     private
-    type(homogMatMap),allocatable :: map_noUndef
-    type(homogMatMap),allocatable :: map_Undef
+    type(homogMatMap), allocatable :: map_noUndef
+    type(homogMatMap), allocatable :: map_Undef
   contains
     procedure :: setUp
     procedure :: tearDown
@@ -98,8 +98,8 @@ contains
     class(test_homogMatMap), intent(inout)   :: this
     type(particleState)                      :: state
     integer(shortInt)                        :: i
-    integer(shortInt),dimension(6)           :: bins
-    integer(shortInt),dimension(6),parameter :: EXPECTED_BINS = [2, 0, 1, 1, 3, 0]
+    integer(shortInt), dimension(6)           :: bins
+    integer(shortInt), dimension(6), parameter :: EXPECTED_BINS = [2, 0, 1, 1, 3, 0]
 
     do i = 1,6
       state % matIdx = i
@@ -119,8 +119,8 @@ contains
     class(test_homogMatMap), intent(inout)   :: this
     type(particleState)                      :: state
     integer(shortInt)                        :: i
-    integer(shortInt),dimension(6)           :: bins
-    integer(shortInt),dimension(6),parameter :: EXPECTED_BINS = [2, 4, 1, 1, 3, 4]
+    integer(shortInt), dimension(6)           :: bins
+    integer(shortInt), dimension(6), parameter :: EXPECTED_BINS = [2, 4, 1, 1, 3, 4]
 
     do i = 1,6
       state % matIdx = i

@@ -46,7 +46,7 @@ module homogMatMap_class
   !!     # undefBin T; #
   !!   }
   !!
-  type, public,extends(tallyMap1D) :: homogMatMap
+  type, public, extends(tallyMap1D) :: homogMatMap
     private
     type(intMap), dimension(:), allocatable :: binMap
     type(intMap)                            :: matIndices
@@ -124,7 +124,7 @@ contains
     integer(shortInt)                             :: N, i
     character(nameLen)                            :: undefined
     character(nameLen), dimension(:), allocatable :: binNames, matNames
-    character(100), parameter :: Here = 'init (homogMatMap_class.f90)'
+    character(*), parameter :: Here = 'init (homogMatMap_class.f90)'
 
     ! Get bin names list
     call dict % get(binNames, 'bins')
@@ -237,7 +237,7 @@ contains
     end do
 
     ! Print 'undefined'
-    if ( self % Nbins > size(self % binMap)) then
+    if (self % Nbins > size(self % binMap)) then
       name = 'undefined'
       call out % addValue(name)
     end if

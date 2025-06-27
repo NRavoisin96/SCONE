@@ -15,7 +15,7 @@ module noEnergy_class
   !! Null object if for no energy distribution
   !! It is delta function at energy of the indedent particle
   !!
-  type, public,extends(energyLawENDF) :: noEnergy
+  type, public, extends(energyLawENDF) :: noEnergy
     private
   contains
     procedure :: sample

@@ -44,14 +44,14 @@ module commandLineUI
                                   REAL_TYPE      = 2, &
                                   CHAR_TYPE      = 3
 
-  character(*), dimension(2),parameter :: HELP_KEYWORDS = ['-help','-h   ']
+  character(*), dimension(2), parameter :: HELP_KEYWORDS = ['-help','-h   ']
 
   !!
   !! Type to hold a single option argument (type + character with value)
   !!
   type, private :: optionArg
     integer(shortInt)        :: type = UNDEFINED_TYPE
-    character(:),allocatable :: val
+    character(:), allocatable :: val
   contains
     procedure :: typeChar => typeChar_optionArg
     procedure :: verify   => verify_optionArg
@@ -64,16 +64,16 @@ module commandLineUI
   type, private :: optionDescriptor
     logical(defBool)                         :: isLoaded
     integer(shortInt)                        :: keywordHash
-    type(optionArg),dimension(:),allocatable :: optArgs
-    character(:),allocatable                 :: keyword
-    character(:),allocatable                 :: help
+    type(optionArg), dimension(:), allocatable :: optArgs
+    character(:), allocatable                 :: keyword
+    character(:), allocatable                 :: help
   contains
     procedure :: init         => init_optionDescriptor
     procedure :: read         => read_optionDescriptor
     generic   :: operator(==) => eq_optionDescriptor
     procedure :: display      => display_optionDescriptor
 
-    procedure,private :: eq_optionDescriptor
+    procedure, private :: eq_optionDescriptor
   end type optionDescriptor
 
   !!
@@ -98,11 +98,11 @@ contains
   subroutine addClOption(keyword,Narg,argTypes,help)
     character(*), intent(in)                        :: keyword
     integer(shortInt), intent(in)                   :: Narg
-    character(*),dimension(:),intent(in)            :: argTypes
-    character(*),intent(in)                         :: help
-    type(optionDescriptor),dimension(:),allocatable :: temp
+    character(*), dimension(:), intent(in)            :: argTypes
+    character(*), intent(in)                         :: help
+    type(optionDescriptor), dimension(:), allocatable :: temp
     integer(shortInt)                               :: N
-    character(100), parameter :: Here = 'addClOption (commandLinieUI.f90)'
+    character(*), parameter :: Here = 'addClOption (commandLinieUI.f90)'
 
     ! Extend or allocate options array
     if (allocated(options)) then
@@ -136,17 +136,17 @@ contains
   !! Returns true if a given option is present
   !!
   function clOptionIsPresent(keyword) result(isIt)
-    character(*),intent(in) :: keyword
+    character(*), intent(in) :: keyword
     logical(defBool)        :: isIt
     integer(shortInt)       :: idx
 
-    if(.not.parsed) call parseCL()
+    if (.not.parsed) call parseCL()
 
     idx = findOptionIdx(trim(adjustl(keyword)))
 
     isIt = idx /= targetNotFound
 
-    if(isIt) isIt = options(idx) % isLoaded
+    if (isIt) isIt = options(idx) % isLoaded
 
   end function clOptionIsPresent
 
@@ -155,12 +155,12 @@ contains
   !! Returns error if input path is not present
   !!
   subroutine getInputFile(string)
-    character(:),allocatable, intent(out) :: string
-    character(100), parameter :: Here= 'getInputFile (commandLineUI.f90)'
+    character(:), allocatable, intent(out) :: string
+    character(*), parameter :: Here  = 'getInputFile (commandLineUI.f90)'
 
-    if(.not.parsed) call parseCL()
+    if (.not.parsed) call parseCL()
 
-    if(.not.allocated(input)) call fatalError(Here, 'No input file was provided')
+    if (.not.allocated(input)) call fatalError(Here, 'No input file was provided')
 
     ! Fill with blanks and load input
     string =input
@@ -176,12 +176,12 @@ contains
     integer(shortInt)         :: argLen
     integer(shortInt)         :: idx
     character(:), allocatable :: string
-    character(100), parameter :: Here = 'parseCL (commandLinieUI.f90)'
+    character(*), parameter :: Here = 'parseCL (commandLinieUI.f90)'
 
     argCount = command_argument_count()
 
     ! There are no command arguments
-    if( argCount == 0) then
+    if (argCount == 0) then
       parsed = .true.
       return
     end if
@@ -193,7 +193,7 @@ contains
       call get_command_argument(i, length = argLen)
 
       ! Allocate string for a command line argument
-      if(allocated(string)) deallocate(string)
+      if (allocated(string)) deallocate(string)
       allocate(character(argLen) :: string)
 
       ! Get command argument
@@ -201,7 +201,7 @@ contains
       string = trim(adjustl(string))
 
       ! Special case "-help" -> display options and stop execution
-      if( any(HELP_KEYWORDS == string)) then
+      if (any(HELP_KEYWORDS == string)) then
         call displayCloptions
         stop
       end if
@@ -212,7 +212,7 @@ contains
       if (idx == targetNotFound) then
         ! If keyword was not found there are two options
         ! Either it is input (if input wasn't already read) or unrecognised keyword
-        if( .not.allocated(input)) then
+        if (.not.allocated(input)) then
           input = string
         else
           call parseError("Option: "//trim(string)//" is not defined")
@@ -235,7 +235,7 @@ contains
   !!  Returns targetNotFound if there is no option under keyword
   !!
   function findOptionIdx(keyword) result(idx)
-    character(*),intent(in) :: keyword
+    character(*), intent(in) :: keyword
     integer(shortInt)       :: idx
     integer(shortInt)       :: hash, i
     logical(defBool)        :: same
@@ -245,21 +245,21 @@ contains
     call FNV_1(trim(adjustl(keyword)),hash)
 
     ! Protect agains the case where no options are present
-    if( allocated(options)) then
+    if (allocated(options)) then
       N = size(options)
     else
       N = 0
     end if
 
     ! Loop over all options
-    do i=1,N
+    do i= 1, N
       ! Compare hashes
       same = hash == options(i) % keywordHash
 
       ! Compare keywords
-      if(same) same = trim(adjustl(keyword)) == options(i) % keyword
+      if (same) same = trim(adjustl(keyword)) == options(i) % keyword
 
-      if(same) then
+      if (same) then
         idx = i
         return
       end if
@@ -276,18 +276,18 @@ contains
   !!
   subroutine getFromCL_shortInt(var,keyword,opt)
     integer(shortInt), intent(out) :: var
-    character(*),intent(in)        :: keyword
-    integer(shortInt),intent(in)   :: opt
+    character(*), intent(in)        :: keyword
+    integer(shortInt), intent(in)   :: opt
     integer(shortInt)              :: idx
-    character(100), parameter :: Here = 'getFromCL_shortInt (commandLineUI.f90)'
+    character(*), parameter :: Here = 'getFromCL_shortInt (commandLineUI.f90)'
 
-    if(.not.parsed) call parseCL()
+    if (.not.parsed) call parseCL()
 
     ! Find index of the option
     idx = findOptionIdx(keyword)
 
     ! Check if option is defined
-    if( idx == targetNotFound) then
+    if (idx == targetNotFound) then
       call fatalError(Here,'Option with a keyword: '//trim(adjustl(keyword))//' was not defined.')
     end if
 
@@ -297,8 +297,8 @@ contains
     end if
 
     ! Check that value of opt checks out
-    if ( opt < 1) call fatalError(Here,'Option argument index must be < 1')
-    if ( opt > size(options(idx) % optArgs) ) then
+    if (opt < 1) call fatalError(Here,'Option argument index must be < 1')
+    if (opt > size(options(idx) % optArgs)) then
       call fatalError(Here,'Option '//trim(adjustl(keyword))// 'has only'// &
                             numToChar(size(options(idx) % optArgs))//' input arguments')
     end if
@@ -320,18 +320,18 @@ contains
   !!
   subroutine getFromCL_defReal(var,keyword,opt)
     real(defReal), intent(out)     :: var
-    character(*),intent(in)        :: keyword
-    integer(shortInt),intent(in)   :: opt
+    character(*), intent(in)        :: keyword
+    integer(shortInt), intent(in)   :: opt
     integer(shortInt)              :: idx
-    character(100), parameter :: Here = 'getFromCL_defReal (commandLineUI.f90)'
+    character(*), parameter :: Here = 'getFromCL_defReal (commandLineUI.f90)'
 
-    if(.not.parsed) call parseCL()
+    if (.not.parsed) call parseCL()
 
     ! Find index of the option
     idx = findOptionIdx(keyword)
 
     ! Check if option is defined
-    if( idx == targetNotFound) then
+    if (idx == targetNotFound) then
       call fatalError(Here,'Option with a keyword: '//trim(adjustl(keyword))//' was not defined.')
     end if
 
@@ -341,8 +341,8 @@ contains
     end if
 
     ! Check that value of opt checks out
-    if ( opt < 1) call fatalError(Here,'Option argument index must be < 1')
-    if ( opt > size(options(idx) % optArgs) ) then
+    if (opt < 1) call fatalError(Here,'Option argument index must be < 1')
+    if (opt > size(options(idx) % optArgs)) then
       call fatalError(Here,'Option '//trim(adjustl(keyword))// 'has only'// &
                             numToChar(size(options(idx) % optArgs))//' input arguments')
     end if
@@ -363,19 +363,19 @@ contains
   !! Take opt-th argument
   !!
   subroutine getFromCL_char(var,keyword,opt)
-    character(:),allocatable, intent(out)  :: var
-    character(*),intent(in)                :: keyword
-    integer(shortInt),intent(in)           :: opt
+    character(:), allocatable, intent(out)  :: var
+    character(*), intent(in)                :: keyword
+    integer(shortInt), intent(in)           :: opt
     integer(shortInt)                      :: idx
-    character(100), parameter :: Here = 'getFromCL_char (commandLineUI.f90)'
+    character(*), parameter :: Here = 'getFromCL_char (commandLineUI.f90)'
 
-    if(.not.parsed) call parseCL()
+    if (.not.parsed) call parseCL()
 
     ! Find index of the option
     idx = findOptionIdx(keyword)
 
     ! Check if option is defined
-    if( idx == targetNotFound) then
+    if (idx == targetNotFound) then
       call fatalError(Here,'Option with a keyword: '//trim(adjustl(keyword))//' was not defined.')
     end if
 
@@ -385,8 +385,8 @@ contains
     end if
 
     ! Check that value of opt checks out
-    if ( opt < 1) call fatalError(Here,'Option argument index must be < 1')
-    if ( opt > size(options(idx) % optArgs) ) then
+    if (opt < 1) call fatalError(Here,'Option argument index must be < 1')
+    if (opt > size(options(idx) % optArgs)) then
       call fatalError(Here,'Option '//trim(adjustl(keyword))// 'has only'// &
                             numToChar(size(options(idx) % optArgs))//' input arguments')
     end if
@@ -425,13 +425,13 @@ contains
     print *, "Following options are available: "
 
     ! Protect agains the case where no options are present
-    if( allocated(options)) then
+    if (allocated(options)) then
       N = size(options)
     else
       N = 0
     end if
 
-    do i=1,N
+    do i= 1, N
       call options(i) % display()
     end do
 
@@ -448,16 +448,16 @@ contains
     class(optionDescriptor), intent(inout)     :: self
     character(*), intent(in)                   :: keyword
     integer(shortInt), intent(in)              :: Narg
-    character(*),dimension(:),intent(in)       :: argTypes
-    character(*),intent(in)                    :: help
+    character(*), dimension(:), intent(in)       :: argTypes
+    character(*), intent(in)                    :: help
     integer(shortInt)                          :: i
-    character(100),parameter :: Here ='init_optionDescriptor (commandLinieUI.f90)'
+    character(100), parameter :: Here ='init_optionDescriptor (commandLinieUI.f90)'
 
     ! Load arguments
     self % keyword = trim(adjustl(keyword))
     self % help = help
 
-    if(Narg < 0) call parseError('Number of arguments must be non -ve')
+    if (Narg < 0) call parseError('Number of arguments must be non -ve')
 
     allocate( self % optArgs(Narg))
 
@@ -465,11 +465,11 @@ contains
     if (len_trim(keyword) == 0) call parseError('Keyword cannot consist of blanks')
 
     ! Error if argTypes is wong size. Ignore argTypes if Narg == 0
-    if( size(argTypes) /= Narg .and. Narg /= 0 ) then
+    if (size(argTypes) /= Narg .and. Narg /= 0) then
        call parseError('Argument type needs to be given for all arguments')
     end if
 
-    do i=1,Narg
+    do i= 1, Narg
       select case(trim(argTypes(i)))
         case('int')
           self % optArgs(i) % type = INT_TYPE
@@ -503,10 +503,10 @@ contains
     class(optionDescriptor), intent(inout) :: self
     integer(shortInt), intent(inout)       :: pos
     integer(shortInt), intent(in)          :: argCount
-    character(:),allocatable               :: string
+    character(:), allocatable               :: string
     integer(shortInt)                      :: i, argLen
     integer(shortInt)                      :: Narg
-    character(100), parameter :: Here = 'read_optionDescriptor (commandLinieUI.f90)'
+    character(*), parameter :: Here = 'read_optionDescriptor (commandLinieUI.f90)'
 
     ! Change status to loaded
     self % isLoaded = .true.
@@ -519,12 +519,12 @@ contains
       call parseError("There is not enough CL arguments to read option: "//self % keyword)
     end if
 
-    do i=1,Narg
+    do i= 1, Narg
       ! Get length of command argument
       call get_command_argument(pos + i, length = argLen)
 
       ! Allocate string for a command line argument
-      if(allocated(string)) deallocate(string)
+      if (allocated(string)) deallocate(string)
       allocate(character(argLen) :: string)
 
       ! Get command argument
@@ -565,13 +565,13 @@ contains
   !!
   subroutine display_optionDescriptor(self)
     class(optionDescriptor), intent(in) :: self
-    character(:),allocatable            :: keyword
+    character(:), allocatable            :: keyword
     character(nameLen)                  :: format2, format
     integer(shortInt)                   :: start,end, lines, i
 
     ! Append keyword with argument types
     keyword = self % keyword
-    do i=1,size(self % optArgs)
+    do i= 1, size(self % optArgs)
       keyword = keyword // ' '// self % optArgs(i) % typeChar()
     end do
 
@@ -627,26 +627,26 @@ contains
   !!
   subroutine verify_optionArg(self, option)
     class(optionArg), intent(in) :: self
-    character(*),intent(in)      :: option
+    character(*), intent(in)      :: option
     integer(shortInt)            :: readErr
     integer(shortInt)            :: dummyInt
     real(defReal)                :: dummyReal
-    character(100), parameter :: Here = 'verify_optionArg (commandLinieUI.f90)'
+    character(*), parameter :: Here = 'verify_optionArg (commandLinieUI.f90)'
 
     readErr = 0
     select case(self % type)
       case(INT_TYPE)
         read(self % val, '(I30)' , iostat = readErr) dummyInt
-        if ( readErr /= 0) call parseError(option//': Wrong input given to integer value')
+        if (readErr /= 0) call parseError(option//': Wrong input given to integer value')
 
       case(REAL_TYPE)
         ! Check if the given value is an integer. dummyInt must be present
         read(self % val, '(I30)' , iostat = readErr) dummyInt
-        if( readErr == 0) call parseError(option//': Integer given in place of real value')
+        if (readErr == 0) call parseError(option//': Integer given in place of real value')
 
         ! Check if the givenvalue is a real
         read(self % val, '(G30.30)' , iostat = readErr) dummyReal
-        if ( readErr /= 0) call parseError(option//': Wrong input given to real value')
+        if (readErr /= 0) call parseError(option//': Wrong input given to real value')
     end select
   end subroutine verify_optionArg
 

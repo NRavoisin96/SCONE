@@ -36,14 +36,14 @@ contains
 
     inContent = .false.
 
-    do i =1,len(str)
+    do i = 1, len(str)
       notDelim = str(i:i) /= delim
 
       ! Detect flip from sequence of delimiters to sequence of not delimiters
       if (inContent .neqv. notDelim) then
         ! Save flip location
         ! Need to take care to save i-1 if we are flippping from content to delimiters
-        if( inContent) then
+        if (inContent) then
           call flips % add(i-1)
         else
           call flips % add(i)
@@ -56,14 +56,14 @@ contains
     end do
 
     ! We need to save final location if we ended in content
-    if(inContent) call flips % add(i-1)
+    if (inContent) call flips % add(i-1)
 
     ! Transform flips to result array
-    if( flips % getSize() == 0) then ! Empty string or only delimiters
+    if (flips % getSize() == 0) then ! Empty string or only delimiters
       allocate( subLoc(2,1))
       subLoc = 0
 
-    else if( mod(flips % getSize(), 2) /= 0) then ! Weird faliure
+    else if (mod(flips % getSize(), 2) /= 0) then ! Weird faliure
       call fatalError(Here,' Failed to obtain even number of flips. WTF?')
 
     else

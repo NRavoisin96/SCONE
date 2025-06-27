@@ -71,8 +71,8 @@ contains
 @test
   subroutine testValidBinQuery_lin(this)
     class(test_grid), intent(inout)          :: this
-    real(defReal),dimension(5)               :: bin
-    integer(shortInt),dimension(5),parameter :: idx = [1,4,7,14,18]
+    real(defReal), dimension(5)               :: bin
+    integer(shortInt), dimension(5), parameter :: idx = [1,4,7,14,18]
 
     bin = this % linGrid % bin(idx)
     @assertEqual(-10.71_defReal, bin(1), abs(FP_TOL*bin(1)) )
@@ -89,9 +89,9 @@ contains
 @test
   subroutine testInvalidBinQuery_lin(this)
     class(test_grid), intent(inout)          :: this
-    real(defReal),dimension(3)               :: bin
-    integer(shortInt),dimension(3),parameter :: idx = [-1,0, 20]
-    real(defReal),parameter                  :: INVALID_BIN = -huge(bin)
+    real(defReal), dimension(3)               :: bin
+    integer(shortInt), dimension(3), parameter :: idx = [-1,0, 20]
+    real(defReal), parameter                  :: INVALID_BIN = -huge(bin)
 
     bin = this % linGrid % bin(idx)
     @assertEqual(INVALID_BIN, bin(1))
@@ -106,8 +106,8 @@ contains
 @test
   subroutine testSearch_lin(this)
     class(test_grid), intent(inout) :: this
-    integer(shortInt),dimension(5)  :: idx
-    real(defReal),dimension(5)      :: keys
+    integer(shortInt), dimension(5)  :: idx
+    real(defReal), dimension(5)      :: keys
 
     keys = [-10.71_defReal, 3.13245_defReal, -8.96_defReal, -20.0_defReal, 10.72_defReal]
     idx = this % linGrid % search(keys)
@@ -132,8 +132,8 @@ contains
 @test
   subroutine testValidBinQuery_log(this)
     class(test_grid), intent(inout)          :: this
-    real(defReal),dimension(4)               :: bin
-    integer(shortInt),dimension(4),parameter :: idx = [1,35,70,71]
+    real(defReal), dimension(4)               :: bin
+    integer(shortInt), dimension(4), parameter :: idx = [1,35,70,71]
 
     bin = this % logGrid % bin(idx)
     @assertEqual(1.0E-11_defReal,               bin(1), abs(FP_TOL*bin(1)) )
@@ -150,9 +150,9 @@ contains
 @test
   subroutine testInvalidBinQuery_log(this)
     class(test_grid), intent(inout)          :: this
-    real(defReal),dimension(3)               :: bin
-    integer(shortInt),dimension(3),parameter :: idx = [-1,0, 72]
-    real(defReal),parameter                  :: INVALID_BIN = -huge(bin)
+    real(defReal), dimension(3)               :: bin
+    integer(shortInt), dimension(3), parameter :: idx = [-1,0, 72]
+    real(defReal), parameter                  :: INVALID_BIN = -huge(bin)
 
     bin = this % logGrid % bin(idx)
     @assertEqual(INVALID_BIN, bin(1))
@@ -167,8 +167,8 @@ contains
 @test
   subroutine testSearch_log(this)
     class(test_grid), intent(inout) :: this
-    integer(shortInt),dimension(5)  :: idx
-    real(defReal),dimension(5)      :: keys
+    integer(shortInt), dimension(5)  :: idx
+    real(defReal), dimension(5)      :: keys
 
     keys = [1.0E-11_defReal, 6.7E-4_defReal, 1.0_defReal, 9.0E-12_defReal, 21.0_defReal]
     idx = this % logGrid % search(keys)
@@ -193,8 +193,8 @@ contains
 @test
   subroutine testValidBinQuery_unstruct(this)
     class(test_grid), intent(inout)          :: this
-    real(defReal),dimension(4)               :: bin
-    integer(shortInt),dimension(4),parameter :: idx = [1,3,7,9]
+    real(defReal), dimension(4)               :: bin
+    integer(shortInt), dimension(4), parameter :: idx = [1,3,7,9]
 
     bin = this % unstructGrid % bin(idx)
     @assertEqual(1.0E-11_defReal,  bin(1), abs(FP_TOL*bin(1)) )
@@ -210,9 +210,9 @@ contains
 @test
   subroutine testInvalidBinQuery_unstruct(this)
     class(test_grid), intent(inout)          :: this
-    real(defReal),dimension(3)               :: bin
-    integer(shortInt),dimension(3),parameter :: idx = [-1,0, 72]
-    real(defReal),parameter                  :: INVALID_BIN = -huge(bin)
+    real(defReal), dimension(3)               :: bin
+    integer(shortInt), dimension(3), parameter :: idx = [-1,0, 72]
+    real(defReal), parameter                  :: INVALID_BIN = -huge(bin)
 
     bin = this % unstructGrid % bin(idx)
     @assertEqual(INVALID_BIN, bin(1))
@@ -227,8 +227,8 @@ contains
 @test
   subroutine testSearch_unstruct(this)
     class(test_grid), intent(inout) :: this
-    integer(shortInt),dimension(5)  :: idx
-    real(defReal),dimension(5)      :: keys
+    integer(shortInt), dimension(5)  :: idx
+    real(defReal), dimension(5)      :: keys
 
     keys = [1.0E-11_defReal, 6.7E-4_defReal, 1.0_defReal, 9.0E-12_defReal, 21.0_defReal]
     idx = this % unstructGrid % search(keys)

@@ -82,7 +82,7 @@ contains
   !!
   subroutine init(nMat)
     integer(shortInt), intent(in) :: nMat
-    character(100),parameter :: Here = 'init (ceNeutronCache_mod.f90)'
+    character(*), parameter :: Here = 'init (ceNeutronCache_mod.f90)'
 
     ! Make sure memory is clean
     call kill()
@@ -105,8 +105,8 @@ contains
 
     ! Need to deallocate on all threads
     !$omp parallel
-    if(allocated(materialCache)) deallocate (materialCache)
-    if(allocated(trackingCache)) deallocate (trackingCache)
+    if (allocated(materialCache)) deallocate (materialCache)
+    if (allocated(trackingCache)) deallocate (trackingCache)
     !$omp end parallel
 
   end subroutine kill

@@ -71,11 +71,12 @@ contains
 @Test
   subroutine testMap1(this)
     class(test_directionMap), intent(inout)  :: this
-    real(defReal),dimension(4),parameter     :: x   = [0.44_defReal, 15.8_defReal, 83.2_defReal, 999.1_defReal]
-    real(defReal),dimension(4),parameter     :: phi = [100.1_defReal, 20.84_defReal, 333.9_defReal, 264.8_defReal]*PI/180.0_defReal
-    integer(shortInt),dimension(4),parameter :: RES_IDX = [4, 3, 2, 1]
-    integer(shortInt),dimension(4)           :: idx
-    type(particleState),dimension(4)         :: states
+    real(defReal), dimension(4), parameter     :: x = [0.44_defReal, 15.8_defReal, 83.2_defReal, 999.1_defReal], &
+                                                  phi = [100.1_defReal, 20.84_defReal, 333.9_defReal, 264.8_defReal] * &
+                                                  PI / 180.0_defReal
+    integer(shortInt), dimension(4), parameter :: RES_IDX = [4, 3, 2, 1]
+    integer(shortInt), dimension(4)           :: idx
+    type(particleState), dimension(4)         :: states
 
     ! Initialise states
     states(:) % dir(1) = x
@@ -94,11 +95,12 @@ contains
 @Test
   subroutine testMap2(this)
     class(test_directionMap), intent(inout)  :: this
-    real(defReal),dimension(4),parameter     :: z   = [0.44_defReal, 15.8_defReal, 83.2_defReal, 999.1_defReal]
-    real(defReal),dimension(4),parameter     :: phi = [170.1_defReal, 90.84_defReal, 133.9_defReal, 264.8_defReal]*PI/180.0_defReal
-    integer(shortInt),dimension(4),parameter :: RES_IDX = [9, 1, 5, 0]
-    integer(shortInt),dimension(4)           :: idx
-    type(particleState),dimension(4)         :: states
+    real(defReal), dimension(4), parameter     :: z = [0.44_defReal, 15.8_defReal, 83.2_defReal, 999.1_defReal], &
+                                                  phi = [170.1_defReal, 90.84_defReal, 133.9_defReal, 264.8_defReal] * &
+                                                  PI / 180.0_defReal
+    integer(shortInt), dimension(4), parameter :: RES_IDX = [9, 1, 5, 0]
+    integer(shortInt), dimension(4)           :: idx
+    type(particleState), dimension(4)         :: states
 
     ! Initialise states
     states(:) % dir(1) = cos(phi)

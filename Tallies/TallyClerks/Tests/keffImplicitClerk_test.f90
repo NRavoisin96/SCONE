@@ -68,7 +68,7 @@ contains
     type(particle)                               :: p
     type(particleDungeon)                        :: pit
     type(scoreMemory)                            :: mem
-    class(tallyResult),allocatable               :: res
+    class(tallyResult), allocatable               :: res
     real(defReal), parameter                     :: TOL = 1.0E-9_defReal
 
     ! Configure memory

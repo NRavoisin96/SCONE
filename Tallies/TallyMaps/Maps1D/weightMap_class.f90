@@ -49,7 +49,7 @@ module weightMap_class
   !!     bins (0.0 0.2 0.5 0.8 1.0);
   !!   }
   !!
-  type, public,extends(tallyMap1D) :: weightMap
+  type, public, extends(tallyMap1D) :: weightMap
     private
     type(grid)        :: binBounds
     integer(shortInt) :: N = 0
@@ -65,8 +65,8 @@ module weightMap_class
 
     ! Class specific procedures
     generic            :: build => build_fromGrid, build_structured
-    procedure,private  :: build_fromGrid
-    procedure,private  :: build_structured
+    procedure, private  :: build_fromGrid
+    procedure, private  :: build_structured
   end type weightMap
 
 contains
@@ -105,7 +105,7 @@ contains
     class(weightMap), intent(inout) :: self
     real(defReal), intent(in)       :: mini
     real(defReal), intent(in)       :: maxi
-    integer(shortInt),intent(in)    :: N
+    integer(shortInt), intent(in)    :: N
     character(nameLen), intent(in)  :: type
 
     self % N = N
@@ -123,11 +123,11 @@ contains
     class(dictionary), intent(in)          :: dict
     character(nameLen)                     :: str, type
     real(defReal)                          :: mini, maxi
-    real(defReal),dimension(:),allocatable :: bins
+    real(defReal), dimension(:), allocatable :: bins
     integer(shortInt)                      :: N
     character(100), parameter     :: Here = 'init (weightMap_class.f90)'
 
-    if(.not.dict % isPresent('grid')) call fatalError(Here,"Keyword 'grid' must be present")
+    if (.not.dict % isPresent('grid')) call fatalError(Here,"Keyword 'grid' must be present")
 
     ! Read grid definition keyword
     call dict % get(str,'grid')
@@ -231,12 +231,12 @@ contains
     name = trim(self % getAxisName()) //'Bounds'
 
     call out % startArray(name,[self % N,2])
-    do i=1,self % N
+    do i= 1, self % N
       ! Print lower bin boundary
       call out % addValue(self % binBounds % bin(i))
     end do
 
-    do i=1,self % N
+    do i= 1, self % N
       ! Print upper bin boundar
       call out % addValue(self % binBounds % bin(i+1))
     end do

@@ -7,7 +7,7 @@ module releaseLawENDFslot_class
   implicit none
   private
 
-  type, public,extends(releaseLawENDF) :: releaseLawENDFslot
+  type, public, extends(releaseLawENDF) :: releaseLawENDFslot
     private
     class(releaseLawENDF), allocatable :: slot
   contains
@@ -42,7 +42,7 @@ contains
   elemental subroutine kill(self)
     class(releaseLawENDFslot), intent(inout) :: self
 
-    if(allocated(self % slot)) then
+    if (allocated(self % slot)) then
       call self % slot % kill()
       deallocate(self % slot)
     end if
@@ -58,7 +58,7 @@ contains
     class(releaseLawENDFslot), intent(inout) :: LHS
     class(releaseLawENDF), intent(in)        :: RHS
 
-    if(allocated(LHS % slot)) deallocate (LHS % slot)
+    if (allocated(LHS % slot)) deallocate (LHS % slot)
 
     allocate(LHS % slot, source = RHS)
 
@@ -71,7 +71,7 @@ contains
     class(releaseLawENDFslot), intent(inout) :: LHS
     type(releaseLawENDFslot), intent(inout)  :: RHS
 
-    if(allocated(LHS % slot)) deallocate (LHS % slot)
+    if (allocated(LHS % slot)) deallocate (LHS % slot)
 
     call move_alloc(RHS % slot, LHS % slot)
 

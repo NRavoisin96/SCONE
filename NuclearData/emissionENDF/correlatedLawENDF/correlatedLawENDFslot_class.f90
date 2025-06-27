@@ -7,9 +7,9 @@ module correlatedLawENDFslot_class
   implicit none
   private
 
-  type, public,extends(correlatedLawENDF) :: correlatedLawENDFslot
+  type, public, extends(correlatedLawENDF) :: correlatedLawENDFslot
     private
-    class(correlatedLawENDF),allocatable :: slot
+    class(correlatedLawENDF), allocatable :: slot
   contains
     ! Duplicate interface of the superclass
     procedure :: sample
@@ -59,7 +59,7 @@ contains
   elemental subroutine kill(Self)
     class(correlatedLawENDFslot), intent(inout) :: self
 
-    if(allocated(self %slot)) then
+    if (allocated(self %slot)) then
       call self % slot % kill()
       deallocate(self % slot)
     end if
@@ -75,7 +75,7 @@ contains
     class(correlatedLawENDFslot), intent(inout) :: LHS
     class(correlatedLawENDF), intent(in)        :: RHS
 
-    if(allocated(LHS % slot)) deallocate (LHS % slot)
+    if (allocated(LHS % slot)) deallocate (LHS % slot)
 
     allocate(LHS % slot, source = RHS)
 
@@ -88,7 +88,7 @@ contains
     class(correlatedLawENDFslot), intent(inout)          :: LHS
     class(correlatedLawENDF), allocatable, intent(inout) :: RHS
 
-    if(allocated(LHS % slot)) deallocate (LHS % slot)
+    if (allocated(LHS % slot)) deallocate (LHS % slot)
 
     call move_alloc(RHS, LHS % slot)
 

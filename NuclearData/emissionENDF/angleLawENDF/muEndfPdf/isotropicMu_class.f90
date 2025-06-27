@@ -16,7 +16,7 @@ module isotropicMu_class
   !! Class that contains isotropic secondary angle distribution.
   !! Extends muEndfPdf abstract interface
   !!
-  type, public,extends(muEndfPdf) :: isotropicMu
+  type, public, extends(muEndfPdf) :: isotropicMu
     private
   contains
     procedure :: sample
@@ -34,7 +34,7 @@ contains
     class(RNG), intent(inout)        :: rand
     real(defReal)                    :: mu
 
-    mu = TWO * rand % get() - ONE
+    call rand % generateMu(mu)
 
   end function sample
 

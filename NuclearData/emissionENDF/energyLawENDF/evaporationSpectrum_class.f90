@@ -67,17 +67,17 @@ contains
     real(defReal), intent(in)              :: E_in
     class(RNG), intent(inout)              :: rand
     real(defReal)                          :: E_out
-    real(defReal)                          :: T, r1, r2
+    real(defReal)                          :: T
+    real(defReal), dimension(2)            :: randomNumbers
 
     ! Get value of T at energy E_in
     T = self % T_of_E % at(E_in)
 
     rejection:do
-      r1 = rand % get()
-      r2 = rand % get()
+      call rand % generate(randomNumbers)
 
-      E_out = -T * log(r1*r2)
-      if(E_out <= E_in - self % U) exit rejection
+      E_out = -T * log(product(randomNumbers))
+      if (E_out <= E_in - self % U) exit rejection
 
     end do rejection
 
@@ -112,25 +112,25 @@ contains
   !!
   subroutine init(self,eGrid,T,U,bounds,interENDF)
     class(evaporationSpectrum), intent(inout)          :: self
-    real(defReal),dimension(:),intent(in)              :: eGrid     ! T energy grid
-    real(defReal),dimension(:),intent(in)              :: T         ! T values
+    real(defReal), dimension(:), intent(in)              :: eGrid     ! T energy grid
+    real(defReal), dimension(:), intent(in)              :: T         ! T values
     real(defReal), intent(in)                          :: U         ! Restriction energy
-    integer(shortInt),dimension(:),intent(in),optional :: bounds    ! Bounds of interpolation regions
-    integer(shortInt),dimension(:),intent(in),optional :: interENDF ! Interpolation flag
-    character(100),parameter              :: Here='init (evaporationSpectrum_class.f90)'
+    integer(shortInt), dimension(:), intent(in),optional :: bounds    ! Bounds of interpolation regions
+    integer(shortInt), dimension(:), intent(in),optional :: interENDF ! Interpolation flag
+    character(100), parameter              :: Here='init (evaporationSpectrum_class.f90)'
 
     ! Perform sanity checks
-    if(size(eGrid) /= size(T))      call fatalError(Here,'eGrid and T have diffrent size')
-    if(.not.(isSorted(eGrid)))      call fatalError(Here,'eGrid is not sorted ascending')
-    if ( any( eGrid < 0.0 )  )      call fatalError(Here,'eGrid contains -ve values')
+    if (size(eGrid) /= size(T))      call fatalError(Here,'eGrid and T have diffrent size')
+    if (.not.(isSorted(eGrid)))      call fatalError(Here,'eGrid is not sorted ascending')
+    if (any( eGrid < 0.0 )  )      call fatalError(Here,'eGrid contains -ve values')
 
-    if ( any( T < 0.0 ) )           call fatalError(Here,'Neutron temperature T has -ve values')
+    if (any( T < 0.0 ) )           call fatalError(Here,'Neutron temperature T has -ve values')
 
     ! Initialise
     if (present(bounds) .and. present(interENDF)) then
       call self % T_of_E % init(eGrid,T,bounds,interENDF)
 
-    else if ( present(bounds) .or. present(interENDF)) then
+    else if (present(bounds) .or. present(interENDF)) then
       call fatalError(Here,'Either "bounds" or "interENDF" is not given')
 
     else
@@ -159,8 +159,8 @@ contains
   !! Only one lin-lin interpolation region
   !!
   function new_evaporationSpectrum(eGrid, T, U) result(new)
-    real(defReal),dimension(:),intent(in)   :: eGrid
-    real(defReal),dimension(:),intent(in)   :: T
+    real(defReal), dimension(:), intent(in)   :: eGrid
+    real(defReal), dimension(:), intent(in)   :: T
     real(defReal), intent(in)               :: U
     type(evaporationSpectrum)                   :: new
 
@@ -173,10 +173,10 @@ contains
   !! Multiple interpolation regions & interpolation schemes
   !!
   function new_evaporationSpectrum_Inter(eGrid, T, U, bounds, interENDF) result(new)
-    real(defReal),dimension(:),intent(in)     :: eGrid
-    real(defReal),dimension(:),intent(in)     :: T
+    real(defReal), dimension(:), intent(in)     :: eGrid
+    real(defReal), dimension(:), intent(in)     :: T
     real(defReal), intent(in)                 :: U
-    integer(shortInt),dimension(:),intent(in) :: bounds, interENDF
+    integer(shortInt), dimension(:), intent(in) :: bounds, interENDF
     type(evaporationSpectrum)                     :: new
 
     call new % init(eGrid,T,U,bounds,interENDF)
@@ -191,11 +191,11 @@ contains
   function new_evaporationSpectrum_fromACE(ACE) result(new)
     type(aceCard), intent(inout)               :: ACE
     type(evaporationSpectrum)                  :: new
-    real(defReal),dimension(:),allocatable     :: eGrid
-    real(defReal),dimension(:),allocatable     :: T
+    real(defReal), dimension(:), allocatable     :: eGrid
+    real(defReal), dimension(:), allocatable     :: T
     real(defReal)                              :: U
-    integer(shortInt),dimension(:),allocatable :: bounds
-    integer(shortInt),dimension(:),allocatable :: interENDF
+    integer(shortInt), dimension(:), allocatable :: bounds
+    integer(shortInt), dimension(:), allocatable :: interENDF
     integer(shortInt)                          :: NR
     integer(shortInt)                          :: N
     logical(defBool)                           :: hasInterRegions
@@ -205,7 +205,7 @@ contains
     hasInterRegions = (NR /= 0)
 
     ! Read interpolation data if present
-    if ( hasInterRegions ) then
+    if (hasInterRegions) then
       bounds    = ACE % readIntArray(NR)
       interENDF = ACE % readIntArray(NR)
 

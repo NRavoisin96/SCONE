@@ -26,7 +26,7 @@ contains
   subroutine setUp(this)
     class(test_multiMap), intent(inout) :: this
     type(dictionary)                    :: tempDict
-    character(*),parameter :: def = "                                        &
+    character(*), parameter :: def = "                                        &
       &type multiMap;                                                        &
       &maps (map1 map2 map3);                                                &
       &map1 {type spaceMap; axis x; grid unstruct; bins (0.0 1.0 2.0); }     &

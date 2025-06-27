@@ -73,10 +73,10 @@ contains
     class(elasticNeutronScatter), intent(inout) :: self
     class(dataDeck), intent(inout)              :: data
     integer(shortInt), intent(in)               :: MT
-    character(100), parameter :: Here = 'init (elasticNeutronScatter_class.f90)'
+    character(*), parameter :: Here = 'init (elasticNeutronScatter_class.f90)'
 
     ! Catch MT numbers that are not elastic scattering
-    if( MT /= N_N_ELASTIC) then
+    if (MT /= N_N_ELASTIC) then
       call fatalError(Here,'Connot be build for reaction with MT:' //numToChar(MT)//&
                            ' which is not scattering')
     end if
@@ -179,7 +179,7 @@ contains
 
     ! Sample mu
     if (self % isotropic) then
-      mu = TWO * rand % get() - ONE
+      call rand % generate(mu, TWO, -ONE)
 
     else
       mu = self % angularData % sample(E_in, rand)
@@ -187,10 +187,10 @@ contains
     end if
 
     ! Sample phi
-    phi = rand % get() * TWO_PI
+    call rand % generate(phi, mult = TWO_PI)
 
     ! Only prompt particles. Set delay
-    if(present(lambda)) lambda = huge(lambda)
+    if (present(lambda)) lambda = huge(lambda)
 
   end subroutine sampleOut
 
@@ -222,7 +222,7 @@ contains
     end if
 
     ! Apply E_out prob -> delta distribution
-    if( E_out /= E_in) prob = ZERO
+    if (E_out /= E_in) prob = ZERO
 
     ! Apply phi prob
     if (phi >= ZERO .and. phi <= TWO_PI) then

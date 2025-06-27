@@ -15,7 +15,7 @@ module dictionary_class
   ! deallocated. Thus:
   !
   !   subroutine memLeak(dictIn)
-  !     class(dictionary),intent(in) :: dictIN
+  !     class(dictionary), intent(in) :: dictIN
   !     type(dictionary)             :: locDict
   !     locDict = dictIN
   !   end subroutine
@@ -73,30 +73,30 @@ module dictionary_class
   !
   ! Subroutine: dict % getReal(r,'integerKey') will put 3.0 into r
   !
-  integer(shortInt),parameter,public :: charLen  = max(nameLen,pathLen)
-  integer(shortInt),parameter        :: empty    = 0
-  integer(shortInt),parameter        :: numInt   = 1
-  integer(shortInt),parameter        :: numReal  = 2
-  integer(shortInt),parameter        :: word     = 3
-  integer(shortInt),parameter        :: nestDict = 4
-  integer(shortInt),parameter        :: arrInt   = 5
-  integer(shortInt),parameter        :: arrReal  = 6
-  integer(shortInt),parameter        :: arrWord  = 7
+  integer(shortInt), parameter, public :: charLen  = max(nameLen,pathLen)
+  integer(shortInt), parameter        :: empty    = 0
+  integer(shortInt), parameter        :: numInt   = 1
+  integer(shortInt), parameter        :: numReal  = 2
+  integer(shortInt), parameter        :: word     = 3
+  integer(shortInt), parameter        :: nestDict = 4
+  integer(shortInt), parameter        :: arrInt   = 5
+  integer(shortInt), parameter        :: arrReal  = 6
+  integer(shortInt), parameter        :: arrWord  = 7
 
-  integer(shortInt),parameter        :: defStride = 20
+  integer(shortInt), parameter        :: defStride = 20
 
   !!
   !! Type to store a single entery in a dictionary
   !! Uses a single allocatable variable for diffrent type of contant
   !!
-  type,public :: dictContent
+  type, public :: dictContent
     ! Allocatable space for all content types
     integer(shortInt)                           :: int0_alloc
-    integer(shortInt),dimension(:),allocatable  :: int1_alloc
+    integer(shortInt), dimension(:), allocatable  :: int1_alloc
     real(defReal)                               :: real0_alloc
-    real(defReal),dimension(:),allocatable      :: real1_alloc
+    real(defReal), dimension(:), allocatable      :: real1_alloc
     character(charLen)                          :: char0_alloc
-    character(charLen),dimension(:),allocatable :: char1_alloc
+    character(charLen), dimension(:), allocatable :: char1_alloc
     ! *** Note that dictionary is defined as pointer not allocatable
     ! *** This is becouse gfortran < 7.0 does not supports circular derived types with
     ! *** allocatable keyword. This line may change in a future
@@ -118,8 +118,8 @@ module dictionary_class
   type, public :: dictionary
     private
     ! Dictionary storage array
-    character(nameLen),dimension(:),allocatable  :: keywords
-    type(dictContent),dimension(:), allocatable  :: entries
+    character(nameLen), dimension(:), allocatable  :: keywords
+    type(dictContent), dimension(:), allocatable  :: entries
 
     ! Dictionary state information
     integer(shortInt)                            :: maxSize = 0         ! Maximum size of a dictionary
@@ -151,17 +151,17 @@ module dictionary_class
                          getDict_new,&
                          getBool_new
 
-    procedure,private :: getReal_new
-    procedure,private :: getRealArray_alloc_new
-    procedure,private :: getRealArray_ptr_new
-    procedure,private :: getInt_new
-    procedure,private :: getIntArray_alloc_new
-    procedure,private :: getIntArray_ptr_new
-    procedure,private :: getChar_new
-    procedure,private :: getCharArray_alloc_new
-    procedure,private :: getCharArray_ptr_new
-    procedure,private :: getDict_new
-    procedure,private :: getBool_new
+    procedure, private :: getReal_new
+    procedure, private :: getRealArray_alloc_new
+    procedure, private :: getRealArray_ptr_new
+    procedure, private :: getInt_new
+    procedure, private :: getIntArray_alloc_new
+    procedure, private :: getIntArray_ptr_new
+    procedure, private :: getChar_new
+    procedure, private :: getCharArray_alloc_new
+    procedure, private :: getCharArray_ptr_new
+    procedure, private :: getDict_new
+    procedure, private :: getBool_new
 
     generic :: getOrDefault => getOrDefault_real ,&
                                getOrDefault_realArray_alloc ,&
@@ -174,16 +174,16 @@ module dictionary_class
                                getOrDefault_charArray_ptr, &
                                getOrDefault_bool
 
-    procedure,private :: getOrDefault_real
-    procedure,private :: getOrDefault_realArray_alloc
-    procedure,private :: getOrDefault_realArray_ptr
-    procedure,private :: getOrDefault_int
-    procedure,private :: getOrDefault_intArray_alloc
-    procedure,private :: getOrDefault_intArray_ptr
-    procedure,private :: getOrDefault_char
-    procedure,private :: getOrDefault_charArray_alloc
-    procedure,private :: getOrDefault_charArray_ptr
-    procedure,private :: getOrDefault_bool
+    procedure, private :: getOrDefault_real
+    procedure, private :: getOrDefault_realArray_alloc
+    procedure, private :: getOrDefault_realArray_ptr
+    procedure, private :: getOrDefault_int
+    procedure, private :: getOrDefault_intArray_alloc
+    procedure, private :: getOrDefault_intArray_ptr
+    procedure, private :: getOrDefault_char
+    procedure, private :: getOrDefault_charArray_alloc
+    procedure, private :: getOrDefault_charArray_ptr
+    procedure, private :: getOrDefault_bool
 
     ! Keys inquiry procedures
     procedure  :: keys
@@ -220,7 +220,7 @@ contains
     character(nameLen), intent(in)     :: keyword
     integer(shortInt)                  :: idx
     integer(shortInt)                  :: i
-    character(100),parameter           :: Here='getEmptyIdx (dictionary_class.f90)'
+    character(100), parameter           :: Here='getEmptyIdx (dictionary_class.f90)'
 
     ! Extend dictionary if required
     if (self % dictLen >= self % maxSize) then
@@ -249,12 +249,12 @@ contains
   subroutine extendBy(self,stride)
     class(dictionary), intent(inout)             :: self
     integer(shortInt)                            :: stride
-    character(nameLen),dimension(:),allocatable  :: keywords
-    type(dictContent),dimension(:), allocatable  :: entries
+    character(nameLen), dimension(:), allocatable  :: keywords
+    type(dictContent), dimension(:), allocatable  :: entries
     integer(shortInt)                            :: newSize, oldSize, i
-    character(100),parameter                     :: Here='extendBy (dictionary_class.f90)'
+    character(100), parameter                     :: Here='extendBy (dictionary_class.f90)'
 
-    if(.not.(allocated(self % keywords).and.allocated(self % entries))) then
+    if (.not.(allocated(self % keywords).and.allocated(self % entries))) then
       call fatalError(Here,'An attempt was made to extend uninitialised dictionary')
 
     end if
@@ -267,7 +267,7 @@ contains
 
     keywords(1:oldSize) = self % keywords
 
-    do i=1,oldSize
+    do i= 1, oldSize
      entries(i) = self % entries(i)
 
     end do
@@ -291,9 +291,9 @@ contains
     class(dictionary), intent(inout)         :: self
     integer(shortInt), intent(in)            :: maxSize
     integer(shortInt), intent(in), optional  :: stride
-    character(100),parameter                 :: Here='init (dictionary_class.f90)'
+    character(100), parameter                 :: Here='init (dictionary_class.f90)'
 
-    if(allocated(self % keywords).or.allocated(self % entries)) then
+    if (allocated(self % keywords).or.allocated(self % entries)) then
       call fatalError(Here,'Attempting to reinitialise a dictionary is forbidden')
     end if
 
@@ -324,19 +324,19 @@ contains
     integer(shortInt)                :: i
     logical(defBool)                 :: keysAllocated
     logical(defBool)                 :: entAllocated
-    character(100),parameter         :: Here='kill (dictionary_class.f90)'
+    character(100), parameter         :: Here='kill (dictionary_class.f90)'
 
     keysAllocated = allocated(self % keywords)
     entAllocated  = allocated(self % entries)
 
-    if(keysAllocated .neqv. entAllocated) then
+    if (keysAllocated .neqv. entAllocated) then
       call fatalError(Here,'Immposible state. Keywors or entries is allocated without the other')
 
     elseif (keysAllocated .and. entAllocated) then
 
       ! Expression below could extend only to self % dictLen but lets make double shure we
       ! kill all data. There is no need to optimise this and it is more robust this way.
-      do i=1,self % maxSize
+      do i= 1, self % maxSize
         call self % entries(i) % kill()
       end do
       deallocate(self % keywords)
@@ -354,7 +354,7 @@ contains
   !! Finalisation Subroutine
   !!
   recursive subroutine final_dictionary(self)
-    type(dictionary),intent(inout) :: self
+    type(dictionary), intent(inout) :: self
 
     call self % kill()
 
@@ -383,7 +383,7 @@ contains
     ! Copy Keywords and entries
     LHS % keywords = RHS % keywords
 
-    do i=1,RHS % dictLen
+    do i= 1, RHS % dictLen
       call LHS % entries(i) % copy(RHS % entries(i) )
 
     end do
@@ -417,7 +417,7 @@ contains
     character(*), intent(in)      :: keyword
     integer(shortInt)             :: S
     integer(shortInt)             :: idx
-    character(100), parameter :: Here = 'getSize (dictionary_class.f90)'
+    character(*), parameter :: Here = 'getSize (dictionary_class.f90)'
 
     idx = linFind(self % keywords, keyword)
     if (idx == targetNotFound) then
@@ -446,10 +446,10 @@ contains
   !!
   subroutine getReal_new(self,value,keyword)
     class(dictionary), intent(in)  :: self
-    real(defReal),intent(inout)    :: value
-    character(*),intent(in)        :: keyword
+    real(defReal), intent(inout)    :: value
+    character(*), intent(in)        :: keyword
     integer(shortInt)              :: idx
-    character(100),parameter       :: Here='getReal (dictionary_class.f90)'
+    character(100), parameter       :: Here='getReal (dictionary_class.f90)'
 
     idx = self % search(keyword, Here, fatal =.true.)
 
@@ -474,14 +474,14 @@ contains
   !!
   subroutine getRealArray_alloc_new(self,value,keyword)
     class(dictionary), intent(in)                        :: self
-    real(defReal),dimension(:),allocatable,intent(inout) :: value
-    character(*),intent(in)                              :: keyword
+    real(defReal), dimension(:), allocatable, intent(inout) :: value
+    character(*), intent(in)                              :: keyword
     integer(shortInt)                                    :: idx
-    character(100),parameter                             :: Here='getRealArray_alloc (dictionary_class.f90)'
+    character(100), parameter                             :: Here='getRealArray_alloc (dictionary_class.f90)'
 
     idx = self % search(keyword, Here, fatal =.true.)
 
-    if(allocated(value)) deallocate(value)
+    if (allocated(value)) deallocate(value)
 
     select case (self % entries(idx) % getType())
       case(arrReal)
@@ -504,14 +504,14 @@ contains
   !!
   subroutine getRealArray_ptr_new(self,value,keyword)
     class(dictionary), intent(in)                      :: self
-    real(defReal),dimension(:),pointer,intent(inout)   :: value
-    character(*),intent(in)                            :: keyword
+    real(defReal), dimension(:), pointer, intent(inout)   :: value
+    character(*), intent(in)                            :: keyword
     integer(shortInt)                                  :: idx, N
-    character(100),parameter                           :: Here='getRealArray_ptr (dictionary_class.f90)'
+    character(100), parameter                           :: Here='getRealArray_ptr (dictionary_class.f90)'
 
     idx = self % search(keyword, Here, fatal =.true.)
 
-    if(associated(value)) deallocate(value)
+    if (associated(value)) deallocate(value)
 
     select case (self % entries(idx) % getType())
       case(arrReal)
@@ -538,10 +538,10 @@ contains
   !!
   subroutine getInt_new(self,value,keyword)
     class(dictionary), intent(in)  :: self
-    integer(shortInt),intent(inout):: value
-    character(*),intent(in)        :: keyword
+    integer(shortInt), intent(inout):: value
+    character(*), intent(in)        :: keyword
     integer(shortInt)              :: idx
-    character(100),parameter       :: Here='getInt (dictionary_class.f90)'
+    character(100), parameter       :: Here='getInt (dictionary_class.f90)'
 
     idx = self % search(keyword, Here, fatal =.true.)
 
@@ -563,14 +563,14 @@ contains
   !!
   subroutine getIntArray_alloc_new(self,value,keyword)
     class(dictionary), intent(in)                            :: self
-    integer(shortInt),dimension(:),allocatable,intent(inout) :: value
-    character(*),intent(in)                                  :: keyword
+    integer(shortInt), dimension(:), allocatable, intent(inout) :: value
+    character(*), intent(in)                                  :: keyword
     integer(shortInt)                                        :: idx
-    character(100),parameter                   :: Here='getIntArray_alloc (dictionary_class.f90)'
+    character(100), parameter                   :: Here='getIntArray_alloc (dictionary_class.f90)'
 
     idx = self % search(keyword, Here, fatal =.true.)
 
-    if(allocated(value)) deallocate(value)
+    if (allocated(value)) deallocate(value)
 
     select case (self % entries(idx) % getType())
       case(arrInt)
@@ -591,14 +591,14 @@ contains
   !!
   subroutine getIntArray_ptr_new(self,value,keyword)
     class(dictionary), intent(in)                            :: self
-    integer(shortInt),dimension(:),pointer,intent(inout)     :: value
-    character(*),intent(in)                                  :: keyword
+    integer(shortInt), dimension(:), pointer, intent(inout)     :: value
+    character(*), intent(in)                                  :: keyword
     integer(shortInt)                                        :: idx,N
-    character(100),parameter                   :: Here='getIntArray_ptr (dictionary_class.f90)'
+    character(100), parameter                   :: Here='getIntArray_ptr (dictionary_class.f90)'
 
     idx = self % search(keyword, Here, fatal =.true.)
 
-    if(associated(value)) deallocate(value)
+    if (associated(value)) deallocate(value)
 
     select case (self % entries(idx) % getType())
       case(arrInt)
@@ -618,17 +618,17 @@ contains
   !!
   subroutine getChar_new(self,value,keyword)
     class(dictionary), intent(in)  :: self
-    character(*),intent(inout)     :: value
-    character(*),intent(in)        :: keyword
+    character(*), intent(inout)     :: value
+    character(*), intent(in)        :: keyword
     integer(shortInt)              :: idx
-    character(100),parameter       :: Here='getChar (dictionary_class.f90)'
+    character(100), parameter       :: Here='getChar (dictionary_class.f90)'
 
     idx = self % search(keyword, Here, fatal =.true.)
 
     select case (self % entries(idx) % getType())
       case(word)
         ! Check if the content character fits into value
-        if( len(value) < len_trim(self % entries(idx) % char0_alloc)) then
+        if (len(value) < len_trim(self % entries(idx) % char0_alloc)) then
           call fatalError(Here,'value character is too short to store content. Increase its length')
         end if
 
@@ -647,20 +647,20 @@ contains
   !!
   subroutine getCharArray_alloc_new(self,value,keyword)
     class(dictionary), intent(in)                             :: self
-    character(*),dimension(:),allocatable,intent(inout)       :: value
-    character(*),intent(in)                                   :: keyword
+    character(*), dimension(:), allocatable, intent(inout)       :: value
+    character(*), intent(in)                                   :: keyword
     integer(shortInt)                                         :: idx
-    character(100),parameter                    :: Here='getCharArray_alloc (dictionary_class.f90)'
+    character(100), parameter                    :: Here='getCharArray_alloc (dictionary_class.f90)'
 
     idx = self % search(keyword, Here, fatal =.true.)
 
-    if(allocated(value)) deallocate(value)
+    if (allocated(value)) deallocate(value)
 
     select case (self % entries(idx) % getType())
       case(arrWord)
         ! Check if the content character fits into value. Any is required becouse len_trim returns
         ! an array
-        if( any(len(value) < len_trim(self % entries(idx) % char1_alloc))) then
+        if (any(len(value) < len_trim(self % entries(idx) % char1_alloc))) then
           call fatalError(Here,'value character is to short to store content. Increase its length')
         end if
 
@@ -679,20 +679,20 @@ contains
   !!
   subroutine getCharArray_ptr_new(self,value,keyword)
     class(dictionary), intent(in)                             :: self
-    character(*),dimension(:),pointer,intent(inout)           :: value
-    character(*),intent(in)                                   :: keyword
+    character(*), dimension(:), pointer, intent(inout)           :: value
+    character(*), intent(in)                                   :: keyword
     integer(shortInt)                                         :: idx
-    character(100),parameter                       :: Here='getCharArray_ptr (dictionary_class.f90)'
+    character(100), parameter                       :: Here='getCharArray_ptr (dictionary_class.f90)'
 
     idx = self % search(keyword, Here, fatal =.true.)
 
-    if(associated(value)) deallocate(value)
+    if (associated(value)) deallocate(value)
 
     select case (self % entries(idx) % getType())
       case(arrWord)
         ! Check if the content character fits into value. Any is required becouse len_trim returns
         ! an array
-        if( any( len(value) < len_trim(self % entries(idx) % char1_alloc)) ) then
+        if (any( len(value) < len_trim(self % entries(idx) % char1_alloc))) then
           call fatalError(Here,'value character is to short to store content. Increase its length')
         end if
 
@@ -712,10 +712,10 @@ contains
   !!
   subroutine getDict_new(self,value,keyword)
     class(dictionary), intent(in)   :: self
-    class(dictionary),intent(inout) :: value
-    character(*),intent(in)         :: keyword
+    class(dictionary), intent(inout) :: value
+    character(*), intent(in)         :: keyword
     integer(shortInt)               :: idx
-    character(100),parameter        :: Here='getDict (dictionary_class.f90)'
+    character(100), parameter        :: Here='getDict (dictionary_class.f90)'
 
     idx = self % search(keyword, Here, fatal =.true.)
 
@@ -735,10 +735,10 @@ contains
   !!
   function getDictPtr(self, keyword) result(ptr)
     class(dictionary), intent(in) :: self
-    character(*),intent(in)       :: keyword
+    character(*), intent(in)       :: keyword
     integer(shortInt)             :: idx
-    class(dictionary),pointer     :: ptr
-    character(100),parameter      :: Here='getDictPtr (dictionary_class.f90)'
+    class(dictionary), pointer     :: ptr
+    character(100), parameter      :: Here='getDictPtr (dictionary_class.f90)'
 
     idx = self % search(keyword, Here, fatal =.true.)
 
@@ -760,10 +760,10 @@ contains
   !!
   subroutine getBool_new(self,value,keyword)
     class(dictionary), intent(in)  :: self
-    logical(defBool),intent(inout) :: value
-    character(*),intent(in)        :: keyword
+    logical(defBool), intent(inout) :: value
+    character(*), intent(in)        :: keyword
     integer(shortInt)              :: idx, i
-    character(100),parameter       :: Here='getBool (dictionary_class.f90)'
+    character(100), parameter       :: Here='getBool (dictionary_class.f90)'
 
     idx = self % search(keyword, Here, fatal =.true.)
     select case (self % entries(idx) % getType())
@@ -799,11 +799,11 @@ contains
   !!
   subroutine getOrDefault_real(self, value, keyword, default)
     class(dictionary), intent(in)  :: self
-    real(defReal),intent(inout)    :: value
-    character(*),intent(in)        :: keyword
-    real(defReal),intent(in)       :: default
+    real(defReal), intent(inout)    :: value
+    character(*), intent(in)        :: keyword
+    real(defReal), intent(in)       :: default
     integer(shortInt)              :: idx
-    character(100),parameter       :: Here='getOrDefault_real (dictionary_class.f90)'
+    character(100), parameter       :: Here='getOrDefault_real (dictionary_class.f90)'
 
     idx = self % search(keyword, Here, fatal =.false.)
 
@@ -824,14 +824,14 @@ contains
   !!
   subroutine getOrDefault_realArray_alloc(self, value, keyword, default)
     class(dictionary), intent(in)                        :: self
-    real(defReal),dimension(:),allocatable,intent(inout) :: value
-    character(*),intent(in)                              :: keyword
-    real(defReal),dimension(:),intent(in)                :: default
+    real(defReal), dimension(:), allocatable, intent(inout) :: value
+    character(*), intent(in)                              :: keyword
+    real(defReal), dimension(:), intent(in)                :: default
     integer(shortInt)                                    :: idx
-    character(100),parameter         :: Here='getOrDefault_realArray_allocc (dictionary_class.f90)'
+    character(100), parameter         :: Here='getOrDefault_realArray_allocc (dictionary_class.f90)'
 
     idx = self % search(keyword, Here, fatal =.false.)
-    if(allocated(value)) deallocate(value)
+    if (allocated(value)) deallocate(value)
 
     if (idx == targetNotFound) then
       value = default
@@ -850,15 +850,15 @@ contains
   !!
   subroutine getOrDefault_realArray_ptr(self, value, keyword, default)
     class(dictionary), intent(in)                      :: self
-    real(defReal),dimension(:),pointer,intent(inout)   :: value
-    character(*),intent(in)                            :: keyword
-    real(defReal),dimension(:),intent(in)              :: default
+    real(defReal), dimension(:), pointer, intent(inout)   :: value
+    character(*), intent(in)                            :: keyword
+    real(defReal), dimension(:), intent(in)              :: default
     integer(shortInt)                                  :: idx
-    character(100),parameter :: Here='getOrDefault_realArray_ptr (dictionary_class.f90)'
+    character(*), parameter :: Here = 'getOrDefault_realArray_ptr (dictionary_class.f90)'
 
     idx = self % search(keyword, Here, fatal =.false.)
 
-    if(associated(value)) deallocate(value)
+    if (associated(value)) deallocate(value)
 
     if (idx == targetNotFound) then
       allocate(value( size(default) ))
@@ -878,11 +878,11 @@ contains
   !!
   subroutine getOrDefault_int(self,value,keyword,default)
     class(dictionary), intent(in)  :: self
-    integer(shortInt),intent(inout):: value
-    character(*),intent(in)        :: keyword
+    integer(shortInt), intent(inout):: value
+    character(*), intent(in)        :: keyword
     integer(shortInt), intent(in)  :: default
     integer(shortInt)              :: idx
-    character(100),parameter       :: Here='getOrDefault_int (dictionary_class.f90)'
+    character(100), parameter       :: Here='getOrDefault_int (dictionary_class.f90)'
 
     idx = self % search(keyword, Here, fatal =.false.)
 
@@ -902,15 +902,15 @@ contains
   !!
   subroutine getOrDefault_intArray_alloc(self, value, keyword, default)
     class(dictionary), intent(in)                            :: self
-    integer(shortInt),dimension(:),allocatable,intent(inout) :: value
-    character(*),intent(in)                                  :: keyword
-    integer(shortInt),dimension(:),intent(in)                :: default
+    integer(shortInt), dimension(:), allocatable, intent(inout) :: value
+    character(*), intent(in)                                  :: keyword
+    integer(shortInt), dimension(:), intent(in)                :: default
     integer(shortInt)                                        :: idx
-    character(100),parameter           :: Here='getOrDefault_intArray_alloc (dictionary_class.f90)'
+    character(100), parameter           :: Here='getOrDefault_intArray_alloc (dictionary_class.f90)'
 
     idx = self % search(keyword, Here, fatal =.false.)
 
-    if(allocated(value)) deallocate(value)
+    if (allocated(value)) deallocate(value)
 
     if (idx == targetNotFound) then
       value = default
@@ -929,15 +929,15 @@ contains
   !!
   subroutine getOrDefault_intArray_ptr(self, value, keyword, default)
     class(dictionary), intent(in)                            :: self
-    integer(shortInt),dimension(:),pointer,intent(inout)     :: value
-    character(*),intent(in)                                  :: keyword
-    integer(shortInt),dimension(:),intent(in)                :: default
+    integer(shortInt), dimension(:), pointer, intent(inout)     :: value
+    character(*), intent(in)                                  :: keyword
+    integer(shortInt), dimension(:), intent(in)                :: default
     integer(shortInt)                                        :: idx
-    character(100),parameter             :: Here='getOrDefault_intArray_ptr (dictionary_class.f90)'
+    character(100), parameter             :: Here='getOrDefault_intArray_ptr (dictionary_class.f90)'
 
     idx = self % search(keyword, Here, fatal =.false.)
 
-    if(associated(value)) deallocate(value)
+    if (associated(value)) deallocate(value)
 
     if (idx == targetNotFound) then
       allocate(value(size(default)))
@@ -955,11 +955,11 @@ contains
   !!
   subroutine getOrDefault_char(self, value, keyword, default)
     class(dictionary), intent(in)  :: self
-    character(*),intent(inout)     :: value
-    character(*),intent(in)        :: keyword
-    character(*),intent(in)        :: default
+    character(*), intent(inout)     :: value
+    character(*), intent(in)        :: keyword
+    character(*), intent(in)        :: default
     integer(shortInt)              :: idx
-    character(100),parameter       :: Here='getOrDefault_char (dictionary_class.f90)'
+    character(100), parameter       :: Here='getOrDefault_char (dictionary_class.f90)'
 
     idx = self % search(keyword, Here, fatal =.false.)
 
@@ -979,16 +979,16 @@ contains
   !!
   subroutine getOrDefault_charArray_alloc(self, value, keyword, default)
     class(dictionary), intent(in)                             :: self
-    character(*),dimension(:),allocatable,intent(inout)       :: value
-    character(*),intent(in)                                   :: keyword
-    character(*),dimension(:),intent(in)                      :: default
-    character(charLen),dimension(size(default))               :: loc_Char
+    character(*), dimension(:), allocatable, intent(inout)       :: value
+    character(*), intent(in)                                   :: keyword
+    character(*), dimension(:), intent(in)                      :: default
+    character(charLen), dimension(size(default))               :: loc_Char
     integer(shortInt)                                         :: idx
-    character(100),parameter           :: Here='getOrDefault_charArray_alloc(dictionary_class.f90)'
+    character(100), parameter           :: Here='getOrDefault_charArray_alloc(dictionary_class.f90)'
 
     idx = self % search(keyword, Here, fatal =.false.)
 
-    if(allocated(value)) deallocate(value)
+    if (allocated(value)) deallocate(value)
 
     if (idx == targetNotFound) then
       loc_Char = default
@@ -1007,15 +1007,15 @@ contains
   !!
   subroutine getOrDefault_charArray_ptr(self, value, keyword, default)
     class(dictionary), intent(in)                             :: self
-    character(*),dimension(:),pointer,intent(inout)           :: value
-    character(*),intent(in)                                   :: keyword
-    character(*),dimension(:),intent(in)                      :: default
+    character(*), dimension(:), pointer, intent(inout)           :: value
+    character(*), intent(in)                                   :: keyword
+    character(*), dimension(:), intent(in)                      :: default
     integer(shortInt)                                         :: idx
-    character(100),parameter            :: Here='getOrDefault_charArray_ptr (dictionary_class.f90)'
+    character(100), parameter            :: Here='getOrDefault_charArray_ptr (dictionary_class.f90)'
 
     idx = self % search(keyword, Here, fatal =.false.)
 
-    if(associated(value)) deallocate(value)
+    if (associated(value)) deallocate(value)
 
     if (idx == targetNotFound) then
       allocate(value(size(default)))
@@ -1031,11 +1031,11 @@ contains
   !!
   subroutine getOrDefault_bool(self,value,keyword,default)
     class(dictionary), intent(in)  :: self
-    logical(defBool),intent(inout) :: value
-    character(*),intent(in)        :: keyword
+    logical(defBool), intent(inout) :: value
+    character(*), intent(in)        :: keyword
     logical(defBool), intent(in)   :: default
     integer(shortInt)              :: idx
-    character(100),parameter       :: Here='getOrDefault_bool(dictionary_class.f90)'
+    character(100), parameter       :: Here='getOrDefault_bool(dictionary_class.f90)'
 
     idx = self % search(keyword, Here, fatal =.false.)
     if (idx == targetNotFound) then
@@ -1062,11 +1062,11 @@ contains
   !!
   subroutine keys(self, keysArr, type)
     class(dictionary), intent(in)                            :: self
-    character(nameLen),dimension(:), allocatable,intent(out) :: keysArr
+    character(nameLen), dimension(:), allocatable, intent(out) :: keysArr
     character(*), optional, intent(in)                       :: type
-    logical(defBool),dimension(:),allocatable                :: mask
+    logical(defBool), dimension(:), allocatable                :: mask
     integer(shortInt)                                        :: L
-    character(100),parameter :: Here = 'keys (dictionary_class.f90)'
+    character(*), parameter :: Here = 'keys (dictionary_class.f90)'
 
     !  Get current length of the dictionary
     L       = self % dictLen
@@ -1075,7 +1075,7 @@ contains
     allocate( mask(L) )
     mask = .true.
 
-    if(present(type)) then
+    if (present(type)) then
       ! Create approperiate mask. I'm sorry it is so dirty - MAK
       select case(trim(type))
         case('all')
@@ -1274,12 +1274,12 @@ contains
     class(dictionary), intent(in)        :: self
     character(*), intent(in)             :: keyword
     character(*), intent(in)             :: where
-    logical(defBool),optional,intent(in) :: fatal
+    logical(defBool),optional, intent(in) :: fatal
     integer(shortInt)                    :: idx
     logical(defBool)                     :: fatal_loc
 
     ! Select error behaviour
-    if(present(fatal)) then
+    if (present(fatal)) then
       fatal_loc = fatal
     else
       fatal_loc = .true.
@@ -1289,7 +1289,7 @@ contains
     ! NOTE: Returns targetNotFound for a failed search
     idx = linFind(self % keywords, keyword)
 
-    if(idx == targetNotFound .and. fatal_loc) then
+    if (idx == targetNotFound .and. fatal_loc) then
       call fatalError(Where,'Keyword: '// trim(keyword) //' was requested but is not in the dictionary')
     end if
 
@@ -1336,14 +1336,14 @@ contains
     class(dictContent), intent(inout) :: self
 
     ! Deallocate allocatable components
-    if(allocated(self % int1_alloc)) deallocate (self % int1_alloc)
+    if (allocated(self % int1_alloc)) deallocate (self % int1_alloc)
 
-    if(allocated(self % real1_alloc)) deallocate (self % real1_alloc)
+    if (allocated(self % real1_alloc)) deallocate (self % real1_alloc)
 
-    if(allocated(self % char1_alloc)) deallocate (self % char1_alloc)
+    if (allocated(self % char1_alloc)) deallocate (self % char1_alloc)
 
     ! Clean nested dictionaries. Kill before deallocation to avoid memory leaks
-    if(associated(self % dict0_alloc)) then
+    if (associated(self % dict0_alloc)) then
       call self % dict0_alloc % kill()
       deallocate (self % dict0_alloc)
     end if

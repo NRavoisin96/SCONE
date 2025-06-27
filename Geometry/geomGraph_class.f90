@@ -93,7 +93,7 @@ contains
     type(uniFills), intent(in)      :: fills
     class(dictionary), intent(in)   :: dict
     character(nameLen)              :: type
-    character(100), parameter :: Here = 'init (geomGraph_class.f90)'
+    character(*), parameter :: Here = 'init (geomGraph_class.f90)'
 
     ! Select specific build procedure
     call dict % get(type, 'type')
@@ -151,8 +151,8 @@ contains
   elemental subroutine kill(self)
     class(geomGraph), intent(inout) :: self
 
-    if(allocated(self % array)) deallocate(self % array)
-    if(allocated(self % usedMats)) deallocate(self % usedMats)
+    if (allocated(self % array)) deallocate(self % array)
+    if (allocated(self % usedMats)) deallocate(self % usedMats)
     self % uniqueCells = 0
 
   end subroutine kill

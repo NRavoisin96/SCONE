@@ -68,7 +68,7 @@ contains
     class(dictionary), intent(in)      :: dict
     character(nameLen)                 :: type
     real(defReal)                      :: min, max
-    character(100), parameter :: Here = 'init (directionMap_class.f90)'
+    character(*), parameter :: Here = 'init (directionMap_class.f90)'
 
     ! Check orientation of the cylinder
     if (dict % isPresent('plane')) then

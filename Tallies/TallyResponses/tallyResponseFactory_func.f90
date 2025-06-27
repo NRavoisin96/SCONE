@@ -24,7 +24,7 @@ module tallyResponseFactory_func
   ! It is printed if type was unrecognised
   ! NOTE:
   ! For now  it is necessary to adjust trailing blanks so all enteries have the same length
-  character(nameLen),dimension(*),parameter :: AVALIBLE_tallyResponses = ['fluxResponse   ',&
+  character(nameLen), dimension(*), parameter :: AVALIBLE_tallyResponses = ['fluxResponse   ',&
                                                                           'macroResponse  ',&
                                                                           'microResponse  ',&
                                                                           'weightResponse ',&
@@ -38,13 +38,13 @@ contains
   !!
   !!
   subroutine new_tallyResponse(new,dict)
-    class(tallyResponse),allocatable, intent(inout) :: new
+    class(tallyResponse), allocatable, intent(inout) :: new
     class(dictionary), intent(in)                   :: dict
     character(nameLen)            :: type
-    character(100),parameter      :: Here = 'new_tallyResponse (tallyResponseFactory_func.f90)'
+    character(100), parameter      :: Here = 'new_tallyResponse (tallyResponseFactory_func.f90)'
 
     ! Deallocate new if allocated
-    if(allocated(new)) deallocate(new)
+    if (allocated(new)) deallocate(new)
 
     ! Obtain string that specifies type to be built
     call dict % get(type,'type')

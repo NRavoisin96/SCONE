@@ -57,7 +57,7 @@ contains
     call kill_super(self)
 
     ! Clean own memory
-    if(allocated(self % P1)) deallocate(self % P1)
+    if (allocated(self % P1)) deallocate(self % P1)
 
   end subroutine kill
 
@@ -73,14 +73,14 @@ contains
     integer(shortInt), intent(out) :: G_out
     integer(shortInt), intent(in)  :: G_in
     class(RNG), intent(inout)      :: rand
-    character(100),parameter :: Here = 'sampleOut (multiScatterMG_class.f90)'
+    character(*), parameter :: Here = 'sampleOut (multiScatterMG_class.f90)'
 
     ! Sample G_out
     G_out = self % sampleGout(G_in, rand)
 
     ! Sample deflection
     mu  = sampleLegendre(self % P1(G_out, G_in), rand)
-    phi = TWO_PI * rand % get()
+    call rand % generatePhi(phi)
 
   end subroutine sampleOut
 
@@ -96,9 +96,9 @@ contains
   subroutine buildFromDict(self, dict)
     class(multiScatterP1MG), intent(inout)  :: self
     class(dictionary), intent(in)           :: dict
-    real(defReal),dimension(:),allocatable  :: temp
+    real(defReal), dimension(:), allocatable  :: temp
     integer(shortInt)                       :: nG
-    character(100),parameter :: Here = 'buildFromDict (multiScatterMG_class.f90)'
+    character(*), parameter :: Here = 'buildFromDict (multiScatterMG_class.f90)'
 
     ! Call superclass procedure
     call buildFromDict_super(self, dict)
@@ -108,7 +108,7 @@ contains
 
     ! Read P1 scattering matrix
     call dict % get(temp, 'P1')
-    if( size(temp) /= nG*nG) then
+    if (size(temp) /= nG*nG) then
       call fatalError(Here,'Invalid size of P1. Expected: '//numToChar(nG**2)//&
                            ' got: '//numToChar(size(temp)))
     end if

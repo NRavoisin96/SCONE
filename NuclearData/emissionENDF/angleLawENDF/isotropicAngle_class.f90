@@ -20,7 +20,7 @@ module isotropicAngle_class
   !!
   !! Class with mu isotropic at all collisions energies
   !!
-  type, public,extends(angleLawENDF) :: isotropicAngle
+  type, public, extends(angleLawENDF) :: isotropicAngle
     private
     type(isotropicMu)   :: muPdf
   contains

@@ -33,7 +33,7 @@ module centreOfMassClerk_class
   !!
   type, public, extends(tallyClerk) :: centreOfMassClerk
     private
-    real(defReal),dimension(:,:),allocatable :: value            !! cycle-wise COM value
+    real(defReal), dimension(:,:), allocatable :: value            !! cycle-wise COM value
     integer(shortInt)                        :: maxCycles = 0    !! Number of tally cycles
     integer(shortInt)                        :: currentCycle = 0 !! track current cycle
 
@@ -80,8 +80,8 @@ contains
   !! Returns array of codes that represent diffrent reports
   !!
   function validReports(self) result(validCodes)
-    class(centreOfMassClerk),intent(in)        :: self
-    integer(shortInt),dimension(:),allocatable :: validCodes
+    class(centreOfMassClerk), intent(in)        :: self
+    integer(shortInt), dimension(:), allocatable :: validCodes
 
     validCodes = [cycleEnd_Code]
 
@@ -152,21 +152,21 @@ contains
     ! Print COM
     name = 'CoMx'
     call outFile % startArray(name, [self % maxCycles])
-    do i=1,self % maxCycles
+    do i= 1, self % maxCycles
       call outFile % addValue(self % value(i,1))
     end do
     call outFile % endArray()
 
     name = 'CoMy'
     call outFile % startArray(name, [self % maxCycles])
-    do i=1,self % maxCycles
+    do i= 1, self % maxCycles
       call outFile % addValue(self % value(i,2))
     end do
     call outFile % endArray()
 
     name = 'CoMz'
     call outFile % startArray(name, [self % maxCycles])
-    do i=1,self % maxCycles
+    do i= 1, self % maxCycles
       call outFile % addValue(self % value(i,3))
     end do
     call outFile % endArray()
@@ -181,7 +181,7 @@ contains
   elemental subroutine kill(self)
     class(centreOfMassClerk), intent(inout) :: self
 
-    if(allocated(self % value)) deallocate(self % value)
+    if (allocated(self % value)) deallocate(self % value)
     self % currentCycle = 0
     self % maxCycles = 0
 

@@ -112,7 +112,7 @@ contains
     type(neutronMacroXSs), intent(out)   :: xss
     class(particle), intent(in)          :: p
     integer(shortInt)                    :: matIdx
-    character(100), parameter :: Here = 'getMacroXSs_byP (mgNeutronMateerial_inter.f90)'
+    character(*), parameter :: Here = 'getMacroXSs_byP (mgNeutronMateerial_inter.f90)'
 
     if (.not. p % isMG) call fatalError(Here, 'CE particle was given to MG data')
 
@@ -179,7 +179,7 @@ contains
     class(mgNeutronMaterial), intent(inout) :: self
     logical(defBool), intent(in), optional  :: fissile
 
-    if(present(fissile)) self % fissile = fissile
+    if (present(fissile)) self % fissile = fissile
 
   end subroutine set
 

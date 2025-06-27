@@ -9,9 +9,9 @@ module tabularPdf_class
   implicit none
   private
 
-  integer(shortInt),parameter  :: histogram  = tabPdfHistogram, &
+  integer(shortInt), parameter  :: histogram  = tabPdfHistogram, &
                                   linLin     = tabPdfLinLin
-  real(defReal),parameter      :: TOL = 1.0e-6
+  real(defReal), parameter      :: TOL = 1.0e-6
 
   interface linearSearch
     module procedure linearFloorIdxClosed_Real
@@ -22,9 +22,9 @@ module tabularPdf_class
   !!
   type, public :: tabularPdf
     private
-    real(defReal),dimension(:),allocatable       :: x
-    real(defReal),dimension(:),allocatable       :: pdf
-    real(defReal),dimension(:),allocatable       :: cdf
+    real(defReal), dimension(:), allocatable       :: x
+    real(defReal), dimension(:), allocatable       :: pdf
+    real(defReal), dimension(:), allocatable       :: cdf
     integer(shortInt)                            :: flag            !Interpolation flag
   contains
     !! Public interface
@@ -50,14 +50,14 @@ contains
   !! Optionaly return index of a sampled bin
   !!
   function sample(self, r, res_idx, eps) result (x)
-    class(tabularPdf),intent(in)             :: self
-    real(defReal),intent(in)                 :: r    ! Random Number
+    class(tabularPdf), intent(in)             :: self
+    real(defReal), intent(in)                 :: r    ! Random Number
     integer(ShortInt), intent(out), optional :: res_idx
     real(defReal), intent(out), optional     :: eps
     real(defReal)                            :: x
     integer(shortInt)                        :: idx
     real(defReal)                            :: f, delta, ci, pi
-    character(100),parameter :: Here='sample (tabularPdf_class.f90)'
+    character(*), parameter :: Here = 'sample (tabularPdf_class.f90)'
 
     idx = linearSearch(self % cdf,r)
     call searchError(idx,Here)
@@ -127,7 +127,7 @@ contains
     integer(ShortInt), intent(out), optional :: res_idx
     real(defReal)                            :: prob
     integer(shortInt)                        :: idx
-    character(100),parameter :: Here = 'probabilityOf (tabularPdf_class.f90)'
+    character(*), parameter :: Here = 'probabilityOf (tabularPdf_class.f90)'
 
     idx = linearSearch(self % x, x)
     if (idx == valueOutsideArray) then
@@ -155,7 +155,7 @@ contains
     end select
 
     ! Return the index
-    if(present(res_idx)) res_idx = idx
+    if (present(res_idx)) res_idx = idx
 
   end function probabilityOf
 
@@ -165,9 +165,9 @@ contains
   elemental subroutine kill(self)
     class(tabularPdf), intent(inout) :: self
 
-    if(allocated(self % x))   deallocate(self % x)
-    if(allocated(self % pdf)) deallocate(self % pdf)
-    if(allocated(self % cdf)) deallocate(self % cdf)
+    if (allocated(self % x))   deallocate(self % x)
+    if (allocated(self % pdf)) deallocate(self % pdf)
+    if (allocated(self % cdf)) deallocate(self % cdf)
 
   end subroutine kill
 
@@ -206,22 +206,22 @@ contains
   !!
   subroutine initPdf(self,x,pdf,flag)
     class(tabularPdf), intent(inout) :: self
-    real(defReal),dimension(:),intent(in)  :: x
-    real(defReal),dimension(:),intent(in)  :: pdf
-    integer(shortInt),intent(in)           :: flag ! Interpolation scheme flag
+    real(defReal), dimension(:), intent(in)  :: x
+    real(defReal), dimension(:), intent(in)  :: pdf
+    integer(shortInt), intent(in)           :: flag ! Interpolation scheme flag
     integer(shortInt)                      :: i
-    character(100),parameter               :: Here='init (tabularPdf_class.f90)'
+    character(100), parameter               :: Here='init (tabularPdf_class.f90)'
 
     ! Check Input
-    if( size(x) /= size(pdf)) call fatalError(Here,'PDF and x have diffrent size')
+    if (size(x) /= size(pdf)) call fatalError(Here,'PDF and x have diffrent size')
 
-    if( .not.(isSorted(x)))   call fatalError(Here,'Provided x grid is not sorted not descending')
-    if ( any( pdf < 0.0 ))    call fatalError(Here,'Provided PDF contains -ve values')
+    if (.not.(isSorted(x)))   call fatalError(Here,'Provided x grid is not sorted not descending')
+    if (any( pdf < 0.0 ))    call fatalError(Here,'Provided PDF contains -ve values')
 
     ! Initialise Data
-    if(allocated(self % x))   deallocate(self % x)
-    if(allocated(self % pdf)) deallocate(self % pdf)
-    if(allocated(self % cdf)) deallocate(self % cdf)
+    if (allocated(self % x))   deallocate(self % x)
+    if (allocated(self % pdf)) deallocate(self % pdf)
+    if (allocated(self % cdf)) deallocate(self % cdf)
 
     self % x = x
     self % pdf = pdf
@@ -269,32 +269,32 @@ contains
   !!
   subroutine initCdf(self,x,pdf,cdf,flag)
     class(tabularPdf), intent(inout) :: self
-    real(defReal),dimension(:),intent(in)  :: x
-    real(defReal),dimension(:),intent(in)  :: pdf
-    real(defReal),dimension(:),intent(in)  :: cdf
-    integer(shortInt),intent(in)           :: flag ! Interpolation scheme flag
-    character(100),parameter               :: Here='init (tabularPdf_class.f90)'
+    real(defReal), dimension(:), intent(in)  :: x
+    real(defReal), dimension(:), intent(in)  :: pdf
+    real(defReal), dimension(:), intent(in)  :: cdf
+    integer(shortInt), intent(in)           :: flag ! Interpolation scheme flag
+    character(100), parameter               :: Here='init (tabularPdf_class.f90)'
 
     ! Check Input
-    if( size(x) /= size(pdf)) call fatalError(Here,'PDF and x have diffrent size')
-    if( size(x) /= size(cdf)) call fatalError(Here,'CDF and x have diffrent size')
+    if (size(x) /= size(pdf)) call fatalError(Here,'PDF and x have diffrent size')
+    if (size(x) /= size(cdf)) call fatalError(Here,'CDF and x have diffrent size')
 
-    if( .not.(isSorted(x)))   call fatalError(Here,'Provided x grid is not sorted not decending')
-    if( .not.(isSorted(cdf))) call fatalError(Here,'Provided CDF is not sorted not descending')
+    if (.not.(isSorted(x)))   call fatalError(Here,'Provided x grid is not sorted not decending')
+    if (.not.(isSorted(cdf))) call fatalError(Here,'Provided CDF is not sorted not descending')
 
-    if ( any( pdf < 0.0 ))    call fatalError(Here,'Provided PDF contains -ve values')
-    if ( any( cdf < 0.0 ))    call fatalError(Here,'Provided CDF contains -ve values')
+    if (any( pdf < 0.0 ))    call fatalError(Here,'Provided PDF contains -ve values')
+    if (any( cdf < 0.0 ))    call fatalError(Here,'Provided CDF contains -ve values')
 
-    if( abs(cdf(1)) > TOL ) call fatalError(Here,'Provided CDF does not begin with 0')
+    if (abs(cdf(1)) > TOL ) call fatalError(Here,'Provided CDF does not begin with 0')
 
-    if( abs(cdf(size(cdf))-1.0_defReal) > TOL) then
+    if (abs(cdf(size(cdf))-1.0_defReal) > TOL) then
       call fatalError(Here,'Provided CDF does not end with 1:' // numToChar(cdf(size(cdf))))
     end if
 
     ! Initialise Data
-    if(allocated(self % x))   deallocate(self % x)
-    if(allocated(self % pdf)) deallocate(self % pdf)
-    if(allocated(self % cdf)) deallocate(self % cdf)
+    if (allocated(self % x))   deallocate(self % x)
+    if (allocated(self % pdf)) deallocate(self % pdf)
+    if (allocated(self % cdf)) deallocate(self % cdf)
 
     self % x   = x
     self % pdf = pdf

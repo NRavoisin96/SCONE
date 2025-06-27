@@ -37,36 +37,36 @@ contains
   !!   Allocated to noEnergy if MT is Elastic Scttering or Capture reaction
   !!
   subroutine new_energyLawENDF(new, ACE, MT, delayed)
-    class(energyLawENDF),allocatable, intent(inout) :: new
+    class(energyLawENDF), allocatable, intent(inout) :: new
     type(aceCard), intent(inout)                    :: ACE
     integer(shortInt), intent(in)                   :: MT
-    logical(defBool),optional,intent(in)            :: delayed
+    logical(defBool),optional, intent(in)            :: delayed
     logical(defBool)                                :: del_loc
     integer(shortInt)                               :: LNW, LAW, loc
     integer(shortInt)                               :: N, i, NR, NEne
     integer(shortInt)                               :: root, LOCC
-    class(multipleEnergyLaws),allocatable           :: multiLaw
-    character(100),parameter :: Here='new_energyLawENDF (energyLawENDFfactory_func.f90)'
+    class(multipleEnergyLaws), allocatable           :: multiLaw
+    character(*), parameter :: Here = 'new_energyLawENDF (energyLawENDFfactory_func.f90)'
 
     ! Set default value
-    if(present(delayed)) then
+    if (present(delayed)) then
       del_loc = delayed
     else
       del_loc = .false.
     end if
 
     ! Set approperiate root and initial offset for the energy law
-    if(del_loc) then
+    if (del_loc) then
       root = ACE % getRootAddress('energyLawsPrecursors')
       LOCC = ACE % LOCCforPrecursor(MT)
 
     else
       ! Protect against reactions with no energy data (absorbtions and eleastic scattering)
-      if(MT == N_N_elastic) then
+      if (MT == N_N_elastic) then
         allocate(new, source = noEnergy())
         return
 
-      else if(ACE % isCaptureMT(MT)) then
+      else if (ACE % isCaptureMT(MT)) then
         allocate(new, source = noEnergy())
         return
 
@@ -109,7 +109,7 @@ contains
       LNW = ACE % readInt()
 
       ! Sequentialy read all laws
-      do i=1,N
+      do i= 1, N
         LAW = ACE % readInt()
         loc = ACE % readInt()
 
@@ -122,7 +122,7 @@ contains
             ! Build energy law
             call buildENDFLaw(new, LAW, root, loc, ACE)
 
-            if(NR == 0) then
+            if (NR == 0) then
               call multiLaw % addLaw(new, eGrid, pdf)
             else
               call multiLaw % addLaw(new, eGrid, pdf, bounds, interENDF)
@@ -139,7 +139,7 @@ contains
       end do
 
       ! Verify that all laws were read
-      if(LNW /= 0) call fatalError(Here,'LNW is not 0 after reading all energy laws. It is ' // &
+      if (LNW /= 0) call fatalError(Here,'LNW is not 0 after reading all energy laws. It is ' // &
                                          numToChar(LNW) //' Somthing failed')
 
       ! Move finished multiple laws to new
@@ -163,15 +163,15 @@ contains
   !!   Will crash if root & offset point to an incorrect location
   !!
   subroutine buildENDFLaw(lawENDF, LAW, root, offset, ACE)
-    class(energyLawENDF),allocatable, intent(inout) :: lawENDF
+    class(energyLawENDF), allocatable, intent(inout) :: lawENDF
     integer(shortInt), intent(in)                   :: LAW
     integer(shortInt), intent(in)                   :: root
     integer(shortInt), intent(in)                   :: offset
     type(aceCard), intent(inout)                    :: ACE
-    character(100),parameter :: Here = 'buildENDFLaw (energyLawENDFfactory_func.f90)'
+    character(*), parameter :: Here = 'buildENDFLaw (energyLawENDFfactory_func.f90)'
 
     ! Deallocate lawENDF if allocated
-    if(allocated(lawENDF)) deallocate(lawENDF)
+    if (allocated(lawENDF)) deallocate(lawENDF)
 
     ! Build approperiate energy Law
     call ACE % setRelativeTo(root, offset)

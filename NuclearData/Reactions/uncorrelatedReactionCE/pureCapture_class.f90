@@ -144,7 +144,7 @@ contains
     phi = ZERO
 
     ! Default to the prompt particle
-    if(present(lambda)) lambda = huge(lambda)
+    if (present(lambda)) lambda = huge(lambda)
 
   end subroutine sampleOut
 
@@ -162,9 +162,9 @@ contains
     real(defReal)                     :: prob
 
     prob = ONE
-    if(E_out /= E_in)                           prob =  ZERO
-    if(mu    /= ONE )                           prob =  ZERO
-    if(.not.(phi   == ZERO .or. phi == TWO_PI)) prob = ZERO
+    if (E_out /= E_in)                           prob =  ZERO
+    if (mu    /= ONE )                           prob =  ZERO
+    if (.not.(phi   == ZERO .or. phi == TWO_PI)) prob = ZERO
 
   end function probOf
 

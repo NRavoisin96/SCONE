@@ -30,21 +30,21 @@ contains
   !!   FatalError if MT reaction is not correlated (LOCB /= -1)
   !!
   subroutine new_correlatedLawENDF(new, ACE, MT)
-    class(correlatedLawENDF),allocatable, intent(inout) :: new
-    type(aceCard),intent(inout)                         :: ACE
+    class(correlatedLawENDF), allocatable, intent(inout) :: new
+    type(aceCard), intent(inout)                         :: ACE
     integer(shortInt), intent(in)                       :: MT
     integer(shortInt)                                   :: LOCB, LNW, LAW, loc, root
     integer(shortInt)                                   :: N, i, NR, NEne
-    class(multipleCorrelatedLaws),allocatable           :: multiLaw
-    character(100),parameter :: Here = 'new_correlatedLawENDF (correlatedLawENDFfactory_func.f90)'
+    class(multipleCorrelatedLaws), allocatable           :: multiLaw
+    character(*), parameter :: Here = 'new_correlatedLawENDF (correlatedLawENDFfactory_func.f90)'
 
     ! Deallocate new if allocated
-    if(allocated(new)) deallocate(new)
+    if (allocated(new)) deallocate(new)
 
     ! Verify that the energy law is indeed coreelated
     LOCB = ACE % LOCBforMT(MT)
 
-    if(LOCB /= LOCB_CORRELATED) then
+    if (LOCB /= LOCB_CORRELATED) then
       call fatalError(Here,'Reaction under MTdoes not have correlated mu-energy distribution')
     end if
 
@@ -93,7 +93,7 @@ contains
             ! Build energy law
             call buildENDFLaw(new, LAW, MT, root, loc, ACE)
 
-            if(NR == 0) then
+            if (NR == 0) then
               call multiLaw % addLaw(new, eGrid, pdf)
             else
               call multiLaw % addLaw(new, eGrid, pdf, bounds, interENDF)
@@ -110,7 +110,7 @@ contains
       end do
 
       ! Verify that all laws were read
-      if(LNW /= 0) call fatalError(Here,'LNW is not 0 after reading all correlated laws. It is ' // &
+      if (LNW /= 0) call fatalError(Here,'LNW is not 0 after reading all correlated laws. It is ' // &
                                          numToChar(LNW) //' Somthing failed')
       ! Move finished multiple laws to new
       call move_alloc(multiLaw, new)
@@ -143,10 +143,10 @@ contains
     integer(shortInt), intent(in)                        :: offset
     type(aceCard), intent(inout)                         :: ACE
     real(defReal)                                        :: Q, A
-    character(100),parameter :: Here = 'buildENDFLaw (correlatedLawENDFfactory_func.f90)'
+    character(*), parameter :: Here = 'buildENDFLaw (correlatedLawENDFfactory_func.f90)'
 
     ! Deallocate lawENDF if allocated
-    if(allocated(lawENDF)) deallocate(lawENDF)
+    if (allocated(lawENDF)) deallocate(lawENDF)
 
     ! Set ACE card to correct location and build the data
     call ACE % setRelativeTo(root, offset)

@@ -49,24 +49,24 @@ contains
     class(transportOperatorST), intent(inout) :: self
     class(particle), intent(inout)            :: p
     type(tallyAdmin), intent(inout)           :: tally
-    class(particleDungeon),intent(inout)      :: thisCycle
-    class(particleDungeon),intent(inout)      :: nextCycle
+    class(particleDungeon), intent(inout)      :: thisCycle
+    class(particleDungeon), intent(inout)      :: nextCycle
     integer(shortInt)                         :: event
-    real(defReal)                             :: sigmaT, dist
+    real(defReal)                             :: inverseSigmaT, distance
     type(distCache)                           :: cache
-    character(100), parameter :: Here = 'surfaceTracking (transportOperatorST_class.f90)'
+    character(*), parameter :: Here = 'surfaceTracking (transportOperatorST_class.f90)'
 
     STLoop: do
       ! Obtain the local cross-section
       if (p % getMatIdx() == VOID_MAT) then
-        dist = INF
+        distance = INF
 
       else
-        sigmaT = self % xsData % getTrackingXS(p, p % getMatIdx(), MATERIAL_XS)
-        dist = -log( p % pRNG % get()) / sigmaT
+        inverseSigmaT = ONE / self % xsData % getTrackingXS(p, p % getMatIdx(), MATERIAL_XS)
+        call p % pRNG % generateDistance(inverseSigmaT, distance)
 
         ! Should never happen! Catches NaN distances
-        if (dist /= dist) call fatalError(Here, "Distance is NaN")
+        if (distance /= distance) call fatalError(Here, "Distance is NaN")
 
       end if
 
@@ -75,15 +75,15 @@ contains
 
       ! Move to the next stop.
       if (self % cache) then
-        call self % geom % move_withCache(p % coords, dist, event, cache)
+        call self % geom % move_withCache(p % coords, distance, event, cache)
 
       else
-        call self % geom % move(p % coords, dist, event)
+        call self % geom % move(p % coords, distance, event)
 
       end if
 
       ! Send tally report for a path moved
-      call tally % reportPath(p, dist)
+      call tally % reportPath(p, distance)
 
       ! Kill particle if it has leaked
       if (p % getMatIdx() == OUTSIDE_FILL) then

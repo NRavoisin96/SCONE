@@ -43,7 +43,7 @@
 !!
 !!   To add new ND TYPE
 !!     1) Create New entries for activeIdx_ and active_
-!!     2) In "display" add new entry in "ACTIVE DATABASES" and Add new if(...) cycle to
+!!     2) In "display" add new entry in "ACTIVE DATABASES" and Add new if (...) cycle to
 !!        loop that lits unused databases
 !!     3) Add new entry at the end of "kill" subroutine
 !!     4) Define new Parameter for the data e.g. "CE_NEUTRON"
@@ -113,7 +113,7 @@ module nuclearDataReg_mod
                                                  'baseMgNeutronDatabase   ']
 
   !! Members
-  type(ndBox),dimension(:),allocatable,target :: databases
+  type(ndBox), dimension(:), allocatable,target :: databases
   type(charMap)                               :: databaseNameMap
 
   class(ceNeutronDatabase), pointer :: active_ceNeutron => null()
@@ -174,7 +174,7 @@ contains
 
     ! Load definitions
     ! Associate names with idx's in Map
-    do i=1,size(databases)
+    do i= 1, size(databases)
       databases(i) % name = dataNames(i)
       databases(i) % def  = handles % getDictPtr(dataNames(i)) ! Note deep copy
       call databaseNameMap % add(dataNames(i), i)
@@ -202,11 +202,11 @@ contains
     logical(defBool)                       :: silent_loc
     integer(shortInt)                      :: idx
     character(nameLen)                     :: type
-    class(nuclearDatabase),pointer         :: ptr
-    character(100),parameter :: Here = 'make (nuclearDataReg_mod.f90)'
+    class(nuclearDatabase), pointer         :: ptr
+    character(*), parameter :: Here = 'make (nuclearDataReg_mod.f90)'
 
     ! Process optional arguments
-    if(present(silent)) then
+    if (present(silent)) then
       silent_loc = silent
     else
       silent_loc = .false.
@@ -214,14 +214,14 @@ contains
 
     ! Get index
     idx = databaseNameMap % getOrDefault(name, 0)
-    if(idx == 0 ) then
+    if (idx == 0) then
       call fatalError(Here, trim(name)//' is was not defined. Cannot make it!')
-    else if(idx < 0) then
+    else if (idx < 0) then
       call fatalError(Here, '-ve idx from databaseNameMap. Quite immpossible. WTF?')
     end if
 
     ! Quit if already has been allocated
-    if(allocated(databases(idx) % nd)) return
+    if (allocated(databases(idx) % nd)) return
 
     ! Build Nuclear Database
     call databases(idx) % def % get(type, 'type')
@@ -250,7 +250,7 @@ contains
     idx = databaseNameMap % getOrDefault(name, 0)
     if (idx < 1) return
 
-    if(allocated(databases(idx) % nd)) then
+    if (allocated(databases(idx) % nd)) then
       call databases(idx) % nd % kill()
       deallocate(databases(idx) % nd)
     end if
@@ -275,12 +275,12 @@ contains
   subroutine activate(type, name, activeMat, silent)
     integer(shortInt), intent(in)               :: type
     character(nameLen), intent(in)              :: name
-    integer(shortInt), dimension(:) ,intent(in) :: activeMat
+    integer(shortInt), dimension(:) , intent(in) :: activeMat
     logical(defBool), optional, intent(in)      :: silent
     logical(defBool)                            :: silent_loc
     integer(shortInt)                           :: idx
     class(nuclearDatabase), pointer             :: ptr
-    character(100), parameter :: Here = 'activate (nuclearDataReg_mod.f90)'
+    character(*), parameter :: Here = 'activate (nuclearDataReg_mod.f90)'
 
     ! Process Optional Arguments
     silent_loc = .false.
@@ -288,14 +288,14 @@ contains
 
     ! Get index
     idx = databaseNameMap % getOrDefault(name, 0)
-    if(idx == 0 ) then
+    if (idx == 0) then
       call fatalError(Here, trim(name)//' is was not defined. Cannot activate it!')
-    else if(idx < 0) then
+    else if (idx < 0) then
       call fatalError(Here, '-ve idx from databaseNameMap. Quite immpossible. WTF?')
     end if
 
     ! Make if it is not already made
-    if(.not.allocated(databases(idx) % nd)) call make(name, silent = silent_loc)
+    if (.not.allocated(databases(idx) % nd)) call make(name, silent = silent_loc)
 
     ! Activate
     call databases(idx) % nd % activate(activeMat)
@@ -307,14 +307,14 @@ contains
       case(P_NEUTRON_CE)
         activeIdx_ceNeutron = idx
         active_ceNeutron => ceNeutronDatabase_CptrCast(ptr)
-        if(.not.associated(active_ceNeutron)) then
+        if (.not.associated(active_ceNeutron)) then
           call fatalError(Here,trim(name)//' is not database for CE neutrons')
         end if
 
       case(P_NEUTRON_MG)
         activeIdx_mgNeutron = idx
         active_mgNeutron => mgNeutronDatabase_CptrCast(ptr)
-        if(.not.associated(active_mgNeutron)) then
+        if (.not.associated(active_mgNeutron)) then
           call fatalError(Here,trim(name)//' is not database for MG neutrons')
         end if
 
@@ -344,20 +344,20 @@ contains
     ! CE NEUTRON
     activeName = 'NONE'
     idx = activeIdx_ceNeutron
-    if(idx /= 0) activeName = databases(idx) % name
+    if (idx /= 0) activeName = databases(idx) % name
     print '(A)', "  CE NEUTRON DATA: " // trim(activeName)
 
     ! MG NEUTRON
     activeName = 'NONE'
     idx = activeIdx_mgNeutron
-    if(idx /= 0) activeName = databases(idx) % name
+    if (idx /= 0) activeName = databases(idx) % name
     print '(A)', "  MG NEUTRON DATA: " // trim(activeName)
 
     ! INACTIVE DATABASES
     print '(A)', "INACTIVE DATABASES:"
-    do idx=1,size(databases)
-      if(idx == activeIdx_mgNeutron) cycle
-      if(idx == activeIdx_ceNeutron) cycle
+    do idx= 1, size(databases)
+      if (idx == activeIdx_mgNeutron) cycle
+      if (idx == activeIdx_ceNeutron) cycle
 
     end do
     print '(A)',repeat('\/',30)
@@ -377,8 +377,8 @@ contains
     end do
 
     !! Take care of databases array
-    if(allocated(databases)) then
-      do it =1,size(databases)
+    if (allocated(databases)) then
+      do it = 1, size(databases)
         call databases(it) % def % kill()
       end do
       deallocate(databases)
@@ -464,10 +464,10 @@ contains
     end select
 
     ! Throw error if somthing went wrong
-    if(.not.associated(ptr) .and. present(where)) then
+    if (.not.associated(ptr) .and. present(where)) then
       call fatalError(Where, "There is no data for particle: "//printParticleType(type))
 
-    else if(.not.associated(ptr)) then
+    else if (.not.associated(ptr)) then
       call fatalError(Here, "There is no data for particle: "//printParticleType(type))
 
     end if
@@ -490,7 +490,7 @@ contains
   function get_byName(name, where) result(ptr)
     character(*), intent(in)         :: name
     class(nuclearDatabase), pointer  :: ptr
-    character(*),optional,intent(in) :: where
+    character(*),optional, intent(in) :: where
     character(nameLen)               :: name_loc
     integer(shortInt)                :: idx
     character(100), parameter        :: Here = 'get_byType (nuclearDataReg_mod.f90)'
@@ -498,7 +498,7 @@ contains
     name_loc = name
     idx = databaseNameMap % getOrDefault(name_loc, -1)
 
-    if(idx == -1 .and. present(where)) then
+    if (idx == -1 .and. present(where)) then
       call fatalError(where, name // " was not found among databases")
       ptr => null() ! Avoid warning
 
@@ -531,7 +531,7 @@ contains
   !!
   function getMatNames() result(ptr)
     type(charMap), pointer :: ptr
-    character(100),parameter :: Here = 'getMatNames (nuclearDataReg_mod.f90)'
+    character(*), parameter :: Here = 'getMatNames (nuclearDataReg_mod.f90)'
 
     if (mm_nMat() == 0) call fatalError(Here, "Material Definitions are empty. Has Nuclear Data been initialised?")
     ptr => mm_nameMap
@@ -556,10 +556,10 @@ contains
     class(nuclearDatabase), allocatable , intent(inout) :: database
     character(nameLen), intent(in)                      :: type
     integer(shortInt)                                   :: i
-    character(100), parameter :: Here = 'new_nuclearDatabase (nuclearDataReg_mod.f90)'
+    character(*), parameter :: Here = 'new_nuclearDatabase (nuclearDataReg_mod.f90)'
 
     ! Kill if needed
-    if(allocated(database)) then
+    if (allocated(database)) then
       call database % kill()
       deallocate(database)
     end if
@@ -576,7 +576,7 @@ contains
         ! Print available nuclear database types
         print '(A)', "<><><><><><><><><><><><><><><><><><><><>"
         print '(A)', "Available Nuclear Databases:"
-        do i=1,size(AVAILABLE_NUCLEAR_DATABASES)
+        do i= 1, size(AVAILABLE_NUCLEAR_DATABASES)
           print '(A)', AVAILABLE_NUCLEAR_DATABASES(i)
         end do
 

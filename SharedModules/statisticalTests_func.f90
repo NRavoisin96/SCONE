@@ -18,24 +18,24 @@ contains
   !!   https://docs.displayr.com/wiki/Design_Effects_and_Effective_Sample_Size
   !!
   function twoSampleKS(sample1, sample2, wgts, D_ret) result(p)
-    real(defReal),dimension(:),intent(inout) :: sample1
-    real(defReal),dimension(:),intent(inout) :: sample2
-    real(defReal),dimension(:),intent(inout) :: wgts
-    real(defReal),intent(out),optional       :: D_ret
+    real(defReal), dimension(:), intent(inout) :: sample1
+    real(defReal), dimension(:), intent(inout) :: sample2
+    real(defReal), dimension(:), intent(inout) :: wgts
+    real(defReal), intent(out),optional       :: D_ret
     real(defReal)                            :: p
     real(defReal)                            :: step1, step2, CDF1, CDF2, D
     real(defReal)                            :: N1, N2
     integer(shortInt)                        :: i1, i2, Top1, Top2
     logical(defBool)                         :: takeFrom2
-    character(100), parameter :: Here = 'twoSampleKS (statisticalTests_func.f90)'
+    character(*), parameter :: Here = 'twoSampleKS (statisticalTests_func.f90)'
 
     ! Check size of sample2 and wgts
-    if(size(sample2) /= size(wgts)) then
+    if (size(sample2) /= size(wgts)) then
       call fatalError(Here,'Size of 2nd sample vector and vector of weights is diffrent')
     end if
 
     ! Catch input with an empty array of samples
-    if(size(sample1) == 0 .or. size(sample2) == 0) then
+    if (size(sample1) == 0 .or. size(sample2) == 0) then
       D = 1
       p = ONE
       return
@@ -71,7 +71,7 @@ contains
       ! Determine whether to take next value from samples2
       takeFrom2 = (sample2(i2) < sample1(i1) .and. i2 /= Top2 + 1) .or. i1 == Top1 + 1
 
-      if(takeFrom2) then
+      if (takeFrom2) then
         CDF2 = CDF2 + step2 * wgts(i2)
         i2 = i2 + 1
 
@@ -89,7 +89,7 @@ contains
     ! Calculate p-value
     p = exp(-TWO * D * D * N1 * N2/ (N1 + N2 ) )
 
-    if(present(D_ret)) D_ret = D
+    if (present(D_ret)) D_ret = D
 
 
   end function twoSampleKS

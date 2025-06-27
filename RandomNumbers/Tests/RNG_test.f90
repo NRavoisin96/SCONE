@@ -15,18 +15,15 @@ contains
   subroutine testRN()
     integer(shortInt), parameter :: N = 1000
     type(RNG)                    :: pRNG
-    real(defReal), dimension(N)  :: rand
+    real(defReal), dimension(N)  :: randomNumbers
     integer(shortInt)            :: i
 
     call pRNG % init(int(z'5c3a84c9', longInt))
-
-    do i=1,N
-      rand(i) = pRNG % get()
-    end do
+    call pRNG % generate(randomNumbers)
 
     ! Check correcness
-    @assertGreaterThanOrEqual(ONE, rand)
-    @assertLessThanOrEqual(ZERO, rand)
+    @assertGreaterThanOrEqual(ONE, randomNumbers)
+    @assertLessThanOrEqual(ZERO, randomNumbers)
 
   end subroutine testRN
 
@@ -47,28 +44,26 @@ contains
     call rand2 % init(seed)
 
     !! Get initial random number
-    r_start = rand1 % get()
+    call rand1 % generate(r_start)
 
     !! Move forward by 13456757 steps
     N = 13456757
-    do i=1,N
-      r_end = rand1 % get()
+    do i= 1, N
+      call rand1 % generate(r_end)
     end do
 
     ! Skip 2nd generator forward
     call rand2 % skip(int(N, longInt))
-    r2_end = rand2 % get()
+    call rand2 % generate(r2_end)
 
     ! Skip 2nd generator backwards. Must be 1 more becouse we drew a RN from generator
     call rand2 % skip(-int(N + 1, longInt))
-    r2_start = rand2 % get()
+    call rand2 % generate(r2_start)
 
     ! Verify values
     @assertEqual(r_end, r2_end)
     @assertEqual(r_start, r2_start)
 
   end subroutine testSkip
-
-
 
 end module RNG_test

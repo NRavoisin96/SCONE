@@ -156,8 +156,8 @@ Rules on code
    Parameters should be in CAPITAL_LETTERS ::
 
     integer(shortInt), parameter :: X_AXIS = 1
-    if(axis == X_AXIS) then    - OK
-    if(axis == 1) then         - WRONG
+    if (axis == X_AXIS) then    - OK
+    if (axis == 1) then         - WRONG
 
 Whitespaces and Indentation
 ---------------------------
@@ -298,7 +298,7 @@ Comments and documentation
          real(defReal)                :: threshold
          integer(shortInt)            :: Low, Top, exec
          integer(shortInt), parameter :: UNIFORM = 1, LIN = 2, DELTA = 3
-         character(100), parameter :: Here = 'sampleLegendre_P1 ( legendrePoly_func.f90)'
+         character(*), parameter :: Here = 'sampleLegendre_P1 ( legendrePoly_func.f90)'
 
          ! Make local copy of P1 coeff. Take abs() to simplify code
          ! -ve P1 will be inverted at the end.
@@ -307,12 +307,12 @@ Comments and documentation
          ! Depending on whether P1 > 1 determine treshold and associated PDF for the mixing method
          ! For further details refer to Lux and Koblinger APPENDIX 3D
          ! If random number < threshold then Top is used.
-         if ( P1_loc < ONE) then
+         if (P1_loc < ONE) then
            threshold = P1_loc
            Top = LIN
            Low = UNIFORM
 
-         else if( P1_loc <= 3.0_defReal) then
+         else if (P1_loc <= 3.0_defReal) then
            threshold = 0.5 * (P1_loc - ONE)
            Top = DELTA
            Low = LIN
@@ -327,7 +327,7 @@ Comments and documentation
          end if
 
          ! Use mixing method with the calculated Threshold
-         if ( rand % get() < threshold ) then
+         if (rand % get() < threshold) then
            exec = Top
          else
            exec = Low
@@ -352,6 +352,6 @@ Comments and documentation
          end select
 
          ! Invert result if P1 is -ve
-         if ( P1 < ZERO ) x = -x
+         if (P1 < ZERO ) x = -x
 
        end function sampleLegendre_P1

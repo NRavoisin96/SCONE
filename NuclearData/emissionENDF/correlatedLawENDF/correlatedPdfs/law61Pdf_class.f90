@@ -18,7 +18,7 @@ module law61Pdf_class
   type, public :: law61Pdf
     private
     type(tabularEnergy)                           :: ePdf
-    type(muEndfPdfSlot),dimension(:), allocatable :: muPdfs
+    type(muEndfPdfSlot), dimension(:), allocatable :: muPdfs
   contains
     !! Public Interface
     generic   :: init => init_fromACE
@@ -41,7 +41,7 @@ contains
     real(defReal), intent(out)  :: mu
     real(defReal), intent(out)  :: E_out
     class(RNG), intent(inout)   :: rand
-    real(defReal)               :: eps, r
+    real(defReal)               :: eps, randomNumber
     integer(shortInt)           :: bin
 
     ! Sample Energy
@@ -49,14 +49,10 @@ contains
 
     ! Sample Angle
     eps = self % ePdf % getInterF(E_out, bin)
-    r = rand % get()
 
-    if(r < eps) then
-      mu = self % muPdfs(bin+1) % sample(rand)
-    else
-      mu = self % muPdfs(bin) % sample(rand)
-
-    end if
+    call rand % generate(randomNumber)
+    if (randomNumber < eps) bin = bin + 1
+    mu = self % muPdfs(bin) % sample(rand)
 
   end subroutine sample
 
@@ -100,7 +96,7 @@ contains
     class(law61Pdf), intent(inout) :: self
 
     call self % ePdf % kill()
-    if(allocated(self % muPdfs)) then
+    if (allocated(self % muPdfs)) then
       call self % muPdfs % kill()
       deallocate(self % muPdfs)
     end if
@@ -115,8 +111,8 @@ contains
     class(law61Pdf), intent(inout)              :: self
     class(aceCard), intent(inout)               :: ACE
     integer(shortInt)                           :: NP, i
-    integer(shortInt),dimension(:), allocatable :: LCs
-    character(100), parameter :: Here = 'init_fromACE (law61Pdf_class.f90)'
+    integer(shortInt), dimension(:), allocatable :: LCs
+    character(*), parameter :: Here = 'init_fromACE (law61Pdf_class.f90)'
 
     ! Read number of points without moving read head
     call ACE % advanceHead(1)
@@ -131,7 +127,7 @@ contains
     allocate(self % muPdfs(NP))
 
     ! Read angular data
-    do i=1,NP
+    do i= 1, NP
       select case(LCs(i))
         case(1:)
           call ACE % setToEnergyLaw(LCs(i))

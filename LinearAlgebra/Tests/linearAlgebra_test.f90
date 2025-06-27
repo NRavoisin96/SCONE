@@ -16,7 +16,7 @@ contains
     real(defReal), dimension(4,4) :: mat44, v44
     real(defReal), dimension(3)   :: k3
     real(defReal), dimension(4)   :: k4
-    real(defReal),parameter :: TOL = 1.0E-6_defReal
+    real(defReal), parameter :: TOL = 1.0E-6_defReal
 
     ! Calculate eigenvectors of 3x3 Matrix
     mat33(1,:) = [ 2.0_defReal,  4.0_defReal, -2.0_defReal]
@@ -65,10 +65,10 @@ contains
   !!
 @Test
   subroutine testLinSolve()
-    real(defReal),dimension(3,3) :: A
+    real(defReal), dimension(3,3) :: A
     real(defReal), dimension(3)  :: b
     real(defReal), dimension(3)  :: x
-    real(defReal),parameter :: TOL = 1.0E-6_defReal
+    real(defReal), parameter :: TOL = 1.0E-6_defReal
 
     ! Set linear system
     A(1,:) = [8.0_defReal, 1.0_defReal, 6.0_defReal]
@@ -90,11 +90,11 @@ contains
   !!
 @Test
   subroutine testAdjointSolve()
-    real(defReal),dimension(2,2) :: A
+    real(defReal), dimension(2,2) :: A
     real(defReal), dimension(2)  :: s
     real(defReal), dimension(2)  :: x
     real(defReal), dimension(2)  :: f
-    real(defReal),parameter :: TOL = 1.0E-6_defReal
+    real(defReal), parameter :: TOL = 1.0E-6_defReal
 
     ! Set linear system
     A(1,:) = [0.9_defReal,  0.1_defReal]

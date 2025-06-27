@@ -48,7 +48,7 @@ contains
     character(nameLen), intent(in) :: name
     class(field), allocatable      :: kentta
     character(nameLen)             :: type
-    character(100), parameter :: Here = 'new_field (fieldFactory_func.f90) '
+    character(*), parameter :: Here = 'new_field (fieldFactory_func.f90) '
 
     ! Get type
     call dict % get(type, 'type')

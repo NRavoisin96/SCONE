@@ -66,7 +66,7 @@ contains
     real(defReal)                            :: min, max, vol, exp
     integer(shortInt)                        :: i
     logical(defBool)                         :: spherical
-    character(100), parameter :: Here = 'init (radialMap_class.f90)'
+    character(*), parameter :: Here = 'init (radialMap_class.f90)'
 
     ! Check if the map is cylindrical or spherical, and orientation of the cylinder
     call dict % getOrDefault(type, 'axis', 'xyz')

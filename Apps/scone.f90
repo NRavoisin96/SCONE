@@ -13,8 +13,8 @@ program scone
 
   implicit none
   type(dictionary)                  :: input
-  class(physicsPackage),allocatable :: core
-  character(:),allocatable          :: inputPath
+  class(physicsPackage), allocatable :: core
+  character(:), allocatable          :: inputPath
   integer(shortInt)                 :: timerIdx
   integer(shortInt)                 :: cores
 

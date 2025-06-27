@@ -50,8 +50,8 @@ contains
     type(tallyAdmin), intent(inout)           :: tally
     class(particleDungeon), intent(inout)     :: thisCycle
     class(particleDungeon), intent(inout)     :: nextCycle
-    real(defReal)                             :: majorant_inv, sigmaT, distance
-    character(100), parameter :: Here = 'deltaTracking (transportOperatorDT_class.f90)'
+    real(defReal)                             :: majorant_inv, sigmaT, distance, randomNumber
+    character(*), parameter :: Here = 'deltaTracking (transportOperatorDT_class.f90)'
 
     ! Get majorant XS inverse: 1/Sigma_majorant
     majorant_inv = ONE / self % xsData % getTrackingXS(p, p % getMatIdx(), MAJORANT_XS)
@@ -59,8 +59,8 @@ contains
    ! Should never happen! Prevents Inf distances
     if (abs(majorant_inv) > huge(majorant_inv)) call fatalError(Here, "Majorant is 0")
 
-    DTLoop:do
-      distance = -log(p% pRNG % get()) * majorant_inv
+    DTLoop: do
+      call p % pRNG % generateDistance(majorant_inv, distance)
 
       ! Move partice in the geometry
       call self % geom % teleport(p % coords, distance)
@@ -92,10 +92,13 @@ contains
 
       ! Roll RNG to determine if the collision is real or virtual
       ! Exit the loop if the collision is real, report collision if virtual
-      if (p % pRNG % get() < sigmaT * majorant_inv) then
+      call p % pRNG % generate(randomNumber)
+      if (randomNumber < sigmaT * majorant_inv) then
         exit DTLoop
+
       else
         call tally % reportInColl(p, .true.)
+
       end if
 
     end do DTLoop

@@ -16,7 +16,7 @@ module urrProbabilityTables_iTest
   implicit none
 
   ! Material definitions
-  character(*),parameter :: MAT_INPUT_STR = &
+  character(*), parameter :: MAT_INPUT_STR = &
   & " uo2  {                   &
   &        composition {       &
   &        92235.03 1.0E-3;    &
@@ -25,7 +25,7 @@ module urrProbabilityTables_iTest
   &      }"
 
   ! CE Neutron Database specification
-  character(*),parameter :: ACE_INPUT_STR = &
+  character(*), parameter :: ACE_INPUT_STR = &
   & "aceLibrary ./IntegrationTestFiles/testLib; ures 1 ; majorant 1; "
 
 contains

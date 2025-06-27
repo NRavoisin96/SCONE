@@ -23,7 +23,7 @@ module testResponse_class
   !!   tallyResponse Interface
   !!
   !!
-  type, public,extends(tallyResponse) :: testResponse
+  type, public, extends(tallyResponse) :: testResponse
     private
     real(defReal) :: value = ONE
   contains

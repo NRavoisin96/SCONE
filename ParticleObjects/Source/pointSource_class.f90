@@ -53,10 +53,10 @@ module pointSource_class
   !!       #dir (2.0 1.0 0.0);   #
   !!      }
   !!
-  type, public,extends(configSource) :: pointSource
+  type, public, extends(configSource) :: pointSource
     private
-    real(defReal),dimension(3)                :: r   = ZERO
-    real(defReal),dimension(3)                :: dir = ZERO
+    real(defReal), dimension(3)                :: r   = ZERO
+    real(defReal), dimension(3)                :: dir = ZERO
     real(defReal)                             :: E   = ZERO
     integer(shortInt)                         :: G   = 0
     real(defReal), dimension(:), allocatable  :: probG
@@ -94,9 +94,9 @@ contains
     character(30)                          :: type
     integer(shortInt)                      :: matIdx, uniqueID
     logical(defBool)                       :: isCE, isMG, isMono, isDist
-    real(defReal),dimension(:),allocatable :: temp
+    real(defReal), dimension(:), allocatable :: temp
     class(mgNeutronDatabase), pointer      :: nucData
-    character(100), parameter :: Here = 'init (pointSource_class.f90)'
+    character(*), parameter :: Here = 'init (pointSource_class.f90)'
 
     ! Provide geometry info to source
     self % geom => geom
@@ -159,7 +159,7 @@ contains
       if (isDist) then
         call dict % get(temp, 'probG')
         nucData => ndReg_getNeutronMG()
-        if(.not.associated(nucData)) call fatalError(Here, 'Failed to retrieve Nuclear Database')
+        if (.not.associated(nucData)) call fatalError(Here, 'Failed to retrieve Nuclear Database')
 
         if (size(temp) /= nucData % nG) then
           call fatalError(Here, 'Source energy group distribution must have '//numToChar(nucData % nG)//' groups')
@@ -219,16 +219,17 @@ contains
     class(pointSource), intent(inout)   :: self
     class(particleState), intent(inout) :: p
     class(RNG), intent(inout)           :: rand
-    real(defReal)                       :: r, phi, theta
+    real(defReal)                       :: randomNumber, phi, theta
 
     if (self % isIsotropic) then
-      r = rand % get()
-      phi = TWO_PI * r
-      r = rand % get()
-      theta = acos(1 - TWO * r)
+      call rand % generatePhi(phi)
+      call rand % generate(randomNumber, -TWO, ONE)
+      theta = acos(randomNumber)
       p % dir = [cos(phi) * sin(theta), sin(phi) * sin(theta), cos(theta)]
+
     else
       p % dir = self % dir
+
     end if
 
   end subroutine sampleEnergyAngle
@@ -242,28 +243,33 @@ contains
     class(pointSource), intent(inout)   :: self
     class(particleState), intent(inout) :: p
     class(RNG), intent(inout)           :: rand
-    real(defReal)                       :: r
+    real(defReal)                       :: randomNumber
     integer(shortInt)                   :: g
 
     if (self % isMG) then
       ! Sample from distribution
       if (allocated(self % probG)) then
         !! TODO: Replace this single, common procedure to sample discrete distributions
-        r = rand % get()
+        call rand % generate(randomNumber)
         do g = 1, size(self % probG)
-          r = r - self % probG(g)
-          if (r < ZERO) exit
+          randomNumber = randomNumber - self % probG(g)
+          if (randomNumber < ZERO) exit
+
         end do
         p % G = g
         p % isMG = .true.
+
       ! Monoenergetic
       else
         p % G = self % G
         p % isMG = .true.
+
       end if
+
     else
       p % E = self % E
       p % isMG = .false.
+
     end if
 
   end subroutine sampleEnergy

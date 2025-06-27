@@ -10,7 +10,7 @@ module materialMenu_test
 
   implicit none
 
-  character(*),parameter :: INPUT_STR = "     &
+  character(*), parameter :: INPUT_STR = "     &
   &mat1 { temp 273;                           &
   &      composition {                        &
   &        1001.03 12;                        &
@@ -33,7 +33,7 @@ contains
   subroutine testMaterialMenu()
     type(dictionary)           :: matDict
     type(dictionary)           :: emptyDict
-    type(materialItem),pointer :: matPtr
+    type(materialItem), pointer :: matPtr
     integer(shortInt)          :: i1, i2, i
     character(nameLen)         :: name
     real(defReal), parameter   :: TOL = 1.0E-6_defReal
@@ -66,12 +66,12 @@ contains
     @assertEqual('./A_PATH', trim(name))
 
     ! Check individual compositions
-    do i=1,2
-      if(materialDefs(i1) % nuclides(i) % Z == 1) then
+    do i= 1, 2
+      if (materialDefs(i1) % nuclides(i) % Z == 1) then
         @assertEqual(1, materialDefs(i1) % nuclides(i) % A)
         @assertEqual(3, materialDefs(i1) % nuclides(i) % T)
         @assertEqual(12.0_defReal, materialDefs(i1) % dens(i), TOL*12.0_defReal)
-      else if(materialDefs(i1) % nuclides(i) % Z == 8) then
+      else if (materialDefs(i1) % nuclides(i) % Z == 8) then
         @assertEqual(16, materialDefs(i1) % nuclides(i) % A)
         @assertEqual(7, materialDefs(i1) % nuclides(i) % T)
         @assertEqual(0.00654_defReal, materialDefs(i1) % dens(i), TOL*0.00654_defReal)

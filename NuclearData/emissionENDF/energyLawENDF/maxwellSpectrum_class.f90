@@ -49,18 +49,18 @@ contains
   !!
   function sample(self,E_in,rand) result (E_out)
     class(maxwellSpectrum), intent(in) :: self
-    real(defReal),intent(in)           :: E_in
-    class(RNG),intent(inout)           :: rand
+    real(defReal), intent(in)           :: E_in
+    class(RNG), intent(inout)           :: rand
     real(defReal)                      :: E_out
     integer(shortInt)                  :: i
     real(defReal)                      :: T
-    character(100),parameter           :: Here='sample (maxwellSpectrum_class.f90)'
+    character(100), parameter           :: Here='sample (maxwellSpectrum_class.f90)'
 
     ! Interpolate value of T
     T = self % T_of_E % at(E_in)
 
     ! Sample Maxwellian distribution
-    do i=1,maxIter
+    do i= 1, maxIter
 
       E_out = self % maxwellPdf % sample(T,rand)
       if (E_out < E_in - self% U) return
@@ -113,26 +113,26 @@ contains
   !!
   subroutine init(self,eGrid,T,U,bounds,interENDF)
     class(maxwellSpectrum), intent(inout)              :: self
-    real(defReal),dimension(:),intent(in)              :: eGrid     ! T energy grid
-    real(defReal),dimension(:),intent(in)              :: T         ! T values
+    real(defReal), dimension(:), intent(in)              :: eGrid     ! T energy grid
+    real(defReal), dimension(:), intent(in)              :: T         ! T values
     real(defReal), intent(in)                          :: U         ! Restriction energy
-    integer(shortInt),dimension(:),intent(in),optional :: bounds    ! Bounds of interpolation regions
-    integer(shortInt),dimension(:),intent(in),optional :: interENDF ! Interpolation flag
-    character(100),parameter              :: Here='init (maxwellSpectrum_class.f90)'
+    integer(shortInt), dimension(:), intent(in),optional :: bounds    ! Bounds of interpolation regions
+    integer(shortInt), dimension(:), intent(in),optional :: interENDF ! Interpolation flag
+    character(100), parameter              :: Here='init (maxwellSpectrum_class.f90)'
 
     ! Perform sanity checks
-    if(size(eGrid) /= size(T))      call fatalError(Here,'eGrid and T have diffrent size')
-    if(.not.(isSorted(eGrid)))      call fatalError(Here,'eGrid is not sorted ascending')
-    if ( any( eGrid < 0.0 )  )      call fatalError(Here,'eGrid contains -ve values')
+    if (size(eGrid) /= size(T))      call fatalError(Here,'eGrid and T have diffrent size')
+    if (.not.(isSorted(eGrid)))      call fatalError(Here,'eGrid is not sorted ascending')
+    if (any( eGrid < 0.0 )  )      call fatalError(Here,'eGrid contains -ve values')
 
-    if ( any( T < 0.0 ) )           call fatalError(Here,'Neutron temperature T has -ve values')
+    if (any( T < 0.0 ) )           call fatalError(Here,'Neutron temperature T has -ve values')
 
     ! Initialise
 
     if (present(bounds) .and. present(interENDF)) then
       call self % T_of_E % init(eGrid,T,bounds,interENDF)
 
-    else if ( present(bounds) .or. present(interENDF)) then
+    else if (present(bounds) .or. present(interENDF)) then
       call fatalError(Here,'Either "bounds" or "interENDF" is not given')
     else
       call self % T_of_E % init(eGrid,T) ! Default single region lin-lin interpolation
@@ -147,8 +147,8 @@ contains
   !! Only one lin-lin interpolation region
   !!
   function new_maxwellSpectrum(eGrid,T,U) result(new)
-    real(defReal),dimension(:),intent(in)   :: eGrid
-    real(defReal),dimension(:),intent(in)   :: T
+    real(defReal), dimension(:), intent(in)   :: eGrid
+    real(defReal), dimension(:), intent(in)   :: T
     real(defReal), intent(in)               :: U
     type(maxwellSpectrum)                   :: new
 
@@ -161,10 +161,10 @@ contains
   !! Multiple interpolation regions & interpolation schemes
   !!
   function new_maxwellSpectrum_Inter(eGrid,T,U,bounds,interENDF) result(new)
-    real(defReal),dimension(:),intent(in)     :: eGrid
-    real(defReal),dimension(:),intent(in)     :: T
+    real(defReal), dimension(:), intent(in)     :: eGrid
+    real(defReal), dimension(:), intent(in)     :: T
     real(defReal), intent(in)                 :: U
-    integer(shortInt),dimension(:),intent(in) :: bounds, interENDF
+    integer(shortInt), dimension(:), intent(in) :: bounds, interENDF
     type(maxwellSpectrum)                     :: new
 
     call new % init(eGrid,T,U,bounds,interENDF)
@@ -179,11 +179,11 @@ contains
   function new_maxwellSpectrum_fromACE(ACE) result(new)
     type(aceCard), intent(inout)               :: ACE
     type(maxwellSpectrum)                      :: new
-    real(defReal),dimension(:),allocatable     :: eGrid
-    real(defReal),dimension(:),allocatable     :: T
+    real(defReal), dimension(:), allocatable     :: eGrid
+    real(defReal), dimension(:), allocatable     :: T
     real(defReal)                              :: U
-    integer(shortInt),dimension(:),allocatable :: bounds
-    integer(shortInt),dimension(:),allocatable :: interENDF
+    integer(shortInt), dimension(:), allocatable :: bounds
+    integer(shortInt), dimension(:), allocatable :: interENDF
     integer(shortInt)                          :: NR
     integer(shortInt)                          :: N
     logical(defBool)                           :: hasInterRegions
@@ -193,7 +193,7 @@ contains
     hasInterRegions = (NR /= 0)
 
     ! Read interpolation data if present
-    if ( hasInterRegions ) then
+    if (hasInterRegions) then
       bounds    = ACE % readIntArray(NR)
       interENDF = ACE % readIntArray(NR)
 

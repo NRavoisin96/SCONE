@@ -56,7 +56,7 @@ module collisionClerk_class
     ! Filter, Map & Vector of Responses
     class(tallyFilter), allocatable                  :: filter
     class(tallyMap), allocatable                     :: map
-    type(tallyResponseSlot),dimension(:),allocatable :: response
+    type(tallyResponseSlot), dimension(:), allocatable :: response
 
     ! Useful data
     integer(shortInt)  :: width = 0
@@ -91,19 +91,19 @@ contains
     class(collisionClerk), intent(inout)        :: self
     class(dictionary), intent(in)               :: dict
     character(nameLen), intent(in)              :: name
-    character(nameLen),dimension(:),allocatable :: responseNames
+    character(nameLen), dimension(:), allocatable :: responseNames
     integer(shortInt)                           :: i
 
     ! Assign name
     call self % setName(name)
 
     ! Load filetr
-    if( dict % isPresent('filter')) then
+    if (dict % isPresent('filter')) then
       call new_tallyFilter(self % filter, dict % getDictPtr('filter'))
     end if
 
     ! Load map
-    if( dict % isPresent('map')) then
+    if (dict % isPresent('map')) then
       call new_tallyMap(self % map, dict % getDictPtr('map'))
     end if
 
@@ -112,7 +112,7 @@ contains
 
     ! Load responses
     allocate(self % response(size(responseNames)))
-    do i=1, size(responseNames)
+    do i= 1,  size(responseNames)
       call self % response(i) % init(dict % getDictPtr( responseNames(i) ))
     end do
 
@@ -160,8 +160,8 @@ contains
   !! See tallyClerk_inter for details
   !!
   function validReports(self) result(validCodes)
-    class(collisionClerk),intent(in)           :: self
-    integer(shortInt),dimension(:),allocatable :: validCodes
+    class(collisionClerk), intent(in)           :: self
+    integer(shortInt), dimension(:), allocatable :: validCodes
 
     validCodes = [inColl_CODE]
 
@@ -177,7 +177,7 @@ contains
     integer(shortInt)                 :: S
 
     S = size(self % response)
-    if(allocated(self % map)) S = S * self % map % bins(0)
+    if (allocated(self % map)) S = S * self % map % bins(0)
 
   end function getSize
 
@@ -196,7 +196,7 @@ contains
     integer(shortInt)                     :: binIdx, i
     integer(longInt)                      :: addr
     real(defReal)                         :: scoreVal, flux
-    character(100), parameter :: Here = 'reportInColl (collisionClerk_class.f90)'
+    character(*), parameter :: Here = 'reportInColl (collisionClerk_class.f90)'
 
     ! Return if collision is virtual but virtual collision handling is off
     if ((.not. self % handleVirtual) .and. virtual) return
@@ -262,7 +262,7 @@ contains
     type(scoreMemory), intent(in)              :: mem
     real(defReal)                              :: val, std
     integer(shortInt)                          :: i
-    integer(shortInt),dimension(:),allocatable :: resArrayShape
+    integer(shortInt), dimension(:), allocatable :: resArrayShape
     character(nameLen)                         :: name
 
     ! Begin block

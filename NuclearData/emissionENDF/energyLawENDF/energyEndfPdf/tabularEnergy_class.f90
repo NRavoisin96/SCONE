@@ -53,10 +53,10 @@ contains
     integer(shortInt), intent(out), optional :: bin
     real(defReal), intent(out), optional     :: f
     real(defReal)                            :: E
-    real(defReal)                            :: r
+    real(defReal)                            :: randomNumber
 
-    r = rand % get()
-    E = self % pdf % sample(r, bin, f)
+    call rand % generate(randomNumber)
+    E = self % pdf % sample(randomNumber, bin, f)
 
   end function sample
 
@@ -100,11 +100,11 @@ contains
   !!
   subroutine init_withPDF(self,E,PDF,interFlag)
     class(tabularEnergy), intent(inout)   :: self
-    real(defReal),dimension(:),intent(in) :: E,PDF
-    integer(shortInt),intent(in)          :: interFlag
-    character(100),parameter              :: Here='init (tabularEnergy_class.f90)'
+    real(defReal), dimension(:), intent(in) :: E,PDF
+    integer(shortInt), intent(in)          :: interFlag
+    character(100), parameter              :: Here='init (tabularEnergy_class.f90)'
 
-    if(count( E < 0.0 ) > 0) call fatalError(Here,'E contains -ve values')
+    if (count( E < 0.0 ) > 0) call fatalError(Here,'E contains -ve values')
 
     call self % pdf % init(E,PDF,interFlag)
 
@@ -116,12 +116,12 @@ contains
   !!
   subroutine init_withCDF(self,E,PDF,CDF,interFlag)
     class(tabularEnergy), intent(inout)   :: self
-    real(defReal),dimension(:),intent(in) :: E, PDF, CDF
-    integer(shortInt),intent(in)          :: interFlag
-    character(100),parameter              :: Here='init (tabularEnergy_class.f90)'
+    real(defReal), dimension(:), intent(in) :: E, PDF, CDF
+    integer(shortInt), intent(in)          :: interFlag
+    character(100), parameter              :: Here='init (tabularEnergy_class.f90)'
 
 
-    if(count( E < 0.0 ) > 0) call fatalError(Here,'E contains -ve values')
+    if (count( E < 0.0 ) > 0) call fatalError(Here,'E contains -ve values')
 
     call self % pdf % init(E,PDF,CDF,interFlag)
 
@@ -137,16 +137,16 @@ contains
     class(aceCard), intent(inout)           :: ACE
     integer(shortInt)                       :: INTT
     integer(shortInt)                       :: NP
-    real(defReal),dimension(:), allocatable :: eGrid
-    real(defReal),dimension(:), allocatable :: pdf
-    real(defReal),dimension(:), allocatable :: cdf
-    character(100),parameter :: Here = 'init_fromACE (tabularEnergy_class.f90)'
+    real(defReal), dimension(:), allocatable :: eGrid
+    real(defReal), dimension(:), allocatable :: pdf
+    real(defReal), dimension(:), allocatable :: cdf
+    character(*), parameter :: Here = 'init_fromACE (tabularEnergy_class.f90)'
 
     ! Read data from ACE card
     INTT = ACE % readInt()
 
     ! Call error if interpolation flag indicates photon lines
-    if( INTT > 10 ) then
+    if (INTT > 10) then
       call fatalError(Here,'INTT > 10. Discrete photons lines are not yet implemented')
 
     end if
@@ -166,8 +166,8 @@ contains
   !! Assignment
   !!
   subroutine assign_tabularEnergy(LHS,RHS)
-    class(tabularEnergy),intent(out) :: LHS
-    type(tabularEnergy),intent(in)   :: RHS
+    class(tabularEnergy), intent(out) :: LHS
+    type(tabularEnergy), intent(in)   :: RHS
 
     LHS % pdf = RHS % pdf
 
@@ -204,8 +204,8 @@ contains
   !! Constructor from PDF only
   !!
   function new_tabularEnergy(E,PDF,interFlag) result (new)
-    real(defReal),dimension(:),intent(in) :: E,PDF
-    integer(shortInt),intent(in)          :: interFlag
+    real(defReal), dimension(:), intent(in) :: E,PDF
+    integer(shortInt), intent(in)          :: interFlag
     type(tabularEnergy)                   :: new
 
     call new % init(E,PDF,interFlag)
@@ -217,8 +217,8 @@ contains
   !! Constructor form PDF and CDF
   !!
   function new_tabularEnergy_withCDF(E,PDF,CDF,interFlag) result (new)
-    real(defReal),dimension(:),intent(in) :: E, PDF, CDF
-    integer(shortInt),intent(in)          :: interFlag
+    real(defReal), dimension(:), intent(in) :: E, PDF, CDF
+    integer(shortInt), intent(in)          :: interFlag
     type(tabularEnergy)                   :: new
 
     call new % init(E,PDF,CDF,interFlag)

@@ -42,8 +42,8 @@ contains
     integer(int32)             :: hash
     integer(int32)             :: m_loc
     integer(int64)             :: hash_loc
-    integer(int64),parameter   :: prime = 3180339487_int64
-    integer(int64),parameter   :: mask = 4294967295_int64
+    integer(int64), parameter   :: prime = 3180339487_int64
+    integer(int64), parameter   :: mask = 4294967295_int64
 
     ! Constrain m to range 1-31
     m_loc = max(1,m)
@@ -69,10 +69,10 @@ contains
   !! TODO: Hash functions should be offloaded to C
   !!
   pure subroutine FNV_1_int32(key, hash)
-    character(*),intent(in)     :: key
+    character(*), intent(in)     :: key
     integer(int32), intent(out) :: hash
-    integer(int32),parameter    :: FNV_prime  = 16777619_int32
-    integer(int32),parameter    :: FNV_offset =  -2128831035_int32 !int(z'811c9dc5',int32)
+    integer(int32), parameter    :: FNV_prime  = 16777619_int32
+    integer(int32), parameter    :: FNV_offset =  -2128831035_int32 !int(z'811c9dc5',int32)
     integer(int32)              :: bajt
     integer(shortInt)           :: i
 
@@ -80,7 +80,7 @@ contains
     ! starts from 2 (1st iteration is unrolled) incorrect code
     ! is generated
     hash = FNV_offset
-    do i=1,len(key)
+    do i= 1, len(key)
       bajt = iachar(key(i:i), int32)
       hash = hash * FNV_prime
       hash = ieor(hash,bajt)
@@ -94,10 +94,10 @@ contains
 !  !!   http://www.isthe.com/chongo/tech/comp/fnv/index.html
 !  !!
 !  subroutine FNV_1_int64(key, hash)
-!    character(*),intent(in)    :: key
-!    integer(int64),intent(out) :: hash
-!    integer(int64),parameter   :: FNV_prime  = 1099511628211_int64
-!    integer(int64),parameter   :: FNV_offset = transfer(z'cbf29ce484222325',int64)
+!    character(*), intent(in)    :: key
+!    integer(int64), intent(out) :: hash
+!    integer(int64), parameter   :: FNV_prime  = 1099511628211_int64
+!    integer(int64), parameter   :: FNV_offset = transfer(z'cbf29ce484222325',int64)
 !    integer(int64)             :: bajt
 !    integer(shortInt)          :: i
 !

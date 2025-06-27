@@ -26,13 +26,13 @@ contains
 @Test
   subroutine testPureCaptureReaction()
     type(pureCapture), target             :: reaction
-    class(reactionHandle),pointer         :: handlePtr
-    class(uncorrelatedReactionCE),pointer :: unCorrPtr
-    type(pureCapture),pointer             :: pureCapPtr
+    class(reactionHandle), pointer         :: handlePtr
+    class(uncorrelatedReactionCE), pointer :: unCorrPtr
+    type(pureCapture), pointer             :: pureCapPtr
     type(dictDeck)                        :: fakeDeck
     type(RNG)                             :: rand
     real(defReal)                         :: E_out, mu, phi
-    real(defReal),parameter :: TOL = 1.0E-6_defReal
+    real(defReal), parameter :: TOL = 1.0E-6_defReal
 
     ! Set pointers
     handlePtr => reaction

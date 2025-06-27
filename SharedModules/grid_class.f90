@@ -20,7 +20,7 @@ module grid_class
   type, public :: grid
     private
     integer(shortInt)                      :: type = UNDEF
-    real(defReal),dimension(:),allocatable :: bins
+    real(defReal), dimension(:), allocatable :: bins
     real(defReal)                          :: step
 
   contains
@@ -48,10 +48,10 @@ contains
     integer(shortInt), intent(in) :: N
     character(*), intent(in)      :: type
     integer(shortInt)             :: i
-    character(100), parameter :: Here = 'init_equalSpaced ( grid_class.f90)'
+    character(*), parameter :: Here = 'init_equalSpaced ( grid_class.f90)'
 
     ! Verify input
-    if ( N < 1) call fatalError(Here,'Number of bins must be +ve')
+    if (N < 1) call fatalError(Here,'Number of bins must be +ve')
     if (abs((maxi-mini)/maxi) < FP_REL_TOL)  then
       call fatalError(Here,'Minimum value must be smaller then maximum above realtive FP tolerance')
     end if
@@ -99,12 +99,12 @@ contains
   !!
   subroutine init_unstruct(self,bins)
     class(grid), intent(inout)             :: self
-    real(defReal),dimension(:), intent(in) :: bins
+    real(defReal), dimension(:), intent(in) :: bins
     character(100), parameter              :: Here = 'init_unstruct ( grid_class.f90)'
 
     ! Check that grid is sorted
-    if( .not.isSorted(bins)) call fatalError(Here,'Provided grid is not sorted')
-    if( size(bins) < 2) call fatalError(Here,'Empty array or array of size 1 was provided')
+    if (.not.isSorted(bins)) call fatalError(Here,'Provided grid is not sorted')
+    if (size(bins) < 2) call fatalError(Here,'Empty array or array of size 1 was provided')
 
     ! Initialise
     self % bins = bins
@@ -118,7 +118,7 @@ contains
   elemental subroutine kill(self)
     class(grid), intent(inout) :: self
 
-    if(allocated(self % bins)) deallocate(self % bins)
+    if (allocated(self % bins)) deallocate(self % bins)
     self % step = ZERO
     self % type = UNDEF
 
@@ -153,7 +153,7 @@ contains
   !!
   elemental function search(self, value) result(idx)
     class(grid), intent(in)  :: self
-    real(defReal),intent(in) :: value
+    real(defReal), intent(in) :: value
     integer(shortInt)        :: idx
 
     idx = 0
@@ -170,7 +170,7 @@ contains
     end select
 
     ! Check whether errors happend
-    if(idx < 1 .or. idx >= size(self % bins)) idx = valueOutsideArray
+    if (idx < 1 .or. idx >= size(self % bins)) idx = valueOutsideArray
 
   end function search
 
@@ -183,7 +183,7 @@ contains
     class(grid), intent(in) :: self
     integer(shortInt)       :: s
 
-    if(allocated(self % bins)) then
+    if (allocated(self % bins)) then
       s = size(self % bins) -1
     else
       s = 0

@@ -117,7 +117,7 @@ contains
 
       ! If halfspace is not equivalent to sense it means that point
       ! is outside the cell.
-      if(.not. isIt) return
+      if (.not. isIt) return
     end do
 
   end function inside
@@ -181,7 +181,7 @@ contains
     call kill_super(self)
 
     ! Clean local
-    if(allocated(self % surfaces)) deallocate (self % surfaces)
+    if (allocated(self % surfaces)) deallocate (self % surfaces)
 
   end subroutine kill
 

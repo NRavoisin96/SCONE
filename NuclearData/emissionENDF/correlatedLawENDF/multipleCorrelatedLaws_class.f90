@@ -74,12 +74,12 @@ contains
     real(defReal), intent(out)                :: E_out
     real(defReal), intent(in)                 :: E_in
     class(RNG), intent(inout)                 :: rand
-    real(defReal)                             :: r, E, prob
+    real(defReal)                             :: randomNumber, E, prob
     integer(shortInt)                         :: i
-    character(100), parameter :: Here = 'sample (multipleCorrelatedLaws_class.f90)'
+    character(*), parameter :: Here = 'sample (multipleCorrelatedLaws_class.f90)'
 
     ! Generate random number
-    r = rand % get()
+    call rand % generate(randomNumber)
 
     ! Find law index and sample
     do i = 1, self % num
@@ -90,13 +90,13 @@ contains
       prob = self % prob(i) % table % at(E)
 
       ! Check acceptance probability
-      if ( r < prob) then
+      if (randomNumber < prob) then
         call self % laws(i) % sample(mu, E_out, E_in, rand)
         return
 
       end if
       ! Decrement roll value
-      r = r - prob
+      randomNumber = randomNumber - prob
     end do
 
     ! Error message
@@ -140,12 +140,12 @@ contains
   elemental subroutine kill(self)
     class(multipleCorrelatedLaws), intent(inout) :: self
 
-    if(allocated(self % prob)) then
+    if (allocated(self % prob)) then
       call self % prob % table % kill()
       deallocate(self % prob)
     end if
 
-    if(allocated(self % laws)) then
+    if (allocated(self % laws)) then
       call self % laws % kill()
       deallocate(self % laws)
     end if
@@ -166,7 +166,7 @@ contains
   subroutine init(self, N)
     class(multipleCorrelatedLaws), intent(inout) :: self
     integer(shortInt), intent(in)                :: N
-    character(100), parameter :: Here = 'init (multipleCorrelatedLaws_class.f90)'
+    character(*), parameter :: Here = 'init (multipleCorrelatedLaws_class.f90)'
 
     ! Make sure is clean
     call self % kill()
@@ -212,30 +212,30 @@ contains
     real(defReal), dimension(:), intent(in)               :: pdf
     integer(shortInt), dimension(:), intent(in), optional :: bounds
     integer(shortInt), dimension(:), intent(in), optional :: interENDF
-    character(100), parameter :: Here = 'addLaw (multipleCorrelatedLaws_class.f90)'
+    character(*), parameter :: Here = 'addLaw (multipleCorrelatedLaws_class.f90)'
 
     ! Check if space is availible
     self % num = self % num + 1
-    if( self % num > size(self % prob)) then
+    if (self % num > size(self % prob)) then
       call fatalError(Here, 'Cannot add another law. Maximum was already reached')
     end if
 
     ! Check for -ve entries
-    if(any(eGrid < ZERO) .or. any(pdf < 0)) then
+    if (any(eGrid < ZERO) .or. any(pdf < 0)) then
       call fatalError(Here, '-ve entries in eGrid or pdf values ')
     end if
 
     ! Check if energy law is allocated
-    if(.not.allocated(law)) then
+    if (.not.allocated(law)) then
       call fatalError(Here, 'Unallocated energy law was given.')
     end if
 
     ! Verify if bounds and interENDF were provided
     ! Build endfTable
-    if(present(bounds) .and. present(interENDF)) then
+    if (present(bounds) .and. present(interENDF)) then
       call self % prob(self % num) % table % init(eGrid, pdf, bounds, interENDF)
 
-    else if( present(bounds) .eqv. present(interENDF)) then
+    else if (present(bounds) .eqv. present(interENDF)) then
       call self % prob(self % num) % table % init(eGrid, pdf)
 
     else

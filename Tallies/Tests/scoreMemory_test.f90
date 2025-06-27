@@ -18,8 +18,8 @@ module scoreMemory_test
     private
     integer(longInt)                            :: Ncycles
     integer(shortInt)                           :: batchSize
-    real(defReal),dimension(:), allocatable     :: scores
-    integer(shortInt), dimension(:),allocatable :: scoresInt
+    real(defReal), dimension(:), allocatable     :: scores
+    integer(shortInt), dimension(:), allocatable :: scoresInt
 
   end type test_scoreMemory
 
@@ -58,10 +58,10 @@ contains
   function newTest(testParam) result(tst)
     type(testNumber), intent(in)     :: testParam
     type(test_scoreMemory)           :: tst
-    real(defReal),dimension(200)     :: random
+    real(defReal), dimension(200)     :: random
     integer(shortInt)                :: seed, i
-    integer(shortInt),parameter      :: A = 2469   ! Multiplier of LC PRNG
-    integer(shortInt),parameter      :: M = 65521  ! Modulus of PRNG
+    integer(shortInt), parameter      :: A = 2469   ! Multiplier of LC PRNG
+    integer(shortInt), parameter      :: M = 65521  ! Modulus of PRNG
 
     ! Load batchSize
     tst % batchSize = testParam % i
@@ -70,7 +70,7 @@ contains
     ! Generate a vector of 20 pseudo-random numbers in <0;1>
     ! Generator is not sophisticated but robust
     seed = 9294
-    do i=1,200
+    do i= 1, 200
       seed = mod(A * seed , M)
       random(i)    = seed / real(M,defReal)
     end do
@@ -104,7 +104,7 @@ contains
     @assertEqual(this % batchSize, mem % getBatchSize(),'Test getBatchSize() :')
 
     ! Score in
-    do i=1,10
+    do i= 1, 10
       ! Score
       do j=20*(i-1)+1,20 * i
         call mem % score(this % scores(j), 1_longInt)
@@ -214,8 +214,8 @@ contains
     ! Test getting batchSize
     @assertEqual(8, mem % getBatchSize(),'Test getBatchSize() :')
 
-    do i=1,16
-      if(i == 8 .or. i == 16) then
+    do i= 1, 16
+      if (i == 8 .or. i == 16) then
         @assertTrue( mem % lastCycle(), 'In cycle num: '//numToChar(i))
       else
         @assertFalse( mem % lastCycle(), 'In cycle num: '//numToChar(i))
@@ -235,7 +235,7 @@ contains
   subroutine testGetScore(this)
     class(test_scoreMemory), intent(inout) :: this
     type(scoreMemory)                      :: mem
-    real(defReal),parameter :: TOL = 1.0E-9
+    real(defReal), parameter :: TOL = 1.0E-9
 
     call mem % init(1_longInt, 1)
 

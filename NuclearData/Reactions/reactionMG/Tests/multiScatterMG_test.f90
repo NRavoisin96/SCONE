@@ -13,8 +13,8 @@ module multiScatterMG_test
   implicit none
 
   !! Test parameters
-  real(defReal),dimension(4),parameter :: P0   = [1.3_defReal, 0.7_defReal, 0.3_defReal, 4.0_defReal ]
-  real(defReal),dimension(4),parameter :: prod = [1.1_defReal, 1.05_defReal, ONE, ONE]
+  real(defReal), dimension(4), parameter :: P0   = [1.3_defReal, 0.7_defReal, 0.3_defReal, 4.0_defReal ]
+  real(defReal), dimension(4), parameter :: prod = [1.1_defReal, 1.05_defReal, ONE, ONE]
 
 
 contains
@@ -33,7 +33,7 @@ contains
     type(dictionary),target       :: dictT
     type(dictDeck)                :: data
     type(RNG)                     :: rand
-    real(defReal),parameter :: TOL = 1.0E-6_defReal
+    real(defReal), parameter :: TOL = 1.0E-6_defReal
 
     ! Set pointers
     handlePtr => reaction

@@ -35,7 +35,7 @@ module dataDeck_inter
     pure function myType(self) result(type)
       import :: dataDeck
       class(dataDeck), intent(in) :: self
-      character(:),allocatable    :: type
+      character(:), allocatable    :: type
     end function myType
 
   end interface

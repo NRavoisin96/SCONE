@@ -32,7 +32,7 @@ module vizPhysicsPackage_class
   !!
   !! Physics Package for eigenvalue calculations
   !!
-  type, public,extends(physicsPackage) :: vizPhysicsPackage
+  type, public, extends(physicsPackage) :: vizPhysicsPackage
     private
     ! Building blocks
     class(geometry), pointer :: geom => null()
@@ -69,7 +69,7 @@ contains
   subroutine init(self, dict)
     class(vizPhysicsPackage), intent(inout) :: self
     class(dictionary), intent(inout)        :: dict
-    class(dictionary),pointer               :: tempDict
+    class(dictionary), pointer               :: tempDict
     class(geometry), pointer                :: geom
     character(nameLen)                      :: geomName
     character(100), parameter :: Here ='init (vizPhysicsPackage_class.f90)'

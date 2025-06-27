@@ -51,7 +51,7 @@ module materialSource_class
   !!     #boundingBox (-x -y -z +x +y +z); #
   !!   }
   !!
-  type, public,extends(source) :: materialSource
+  type, public, extends(source) :: materialSource
     private
     logical(defBool)            :: isMG   = .false.
     real(defReal), dimension(3) :: bottom = ZERO
@@ -80,7 +80,7 @@ contains
     character(nameLen)                       :: matName 
     real(defReal), dimension(6)              :: bounds
     real(defReal), dimension(:), allocatable :: tempArray
-    character(100), parameter :: Here = 'init (materialSource_class.f90)'
+    character(*), parameter :: Here = 'init (materialSource_class.f90)'
 
     ! Provide geometry info to source
     self % geom => geom
@@ -135,10 +135,10 @@ contains
     type(particleState)                  :: p
     class(nuclearDatabase), pointer      :: nucData
     class(neutronMaterial), pointer      :: mat
-    real(defReal), dimension(3)          :: r, rand3
+    real(defReal), dimension(3)          :: r, randomNumbers
     real(defReal)                        :: mu, phi
     integer(shortInt)                    :: matIdx, uniqueID, i
-    character(100), parameter :: Here = 'sampleParticle (materialSource_class.f90)'
+    character(*), parameter :: Here = 'sampleParticle (materialSource_class.f90)'
 
     ! Get pointer to appropriate nuclear database
     if (self % isMG) then
@@ -146,22 +146,20 @@ contains
     else
       nucData => ndReg_getNeutronCE()
     end if
-    if(.not.associated(nucData)) call fatalError(Here, 'Failed to retrieve Nuclear Database')
+    if (.not.associated(nucData)) call fatalError(Here, 'Failed to retrieve Nuclear Database')
 
     i = 0
     rejection : do
       ! Protect against infinite loop
       i = i +1
-      if ( i > 200) then
+      if (i > 200) then
         call fatalError(Here, 'Infinite loop in sampling source. Please check that'//&
                               ' defined volume contains source material.')
       end if
 
       ! Sample position
-      rand3(1) = rand % get()
-      rand3(2) = rand % get()
-      rand3(3) = rand % get()
-      r = (self % top - self % bottom) * rand3 + self % bottom
+      call rand % generate(randomNumbers)
+      r = (self % top - self % bottom) * randomNumbers + self % bottom
 
       ! Find material under position
       call self % geom % whatIsAt(matIdx, uniqueID, r)
@@ -183,8 +181,8 @@ contains
       p % type     = P_NEUTRON
       p % r        = r
 
-      mu = TWO * rand % get() - ONE
-      phi = TWO_PI * rand % get()
+      call rand % generateMu(mu)
+      call rand % generatePhi(phi)
 
       ! Set energy
       select type (nucData)

@@ -78,15 +78,15 @@ module aceNeutronDatabase_class
   !!   ceNeutronDatabase Interface
   !!
   type, public, extends(ceNeutronDatabase) :: aceNeutronDatabase
-    type(aceNeutronNuclide),dimension(:),pointer :: nuclides  => null()
-    type(ceNeutronMaterial),dimension(:),pointer :: materials => null()
+    type(aceNeutronNuclide), dimension(:), pointer :: nuclides  => null()
+    type(ceNeutronMaterial), dimension(:), pointer :: materials => null()
     real(defReal), dimension(:), allocatable     :: majorant
     real(defReal), dimension(:), allocatable     :: eGridUnion
     real(defReal), dimension(2)                  :: eBounds   = ZERO
-    integer(shortInt),dimension(:),allocatable   :: activeMat
+    integer(shortInt), dimension(:), allocatable   :: activeMat
 
     ! Probability tables data
-    integer(shortInt),dimension(:),allocatable   :: nucToZaid
+    integer(shortInt), dimension(:), allocatable   :: nucToZaid
     logical(defBool)                             :: hasUrr  = .false.
     logical(defBool)                             :: hasDBRC = .false.
     logical(defBool)                             :: hasMajorant = .false.
@@ -133,19 +133,19 @@ contains
     class(aceNeutronDatabase), intent(inout) :: self
 
     ! Clean
-    if(associated(self % nuclides)) then
+    if (associated(self % nuclides)) then
       call self % nuclides % kill()
       deallocate(self % nuclides)
     end if
 
-    if(associated(self % materials)) then
+    if (associated(self % materials)) then
       call self % materials % kill()
       deallocate(self % materials)
     end if
 
     self % eBounds = ZERO
 
-    if(allocated(self % activeMat)) deallocate(self % activeMat)
+    if (allocated(self % activeMat)) deallocate(self % activeMat)
 
   end subroutine kill
 
@@ -173,7 +173,7 @@ contains
     class(materialHandle), pointer        :: mat
 
     ! Check bounds and return
-    if( 1 <= matIdx .and. matIdx <= size(self % materials)) then
+    if (1 <= matIdx .and. matIdx <= size(self % materials)) then
       mat => self % materials(matIdx)
     else
       mat => null()
@@ -192,7 +192,7 @@ contains
     class(nuclideHandle), pointer         :: nuc
 
     ! Check bounds and return
-    if( 1 <= nucIdx .and. nucIdx <= size(self % nuclides)) then
+    if (1 <= nucIdx .and. nucIdx <= size(self % nuclides)) then
       nuc => self % nuclides(nucIdx)
     else
       nuc => null()
@@ -315,7 +315,7 @@ contains
     class(RNG), optional, intent(inout)   :: rand
     integer(shortInt)                     :: idx, i, matIdx
     real(defReal)                         :: f
-    character(100), parameter :: Here = 'updateMajorantXS (aceNeutronDatabase_class.f90)'
+    character(*), parameter :: Here = 'updateMajorantXS (aceNeutronDatabase_class.f90)'
 
     associate (maj => cache_majorantCache(1))
       maj % E  = E
@@ -553,7 +553,7 @@ contains
     integer(shortInt)                     :: i, nucIdx
     real(defReal)                         :: dens, nuckT, A, deltakT, eRel, eMin, &
                                              eMax, doppCorr
-    character(100), parameter :: Here = 'updateRelEnMacroXSs (aceNeutronDatabase_class.f90)'
+    character(*), parameter :: Here = 'updateRelEnMacroXSs (aceNeutronDatabase_class.f90)'
 
     associate(mat      => self % materials(matIdx), &
               matCache => cache_materialCache(matIdx))
@@ -673,7 +673,7 @@ contains
 
           if (zaidCache % E /= E) then
             ! Save random number for temperature correlation
-            zaidCache % xi = rand % get()
+            call rand % generate(zaidCache % xi)
             zaidCache % E = E
           end if
 
@@ -708,7 +708,7 @@ contains
     integer(shortInt), intent(in)         :: nucIdx
     real(defReal)                         :: eUpper, eLower, eMin, eMax, nuckT, &
                                              alpha, deltakT, A
-    character(100), parameter :: Here = 'updateTotalTempNucXS (aceNeutronDatabase_class.f90)'
+    character(*), parameter :: Here = 'updateTotalTempNucXS (aceNeutronDatabase_class.f90)'
 
     associate (nuc => self % nuclides(nucIdx) , &
                nucCache => cache_nuclideCache(nucIdx))
@@ -769,17 +769,17 @@ contains
     integer(shortInt)                                :: i, j, envFlag, nucIdx, idx, idx1, idx2
     integer(shortInt)                                :: maxNuc
     logical(defBool)                                 :: isFissileMat
-    integer(shortInt),dimension(:),allocatable       :: nucIdxs, zaidDBRC
-    character(nameLen),dimension(:),allocatable      :: nucDBRC
+    integer(shortInt), dimension(:), allocatable       :: nucIdxs, zaidDBRC
+    character(nameLen), dimension(:), allocatable      :: nucDBRC
     real(defReal)                                    :: A, nuckT, eUpSab, eUpSabNuc, &
                                                         eLowURR, eLowUrrNuc, alpha, &
                                                         deltakT, eUpper, eLower, kT
     real(defReal), dimension(2)                      :: sabT
     integer(shortInt), parameter :: IN_SET = 1, NOT_PRESENT = 0
-    character(100), parameter :: Here = 'init (aceNeutronDatabase_class.f90)'
+    character(*), parameter :: Here = 'init (aceNeutronDatabase_class.f90)'
 
     ! Set build console output flag
-    if(present(silent)) then
+    if (present(silent)) then
       loud = .not.silent
     else
       loud = .true.
@@ -792,7 +792,7 @@ contains
 
     ! Cast pointer to ceNeutronDatabase
     ptr_ceDatabase => ceNeutronDatabase_CptrCast(ptr)
-    if(.not.associated(ptr_ceDatabase)) call fatalError(Here,"Should not happen. WTF?!")
+    if (.not.associated(ptr_ceDatabase)) call fatalError(Here,"Should not happen. WTF?!")
 
     ! Create list of all nuclides. Loop over materials
     ! Find maximum number of nuclides: maxNuc
@@ -813,21 +813,21 @@ contains
     ! Check if probability tables are on in the input file
     call dict % getOrDefault(self % hasUrr, 'ures', .false.)
 
-    if(aceLibPath == '$SCONE_ACE') then
+    if (aceLibPath == '$SCONE_ACE') then
       ! Get Path from enviromental variable
       call get_environment_variable("SCONE_ACE", aceLibPath, status = envFlag)
 
       ! Process potential errors
-      if(envFlag == -1) then
+      if (envFlag == -1) then
         call fatalError(Here,'$SCONE_ACE EnVar must have length smaller then: '//numToChar(pathLen))
 
-      else if(envFlag == 1) then
+      else if (envFlag == 1) then
         call fatalError(Here,"EnVar $SCONE_ACE does not exist! Need to point to ACE Library")
 
-      else if(envFlag == 2) then
+      else if (envFlag == 2) then
         call fatalError(Here,"Compiler does not support EnVariables. &
                               &Replace $SCONE_ACE with path in input file!")
-      else if(envFlag /= 0) then
+      else if (envFlag /= 0) then
         call fatalError(Here,"Impossible value of envFlag:"//numToChar(envFlag))
 
       end if
@@ -876,7 +876,7 @@ contains
         name = nucSet % atKey(i)
       end if
 
-      if(loud) then
+      if (loud) then
         print '(A)', "Building: "// trim(name)// " with index: " //numToChar(nucIdx)
         if (idx1 /= 0 .and. idx2 == 0) &
                 print '(A)', "including S(alpha,beta) table with file: " //trim(name_file1)
@@ -888,7 +888,7 @@ contains
       call self % nuclides(nucIdx) % init(ACE, nucIdx, ptr_ceDatabase)
 
       ! Initialise S(alpha,beta) tables
-      if (idx1 /= 0 ) then
+      if (idx1 /= 0) then
         call new_moderACE(ACE_Sab1, name_file1)
         if (idx2 /= 0) then
           call new_moderACE(ACE_Sab2, name_file2)
@@ -1073,7 +1073,7 @@ contains
     integer(shortInt)                        :: i, j
     character(nameLen)                       :: zaid
     type(charMap)                            :: map
-    integer(shortInt), parameter :: BEGIN=1, NOT_PRESENT = -12
+    integer(shortInt), parameter :: BEGIN= 1,  NOT_PRESENT = -12
 
     ! Allocate array to map ZAIDs
     allocate(self % nucToZaid(size(self % nuclides)))
@@ -1162,7 +1162,7 @@ contains
     logical(defBool)                            :: loud
 
     ! Load active materials
-    if(allocated(self % activeMat)) deallocate(self % activeMat)
+    if (allocated(self % activeMat)) deallocate(self % activeMat)
     self % activeMat = activeMat
 
     ! Configure Cache
@@ -1332,7 +1332,7 @@ contains
 
           ! Elastic upper energy boundary (NOTE: lower boundary is fixed)
           E = self % nuclides(nucIdx) % SabEl(2)
-          if (E >= eMin .and. E < eMax ) then
+          if (E >= eMin .and. E < eMax) then
             tmpGrid(i) = E
             tmpGrid(i + 1) = eMax
             ! Update counter
@@ -1341,7 +1341,7 @@ contains
 
           ! Inelastic lower energy boundary
           E = self % nuclides(nucIdx) % SabInel(1)
-          if (E >= eMin .and. E < eMax ) then
+          if (E >= eMin .and. E < eMax) then
             tmpGrid(i) = E
             tmpGrid(i + 1) = eMax
             ! Update counter
@@ -1350,7 +1350,7 @@ contains
 
           ! Inelastic upper energy boundary
           E = self % nuclides(nucIdx) % SabInel(2)
-          if (E >= eMin .and. E < eMax ) then
+          if (E >= eMin .and. E < eMax) then
             tmpGrid(i) = E
             tmpGrid(i + 1) = eMax
             ! Update counter

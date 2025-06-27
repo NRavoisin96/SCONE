@@ -6,7 +6,7 @@ module stack_class
   implicit none
   private
 
-  real(defReal),parameter :: GROWTH_RATIO = 2.0
+  real(defReal), parameter :: GROWTH_RATIO = 2.0
 
   !!
   !! Stack for short Integers
@@ -55,7 +55,7 @@ contains
 !
 !  N = 300
 !
-!  do i=1,N
+!  do i= 1, N
 !    call stack % push(i)
 !  end do
 !
@@ -92,9 +92,9 @@ contains
   subroutine pop_shortInt(self,val)
     class(stackInt), intent(inout) :: self
     integer(shortInt), intent(out) :: val
-    character(100),parameter :: Here = 'pop_shortInt (stack_class.f90)'
+    character(*), parameter :: Here = 'pop_shortInt (stack_class.f90)'
 
-    if( self % top == 0) call fatalError(Here,'Poping from empty stack')
+    if (self % top == 0) call fatalError(Here,'Poping from empty stack')
 
     ! Remove element from the top
     val = self % stack( self % top)
@@ -142,17 +142,17 @@ contains
   subroutine resize_shortInt(self)
     class(stackInt), intent(inout) :: self
     integer(shortInt)              :: S  ! Size
-    integer(shortInt),dimension(:),allocatable :: temp
+    integer(shortInt), dimension(:), allocatable :: temp
 
     ! Find size of the stack memory
-    if ( allocated(self % stack)) then
+    if (allocated(self % stack)) then
       S = size(self % stack)
     else
       S = 0
     end if
 
     ! Extend storage space if needed
-    if( S == self % top) then
+    if (S == self % top) then
       S = ceiling((S+1) * GROWTH_RATIO)
       allocate(temp(S))
       temp(1:self % top) = self % stack(1: self % top)
@@ -172,7 +172,7 @@ contains
 !
 !  N = 1000
 !
-!  do i=1,N
+!  do i= 1, N
 !    val = "My name is: "//numToChar(i)
 !    call stack % push(val)
 !  end do
@@ -211,9 +211,9 @@ contains
   subroutine pop_char(self,val)
     class(stackChar), intent(inout) :: self
     character(nameLen), intent(out) :: val
-    character(100),parameter :: Here = 'pop_char (stack_class.f90)'
+    character(*), parameter :: Here = 'pop_char (stack_class.f90)'
 
-    if( self % top == 0) call fatalError(Here,'Poping from empty stack')
+    if (self % top == 0) call fatalError(Here,'Poping from empty stack')
 
     ! Remove element from the top
     val = self % stack( self % top)
@@ -260,17 +260,17 @@ contains
   subroutine resize_char(self)
     class(stackChar), intent(inout) :: self
     integer(shortInt)               :: S  ! Size
-    character(nameLen),dimension(:),allocatable :: temp
+    character(nameLen), dimension(:), allocatable :: temp
 
     ! Find size of the stack memory
-    if ( allocated(self % stack)) then
+    if (allocated(self % stack)) then
       S = size(self % stack)
     else
       S = 0
     end if
 
     ! Extend storage space if needed
-    if( S == self % top) then
+    if (S == self % top) then
       S = ceiling((S+1) * GROWTH_RATIO)
       allocate(temp(S))
       temp(1:self % top) = self % stack(1: self % top)

@@ -62,7 +62,7 @@ module simpleFMClerk_class
     !! Map defining the discretisation
     class(tallyMap), allocatable           :: map
     type(macroResponse)                    :: resp
-    real(defReal),dimension(:),allocatable :: startWgt
+    real(defReal), dimension(:), allocatable :: startWgt
     integer(shortInt)                      :: N = 0 !! Number of bins
     ! Settings
     logical(defBool) :: handleVirtual = .true.
@@ -97,9 +97,9 @@ module simpleFMClerk_class
   !!    dim2 -> orgin bin
   !!    dim3 -> 1 is values; 2 is STDs
   !!
-  type,public, extends( tallyResult) :: FMresult
+  type, public, extends( tallyResult) :: FMresult
     integer(shortInt)                           :: N  = 0 ! Size of FM
-    real(defReal), dimension(:,:,:),allocatable :: FM     ! FM proper
+    real(defReal), dimension(:,:,:), allocatable :: FM     ! FM proper
   end type FMResult
 
 contains
@@ -140,8 +140,8 @@ contains
   !! See tallyClerk_inter for details
   !!
   function validReports(self) result(validCodes)
-    class(simpleFMClerk),intent(in)            :: self
-    integer(shortInt),dimension(:),allocatable :: validCodes
+    class(simpleFMClerk), intent(in)            :: self
+    integer(shortInt), dimension(:), allocatable :: validCodes
 
     validCodes = [inColl_CODE, cycleStart_Code ,cycleEnd_Code]
 
@@ -194,7 +194,7 @@ contains
   subroutine reportInColl(self, p, xsData, mem, virtual)
     class(simpleFMClerk), intent(inout)  :: self
     class(particle), intent(in)          :: p
-    class(nuclearDatabase),intent(inout) :: xsData
+    class(nuclearDatabase), intent(inout) :: xsData
     type(scoreMemory), intent(inout)     :: mem
     logical(defBool), intent(in)         :: virtual
     class(neutronMaterial), pointer      :: mat
@@ -203,7 +203,7 @@ contains
     integer(longInt)                     :: addr
     real(defReal)                        :: score, flux
     integer(shortInt)                    :: matIdx
-    character(100), parameter :: Here = 'reportInColl simpleFMClerk_class.f90'
+    character(*), parameter :: Here = 'reportInColl simpleFMClerk_class.f90'
 
     ! Return if collision is virtual but virtual collision handling is off
     if ((.not. self % handleVirtual) .and. virtual) return
@@ -291,7 +291,7 @@ contains
   !!
   pure subroutine getResult(self, res, mem)
     class(simpleFMClerk), intent(in)               :: self
-    class(tallyResult),allocatable, intent(inout)  :: res
+    class(tallyResult), allocatable, intent(inout)  :: res
     type(scoreMemory), intent(in)                  :: mem
     integer(shortInt)                              :: i, j
     integer(longInt)                               :: addr

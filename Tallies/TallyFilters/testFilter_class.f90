@@ -13,7 +13,7 @@ module testFilter_class
   !! Very simple filter used for testing of other components only
   !!   Returns true if state % matIdx (mi) :  minIdx <= mi <= maxIdx
   !!
-  type, public,extends(tallyFilter) :: testFilter
+  type, public, extends(tallyFilter) :: testFilter
     private
     integer(shortInt) :: minIdx = 0
     integer(shortInt) :: maxIdx = 0
@@ -37,7 +37,7 @@ contains
     call dict % get(self % maxIdx,'maxIdx')
 
     ! Verify
-    if( self % minIdx > self % maxIdx) call fatalError(Here,'minIdx > maxIdx')
+    if (self % minIdx > self % maxIdx) call fatalError(Here,'minIdx > maxIdx')
 
   end subroutine init
 

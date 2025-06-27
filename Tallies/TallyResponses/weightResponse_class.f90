@@ -27,7 +27,7 @@ module weightResponse_class
   !!     type weightResponse; moment 1;
   !!  }
   !!
-  type, public,extends(tallyResponse) :: weightResponse
+  type, public, extends(tallyResponse) :: weightResponse
     private
     integer(shortInt)    :: moment
   contains
@@ -76,14 +76,14 @@ contains
     val = ZERO
 
     ! Return 0.0 if particle is not neutron
-    if(p % type /= P_NEUTRON) return
+    if (p % type /= P_NEUTRON) return
 
     ! Get pointer to active material data
     matIdx = p % getMatIdx()
     mat => neutronMaterial_CptrCast(xsData % getMaterial(matIdx))
 
     ! Return if material is not a neutronMaterial
-    if(.not.associated(mat)) return
+    if (.not.associated(mat)) return
 
     if (self % moment == 0) then
       val = xsData % getTotalMatXS(p, matIdx) / (p % w)

@@ -24,11 +24,11 @@ contains
 @Test
   subroutine testFissionCE()
     type(fissionCE), target               :: reaction
-    class(reactionHandle),pointer         :: handlePtr
-    class(uncorrelatedReactionCE),pointer :: unCorrPtr
-    type(fissionCE),pointer               :: fissionPtr
+    class(reactionHandle), pointer         :: handlePtr
+    class(uncorrelatedReactionCE), pointer :: unCorrPtr
+    type(fissionCE), pointer               :: fissionPtr
     type(aceCard)                         :: ACE
-    real(defReal),parameter :: TOL = 1.0E-6_defReal
+    real(defReal), parameter :: TOL = 1.0E-6_defReal
 
     ! Set pointers
     handlePtr => reaction

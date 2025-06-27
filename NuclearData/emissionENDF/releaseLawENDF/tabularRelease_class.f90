@@ -21,7 +21,7 @@ module tabularRelease_class
   !! Neutron release as a function of incedent energy represented as a table
   !! Multiple interpolation regions are supported
   !!
-  type, public,extends(releaseLawENDF) :: tabularRelease
+  type, public, extends(releaseLawENDF) :: tabularRelease
     private
     type(endfTable)  :: releaseTable
 
@@ -30,8 +30,8 @@ module tabularRelease_class
     procedure :: releaseAt
     procedure :: kill
 
-    procedure,private :: initSimple
-    procedure,private :: initInter
+    procedure, private :: initSimple
+    procedure, private :: initInter
   end type tabularRelease
 
 contains
@@ -64,17 +64,17 @@ contains
   !!
   subroutine initSimple(self, eGrid, releaseValues)
     class(tabularRelease), intent(inout)  :: self
-    real(defReal),dimension(:),intent(in) :: eGrid         ! Energy Grid
-    real(defReal),dimension(:),intent(in) :: releaseValues
-    character(100),parameter              :: Here='initSimple (tabularRelease_class.f90)'
+    real(defReal), dimension(:), intent(in) :: eGrid         ! Energy Grid
+    real(defReal), dimension(:), intent(in) :: releaseValues
+    character(100), parameter              :: Here='initSimple (tabularRelease_class.f90)'
 
     ! Check if there are any -ve values in energy grid
-    if ( any( eGrid < 0.0 ) ) then
+    if (any( eGrid < 0.0 )) then
       call fatalError(Here,'In the provided energy Grid some values are -ve.')
     end if
 
     ! Check if there are any -ve values for release
-    if( any(releaseValues < 0.0 ) ) then
+    if (any(releaseValues < 0.0 )) then
       call fatalError(Here,'In the provided Nu values some are -ve.')
     end if
 
@@ -88,19 +88,19 @@ contains
   !!
   subroutine initInter(self, eGrid, releaseValues, bounds, interENDF)
     class(tabularRelease), intent(inout)      :: self
-    real(defReal),dimension(:),intent(in)     :: eGrid         ! Energy Grid
-    real(defReal),dimension(:),intent(in)     :: releaseValues
-    integer(shortInt),dimension(:),intent(in) :: bounds
-    integer(shortInt),dimension(:),intent(in) :: interENDF
-    character(100),parameter                  :: Here='initInter (tabularRelease_class.f90)'
+    real(defReal), dimension(:), intent(in)     :: eGrid         ! Energy Grid
+    real(defReal), dimension(:), intent(in)     :: releaseValues
+    integer(shortInt), dimension(:), intent(in) :: bounds
+    integer(shortInt), dimension(:), intent(in) :: interENDF
+    character(100), parameter                  :: Here='initInter (tabularRelease_class.f90)'
 
     ! Check if there are any -ve values in energy grid
-    if ( any( eGrid < 0.0 )  ) then
+    if (any( eGrid < 0.0 ) ) then
       call fatalError(Here,'In the provided energy Grid some values are -ve.')
     end if
 
     ! Check if there are any -ve values for release
-    if( any(releaseValues < 0.0 ) ) then
+    if (any(releaseValues < 0.0 )) then
       call fatalError(Here,'In the provided Nu values some are -ve.')
     end if
 
@@ -114,9 +114,9 @@ contains
   !! Constructor with single lin-lin interpolation region
   !!
   function new_tabularRelease_simple(eGrid, releaseValues) result(new)
-    real(defReal),dimension(:),intent(in) :: eGrid
-    real(defReal),dimension(:),intent(in) :: releaseValues
-    type(tabularRelease),pointer          :: new
+    real(defReal), dimension(:), intent(in) :: eGrid
+    real(defReal), dimension(:), intent(in) :: releaseValues
+    type(tabularRelease), pointer          :: new
 
     allocate(new)
     call new % init(eGrid, releaseValues)
@@ -127,11 +127,11 @@ contains
   !! Constructor with multiple interpolation regions
   !!
   function new_tabularRelease_inter(eGrid, releaseValues, bounds, interENDF) result(new)
-    real(defReal),dimension(:),intent(in)     :: eGrid
-    real(defReal),dimension(:),intent(in)     :: releaseValues
-    integer(shortInt),dimension(:),intent(in) :: bounds
-    integer(shortInt),dimension(:),intent(in) :: interENDF
-    type(tabularRelease),pointer              :: new
+    real(defReal), dimension(:), intent(in)     :: eGrid
+    real(defReal), dimension(:), intent(in)     :: releaseValues
+    integer(shortInt), dimension(:), intent(in) :: bounds
+    integer(shortInt), dimension(:), intent(in) :: interENDF
+    type(tabularRelease), pointer              :: new
 
     allocate(new)
 
@@ -147,10 +147,10 @@ contains
   function new_tabularRelease_fromACE(ACE) result(new)
     type(aceCard), intent(inout)               :: ACE
     type(tabularRelease)                       :: new
-    real(defReal),dimension(:),allocatable     :: eGrid
-    real(defReal),dimension(:),allocatable     :: release
-    integer(shortInt),dimension(:),allocatable :: bounds
-    integer(shortInt),dimension(:),allocatable :: interENDF
+    real(defReal), dimension(:), allocatable     :: eGrid
+    real(defReal), dimension(:), allocatable     :: release
+    integer(shortInt), dimension(:), allocatable :: bounds
+    integer(shortInt), dimension(:), allocatable :: interENDF
     integer(shortInt)                          :: NR, N
     logical(defBool)                           :: hasInterRegions
 
@@ -159,7 +159,7 @@ contains
     hasInterRegions = (NR /= 0)
 
     ! Read interpolation region data
-    if( hasInterRegions) then
+    if (hasInterRegions) then
       bounds    = ACE % readIntArray(NR)
       interENDF = ACE % readIntArray(NR)
     end if
@@ -170,7 +170,7 @@ contains
     release = ACE % readRealArray(N) ! Release values
 
     ! Initialise
-    if( hasInterRegions) then
+    if (hasInterRegions) then
       call new % init(eGrid, release, bounds, interENDF)
 
     else

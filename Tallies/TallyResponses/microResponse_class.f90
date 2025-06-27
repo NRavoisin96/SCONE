@@ -44,11 +44,11 @@ module microResponse_class
   !!   The material <matName> must include only one nuclide. The final estimate
   !!   is independent of the nuclide atomic density, which can be any value but zero.
   !!
-  type, public,extends(tallyResponse) :: microResponse
+  type, public, extends(tallyResponse) :: microResponse
     private
     !! Response MT number
     integer(shortInt)        :: MT
-    integer(shortInt),public :: matIdx
+    integer(shortInt), public :: matIdx
     real(defReal)            :: dens
   contains
     ! Superclass Procedures
@@ -78,7 +78,7 @@ contains
     integer(shortInt)                   :: MT, i
     character(15)                       :: mName
     type(materialItem), pointer         :: mat
-    character(100), parameter :: Here = 'init ( microResponse_class.f90)'
+    character(*), parameter :: Here = 'init ( microResponse_class.f90)'
 
     ! Load MT number and material name
     call dict % get(MT, 'MT')
@@ -115,7 +115,7 @@ contains
   subroutine build(self, MT)
     class(microResponse), intent(inout) :: self
     integer(shortInt), intent(in)       :: MT
-    character(100), parameter :: Here = 'build ( microResponse_class.f90)'
+    character(*), parameter :: Here = 'build ( microResponse_class.f90)'
 
     ! Check that MT number is valid and load MT
     select case(MT)
@@ -150,7 +150,7 @@ contains
     real(defReal)                         :: val
     class(neutronMaterial), pointer       :: mat
     type(neutronMacroXSs)                 :: xss
-    character(100), parameter :: Here = 'get ( microResponse_class.f90)'
+    character(*), parameter :: Here = 'get ( microResponse_class.f90)'
 
     val = ZERO
 

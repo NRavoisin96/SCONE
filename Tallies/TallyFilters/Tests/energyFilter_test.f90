@@ -23,8 +23,8 @@ module energyFilter_test
   real(defReal), parameter    :: E_MIN = 1.27E-6_defReal
   real(defReal), parameter    :: E_MAX = 1.34_defReal
   real(defReal), parameter    :: E_Delta = 0.999_defReal ! Rel. diff. Must be < 1 for correct tests !
-  integer(shortInt),parameter :: G_TOP = 3
-  integer(shortInt),parameter :: G_LOW = 7
+  integer(shortInt), parameter :: G_TOP = 3
+  integer(shortInt), parameter :: G_LOW = 7
 
 contains
 

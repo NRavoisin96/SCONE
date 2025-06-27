@@ -10,9 +10,9 @@ module angleLawENDFslot_class
   implicit none
   private
 
-  type, public,extends(angleLawENDF) :: angleLawENDFslot
+  type, public, extends(angleLawENDF) :: angleLawENDFslot
     private
-    class(angleLawENDF),allocatable :: slot
+    class(angleLawENDF), allocatable :: slot
   contains
     ! Duplicate interfacte of the superclass
     procedure :: init
@@ -71,7 +71,7 @@ contains
   elemental subroutine kill(self)
     class(angleLawENDFslot), intent(inout) :: self
 
-    if(allocated(self % slot)) then
+    if (allocated(self % slot)) then
       call self % slot % kill()
       deallocate(self % slot)
     end if
@@ -84,7 +84,7 @@ contains
     class(angleLawENDFslot), intent(inout) :: LHS
     type(angleLawENDFslot), intent(inout)  :: RHS
 
-    if(allocated(LHS % slot)) deallocate (LHS % slot)
+    if (allocated(LHS % slot)) deallocate (LHS % slot)
 
     call move_alloc(RHS % slot, LHS % slot)
 

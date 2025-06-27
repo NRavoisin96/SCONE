@@ -141,7 +141,7 @@ contains
     character(100) :: here ='addDataReal (outputVTK_class.f90)'
 
     ! Perform error checks on the size of the array provided
-    if( any(shape(newValues) /= self % nVox)) then
+    if (any(shape(newValues) /= self % nVox)) then
      call fatalError&
     (here,'Input array size does not agree with anticipated size')
     end if
@@ -200,7 +200,7 @@ contains
     character(pathLen) :: here ='addDataInt (outputVTK_class.f90)'
 
     ! Perform error checks on the size of the array provided
-    if( any(shape(newValues) /= self % nVox)) then
+    if (any(shape(newValues) /= self % nVox)) then
      call fatalError&
     (here,'Input array size does not agree with anticipated size')
     end if
@@ -315,8 +315,8 @@ contains
   elemental subroutine kill(self)
     class(outputVTK), intent(inout) :: self
 
-    if(allocated(self % values))   deallocate(self % values)
-    if(allocated(self % dataName)) deallocate(self % dataName)
+    if (allocated(self % values))   deallocate(self % values)
+    if (allocated(self % dataName)) deallocate(self % dataName)
     self % nCells = 0
     self % nOutput = 0
 

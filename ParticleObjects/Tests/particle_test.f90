@@ -16,20 +16,20 @@ module particle_test
   end type test_particle
 
   ! Test paramethers
-  real(defReal),dimension(3),parameter :: r0 = [-1.3_defReal, 97.7_defReal, -9.0_defReal]
-  real(defReal),dimension(3),parameter :: u0 = [1.0_defReal, 0.0_defReal, 0.0_defReal]
-  real(defReal),parameter              :: t0 = 13.0_defReal
-  real(defReal),parameter              :: w0 = 0.7_defReal
-  real(defReal),parameter              :: E0 = 0.00034_defReal
-  integer(shortInt),parameter          :: G0 = 3
+  real(defReal), dimension(3), parameter :: r0 = [-1.3_defReal, 97.7_defReal, -9.0_defReal]
+  real(defReal), dimension(3), parameter :: u0 = [1.0_defReal, 0.0_defReal, 0.0_defReal]
+  real(defReal), parameter              :: t0 = 13.0_defReal
+  real(defReal), parameter              :: w0 = 0.7_defReal
+  real(defReal), parameter              :: E0 = 0.00034_defReal
+  integer(shortInt), parameter          :: G0 = 3
 
-  real(defReal),dimension(3),parameter :: lev1_offset = [0.3_defReal, -13.5_defReal, 1.0_defReal]
-  real(defReal),dimension(3),parameter :: lev2_offset = [-3.4_defReal, 3.0_defReal, -8.0_defReal]
+  real(defReal), dimension(3), parameter :: lev1_offset = [0.3_defReal, -13.5_defReal, 1.0_defReal]
+  real(defReal), dimension(3), parameter :: lev2_offset = [-3.4_defReal, 3.0_defReal, -8.0_defReal]
 
-  integer(shortInt),parameter          :: lev1_uni     = 5
-  integer(shortInt),parameter          :: lev1_uniRoot = 67
-  integer(shortInt),parameter          :: lev2_uni     = 3
-  integer(shortInt),parameter          :: lev2_uniRoot = 32
+  integer(shortInt), parameter          :: lev1_uni     = 5
+  integer(shortInt), parameter          :: lev1_uniRoot = 67
+  integer(shortInt), parameter          :: lev2_uni     = 3
+  integer(shortInt), parameter          :: lev2_uniRoot = 32
 
 contains
 
@@ -165,10 +165,10 @@ contains
 @test
   subroutine testPositionAccess(this)
     class(test_particle), intent(inout) :: this
-    real(defReal),dimension(3)          :: r_global
-    real(defReal),dimension(3)          :: r_lev1
-    real(defReal),dimension(3)          :: r_lev2
-    real(defReal),dimension(3)          :: r_lev3
+    real(defReal), dimension(3)          :: r_global
+    real(defReal), dimension(3)          :: r_lev1
+    real(defReal), dimension(3)          :: r_lev2
+    real(defReal), dimension(3)          :: r_lev3
 
     ! Get position at all levels
     r_global = this % p_CE % rGlobal()
@@ -191,10 +191,10 @@ contains
 @test
   subroutine testDirectionAccess(this)
     class(test_particle), intent(inout) :: this
-    real(defReal),dimension(3)          :: u_global
-    real(defReal),dimension(3)          :: u_lev1
-    real(defReal),dimension(3)          :: u_lev2
-    real(defReal),dimension(3)          :: u_lev3
+    real(defReal), dimension(3)          :: u_global
+    real(defReal), dimension(3)          :: u_lev1
+    real(defReal), dimension(3)          :: u_lev2
+    real(defReal), dimension(3)          :: u_lev3
 
     ! Get direction at all levels
     u_global = this % p_CE % dirGlobal()
@@ -274,8 +274,8 @@ contains
   subroutine testMovementProcedures(this)
     class(test_particle), intent(inout) :: this
     real(defReal)                       :: dist = 1.0_defReal
-    real(defReal),dimension(3)          :: r0_lvl1 ,r0_lvl2, r0_lvl3
-    real(defReal),dimension(3)          :: r_lvl1, r_lvl2, r_lvl3
+    real(defReal), dimension(3)          :: r0_lvl1 ,r0_lvl2, r0_lvl3
+    real(defReal), dimension(3)          :: r_lvl1, r_lvl2, r_lvl3
 
     ! Move local on lowest level
     call this % p_CE % moveLocal(dist,3)

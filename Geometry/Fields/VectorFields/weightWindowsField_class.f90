@@ -76,7 +76,7 @@ contains
     type(dictionary)                         :: dict2
     character(pathLen)                       :: path
     integer(shortInt), parameter  :: ALL = 0
-    character(100), parameter :: Here = 'init (weightWindowsField_class.f90)'
+    character(*), parameter :: Here = 'init (weightWindowsField_class.f90)'
 
     call dict % get(path,'file')
 

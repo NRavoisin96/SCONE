@@ -28,11 +28,11 @@ contains
 @Test
   subroutine testNeutronScatteringReaction()
     type(neutronScatter), target          :: reaction
-    class(reactionHandle),pointer         :: handlePtr
-    class(uncorrelatedReactionCE),pointer :: unCorrPtr
-    type(neutronScatter),pointer          :: scatterPtr
+    class(reactionHandle), pointer         :: handlePtr
+    class(uncorrelatedReactionCE), pointer :: unCorrPtr
+    type(neutronScatter), pointer          :: scatterPtr
     type(aceCard)                         :: ACE
-    real(defReal),parameter :: TOL = 1.0E-6_defReal
+    real(defReal), parameter :: TOL = 1.0E-6_defReal
 
     ! Set pointers
     handlePtr => reaction

@@ -15,7 +15,7 @@ contains
 @Test
   subroutine testSplitChar()
     character(:), allocatable :: line
-    integer(shortInt), dimension(:,:),allocatable :: SE
+    integer(shortInt), dimension(:,:), allocatable :: SE
 
     ! CASE 1: Standard Use Case
     line = " This is a first attempt at splitting"

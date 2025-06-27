@@ -18,7 +18,7 @@ module asciiOutputFactory_func
   ! It is printed if type was unrecognised
   ! NOTE:
   ! For now  it is necessary to adjust trailing blanks so all enteries have the same length
-  character(nameLen),dimension(*),parameter :: AVALIBLE_asciiOutputs = [ 'asciiMATLAB ',&
+  character(nameLen), dimension(*), parameter :: AVALIBLE_asciiOutputs = [ 'asciiMATLAB ',&
                                                                          'asciiJSON   ',&
                                                                          'dummyPrinter']
 
@@ -31,8 +31,8 @@ contains
   !!
   function new_asciiOutput(type) result(new)
     character(nameLen), intent(in) :: type
-    class(asciiOutput),allocatable :: new
-    character(100),parameter :: Here = 'new_asciiOutput (asciiOutputFactory_func.f90)'
+    class(asciiOutput), allocatable :: new
+    character(*), parameter :: Here = 'new_asciiOutput (asciiOutputFactory_func.f90)'
 
     ! Allocate approperiate subclass of asciiOutput
     select case(type)

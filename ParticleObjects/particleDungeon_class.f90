@@ -60,7 +60,7 @@ module particleDungeon_class
   !!
   type, public :: particleDungeon
     private
-    real(defReal),public :: k_eff = ONE ! k-eff for fission site generation rate normalisation
+    real(defReal), public :: k_eff = ONE ! k-eff for fission site generation rate normalisation
     integer(shortInt)    :: pop = 0     ! Current population size of the dungeon
 
     ! Storage space
@@ -112,7 +112,7 @@ contains
     class(particleDungeon), intent(inout) :: self
     integer(shortInt), intent(in)         :: maxSize
 
-    if(allocated(self % prisoners)) deallocate(self % prisoners)
+    if (allocated(self % prisoners)) deallocate(self % prisoners)
     allocate(self % prisoners(maxSize))
     self % pop    = 0
 
@@ -128,7 +128,7 @@ contains
     self % pop = 0
 
     ! Deallocate memeory
-    if(allocated(self % prisoners)) deallocate(self % prisoners)
+    if (allocated(self % prisoners)) deallocate(self % prisoners)
 
   end subroutine kill
 
@@ -139,7 +139,7 @@ contains
     class(particleDungeon), intent(inout) :: self
     class(particle), intent(in)           :: p
     integer(shortInt)                     :: pop
-    character(100),parameter              :: Here = 'detain_particle (particleDungeon_class.f90)'
+    character(100), parameter              :: Here = 'detain_particle (particleDungeon_class.f90)'
 
     !$omp atomic capture
     ! Increase population and weight
@@ -166,7 +166,7 @@ contains
     class(particleDungeon), intent(inout) :: self
     class(particle), intent(in)           :: p
     integer(shortInt)                     :: pop
-    character(100),parameter              :: Here = 'detainCritical_particle (particleDungeon_class.f90)'
+    character(100), parameter              :: Here = 'detainCritical_particle (particleDungeon_class.f90)'
 
     !$omp critical (dungeon)
     ! Increase population and weight
@@ -288,10 +288,10 @@ contains
     class(particleDungeon), intent(inout) :: self
     class(particle), intent(in)           :: p
     integer(shortInt), intent(in)         :: idx
-    character(100),parameter :: Here = 'replace_particle (particleDungeon_class.f90)'
+    character(*), parameter :: Here = 'replace_particle (particleDungeon_class.f90)'
 
     ! Protect against out-of-bounds access
-    if( idx <= 0 .or. idx > self % pop ) then
+    if (idx <= 0 .or. idx > self % pop) then
       call fatalError(Here,'Out of bounds access with idx: '// numToChar(idx)// &
                            ' with particle population of: '// numToChar(self % pop))
     end if
@@ -308,10 +308,10 @@ contains
     class(particleDungeon), intent(inout) :: self
     type(particleState), intent(in)       :: p
     integer(shortInt), intent(in)         :: idx
-    character(100),parameter :: Here = 'replace_particleState (particleDungeon_class.f90)'
+    character(*), parameter :: Here = 'replace_particleState (particleDungeon_class.f90)'
 
     ! Protect against out-of-bounds access
-    if( idx <= 0 .or. idx > self % pop ) then
+    if (idx <= 0 .or. idx > self % pop) then
       call fatalError(Here,'Out of bounds access with idx: '// numToChar(idx)// &
                            ' with particle population of: '// numToChar(self % pop))
     end if
@@ -339,10 +339,10 @@ contains
     class(particleDungeon), intent(in) :: self
     type(particle), intent(inout)      :: p
     integer(shortInt), intent(in)      :: idx
-    character(100), parameter :: Here = 'copy (particleDungeon_class.f90)'
+    character(*), parameter :: Here = 'copy (particleDungeon_class.f90)'
 
     ! Protect against out-of-bounds access
-    if( idx <= 0 .or. idx > self % pop ) then
+    if (idx <= 0 .or. idx > self % pop) then
       call fatalError(Here,'Out of bounds access with idx: '// numToChar(idx)// &
                            ' with particle population of: '// numToChar(self % pop))
     end if
@@ -362,10 +362,10 @@ contains
     class(particleDungeon), intent(in) :: self
     integer(shortInt), intent(in)      :: idx
     type(particleState)                :: state
-    character(100), parameter :: Here = 'get (particleDungeon_class.f90)'
+    character(*), parameter :: Here = 'get (particleDungeon_class.f90)'
 
     ! Protect against out-of-bounds access
-    if( idx <= 0 .or. idx > self % pop ) then
+    if (idx <= 0 .or. idx > self % pop) then
       call fatalError(Here,'Out of bounds access with idx: '// numToChar(idx)// &
                            ' with particle population of: '// numToChar(self % pop))
     end if
@@ -415,10 +415,10 @@ contains
     character(100), parameter :: Here =' normSize (particleDungeon_class.f90)'
 
     ! Protect against invalid N
-    if( N > size(self % prisoners)) then
+    if (N > size(self % prisoners)) then
       call fatalError(Here,'Requested size: '//numToChar(N) //&
                            'is greater then max size: '//numToChar(size(self % prisoners)))
-    else if ( N <= 0 ) then
+    else if (N <= 0) then
       call fatalError(Here,'Requested size: '//numToChar(N) //' is not +ve')
     end if
 
@@ -429,10 +429,10 @@ contains
     ! Calculate excess particles to be removed
     excessP = self % pop - N
 
-    if (excessP > 0 ) then ! Reduce population with reservoir sampling
+    if (excessP > 0) then ! Reduce population with reservoir sampling
       do i = N + 1, self % pop
         ! Select new index. Copy data if it is in the safe zone (<= N).
-        idx = int(i * rand % get()) + 1
+        call rand % generate(idx, i, 1)
         if (idx <= N) then
           self % prisoners(idx) = self % prisoners(i)
         end if
@@ -453,7 +453,7 @@ contains
       ! Choose the remainder particles to duplicate without replacement
       duplicates = [(i, i = 1, n_duplicates)]
       do i = n_duplicates + 1, self % pop
-        idx = int(i * rand % get()) + 1
+        call rand % generate(idx, i, 1)
         if (idx <= n_duplicates) then
           duplicates(idx) = i
         end if
@@ -483,7 +483,7 @@ contains
     integer(shortInt)                            :: i, id, loc, c
     integer(shortInt), dimension(:), allocatable :: perm
     type(particleState)                          :: tmp
-    character(100), parameter :: Here = 'sortBybroodID (particleDungeon_class.f90)'
+    character(*), parameter :: Here = 'sortBybroodID (particleDungeon_class.f90)'
 
     ! Count number of particles with each brood ID
     count = 0
@@ -580,7 +580,7 @@ contains
   subroutine setSize(self, n)
     class(particleDungeon), intent(inout) :: self
     integer(shortInt), intent(in)         :: n
-    character(100), parameter :: Here = 'setSize (particleDungeon_class.f90)'
+    character(*), parameter :: Here = 'setSize (particleDungeon_class.f90)'
 
     if (n <= 0) call fatalError(Here, 'Requested population is not +ve: '//numToChar(n))
 

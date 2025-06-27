@@ -85,42 +85,42 @@ contains
 
     self % xsVal = xsVal
 
-    if(associated(self % mat)) deallocate(self % mat)
+    if (associated(self % mat)) deallocate(self % mat)
     allocate(self % mat)
 
     ! Load Total XS
     self % mat % xss % total = xsVal
 
     ! Elastic Scattering
-    if(present(eScatterXS)) then
+    if (present(eScatterXS)) then
       self % mat % xss % elasticScatter = eScatterXS
     else
       self % mat % xss % elasticScatter = xsVal
     end if
 
     ! Inelastic Scattering
-    if(present(ieScatterXS)) then
+    if (present(ieScatterXS)) then
       self % mat % xss % inelasticScatter = ieScatterXS
     else
       self % mat % xss % inelasticScatter = xsVal
     end if
 
     ! Capture
-    if(present(captureXS)) then
+    if (present(captureXS)) then
       self % mat % xss % capture = captureXS
     else
       self % mat % xss % capture = xsVal
     end if
 
     ! Fission
-    if(present(fissionXS)) then
+    if (present(fissionXS)) then
       self % mat % xss % fission = fissionXS
     else
       self % mat % xss % fission = xsVal
     end if
 
     ! nu*Fission
-    if(present(nuFissionXS)) then
+    if (present(nuFissionXS)) then
       self % mat % xss % nuFission = nuFissionXS
     else
       self % mat % xss % nuFission = xsVal
@@ -141,7 +141,7 @@ contains
     logical(defBool), optional, intent(in)            :: silent
 
     ! Allocate Material
-    if(associated(self % mat)) deallocate(self % mat)
+    if (associated(self % mat)) deallocate(self % mat)
     allocate(self % mat)
 
     ! Read xsVal
@@ -273,7 +273,7 @@ contains
     class(testNeutronDatabase), intent(in) :: self
     integer(shortInt), intent(in)          :: MT
     integer(shortInt), intent(in)          :: idx
-    class(reactionHandle),pointer          :: reac
+    class(reactionHandle), pointer          :: reac
 
     reac => null()
 
@@ -287,7 +287,7 @@ contains
   elemental subroutine kill(self)
     class(testNeutronDatabase), intent(inout) :: self
 
-    if(associated(self % mat)) deallocate(self % mat)
+    if (associated(self % mat)) deallocate(self % mat)
     self % xsVal = ZERO
 
   end subroutine kill

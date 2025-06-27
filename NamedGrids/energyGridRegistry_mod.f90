@@ -52,17 +52,17 @@ module energyGridRegistry_mod
   type(charMap) :: nameMap
 
   !! Stored prototypes of named energy energyGrids and their names
-  type(energyGrid),dimension(:),allocatable :: eGrids
+  type(energyGrid), dimension(:), allocatable :: eGrids
   integer(shortInt)                         :: eGrid_top = 1
 
   !! Names of predefined energy grids
-  character(*),dimension(*),parameter :: PRE_DEF_NAMES = ['wims69 ',&
+  character(*), dimension(*), parameter :: PRE_DEF_NAMES = ['wims69 ',&
                                                           'wims172',&
                                                           'casmo40']
 
   !! Misc. parameters
-  real(defReal),parameter     :: GROWTH_RATIO = 1.2_defReal
-  integer(shortInt),parameter :: MIN_SIZE = 5
+  real(defReal), parameter     :: GROWTH_RATIO = 1.2_defReal
+  integer(shortInt), parameter :: MIN_SIZE = 5
 
 contains
 
@@ -74,15 +74,15 @@ contains
   subroutine get_energyGrid(eGrid, name, err)
     type(energyGrid), intent(inout)       :: eGrid
     character(nameLen), intent(in)        :: name
-    logical(defBool),intent(out),optional :: err
+    logical(defBool), intent(out),optional :: err
     integer(shortInt)                     :: idx
-    character(100), parameter :: Here = 'get_energyGrid (energyGridRegistry_mod.f90)'
+    character(*), parameter :: Here = 'get_energyGrid (energyGridRegistry_mod.f90)'
 
     ! Try to find the grid in the user-defined grids
     idx = nameMap % getOrDefault(name,-17)
-    if(present(err)) err = .false.
+    if (present(err)) err = .false.
 
-    if( idx /= -17) then
+    if (idx /= -17) then
       eGrid = eGrids(idx)
       return
 
@@ -120,28 +120,28 @@ contains
     character(nameLen), intent(in)            :: name
     class(dictionary), intent(in)             :: dict
     integer(shortInt)                         :: N, N_new
-    type(energyGrid),dimension(:),allocatable :: tempGrid
-    character(100), parameter :: Here = 'define_energyGrid (energyGridRegistry_mod.f90)'
+    type(energyGrid), dimension(:), allocatable :: tempGrid
+    character(*), parameter :: Here = 'define_energyGrid (energyGridRegistry_mod.f90)'
 
     ! Verify that new name does not clash with a predefined structure
-    if(any(charCmp(PRE_DEF_NAMES, name))) then
+    if (any(charCmp(PRE_DEF_NAMES, name))) then
       call fatalError(Here, name //' clashes with a predefined energy structure')
     end if
 
     ! Verify that new name was not yet defined
-    if(-17 /= nameMap % getOrDefault(name, -17)) then
+    if (-17 /= nameMap % getOrDefault(name, -17)) then
       call fatalError(Here, name //' energy structure was already defined')
     end if
 
     ! Set size of the array for storing grids
-    if( allocated(eGrids)) then
+    if (allocated(eGrids)) then
       N = size(eGrids)
     else
       N = 0
     end if
 
     ! Grow array if needed
-    if( eGrid_top >= N ) then
+    if (eGrid_top >= N) then
       ! Calculate new size
       N_new = max(MIN_SIZE, int(N * GROWTH_RATIO, shortInt))
 
@@ -165,14 +165,14 @@ contains
   !!
   subroutine define_multipleEnergyGrids(dict)
     class(dictionary), intent(in)                :: dict
-    character(nameLen), dimension(:),allocatable :: names
+    character(nameLen), dimension(:), allocatable :: names
     integer(shortInt)                            :: i
 
     ! Load all dictionary names
     call dict % keys(names,'dict')
 
     ! Load all dictionaries
-    do i=1,size(names)
+    do i= 1, size(names)
       call define_energyGrid(names(i), dict % getDictPtr(names(i)))
 
     end do
@@ -189,7 +189,7 @@ contains
     call nameMap % kill()
 
     ! Grids prototypes
-    if(allocated(eGrids)) then
+    if (allocated(eGrids)) then
       call eGrids % kill()
       deallocate(eGrids)
       eGrid_top = 1
@@ -208,8 +208,8 @@ contains
     character(nameLen)                      :: type
     integer(shortInt)                       :: N
     real(defReal)                           :: mini, maxi
-    real(defReal),dimension(:), allocatable :: bins
-    character(100),parameter :: Here ='new_energyGrid (energyGridRegistry_mod.f90)'
+    real(defReal), dimension(:), allocatable :: bins
+    character(100), parameter :: Here ='new_energyGrid (energyGridRegistry_mod.f90)'
 
     ! Read grid type
     call dict % get(type,'grid')
@@ -222,8 +222,8 @@ contains
         call dict % get(maxi,'max')
 
         ! Verify data
-        if(any( [mini, maxi] < ZERO)) call fatalError(Here,' Energy grid '//name//' contains -ve energies')
-        if( N <= 0 ) call fatalError(Here,'Non-positive size of the grid '//name)
+        if (any( [mini, maxi] < ZERO)) call fatalError(Here,' Energy grid '//name//' contains -ve energies')
+        if (N <= 0 ) call fatalError(Here,'Non-positive size of the grid '//name)
 
         ! Build brid
         call eGrid % init(mini, maxi, N, type)
@@ -233,8 +233,8 @@ contains
         call dict % get(bins,'bins')
 
         ! Verify data
-        if(any(bins < ZERO)) call fatalError(Here,' Energy grid '//name//' contains -ve energies')
-        if(.not.isDescending(bins)) call fatalError(Here,'Bins boundaries for grid '//name//' are not descending')
+        if (any(bins < ZERO)) call fatalError(Here,' Energy grid '//name//' contains -ve energies')
+        if (.not.isDescending(bins)) call fatalError(Here,'Bins boundaries for grid '//name//' are not descending')
 
         ! Build grid
         call eGrid % init(bins)

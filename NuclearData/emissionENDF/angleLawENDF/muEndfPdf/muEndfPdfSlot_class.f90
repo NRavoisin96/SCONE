@@ -19,9 +19,9 @@ module muEndfPdfSlot_class
   !! This breaks rules of standard inter,slot,Factory SCONE pattern
   !! because factory is included insied the slot (init subroutine)
   !!
-  type, public,extends(muEndfPdf) :: muEndfPdfSlot
+  type, public, extends(muEndfPdf) :: muEndfPdfSlot
     private
-    class(muEndfPdf),allocatable :: slot
+    class(muEndfPdf), allocatable :: slot
   contains
     ! Duplicate interface of the superclass
     procedure :: sample
@@ -40,8 +40,8 @@ contains
   !! Sample mu given random number generator
   !!
   function sample(self,rand) result(mu)
-    class(muEndfPdfSlot),intent(in)  :: self
-    class(RNG),intent(inout)         :: rand
+    class(muEndfPdfSlot), intent(in)  :: self
+    class(RNG), intent(inout)         :: rand
     real(defReal)                    :: mu
 
     mu = self % slot % sample(rand)
@@ -96,7 +96,7 @@ contains
     class(muEndfPdfSlot), intent(inout) :: LHS
     type(muEndfPdfSlot), intent(inout)  :: RHS
 
-    if(allocated(LHS % slot)) deallocate (LHS % slot)
+    if (allocated(LHS % slot)) deallocate (LHS % slot)
 
     call move_alloc(RHS % slot, LHS % slot)
 
@@ -109,7 +109,7 @@ contains
     class(muEndfPdfSlot), intent(inout) :: self
 
     ! Kill slot if allocated
-    if(allocated(self % slot)) then
+    if (allocated(self % slot)) then
       call self % slot % kill()
       deallocate(self % slot)
     end if
