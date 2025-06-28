@@ -44,7 +44,7 @@ module objectKDTree_class
     procedure          :: getDataNumber
     procedure          :: getLeavesNumber
     procedure          :: getNodesNumber
-    procedure          :: getRootBoundingBox
+    procedure          :: getRootBoundingBoxBounds
   end type objectKDTree
 
 contains
@@ -193,12 +193,12 @@ contains
   !! Result:
   !!   boundingBox -> Bounding box of the root node of the tree.
   !!
-  pure function getRootBoundingBox(self) result(boundingBox)
+  pure function getRootBoundingBoxBounds(self) result(boundingBoxBounds)
     class(objectKDTree), intent(in) :: self
-    type(axisAlignedBoundingBox)    :: boundingBox
+    real(defReal), dimension(6)     :: boundingBoxBounds
 
-    boundingBox = self % root % getBoundingBox()
+    boundingBoxBounds = self % root % getBoundingBoxBounds()
 
-  end function getRootBoundingBox
+  end function getRootBoundingBoxBounds
 
 end module objectKDTree_class

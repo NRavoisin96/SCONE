@@ -227,7 +227,7 @@ contains
   !! Note:
   !!   Assumes that the coordinates are already inside the bounding box to begin with.
   !!
-  pure subroutine pushFromBoundary(self, coords, inside)
+  subroutine pushFromBoundary(self, coords, inside)
     class(axisAlignedBoundingBox), intent(in) :: self
     type(coord), intent(inout)                :: coords
     logical(defBool), intent(out)             :: inside

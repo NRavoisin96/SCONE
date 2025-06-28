@@ -4,23 +4,24 @@ module octreeNode_class
   use coord_class,                  only : coord
   use element_inter,                only : inclusionTestResult
   use elementShelf_class,           only : elementShelf
+  use face_inter,                   only : face
   use faceShelf_class,              only : faceShelf
   use genericProcedures,            only : append, areEqual, fatalError
   use objectKDTree_class,           only : objectKDTree
   use numPrecision
+  use node_inter,                   only : node, kill_super => kill
   use universalVariables,           only : HALF, INF, INSIDE_ELEMENT, NUDGE, ON_BOUNDARY_ELEMENT, OUTSIDE_ELEMENT
   use vertexShelf_class,            only : vertexShelf
 
   implicit none
   private
 
-  type, public :: octreeNode
+  type, public, extends(node) :: octreeNode
     private
     integer(shortInt)                            :: level = 0, nIntersectingFaces = 0
     integer(shortInt), dimension(:), allocatable :: elementIdxs
     logical(defBool)                             :: isUnchecked = .true., isInside = .false., isOutside = .false., &
-                                                    isIntersecting = .false., isLeaf = .false.
-    type(axisAlignedBoundingBox)                 :: boundingBox
+                                                    isIntersecting = .false.
     type(octreeNode), dimension(:), allocatable  :: children
     type(octreeNode), pointer                    :: parent => null()
   contains
@@ -56,7 +57,7 @@ contains
     type(inclusionTestResult)                    :: insideResult
 
     ! If the cell is not a leaf, descend deeper into the tree.
-    if (.not. self % isLeaf) then
+    if (.not. self % getIsLeaf()) then
       do i = 1, 8
         call self % children(i) % assignElement(tree, vertices, faces, elements)
 
@@ -70,7 +71,7 @@ contains
 
     ! If the cell is unchecked, find the nearest mesh face from the tree.
     self % isUnchecked = .false.
-    boundingBoxCentre = self % boundingBox % getCentre()
+    boundingBoxCentre = self % getBoundingBoxCentre()
     nearestFaceIdx = tree % findNearestObject(boundingBoxCentre, vertices, faces)
     
     ! Retrieve the elements associated with the nearest face.
@@ -105,7 +106,7 @@ contains
     integer(shortInt), intent(inout) :: nInside
     integer(shortInt)                :: i
 
-    if (.not. self % isLeaf) then
+    if (.not. self % getIsLeaf()) then
       do i = 1, 8
         call self % children(i) % countInside(nInside)
 
@@ -126,7 +127,7 @@ contains
     integer(shortInt), intent(inout) :: nOutside
     integer(shortInt)                :: i
 
-    if (.not. self % isLeaf) then
+    if (.not. self % getIsLeaf()) then
       do i = 1, 8
         call self % children(i) % countOutside(nOutside)
 
@@ -157,7 +158,7 @@ contains
 
     ! Perform containment check if needed.
     if (checkContainment) then
-      if (.not. self % boundingBox % contains(coords % getPositionToNudge())) then
+      if (.not. self % boundingBoxContains(coords % getPositionToNudge())) then
         if (associated(self % parent)) then
           call self % parent % findLeaf(coords, leaf, .true.)
 
@@ -172,7 +173,7 @@ contains
     end if
 
     ! Push coordinates from boundary of bounding box if applicable.
-    call self % boundingBox % pushFromBoundary(coords, inside)
+    call self % pushFromBoundingBoxBoundary(coords, inside)
 
     ! Check for overshoot.
     if (.not. inside) then
@@ -189,7 +190,7 @@ contains
     end if
 
     ! If cell is a leaf, simply associate the leaf pointer and return.
-    if (self % isLeaf) then
+    if (self % getIsLeaf()) then
       leaf => self
       return
 
@@ -197,7 +198,7 @@ contains
 
     ! Retrieve coordinates position and descend into correct child node.
     r = coords % getPositionToNudge()
-    boundingBoxCentre = self % boundingBox % getCentre()
+    boundingBoxCentre = self % getBoundingBoxCentre()
     idx = 1
     if (r(1) >= boundingBoxCentre(1)) idx = idx + 4
     if (r(2) >= boundingBoxCentre(2)) idx = idx + 2
@@ -263,19 +264,19 @@ contains
   !!
   !! Basic description:
   !!   
-  subroutine init(self, tree, vertices, faces, boundingBox, level, maxFacesNumber, maxRefinementLevel, &
+  subroutine init(self, boundingBoxBounds, tree, vertices, faces, level, maxFacesNumber, maxRefinementLevel, &
                   nLeaves, parent)
     class(octreeNode), intent(inout)               :: self
+    real(defReal), dimension(6), intent(in)        :: boundingBoxBounds
     type(objectKDTree), intent(in)                 :: tree
     type(vertexShelf), intent(in)                  :: vertices
     type(faceShelf), intent(in)                    :: faces
-    type(axisAlignedBoundingBox), intent(in)       :: boundingBox
     integer(shortInt), intent(in)                  :: level, maxFacesNumber, maxRefinementLevel
     integer(shortInt), intent(inout)               :: nLeaves
     type(octreeNode), intent(in), target, optional :: parent
 
     ! Set the cell's bounding box and level, then begin the recursive refinement procedure.
-    self % boundingBox = boundingBox
+    call self % initBoundingBox(boundingBoxBounds)
     self % level = level
     if (present(parent)) self % parent => parent
     call self % refine(tree, vertices, faces, maxFacesNumber, maxRefinementLevel, nLeaves)
@@ -289,7 +290,10 @@ contains
   !!
   pure recursive subroutine kill(self)
     class(octreeNode), intent(inout) :: self
-    integer(shortInt)                       :: i
+    integer(shortInt)                :: i
+
+    ! Superclass.
+    call kill_super(self)
 
     ! Local.
     self % level = 0
@@ -299,8 +303,6 @@ contains
     self % isInside = .false.
     self % isOutside = .false.
     self % isIntersecting = .false.
-    self % isLeaf = .false.
-    call self % boundingBox % kill()
     if (associated(self % parent)) nullify(self % parent)
     if (allocated(self % children)) then
       do i = 1, size(self % children)
@@ -327,6 +329,7 @@ contains
     integer(shortInt), intent(inout)             :: nLeaves
     integer(shortInt)                            :: potentialFaceIdx, i, nFaces, nIntersectedFaces
     integer(shortInt), dimension(:), allocatable :: potentialFaceIdxs, intersectedFaceIdxs
+    type(axisAlignedBoundingBox)                 :: boundingBox
 
     ! Use simplified logic for the root Cartesian grid cell.
     if (self % level == 1) then
@@ -338,8 +341,8 @@ contains
       ! If nFaces <= maxFacesNumber (very simple unstructured mesh geometries), there is no need
       ! to refine the cell and we can simply return.
       if (nFaces <= maxFacesNumber) then
+        call self % setIsLeaf()
         nLeaves = nLeaves + 1
-        self % isLeaf = .true.
         self % nIntersectingFaces = faces % getSize()
         allocate(intersectedFaceIdxs(self % nIntersectingFaces))
         do i = 1, self % nIntersectingFaces
@@ -359,16 +362,17 @@ contains
 
     ! Check the number of intersections between the current cell and the faces in the mesh by traversing the
     ! k-d tree starting from the root node.
-    call tree % findPotentiallyIntersectedObjects(self % boundingBox, potentialFaceIdxs)
+    boundingBox = self % getBoundingBox()
+    call tree % findPotentiallyIntersectedObjects(boundingBox, potentialFaceIdxs)
     nIntersectedFaces = 0
     do i = 1, size(potentialFaceIdxs)
       ! First check if bounding box intersects the current face's bounding box.
       potentialFaceIdx = potentialFaceIdxs(i)
-      if (.not. faces % intersectsFaceBoundingBox(potentialFaceIdx, self % boundingbox)) cycle
+      if (.not. faces % intersectsFaceBoundingBox(potentialFaceIdx, boundingbox)) cycle
 
       ! If the bounding boxes intersect, perform a test based on the separating axis theorem to determine if the bounding box actually
       ! intersects the face.
-      if (.not. faces % intersectsFace(potentialFaceIdx, vertices, self % boundingbox)) cycle
+      if (.not. faces % intersectsFace(potentialFaceIdx, vertices, boundingbox)) cycle
       
       ! For now, just increment nIntersectedPrimitives and append the index of the face to the list.
       nIntersectedFaces = nIntersectedFaces + 1
@@ -378,15 +382,15 @@ contains
 
     self % nIntersectingFaces = nIntersectedFaces
     if (nIntersectedFaces == 0) then
-      self % isLeaf = .true.
+      call self % setIsLeaf()
       nLeaves = nLeaves + 1
 
     else
       self % isUnchecked = .false.
       self % isIntersecting = .true.
       if (self % level == maxRefinementLevel .or. nIntersectedFaces <= maxFacesNumber) then
+        call self % setIsLeaf()
         nLeaves = nLeaves + 1
-        self % isLeaf = .true.
         self % elementIdxs = faces % getFaceElementIdxs(intersectedFaceIdxs)
 
       else
@@ -412,16 +416,15 @@ contains
     integer(shortInt), intent(in)           :: maxFacesNumber, maxRefinementLevel
     integer(shortInt), intent(inout)        :: nLeaves
     integer(shortInt)                       :: i, j, k, childIdx
-    real(defReal), dimension(3)             :: boundsCentre
-    real(defReal), dimension(6)             :: bounds, childBounds
-    type(axisAlignedBoundingBox)            :: boundingBox
+    real(defReal), dimension(3)             :: boundingBoxCentre
+    real(defReal), dimension(6)             :: boundingBoxBounds, childBoundingBoxBounds
 
     ! Allocate 8 children cells for the current cell.
     allocate(self % children(8))
 
     ! Compute the centre coordinates of the current cell's bounding box.
-    bounds = self % boundingBox % getBounds()
-    boundsCentre = self % boundingBox % getCentre()
+    boundingBoxBounds = self % getBoundingBoxBounds()
+    boundingBoxCentre = self % getBoundingBoxCentre()
 
     ! Loop through all children cells and initialise them.
     childIdx = 0
@@ -431,39 +434,38 @@ contains
           ! Increment childIdx and compute the bounding box of the new cell.
           childIdx = childIdx + 1
           if (i == 1) then
-            childBounds(1) = bounds(1)
-            childBounds(4) = boundsCentre(1)
+            childBoundingBoxBounds(1) = boundingBoxBounds(1)
+            childBoundingBoxBounds(4) = boundingBoxCentre(1)
 
           else
-            childBounds(1) = boundsCentre(1)
-            childBounds(4) = bounds(4)
+            childBoundingBoxBounds(1) = boundingBoxCentre(1)
+            childBoundingBoxBounds(4) = boundingBoxBounds(4)
 
           end if
 
           if (j == 1) then
-            childBounds(2) = bounds(2)
-            childBounds(5) = boundsCentre(2)
+            childBoundingBoxBounds(2) = boundingBoxBounds(2)
+            childBoundingBoxBounds(5) = boundingBoxCentre(2)
 
           else
-            childBounds(2) = boundsCentre(2)
-            childBounds(5) = bounds(5)
+            childBoundingBoxBounds(2) = boundingBoxCentre(2)
+            childBoundingBoxBounds(5) = boundingBoxBounds(5)
 
           end if
 
           if (k == 1) then
-            childBounds(3) = bounds(3)
-            childBounds(6) = boundsCentre(3)
+            childBoundingBoxBounds(3) = boundingBoxBounds(3)
+            childBoundingBoxBounds(6) = boundingBoxCentre(3)
 
           else
-            childBounds(3) = boundsCentre(3)
-            childBounds(6) = bounds(6)
+            childBoundingBoxBounds(3) = boundingBoxCentre(3)
+            childBoundingBoxBounds(6) = boundingBoxBounds(6)
 
           end if
 
           ! Initialise the new cell with the computed bounding box.
-          call boundingBox % init(childBounds)
-          call self % children(childIdx) % init(tree, vertices, faces, boundingBox, self % level + 1, &
-                                                maxFacesNumber, maxRefinementLevel, nLeaves, self)
+          call self % children(childIdx) % init(childBoundingBoxBounds, tree, vertices, faces, &
+                                                self % level + 1, maxFacesNumber, maxRefinementLevel, nLeaves, self)
 
         end do
 

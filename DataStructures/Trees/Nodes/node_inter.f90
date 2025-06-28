@@ -45,20 +45,37 @@ module node_inter
     type(axisAlignedBoundingBox) :: boundingBox
   contains
     ! Build procedures.
-    procedure :: kill
-    procedure :: setBoundingBox
-    procedure :: setIdx
-    procedure :: setIsLeaf
-    procedure :: setParentIdx
+    procedure          :: initBoundingBox
+    procedure          :: kill
+    procedure          :: setBoundingBox
+    procedure          :: setIdx
+    procedure          :: setIsLeaf
+    procedure          :: setParentIdx
     ! Runtime procedures.
-    procedure :: getBoundingBox
-    procedure :: getBucketSize
-    procedure :: getIdx
-    procedure :: getIsLeaf
-    procedure :: getParentIdx
+    generic            :: boundingBoxContains => boundingBoxContains_Coords
+    procedure, private :: boundingBoxContains_Coords
+    procedure          :: getBoundingBox
+    procedure          :: getBoundingBoxBounds
+    procedure          :: getBoundingBoxCentre
+    procedure          :: getBucketSize
+    procedure          :: getIdx
+    procedure          :: getIsLeaf
+    procedure          :: getParentIdx
+    procedure          :: pushFromBoundingBoxBoundary
   end type node
 
 contains
+  !!
+  !!
+  !!
+  pure subroutine initBoundingBox(self, bounds)
+    class(node), intent(inout)              :: self
+    real(defReal), dimension(6), intent(in) :: bounds
+
+    call self % boundingBox % init(bounds)
+
+  end subroutine initBoundingBox
+
   !! Subroutine 'kill'
   !!
   !! Basic description:
@@ -75,6 +92,18 @@ contains
 
   end subroutine kill
 
+  !!
+  !!
+  !!
+  pure function boundingBoxContains_Coords(self, r) result(doesIt)
+    class(node), intent(in)                 :: self
+    real(defReal), dimension(3), intent(in) :: r
+    logical(defBool)                        :: doesIt
+
+    doesIt = self % boundingBox % contains(r)
+
+  end function boundingBoxContains_Coords
+
   !! Function 'getBoundingBox'
   !!
   !! Basic description:
@@ -83,13 +112,35 @@ contains
   !! Result:
   !!   boundingBox -> Bounding box of the node.
   !!
-  pure function getBoundingBox(self) result(boundingBox)
+  elemental function getBoundingBox(self) result(boundingBox)
     class(node), intent(in)      :: self
     type(axisAlignedBoundingBox) :: boundingBox
 
     boundingBox = self % boundingBox
 
   end function getBoundingBox
+
+  !!
+  !!
+  !!
+  pure function getBoundingBoxBounds(self) result(boundingBoxBounds)
+    class(node), intent(in)     :: self
+    real(defReal), dimension(6) :: boundingBoxBounds
+
+    boundingBoxBounds = self % boundingBox % getBounds()
+
+  end function getBoundingBoxBounds
+
+  !!
+  !!
+  !!
+  pure function getBoundingBoxCentre(self) result(boundingBoxCentre)
+    class(node), intent(in)     :: self
+    real(defReal), dimension(3) :: boundingBoxCentre
+
+    boundingBoxCentre = self % boundingBox % getCentre()
+
+  end function getBoundingBoxCentre
 
   !!
   !!
@@ -134,6 +185,18 @@ contains
     parentIdx = self % parentIdx
 
   end function getParentIdx
+
+  !!
+  !!
+  !!
+  subroutine pushFromBoundingBoxBoundary(self, coords, inside)
+    class(node), intent(in)       :: self
+    type(coord), intent(inout)    :: coords
+    logical(defBool), intent(out) :: inside
+
+    call self % boundingBox % pushFromBoundary(coords, inside)
+
+  end subroutine pushFromBoundingBoxBoundary
 
   !!
   !!

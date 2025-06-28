@@ -1,6 +1,5 @@
 module octree_class
 
-  use axisAlignedBoundingBox_class, only : axisAlignedBoundingBox
   use coord_class,                  only : coord
   use dictionary_class,             only : dictionary
   use elementShelf_class,           only : elementShelf
@@ -77,15 +76,14 @@ contains
     type(faceShelf), intent(in)    :: faces
     type(elementShelf), intent(in) :: elements
     type(objectKDTree)             :: tree
-    type(axisAlignedBoundingBox)   :: boundingBox, rootBoundingBox
+    real(defReal), dimension(6)    :: boundingBoxBounds
 
     ! Initialise k-d trees from the unstructured mesh faces and elements, then build the Cartesian grid's 
     ! root cell and all its children cells.
     call tree % init(faces % getAllFaceCentroids(), faces % getAllFaceBoundingBoxes())
 
-    rootBoundingBox = tree % getRootBoundingBox()
-    call boundingBox % init(rootBoundingBox % getBounds() + [-NUDGE, -NUDGE, -NUDGE, NUDGE, NUDGE, NUDGE])
-    call self % root % init(tree, vertices, faces, boundingBox, 1, &
+    boundingBoxBounds = tree % getRootBoundingBoxBounds() + [-NUDGE, -NUDGE, -NUDGE, NUDGE, NUDGE, NUDGE]
+    call self % root % init(boundingBoxBounds, tree, vertices, faces, 1, &
                             self % maxFacesNumber, self % maxRefinementLevel, self % nLeaves)
 
     ! After the refinement process, assign empty cells to their correct element.
