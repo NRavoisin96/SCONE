@@ -1,15 +1,16 @@
 type eigenPhysicsPackage;
 
-pop      20000;
+pop      200;
 active   200;
 inactive 100;
 XSdata ce;
 dataType ce;
+seed 3;
 
 collisionOperator { neutronCE {type neutronCEstd;}
                     neutronMG {type neutronMGstd;} }
 
-transportOperator { type transportOperatorST; }
+transportOperator { type transportOperatorDT; }
 
 inactiveTally {}
 
@@ -24,7 +25,7 @@ geometry {
   	graph {type shrunk;}
 
   	surfaces {
-		boxContainer { id 1; type box; origin (0.0 0.0 0.0); halfwidth (115.0 115.0 115.0); }
+		boxContainer { id 1; type box; origin (0.0 0.0 0.0); halfwidth (120.0 120.0 120.0); }
   	}
 
 	cells {
@@ -32,7 +33,7 @@ geometry {
   	}
 
 	meshes { 
-		testMesh {id 1; type OpenFOAMMesh; path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/StanfordBunny_LowPoly/;}
+		testMesh {id 1; type OpenFOAMMesh; path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/StanfordBunny_LowPoly/; accelerationMethod octree;}
 	}
 
 	universes {
@@ -66,8 +67,8 @@ nuclearData {
     		fuel {
       			temp 87476;
        			composition {
-      				92235.03  3.00E-002;
-      				92238.03  0.97;
+      				92235.03  1.450E-003;
+      				92238.03  4.690E-002;
 			}
       		}
 

@@ -19,7 +19,6 @@ module octree_class
   type, public :: octree
     private
     integer(shortInt)  :: nLeaves = 0, maxFacesNumber = 4, maxRefinementLevel = 10
-    type(objectKDTree) :: tree
     type(octreeNode)   :: root
   contains
     ! Build procedures.
@@ -77,19 +76,23 @@ contains
     type(vertexShelf), intent(in)  :: vertices
     type(faceShelf), intent(in)    :: faces
     type(elementShelf), intent(in) :: elements
+    type(objectKDTree)             :: tree
     type(axisAlignedBoundingBox)   :: boundingBox, rootBoundingBox
 
     ! Initialise k-d trees from the unstructured mesh faces and elements, then build the Cartesian grid's 
     ! root cell and all its children cells.
-    call self % tree % init(faces % getAllFaceCentroids(), faces % getAllFaceBoundingBoxes())
+    call tree % init(faces % getAllFaceCentroids(), faces % getAllFaceBoundingBoxes())
 
-    rootBoundingBox = self % tree % getRootBoundingBox()
+    rootBoundingBox = tree % getRootBoundingBox()
     call boundingBox % init(rootBoundingBox % getBounds() + [-NUDGE, -NUDGE, -NUDGE, NUDGE, NUDGE, NUDGE])
-    call self % root % init(self % tree, vertices, faces, boundingBox, 1, &
+    call self % root % init(tree, vertices, faces, boundingBox, 1, &
                             self % maxFacesNumber, self % maxRefinementLevel, self % nLeaves)
 
     ! After the refinement process, assign empty cells to their correct element.
-    call self % root % assignElement(self % tree, vertices, faces, elements)
+    call self % root % assignElement(tree, vertices, faces, elements)
+
+    ! Kill the k-d tree as it is no longer needed.
+    call tree % kill()
 
   end subroutine init
 
@@ -101,7 +104,6 @@ contains
 
     ! Local.
     self % nLeaves = 0
-    call self % tree % kill()
     call self % root % kill()
 
   end subroutine kill
