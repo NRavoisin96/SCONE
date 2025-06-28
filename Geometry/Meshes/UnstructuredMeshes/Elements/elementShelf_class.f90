@@ -155,7 +155,7 @@ contains
   !!
   !!
   !!
-  pure subroutine buildElement(self, idx, parentIdx, faceIdxs, vertexIdxs, faces, vertices, type, boundingBox)
+  subroutine buildElement(self, idx, parentIdx, faceIdxs, vertexIdxs, faces, vertices, type, boundingBox)
     class(elementShelf), intent(inout)          :: self
     integer(shortInt), intent(in)               :: idx, parentIdx
     integer(shortInt), dimension(:), intent(in) :: faceIdxs, vertexIdxs

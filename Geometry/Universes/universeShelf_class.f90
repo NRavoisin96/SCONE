@@ -269,6 +269,7 @@ contains
     if (allocated(self % unis)) then
         do i = 1, size(self % unis)
             call self % unis(i) % ptr % kill()
+            deallocate(self % unis(i) % ptr)
             if (allocated(self % unis(i) % name)) deallocate(self % unis(i) % name)
         
         end do

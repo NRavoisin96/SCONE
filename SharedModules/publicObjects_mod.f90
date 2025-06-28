@@ -1,8 +1,9 @@
 module publicObjects
 
   use numPrecision
-  use RNG_class,          only : RNG
-  use universalVariables, only : ZERO
+  use RNG_class,               only : RNG
+  use topologicalObject_inter, only : topologicalObject
+  use universalVariables,      only : ZERO
 
   implicit none
   public

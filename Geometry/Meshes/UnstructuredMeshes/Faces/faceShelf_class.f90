@@ -163,7 +163,7 @@ contains
   !!
   !!
   !!
-  pure subroutine buildFace(self, idx, faceIdx, isBoundary, vertexIdxs, vertices, type, boundingBox, testCentroid)
+  subroutine buildFace(self, idx, faceIdx, isBoundary, vertexIdxs, vertices, type, boundingBox, testCentroid)
     class(faceShelf), intent(inout)                   :: self
     integer(shortInt), intent(in)                     :: idx, faceIdx
     logical(defBool), intent(in)                      :: isBoundary
@@ -197,7 +197,7 @@ contains
   !!   edgeIdx [out]   -> Used in case the line segment intersects the face at one of its edges.
   !!   vertexIdx [out] -> Used in case the line segment intersects the face at one of its vertices.
   !!
-  pure subroutine computeFaceIntersection(self, idx, coords, vertices, d)
+  subroutine computeFaceIntersection(self, idx, coords, vertices, d)
     class(faceShelf), intent(in)            :: self
     integer(shortInt), intent(in)           :: idx
     type(coord), intent(in)                 :: coords
@@ -211,7 +211,7 @@ contains
   !! Function 'distanceSquaredFromFace'
   !!
   !!
-  pure function distanceSquaredFromFace(self, idx, r, vertices) result(dSquared)
+  function distanceSquaredFromFace(self, idx, r, vertices) result(dSquared)
     class(faceShelf), intent(in)            :: self
     integer(shortInt), intent(in)           :: idx
     real(defReal), dimension(3), intent(in) :: r
@@ -629,7 +629,7 @@ contains
   !!
   !!
   !!
-  elemental function intersectsFace_BoundingBox(self, idx, vertices, boundingBox) result(doesIt)
+  function intersectsFace_BoundingBox(self, idx, vertices, boundingBox) result(doesIt)
     class(faceShelf), intent(in)             :: self
     integer(shortInt), intent(in)            :: idx
     type(vertexShelf), intent(in)            :: vertices

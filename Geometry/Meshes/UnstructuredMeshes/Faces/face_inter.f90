@@ -112,7 +112,7 @@ module face_inter
     !!   fatalError if area is negative.
     !!   fatalError if area is infinite.
     !!
-    pure subroutine computeComponents(self, vertexIdxs, vertices, centroid, normal, area)
+    subroutine computeComponents(self, vertexIdxs, vertices, centroid, normal, area)
       import                                      :: face, shortInt, vertexShelf, defReal
       class(face), intent(inout)                  :: self
       integer(shortInt), dimension(:), intent(in) :: vertexIdxs
@@ -125,7 +125,7 @@ module face_inter
     !!
     !!
     !!
-    pure subroutine createTriangle(self, lastNewFaceIdx, edgeIdxs, newVertices, newTriangle, vertexIdxs, boundingBox)
+    subroutine createTriangle(self, lastNewFaceIdx, edgeIdxs, newVertices, newTriangle, vertexIdxs, boundingBox)
       import                                         :: axisAlignedBoundingBox, face, shortInt, vertexShelf, faceBox, &
                                                         defReal
       class(face), intent(in)                        :: self
@@ -209,7 +209,7 @@ contains
   !!
   !!
   !!
-  pure subroutine build(self, idx, faceIdx, isBoundary, vertexIdxs, vertices, type, boundingBox, testCentroid, edgeIdxs)
+  subroutine build(self, idx, faceIdx, isBoundary, vertexIdxs, vertices, type, boundingBox, testCentroid, edgeIdxs)
     class(face), intent(inout)                            :: self
     integer(shortInt), intent(in)                         :: idx, faceIdx
     logical(defBool), intent(in)                          :: isBoundary
@@ -260,7 +260,7 @@ contains
   !!   isIntersecting [out]   -> .true. if the line segment intersects the triangle.
   !!   d [out]                -> Distance from the line segment's origin to the point of intersection.
   !!
-  pure subroutine computeIntersection(self, coords, vertices, d)
+  subroutine computeIntersection(self, coords, vertices, d)
     class(face), intent(in)                            :: self
     type(coord), intent(in)                            :: coords
     type(vertexShelf), intent(in)                      :: vertices
@@ -303,7 +303,7 @@ contains
   !!
   !!
   !!
-  pure function distanceSquared(self, r, vertices) result(dSquared)
+  function distanceSquared(self, r, vertices) result(dSquared)
     class(face), intent(in)                 :: self
     real(defReal), dimension(3), intent(in) :: r
     type(vertexShelf), intent(in)           :: vertices
@@ -342,7 +342,7 @@ contains
   !!
   !!
   !!
-  pure function distanceSquaredToEdge(self, r, vertices, idx, nextIdx) result(dSquared)
+  function distanceSquaredToEdge(self, r, vertices, idx, nextIdx) result(dSquared)
     class(face), intent(in)                 :: self
     real(defReal), dimension(3), intent(in) :: r
     type(vertexShelf), intent(in)           :: vertices
@@ -642,7 +642,7 @@ contains
   !!
   !!
   !!
-  elemental subroutine intersects_BoundingBox(self, vertices, boundingBox, doesIt)
+  subroutine intersects_BoundingBox(self, vertices, boundingBox, doesIt)
     class(face), intent(in)                              :: self
     type(vertexShelf), intent(in)                        :: vertices
     type(axisAlignedBoundingBox), intent(in)             :: boundingBox
@@ -737,7 +737,7 @@ contains
   !!
   !!
   !!
-  pure function isPointInside(self, r, vertices) result(isIt)
+  function isPointInside(self, r, vertices) result(isIt)
     class(face), intent(in)                 :: self
     real(defReal), dimension(3), intent(in) :: r
     type(vertexShelf), intent(in)           :: vertices

@@ -49,7 +49,7 @@ contains
   !!   fatalError if area is negative.
   !!   fatalError if area is infinite.
   !!
-  pure subroutine computeComponents(self, vertexIdxs, vertices, centroid, normal, area)
+  subroutine computeComponents(self, vertexIdxs, vertices, centroid, normal, area)
     class(polygon), intent(inout)               :: self
     integer(shortInt), dimension(:), intent(in) :: vertexIdxs
     type(vertexShelf), intent(in)               :: vertices
@@ -105,7 +105,7 @@ contains
   !!
   !!
   !!
-  pure subroutine createTriangle(self, lastNewFaceIdx, edgeIdxs, newVertices, newTriangle, vertexIdxs, boundingBox)
+  subroutine createTriangle(self, lastNewFaceIdx, edgeIdxs, newVertices, newTriangle, vertexIdxs, boundingBox)
     class(polygon), intent(in)                     :: self
     integer(shortInt), intent(in)                  :: lastNewFaceIdx
     integer(shortInt), dimension(3), intent(in)    :: edgeIdxs

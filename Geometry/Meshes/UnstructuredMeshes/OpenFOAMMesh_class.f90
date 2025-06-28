@@ -338,7 +338,7 @@ contains
     call vertices % allocateShelf(self % nVertices)
     
     ! Import vertices and set mesh bounding box.
-    call self % initVertexShelf(vertices, folderPath)
+    call self % initVertexShelf(folderPath, vertices)
     call boundingBox % init(vertices % getExtremalCoordinates())
     call self % setBoundingBox(boundingBox)
 
@@ -746,77 +746,63 @@ contains
   !! Arguments:
   !!   folderPath [in] -> Path to the folder containing the mesh files.
   !!
-  subroutine initVertexShelf(self, vertices, folderPath)
-    class(OpenFOAMMesh), intent(in)   :: self
-    class(vertexShelf), intent(inout) :: vertices
-    character(*), intent(in)          :: folderPath
-    integer(shortInt)                 :: i, j, leftBracketIdx, rightBracketIdx
-    integer(shortInt), parameter      :: unit = 10
-    real(defReal), dimension(3)       :: coordinates, offset
-    real(defReal), dimension(6)       :: extremalCoordinates
-    logical(defBool)                  :: singleLine
-    character(150)                    :: string ! Note: here the string is longer than usual to deal
-                                                ! with cases when all vertices are written on a
-                                                ! single line.
+  subroutine initVertexShelf(self, folderPath, vertices)
+    class(OpenFOAMMesh), intent(in)             :: self
+    character(*), intent(in)                    :: folderPath
+    class(vertexShelf), intent(inout)           :: vertices
+    integer(shortInt)                           :: i, ios
+    integer(shortInt), parameter                :: unit = 10
+    real(defReal), dimension(:, :), allocatable :: coords
+    logical(defBool)                            :: singleLine
+    character(:), allocatable                   :: dataBuffer
+    character(256)                              :: lineBuffer ! Note: here the string is longer than usual to deal
+                                                              ! with cases when all vertices are written on a
+                                                              ! single line.
+    character(*), parameter                     :: here = 'initVertexShelf (OpenFOAMMEsh_class.f90)'
 
-    ! Open the 'points' file and read it until a line containing the symbol ')' is encountered.
+    ! Open the 'points' file.
     call openToRead(unit, folderPath//'points')
-    read(unit, "(a)") string
-    do while (index(string(1:len_trim(string)), ")") == 0)
-      read(unit, "(a)") string
+
+    ! Read until the start line is encountered.
+    do
+      read(unit, '(a)', iostat = ios) lineBuffer
+      if (ios /= 0) call fatalError(here, 'Could not find start of data block.')
+      if (index(trim(lineBuffer), '(') > 0) exit ! Exit when we find the start
 
     end do
 
-    ! Initialise singleLine = .false. and check if all vertices are written on a single line.
-    ! If yes, update singleLine and erase the leftmost bracket from the string.
-    singleLine = .false.
-    if (string(2:2) == '(') then
-      singleLine = .true.
-      string(1:1) = ''
+    ! Allocate memory to the coords array.
+    allocate(coords(3, self % nVertices))
+
+    ! The buffer now holds either the single data line '((-0.5...)...)' or the opening parenthesis line '('.
+    ! Check if the line contains a closing parenthesis to determine the format.
+    singleLine = index(trim(lineBuffer), ')') > 0
+
+    ! Retrieve coordinates depending on whether they are all on a single line or not.
+    if (singleLine) then
+      dataBuffer = trim(lineBuffer)
+      ! Replace all parentheses by blank spaces in the buffer.
+      do i = 1, len(dataBuffer)
+        if (dataBuffer(i:i) == '(' .or. dataBuffer(i:i) == ')') dataBuffer(i:i) = ' '
+
+      end do
+      ! Read all coordinates in one go.
+      read(dataBuffer, *) coords
+
+    else
+      do i = 1, self % nVertices
+        read(unit, '(a)') lineBuffer
+        read(lineBuffer(2:len_trim(lineBuffer) - 1), *) coords(:, i)
+
+      end do
 
     end if
 
-    ! Retrieve shelf offset then loop over all vertices.
-    offset = vertices % getOffset()
-    do i = 1, self % nVertices
-      if (singleLine) then
-        ! Locate the leftmost and rightmost brackets. Read the coordinates between the
-        ! brackets and remove them from the string.
-        leftBracketIdx = index(string, '(')
-        rightBracketIdx = index(string, ')')
-        read(string(leftBracketIdx + 1:rightBracketIdx - 1), *) coordinates
-        string(leftBracketIdx:leftBracketIdx) = ''
-        string(rightBracketIdx:rightBracketIdx) = ''
-
-      else
-        ! Read the coordinates of the current vertex and move onto the next line.
-        read(string(2:len_trim(string) - 1), *) coordinates
-        read(unit, "(a)") string
-
-      end if
-
-      ! Set the index and coordinates of the current vertex. Apply offset in the process.
-      call vertices % initVertex(i, coordinates + offset)
-
-      ! Update extremal coordinates.
-      if (i == 1) then
-        extremalCoordinates = [coordinates, coordinates]
-
-      else
-        do j = 1, 3
-          extremalCoordinates(j) = min(coordinates(j), extremalCoordinates(j))
-          extremalCoordinates(j + 3) = max(coordinates(j), extremalCoordinates(j + 3))
-  
-        end do
-
-      end if
-
-    end do
-    ! Update extremal coordinates in the shelf.
-    call vertices % setExtremalCoordinates(extremalCoordinates)
-
-    ! Close the 'points' file.
     close(unit)
+
+    ! Get offset and apply it to the coordinates.
+    coords = coords + spread(vertices % getOffset(), 2, self % nVertices)
+    call vertices % init(coords)
 
   end subroutine initVertexShelf
 

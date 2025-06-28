@@ -1,8 +1,11 @@
 module vertexShelf_class
   
   use numPrecision
-  use genericProcedures, only : append, findCommon
-  use vertex_class,      only : vertex
+  use genericProcedures,            only : append, fatalError, findCommon, numToChar
+  use topologicalObject_inter,      only : topologicalObject, topologicalObjectBox
+  use topologicalObjectShelf_inter, only : topologicalObjectShelf, kill_super => kill
+  use vertex_class,                 only : vertex, vertexBox
+  use vertexFactory_func,           only : newVertexPtr
   
   implicit none
   private
@@ -17,23 +20,19 @@ module vertexShelf_class
   !!   extremalCoordinates -> Array of minimum and maximum x-, y- and z-
   !!                          coordinates in the shelf.
   !!
-  type, public :: vertexShelf
+  type, public, extends(topologicalObjectShelf) :: vertexShelf
     private
-    type(vertex), dimension(:), allocatable :: shelf
-    real(defReal), dimension(3)             :: offset = ZERO
-    real(defReal), dimension(6)             :: extremalCoordinates = ZERO
+    real(defReal), dimension(3)                 :: offset = ZERO
+    real(defReal), dimension(6)                 :: extremalCoordinates = ZERO
   contains
     procedure                               :: addEdgeIdxToVertex
     procedure                               :: addElementIdxToVertex
     procedure                               :: addFaceIdxToVertex
-    procedure                               :: allocateShelf
-    procedure                               :: expandShelf
     procedure                               :: findCommonEdgeIdx
     procedure                               :: findCommonFaceIdx
     procedure                               :: getAllCoordinates
     procedure                               :: getExtremalCoordinates
     procedure                               :: getOffset
-    procedure                               :: getSize
     generic                                 :: getVertexCoordinates => getVertexCoordinates_shortInt, &
                                                                        getVertexCoordinates_shortIntArray
     procedure, private                      :: getVertexCoordinates_shortInt
@@ -44,6 +43,10 @@ module vertexShelf_class
                                                                     getVertexFaceIdxs_shortIntArray
     procedure, private                      :: getVertexFaceIdxs_shortInt
     procedure, private                      :: getVertexFaceIdxs_shortIntArray
+    generic                                 :: getVertexBox => getVertexBox_shortInt, getVertexBox_shortIntArray
+    procedure, private                      :: getVertexBox_shortInt
+    procedure, private                      :: getVertexBox_shortIntArray
+    procedure                               :: init
     procedure                               :: initVertex
     procedure                               :: kill
     procedure                               :: setExtremalCoordinates
@@ -51,7 +54,6 @@ module vertexShelf_class
   end type 
 
 contains
-
   !! Subroutine 'addEdgeIdxToVertex'
   !!
   !! Basic description:
@@ -61,11 +63,13 @@ contains
   !!   vertexIdx [in] -> Index of the vertex in the shelf.
   !!   edgeIdx [in]   -> Index of the edge containing the vertex.
   !!
-  elemental subroutine addEdgeIdxToVertex(self, vertexIdx, edgeIdx)
+  subroutine addEdgeIdxToVertex(self, vertexIdx, edgeIdx)
     class(vertexShelf), intent(inout) :: self
     integer(shortInt), intent(in)     :: vertexIdx, edgeIdx
+    type(vertexBox)                   :: box
 
-    call self % shelf(vertexIdx) % addEdgeIdx(edgeIdx)
+    box = self % getVertexBox(vertexIdx)
+    call box % ptr % addEdgeIdx(edgeIdx)
 
   end subroutine addEdgeIdxToVertex
 
@@ -78,11 +82,13 @@ contains
   !!   vertexIdx [in]  -> Index of the vertex in the shelf.
   !!   elementIdx [in] -> Index of the element containing the vertex.
   !!
-  elemental subroutine addElementIdxToVertex(self, vertexIdx, elementIdx)
+  subroutine addElementIdxToVertex(self, vertexIdx, elementIdx)
     class(vertexShelf), intent(inout) :: self
     integer(shortInt), intent(in)     :: vertexIdx, elementIdx
+    type(vertexBox)                   :: box
 
-    call self % shelf(vertexIdx) % addElementIdx(elementIdx)
+    box = self % getVertexBox(vertexIdx)
+    call box % ptr % addElementIdx(elementIdx)
 
   end subroutine addElementIdxToVertex
 
@@ -95,62 +101,15 @@ contains
   !!   vertexIdx [in] -> Index of the vertex in the shelf.
   !!   faceIdx [in]   -> Index of the face containing the vertex.
   !!
-  elemental subroutine addFaceIdxToVertex(self, vertexIdx, faceIdx)
+  subroutine addFaceIdxToVertex(self, vertexIdx, faceIdx)
     class(vertexShelf), intent(inout) :: self
     integer(shortInt), intent(in)     :: vertexIdx, faceIdx
+    type(vertexBox)                   :: box
 
-    call self % shelf(vertexIdx) % addFaceIdx(faceIdx)
+    box = self % getVertexBox(vertexIdx)
+    call box % ptr % addFaceIdx(faceIdx)
 
   end subroutine addFaceIdxToVertex
-
-  !! Subroutine 'allocateShelf'
-  !!
-  !! Basic description:
-  !!   Allocates memory in the shelf.
-  !!
-  !! Arguments:
-  !!   nVertices [in] -> Number of vertices to be included in the shelf.
-  !!
-  elemental subroutine allocateShelf(self, nVertices)
-    class(vertexShelf), intent(inout) :: self
-    integer(shortInt), intent(in)     :: nVertices
-
-    allocate(self % shelf(nVertices))
-
-  end subroutine allocateShelf
-
-  !! Subroutine 'expandShelf'
-  !!
-  !! Basic description:
-  !!   Expands the shelf by a specified number of additional vertices. Copies elements
-  !!   already present. Allocates the shelf if it is not allocated yet.
-  !!
-  !! Arguments:
-  !!   nAdditionalVertices [in] -> Number of additional vertices to be included in the shelf.
-  !!
-  elemental subroutine expandShelf(self, nAdditionalVertices)
-    class(vertexShelf), intent(inout)       :: self
-    integer(shortInt), intent(in)           :: nAdditionalVertices
-    integer(shortInt)                       :: nVertices
-    type(vertex), dimension(:), allocatable :: shelf
-
-    if (allocated(self % shelf)) then
-      ! If shelf is already allocated, compute the number of vertices in the shelf to be expanded
-      ! and copy elements already present.
-      nVertices = size(self % shelf)
-      shelf = self % shelf
-      
-      ! Deallocate shelf and reallocate to new size then copy original elements.
-      deallocate(self % shelf)
-      allocate(self % shelf(nVertices + nAdditionalVertices))
-      self % shelf(1:nVertices) = shelf
-
-    else
-      allocate(self % shelf(nAdditionalVertices))
-
-    end if
-
-  end subroutine expandShelf
 
   !! Function 'findCommonEdgeIdx'
   !!
@@ -164,18 +123,23 @@ contains
   !! Result:
   !!   edgeIdx              -> Index of the edge containing the two vertices.
   !!
-  elemental function findCommonEdgeIdx(self, firstVertexIdx, secondVertexIdx) result(edgeIdx)
+  function findCommonEdgeIdx(self, firstVertexIdx, secondVertexIdx) result(edgeIdx)
     class(vertexShelf), intent(in)               :: self
     integer(shortInt), intent(in)                :: firstVertexIdx, secondVertexIdx
-    integer(shortInt)                            :: edgeIdx
+    type(vertexBox), dimension(2)                :: boxes
+    integer(shortInt)                            :: edgeIdx, i
     integer(shortInt), dimension(:), allocatable :: commonIdxs
 
     ! Initialise edgeIdx = 0 and return immediately if any vertices are not associated with edges.
     edgeIdx = 0
-    if (.not. self % shelf(firstVertexIdx) % hasEdges() .or. .not. self % shelf(secondVertexIdx) % hasEdges()) return
+    boxes = self % getVertexBox([firstVertexIdx, secondVertexIdx])
+    do i = 1, 2
+      if (.not. boxes(i) % ptr % hasEdges()) return
+
+    end do
     
     ! Find common edge indices. Update edgeIdx only if common indices have been found.
-    commonIdxs = findCommon(self % shelf(firstVertexIdx) % getEdgeIdxs(), self % shelf(secondVertexIdx) % getEdgeIdxs())
+    commonIdxs = findCommon(boxes(1) % ptr % getEdgeIdxs(), boxes(2) % ptr % getEdgeIdxs())
     if (size(commonIdxs) > 0) edgeIdx = commonIdxs(1)
 
   end function findCommonEdgeIdx
@@ -191,20 +155,25 @@ contains
   !! Result:
   !!   triangleIdx     -> Index of the triangle containing the two vertices.
   !!
-  pure function findCommonFaceIdx(self, vertexIdxs) result(faceIdx)
+  function findCommonFaceIdx(self, vertexIdxs) result(faceIdx)
     class(vertexShelf), intent(in)               :: self
     integer(shortInt), dimension(3), intent(in)  :: vertexIdxs
+    type(vertexBox), dimension(3)                :: boxes
     integer(shortInt)                            :: faceIdx, i
     integer(shortInt), dimension(:), allocatable :: commonIdxs
 
     ! Initialise triangleIdx = 0 and return immediately if any vertices are not associated with triangles.
     faceIdx = 0
-    if (any(.not. self % shelf(vertexIdxs) % hasFaces(), 1)) return
+    boxes = self % getVertexBox(vertexIdxs)
+    do i = 1, 3
+      if (.not. boxes(i) % ptr % hasFaces()) return
+
+    end do
     
     ! Find common edge indices. Update edgeIdx only if common indices have been found.
-    commonIdxs = self % shelf(vertexIdxs(1)) % getFaceIdxs()
+    commonIdxs = boxes(1) % ptr % getFaceIdxs()
     do i = 2, 3
-      commonIdxs = findCommon(commonIdxs, self % shelf(vertexIdxs(i)) % getFaceIdxs())
+      commonIdxs = findCommon(commonIdxs, boxes(i) % ptr % getFaceIdxs())
 
     end do
     if (size(commonIdxs) > 0) faceIdx = commonIdxs(1)
@@ -219,13 +188,15 @@ contains
   !! Result:
   !!   allCoordinates -> Array listing the 3-D coordinates of all the vertices.
   !!
-  pure function getAllCoordinates(self) result(allCoordinates)
-    class(vertexShelf), intent(in)                  :: self
-    real(defReal), dimension(3, size(self % shelf)) :: allCoordinates
-    integer(shortInt)                               :: i
+  function getAllCoordinates(self) result(allCoordinates)
+    class(vertexShelf), intent(in)                :: self
+    real(defReal), dimension(3, self % getSize()) :: allCoordinates
+    integer(shortInt)                             :: i
+    type(vertexBox)                               :: box
 
-    do i = 1, size(self % shelf)
-      allCoordinates(:, i) = self % shelf(i) % getCoordinates()
+    do i = 1, self % getSize()
+      box = self % getVertexBox(i)
+      allCoordinates(:, i) = box % ptr % getCoordinates()
 
     end do
 
@@ -241,8 +212,8 @@ contains
   !!   and z-coordinates, while the last three list the maximum x-, y- and z-coordinates.
   !!
   pure function getExtremalCoordinates(self) result(extremalCoordinates)
-    class(vertexShelf), intent(in)                :: self
-    real(defReal), dimension(6)                   :: extremalCoordinates
+    class(vertexShelf), intent(in) :: self
+    real(defReal), dimension(6)    :: extremalCoordinates
     
     extremalCoordinates = self % extremalCoordinates
 
@@ -263,22 +234,6 @@ contains
     offset = self % offset
 
   end function getOffset
-  
-  !! Function 'getSize'
-  !!
-  !! Basic description:
-  !!   Returns the size of the shelf.
-  !!
-  !! Result:
-  !!   nVertices -> Size of the shelf.
-  !!
-  elemental function getSize(self) result(nVertices)
-    class(vertexShelf), intent(in) :: self
-    integer(shortInt)              :: nVertices
-    
-    nVertices = size(self % shelf)
-
-  end function getSize
 
   !! Function 'getVertexCoordinates_shortInt'
   !!
@@ -291,12 +246,14 @@ contains
   !! Result:
   !!   coords   -> 3-D coordinates of the vertex.
   !!
-  pure function getVertexCoordinates_shortInt(self, idx) result(coords)
+  function getVertexCoordinates_shortInt(self, idx) result(coords)
     class(vertexShelf), intent(in) :: self
     integer(shortInt), intent(in)  :: idx
     real(defReal), dimension(3)    :: coords
+    type(vertexBox)                :: box
 
-    coords = self % shelf(idx) % getCoordinates()
+    box = self % getVertexBox(idx)
+    coords = box % ptr % getCoordinates()
 
   end function getVertexCoordinates_shortInt
 
@@ -311,14 +268,16 @@ contains
   !! Result:
   !!   coords   -> 3-D coordinates of the vertices.
   !!
-  pure function getVertexCoordinates_shortIntArray(self, idxs) result(coords)
+  function getVertexCoordinates_shortIntArray(self, idxs) result(coords)
     class(vertexShelf), intent(in)              :: self
     integer(shortInt), dimension(:), intent(in) :: idxs
     real(defReal), dimension(3, size(idxs))     :: coords
+    type(vertexBox), dimension(size(idxs))      :: boxes
     integer(shortInt)                           :: i
 
+    boxes = self % getVertexBox(idxs)
     do i = 1, size(idxs)
-      coords(:, i) = self % shelf(idxs(i)) % getCoordinates()
+      coords(:, i) = boxes(i) % ptr % getCoordinates()
 
     end do
 
@@ -335,12 +294,14 @@ contains
   !! Result:
   !!   edgeIdxs -> Indices of all the edges containing the vertex.
   !!
-  pure function getVertexEdgeIdxs(self, idx) result(edgeIdxs)
+  function getVertexEdgeIdxs(self, idx) result(edgeIdxs)
     class(vertexShelf), intent(in)               :: self
     integer(shortInt), intent(in)                :: idx
     integer(shortInt), dimension(:), allocatable :: edgeIdxs
+    type(vertexBox)                              :: box
 
-    edgeIdxs = self % shelf(idx) % getEdgeIdxs()
+    box = self % getVertexBox(idx)
+    edgeIdxs = box % ptr % getEdgeIdxs()
 
   end function getVertexEdgeIdxs
 
@@ -355,12 +316,14 @@ contains
   !! Result:
   !!   elementIdxs -> Indices of all the elements containing the vertex.
   !!
-  pure function getVertexElementIdxs(self, idx) result(elementIdxs)
+  function getVertexElementIdxs(self, idx) result(elementIdxs)
     class(vertexShelf), intent(in)               :: self
     integer(shortInt), intent(in)                :: idx
     integer(shortInt), dimension(:), allocatable :: elementIdxs
+    type(vertexBox)                              :: box
 
-    elementIdxs = self % shelf(idx) % getElementIdxs()
+    box = self % getVertexBox(idx)
+    elementIdxs = box % ptr % getElementIdxs()
 
   end function getVertexElementIdxs
 
@@ -375,12 +338,14 @@ contains
   !! Result:
   !!   faceIdxs -> Indices of all the faces containing the vertex.
   !!
-  pure function getVertexFaceIdxs_shortInt(self, idx) result(faceIdxs)
+  function getVertexFaceIdxs_shortInt(self, idx) result(faceIdxs)
     class(vertexShelf), intent(in)               :: self
     integer(shortInt), intent(in)                :: idx
     integer(shortInt), dimension(:), allocatable :: faceIdxs
+    type(vertexBox)                              :: box
 
-    faceIdxs = self % shelf(idx) % getFaceIdxs()
+    box = self % getVertexBox(idx)
+    faceIdxs = box % ptr % getFaceIdxs()
 
   end function getVertexFaceIdxs_shortInt
 
@@ -396,18 +361,107 @@ contains
   !! Result:
   !!   faceIdxs  -> Unique indices of all the faces containing the vertices.
   !!
-  pure function getVertexFaceIdxs_shortIntArray(self, idxs) result(faceIdxs)
+  function getVertexFaceIdxs_shortIntArray(self, idxs) result(faceIdxs)
     class(vertexShelf), intent(in)               :: self
     integer(shortInt), dimension(:), intent(in)  :: idxs
     integer(shortInt), dimension(:), allocatable :: faceIdxs
+    type(vertexBox), dimension(size(idxs))       :: boxes
     integer(shortInt)                            :: i
 
+    boxes = self % getVertexBox(idxs)
     do i = 1, size(idxs)
-      call append(faceIdxs, self % shelf(idxs(i)) % getFaceIdxs(), .true.)
+      call append(faceIdxs, boxes(i) % ptr % getFaceIdxs(), .true.)
 
     end do
 
   end function getVertexFaceIdxs_shortIntArray
+
+  !!
+  !!
+  !!
+  function getVertexBox_shortInt(self, idx) result(box)
+    class(vertexShelf), intent(in) :: self
+    integer(shortInt), intent(in)  :: idx
+    type(vertexBox)                :: box
+    type(topologicalObjectBox)     :: objectBox
+    character(*), parameter        :: here = 'getVertexPtr_shortInt (vertexShelf_class.f90)'
+
+    ! First get a pointer to a polymorphic topological object from the shelf.
+    objectBox = self % getObjectBox(idx)
+    if (.not. associated(objectBox % ptr)) call fatalError(here, 'Invalid pointer for vertex with index: '//numToChar(idx)//'.')
+
+    select type(ptr => objectBox % ptr)
+      type is (vertex)
+        box % ptr => ptr
+
+      class default
+        ! Should never happen.
+        call fatalError(here, 'Object in vertexShelf with idx: '//numToChar(idx)//' is not a vertex.')
+
+    end select
+
+  end function getVertexBox_shortInt
+
+  !!
+  !!
+  !!
+  function getVertexBox_shortIntArray(self, idxs) result(boxes)
+    class(vertexShelf), intent(in)                    :: self
+    integer(shortInt), dimension(:), intent(in)       :: idxs
+    type(vertexBox), dimension(size(idxs))            :: boxes
+    type(topologicalObjectBox), dimension(size(idxs)) :: objectBoxes
+    integer(shortInt)                                 :: i
+    character(*), parameter                           :: here = 'getVertexPtr_shortIntArray (vertexShelf_class.f90)'
+
+    objectBoxes = self % getObjectBox(idxs)
+    do i = 1, size(idxs)
+      if (.not. associated(objectBoxes(i) % ptr)) &
+      call fatalError(here, 'Invalid pointer for vertex with index: '//numToChar(idxs(i))//'.')
+
+      select type(ptr => objectBoxes(i) % ptr)
+        type is (vertex)
+          boxes(i) % ptr => ptr
+
+        class default
+          ! Should never happen.
+          call fatalError(here, 'Object in vertexShelf with idx: '//numToChar(idxs(i))//' is not a vertex.')
+
+      end select
+
+    end do
+
+  end function getVertexBox_shortIntArray
+
+  !!
+  !!
+  !!
+  subroutine init(self, coords)
+    class(vertexShelf), intent(inout)          :: self
+    real(defReal), dimension(:, :), intent(in) :: coords
+    integer(shortInt)                          :: i
+    real(defReal), dimension(6)                :: extremalCoordinates
+    type(vertexBox)                            :: box
+
+    do i = 1, self % getSize()
+      call newVertexPtr(i, coords(:, i), box % ptr)
+      call self % addObject(i, box % ptr)
+
+      ! Update extremal coordinates.
+      if (i == 1) then
+        extremalCoordinates = [coords(:, i), coords(:, i)]
+
+      else
+        extremalCoordinates(1:3) = min(extremalCoordinates(1:3), coords(:, i))
+        extremalCoordinates(4:6) = max(extremalCoordinates(4:6), coords(:, i))
+
+      end if
+
+    end do
+
+    ! Set extremal coordinates.
+    self % extremalCoordinates = extremalCoordinates
+
+  end subroutine init
 
   !! Subroutine 'initVertex'
   !!
@@ -418,13 +472,17 @@ contains
   !!   idx [in]    -> Index of the vertex.
   !!   coords [in] -> 3-D coordinates of the vertex.
   !!
-  pure subroutine initVertex(self, idx, coords)
+  subroutine initVertex(self, idx, coords)
     class(vertexShelf), intent(inout)       :: self
     integer(shortInt), intent(in)           :: idx
     real(defReal), dimension(3), intent(in) :: coords
+    type(vertexBox)                         :: box
 
-    call self % shelf(idx) % setIdx(idx)
-    call self % shelf(idx) % setCoordinates(coords)
+    call newVertexPtr(idx, coords, box % ptr)
+    call self % addObject(idx, box % ptr)
+
+    ! Good practice.
+    nullify(box % ptr)
 
   end subroutine initVertex
   
@@ -436,9 +494,12 @@ contains
   elemental subroutine kill(self)
     class(vertexShelf), intent(inout) :: self
 
+    ! Superclass.
+    call kill_super(self)
+
+    ! Local.
     self % offset = ZERO
     self % extremalCoordinates = ZERO
-    if (allocated(self % shelf)) deallocate(self % shelf)
 
   end subroutine kill
 

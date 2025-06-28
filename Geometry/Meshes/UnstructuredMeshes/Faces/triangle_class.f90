@@ -38,7 +38,7 @@ contains
   !!
   !!
   !!
-  pure subroutine computeComponents(self, vertexIdxs, vertices, centroid, normal, area)
+  subroutine computeComponents(self, vertexIdxs, vertices, centroid, normal, area)
     class(triangle), intent(inout)              :: self
     integer(shortInt), dimension(:), intent(in) :: vertexIdxs
     type(vertexShelf), intent(in)               :: vertices

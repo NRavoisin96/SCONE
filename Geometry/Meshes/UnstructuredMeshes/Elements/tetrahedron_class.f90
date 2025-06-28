@@ -42,7 +42,7 @@ contains
   !!
   !!
   !!
-  pure subroutine computeComponents(self, faceIdxs, vertexIdxs, faces, vertices, centroid, volume)
+  subroutine computeComponents(self, faceIdxs, vertexIdxs, faces, vertices, centroid, volume)
     class(tetrahedron), intent(inout)           :: self
     integer(shortInt), dimension(:), intent(in) :: faceIdxs, vertexIdxs
     type(faceShelf), intent(in)                 :: faces

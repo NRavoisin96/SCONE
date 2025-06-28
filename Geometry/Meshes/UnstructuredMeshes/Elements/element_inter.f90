@@ -90,7 +90,7 @@ module element_inter
     !!
     !!
     !!
-    pure subroutine computeComponents(self, faceIdxs, vertexIdxs, faces, vertices, centroid, volume)
+    subroutine computeComponents(self, faceIdxs, vertexIdxs, faces, vertices, centroid, volume)
       import                                      :: element, shortInt, faceShelf, vertexShelf, defReal
       class(element), intent(inout)               :: self
       integer(shortInt), dimension(:), intent(in) :: faceIdxs, vertexIdxs
@@ -171,7 +171,7 @@ contains
   !!
   !!
   !!
-  pure subroutine build(self, idx, parentIdx, faceIdxs, vertexIdxs, faces, vertices, type, boundingBox)
+  subroutine build(self, idx, parentIdx, faceIdxs, vertexIdxs, faces, vertices, type, boundingBox)
     class(element), intent(inout)               :: self
     integer(shortInt), intent(in)               :: idx, parentIdx
     integer(shortInt), dimension(:), intent(in) :: faceIdxs, vertexIdxs
@@ -218,7 +218,7 @@ contains
   !! Result:
   !!   isIt          -> .true. if the element is convex.
   !!
-  pure function computeConvexity(self, faceIdxs, vertexIdxs, faces, vertices) result(isConvex)
+  function computeConvexity(self, faceIdxs, vertexIdxs, faces, vertices) result(isConvex)
     class(element), intent(in)                   :: self
     integer(shortInt), dimension(:), intent(in)  :: faceIdxs, vertexIdxs
     type(faceShelf), intent(in)                  :: faces

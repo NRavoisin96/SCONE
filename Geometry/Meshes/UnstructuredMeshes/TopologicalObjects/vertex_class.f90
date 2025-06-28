@@ -2,10 +2,18 @@ module vertex_class
   
   use numPrecision
   use universalVariables
-  use genericProcedures, only : append
+  use genericProcedures,       only : append
+  use topologicalObject_inter, only : topologicalObject, kill_super => kill
   
   implicit none
   private
+
+  !!
+  !!
+  !!
+  type, public :: vertexBox
+    type(vertex), pointer :: ptr => null()
+  end type vertexBox
   
   !!
   !! Vertex of a given OpenFOAM mesh.
@@ -18,9 +26,8 @@ module vertex_class
   !!   tetrahedronIdxs -> Array of indices of the tetrahedra sharing the vertex.
   !!   triangleIdxs    -> Array of indices of the triangles sharing the vertex.
   !!
-  type, public :: vertex
+  type, public, extends(topologicalObject)       :: vertex
     private
-    integer(shortInt)                            :: idx = 0
     real(defReal), dimension(3)                  :: coordinates = ZERO
     integer(shortInt), dimension(:), allocatable :: faceIdxs, edgeIdxs, elementIdxs
   contains
@@ -31,13 +38,11 @@ module vertex_class
     procedure                                    :: getEdgeIdxs
     procedure                                    :: getElementIdxs
     procedure                                    :: getFaceIdxs
-    procedure                                    :: getIdx
     procedure                                    :: hasEdges
     procedure                                    :: hasFaces
+    procedure                                    :: init
     procedure                                    :: kill
-    procedure                                    :: setCoordinates
-    procedure                                    :: setIdx
-  end type
+  end type vertex
 
 contains
   
@@ -156,22 +161,6 @@ contains
     faceIdxs = self % faceIdxs
 
   end function getFaceIdxs
-  
-  !! Function 'getIdx'
-  !!
-  !! Basic description:
-  !!   Returns the index of the vertex.
-  !!
-  !! Result:
-  !!   idx -> Index of the vertex.
-  !!
-  elemental function getIdx(self) result(idx)
-    class(vertex), intent(in) :: self
-    integer(shortInt)         :: idx
-    
-    idx = self % idx
-
-  end function getIdx
 
   !! Function 'hasEdges'
   !!
@@ -198,23 +187,7 @@ contains
     doesIt = allocated(self % faceIdxs)
 
   end function hasFaces
-  
-  !! Subroutine 'kill'
-  !!
-  !! Basic description:
-  !!   Returns to an uninitialised state.
-  !!
-  elemental subroutine kill(self)
-    class(vertex), intent(inout) :: self
-    
-    self % idx = 0
-    self % coordinates = ZERO
-    if (allocated(self % faceIdxs)) deallocate(self % faceIdxs)
-    if (allocated(self % edgeIdxs)) deallocate(self % edgeIdxs)
-    if (allocated(self % elementIdxs)) deallocate(self % elementIdxs)
-  
-  end subroutine kill
-  
+
   !! Subroutine 'setCoordinates'
   !!
   !! Basic description:
@@ -223,26 +196,33 @@ contains
   !! Arguments:
   !!   coordinates [in] -> 3-D coordinates of the vertex.
   !!
-  pure subroutine setCoordinates(self, coordinates)
+  pure subroutine init(self, idx, coordinates)
     class(vertex), intent(inout)            :: self
+    integer(shortInt), intent(in)           :: idx
     real(defReal), dimension(3), intent(in) :: coordinates
     
+    call self % setIdx(idx)
     self % coordinates = coordinates
-  end subroutine setCoordinates
+
+  end subroutine init
   
-  !! Subroutine 'setIdx'
+  !! Subroutine 'kill'
   !!
   !! Basic description:
-  !!   Sets the index of the vertex.
+  !!   Returns to an uninitialised state.
   !!
-  !! Arguments:
-  !!   idx [in] -> Index of the vertex.
-  !!
-  elemental subroutine setIdx(self, idx)
-    class(vertex), intent(inout)  :: self
-    integer(shortInt), intent(in) :: idx
+  elemental subroutine kill(self)
+    class(vertex), intent(inout) :: self
+
+    ! Superclass.
+    call kill_super(self)
     
-    self % idx = idx
-  end subroutine setIdx
+    ! Local.
+    self % coordinates = ZERO
+    if (allocated(self % faceIdxs)) deallocate(self % faceIdxs)
+    if (allocated(self % edgeIdxs)) deallocate(self % edgeIdxs)
+    if (allocated(self % elementIdxs)) deallocate(self % elementIdxs)
+  
+  end subroutine kill
   
 end module vertex_class

@@ -405,7 +405,7 @@ contains
   !! Result:
   !!   coords -> 3-D coordinates of all the vertices in the mesh.
   !!
-  pure function getAllVertexCoordinates(self) result(coords)
+  function getAllVertexCoordinates(self) result(coords)
     class(unstructuredMesh), intent(in)           :: self
     real(defReal), dimension(3, self % nVertices) :: coords
 
@@ -596,7 +596,7 @@ contains
   !! Arguments:
   !!   vertices [in] -> A vertexShelf.
   !!
-  elemental subroutine setVertexShelf(self, vertices)
+  subroutine setVertexShelf(self, vertices)
     class(unstructuredMesh), intent(inout) :: self
     type(vertexShelf), intent(in)          :: vertices
 
