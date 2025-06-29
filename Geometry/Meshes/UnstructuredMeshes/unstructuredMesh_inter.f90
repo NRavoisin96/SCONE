@@ -58,12 +58,13 @@ module unstructuredMesh_inter
     type(edgeShelf), public                   :: edges
     type(elementShelf), public                :: elements
     type(faceShelf), public                   :: faces
-    type(vertexShelf), public                 :: vertices
+    type(vertexShelf)                         :: vertices
   contains
     ! Build procedures.
     procedure                       :: computePrimitives
     procedure(importMesh), deferred :: importMesh
     procedure                       :: init
+    procedure                       :: initVertexShelf
     procedure                       :: kill
     procedure, non_overridable      :: printComposition
     procedure                       :: setEdgeShelf
@@ -133,7 +134,7 @@ contains
   !!   nTetrahedra [out] -> Number of tetrahedra to be generated.
   !!   nVertices [out]   -> Number of vertices to be generated.
   !!
-  elemental subroutine computePrimitives(self, elements, faces, nEdges, nInternalTriangles, nTetrahedra, nTriangles, nVertices)
+  subroutine computePrimitives(self, elements, faces, nEdges, nInternalTriangles, nTetrahedra, nTriangles, nVertices)
     class(unstructuredMesh), intent(in)          :: self
     type(elementShelf), intent(in)               :: elements
     type(faceShelf), intent(in)                  :: faces
@@ -152,7 +153,7 @@ contains
     ! Loop through all elements.
     do i = 1, self % nElements
       ! Retrieve the number of vertices and indices of the faces in the current element.
-      nVerticesInElement = size(elements % getElementVertexIdxs(i))
+      nVerticesInElement = size(elements % getElementVertices(i))
       faceIdxs = elements % getElementFaceIdxs(i)
       
       ! Check if the current element is already a tetrahedron. If yes, increment nTetrahedra by 1
@@ -188,7 +189,7 @@ contains
         absFaceIdx = abs(faceIdxs(j))
         ! Retrieve the number of vertices in the current face and increase the total 
         ! number of vertices by the number of vertices in the current face.
-        nVerticesInFace = size(faces % getFaceVertexIdxs(absFaceIdx))
+        nVerticesInFace = size(faces % getFaceVertices(absFaceIdx))
         nVerticesInElement = nVerticesInElement + nVerticesInFace
         
         ! Increase the number of triangles corresponding to new internal faces by nVerticesInFace - 3.
@@ -242,7 +243,7 @@ contains
       if (.not. self % faces % getFaceIsBoundary(i)) cycle
 
       ! Compute distance to boundary face.
-      call self % faces % computeFaceIntersection(i, coords, self % vertices, update)
+      call self % faces % computeFaceIntersection(i, coords, update)
       if (update < d) then
         d = update
         boundaryFaceIdx = i
@@ -464,6 +465,17 @@ contains
 
   end subroutine init
 
+  !!
+  !!
+  !!
+  subroutine initVertexShelf(self, coords)
+    class(unstructuredMesh), intent(inout)     :: self
+    real(defReal), dimension(:, :), intent(in) :: coords
+
+    call self % vertices % init(coords)
+
+  end subroutine
+
   !! Subroutine 'kill'
   !!
   !! Basic description:
@@ -548,7 +560,7 @@ contains
   !! Arguments:
   !!   edges [in] -> An edgeShelf.
   !!
-  elemental subroutine setEdgeShelf(self, edges)
+  subroutine setEdgeShelf(self, edges)
     class(unstructuredMesh), intent(inout) :: self
     type(edgeShelf), intent(in)            :: edges
 
@@ -636,60 +648,6 @@ contains
     integer(shortInt), dimension(:), allocatable :: edgeIdxs
     type(elementBox), dimension(:), allocatable  :: tetrahedra
     type(faceBox), dimension(:), allocatable     :: triangles
-    
-    ! Retrieve sizes of the original shelves.
-    nEdges = self % nEdges
-    nVertices = self % nVertices
-    
-    ! Compute the number of edges, pyramids, triangles and tetrahedra to be created and
-    ! allocate memory to the corresponding structures.
-    call self % computePrimitives(elements, faces, nNewEdges, nInternalTriangles, nTetrahedra, nTriangles, nNewVertices)
-    
-    ! Allocate memory in the new shelves.
-    call newEdges % allocateShelf(nEdges + nNewEdges)
-    call newElements % allocateShelf(nTetrahedra)
-    call newFaces % allocateShelf(nTriangles)
-    call newVertices % allocateShelf(nVertices + nNewVertices)
-
-    ! Copy original edges and vertices into the new shelves.
-    do i = 1, nEdges
-      call newEdges % initEdge(i, edges % getEdgeVertexIdxs(i))
-
-    end do
-
-    call newVertices % setExtremalCoordinates(vertices % getExtremalCoordinates())
-    call newVertices % setOffset(vertices % getOffset())
-    do i = 1, nVertices
-      call newVertices % initVertex(i, vertices % getVertexCoordinates(i))
-      edgeIdxs = vertices % getVertexEdgeIdxs(i)
-
-      do j = 1, size(edgeIdxs)
-        call newVertices % addEdgeIdxToVertex(i, edgeIdxs(j))
-
-      end do
-
-    end do
-
-    ! Initialise new triangles and tetrahedra to be generated.
-    allocate(triangles(nTriangles))
-    allocate(tetrahedra(nTetrahedra))
-    
-    ! Initialise lastVertexIdx, lastPyramidIdx, lastTetrahedronIdx and lastTriangleIdx then
-    ! split all elements into pyramids and all pyramids into tetrahedra.
-    lastEdgeIdx = nEdges
-    lastElementIdx = 0
-    lastFaceIdx = 0
-    lastVertexIdx = nVertices
-    call self % splitFaces(faces, newEdges, newFaces, newVertices, lastEdgeIdx, lastFaceIdx, triangles)
-    call self % splitElements(elements, faces, lastEdgeIdx, lastElementIdx, lastFaceIdx, lastVertexIdx, &
-                              newEdges, newElements, newFaces, newVertices, tetrahedra, triangles)
-
-    ! Update the number of edges, faces, elements and vertices in the mesh.
-    self % nEdges = nEdges + nNewEdges
-    self % nElements = nTetrahedra
-    self % nFaces = nTriangles
-    self % nInternalFaces = nInternalTriangles
-    self % nVertices = nVertices + nNewVertices
 
   end subroutine split
 

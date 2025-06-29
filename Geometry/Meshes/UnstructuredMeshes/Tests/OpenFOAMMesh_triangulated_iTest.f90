@@ -73,22 +73,8 @@ contains
     @assertEqual(85, mesh % nEdges)
     ! Test number of tetrahedra.
     @assertEqual(48, mesh % nElements)
-    ! Test every tetrahedron.
-    do i = 1, mesh % nElements
-      ! Test that none of the triangle indices and edge indices are zero.
-      @assertTrue(all(mesh % elements % getElementFaceIdxs(i) /= 0))
-      @assertTrue(all(mesh % elements % getElementEdgeIdxs(i) > 0))
-
-    end do
     ! Test number of triangles.
     @assertEqual(112, mesh % nFaces)
-    ! Test every triangle.
-    do i = 1, mesh % nFaces
-      ! Test that none of the triangle vertex indices and edge indices are zero.
-      @assertTrue(all(mesh % faces % getFaceVertexIdxs(i) > 0))
-      @assertTrue(all(mesh % faces % getFaceEdgeIdxs(i) > 0))
-
-    end do
     
     ! Test area of two faces.
     @assertEqual(1.0_defReal, mesh % faces % getFaceArea(1), TOL)

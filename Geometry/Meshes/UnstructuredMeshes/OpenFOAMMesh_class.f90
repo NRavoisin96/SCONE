@@ -14,6 +14,7 @@ module OpenFOAMMesh_class
                                            distanceToNextFace_super => distanceToNextFace, &
                                            findHostElement_super => findHostElement, &
                                            kill_super => kill
+  use vertex_class,                 only : vertexBox
   use vertexShelf_class,            only : vertexShelf
 
   implicit none
@@ -31,10 +32,10 @@ module OpenFOAMMesh_class
     procedure                             :: checkFiles
     procedure                             :: getMeshInfo
     procedure                             :: importMesh
+    procedure                             :: importVertices
     procedure                             :: initElementShelf
     procedure                             :: initElementZoneShelf
     procedure                             :: initFaceShelf
-    procedure                             :: initVertexShelf
     procedure                             :: kill
   end type OpenFOAMMesh
 
@@ -57,15 +58,16 @@ contains
     type(vertexShelf), intent(inout)             :: vertices
     integer(shortInt)                            :: i, j, k, lastIdx, nVertices, vertexIdx, nextVertexIdx, &
                                                     elementIdx, edgeIdx
-    integer(shortInt), dimension(:), allocatable :: vertexIdxs, elementIdxs
+    integer(shortInt), dimension(:), allocatable :: elementIdxs
     integer(shortInt), dimension(2)              :: edgeVertexIdxs
     logical(defBool)                             :: createNew
+    type(vertexBox), dimension(:), allocatable   :: faceVertices
 
     ! Do a first pass over all elements and allocate memory. This will overshoot the actual number of
     ! edges to be created.
     lastIdx = 0
     do i = 1, self % nElements
-      lastIdx = lastIdx + size(elements % getElementFaceIdxs(i)) + size(elements % getElementVertexIdxs(i)) - 2
+      lastIdx = lastIdx + size(elements % getElementFaceIdxs(i)) + size(elements % getElementVertices(i)) - 2
 
     end do
     call edges % allocateShelf(lastIdx)
@@ -74,12 +76,12 @@ contains
     lastIdx = 0
     do i = 1, self % nFaces
       ! Retrieve the vertices in the current face then loop through all vertices in the current face.
-      vertexIdxs = faces % getFaceVertexIdxs(i)
-      nVertices = size(vertexIdxs)
+      faceVertices = faces % getFaceVertices(i)
+      nVertices = size(faceVertices)
       do j = 1, nVertices
         ! Retrieve the indices of the two vertices in the edge and sort them.
-        vertexIdx = vertexIdxs(j)
-        nextVertexIdx = vertexIdxs(mod(j, nVertices) + 1)
+        vertexIdx = faceVertices(j) % ptr % getIdx()
+        nextVertexIdx = faceVertices(merge(1, j + 1, j == nVertices)) % ptr % getIdx()
         edgeVertexIdxs = [vertexIdx, nextVertexIdx]
         call quickSort(edgeVertexIdxs)
 
@@ -91,7 +93,7 @@ contains
           ! If we need to create a new edge, increment lastIdx, set the indices of the vertices in 
           ! the new edge and add the new edge to the pair of vertices.
           lastIdx = lastIdx + 1
-          call edges % initEdge(lastIdx, edgeVertexIdxs)
+          call edges % initEdge(lastIdx, vertices % getVertexBox(edgeVertexIdxs))
           call vertices % addEdgeIdxToVertex(vertexIdx, lastIdx)
           call vertices % addEdgeIdxToVertex(nextVertexIdx, lastIdx)
           
@@ -102,14 +104,14 @@ contains
 
         ! Add the index of the current face to the edge and add the edge to the current face.
         call edges % addFaceIdxToEdge(edgeIdx, i)
-        call faces % addEdgeIdxToFace(i, edgeIdx)
+        call faces % addEdgeToFace(i, edges % getEdgeBox(edgeIdx))
         
         ! Retrieve all elements sharing the current face and update connectivity information.
         elementIdxs = faces % getFaceElementIdxs(i)
         do k = 1, size(elementIdxs)
           elementIdx = elementIdxs(k)
           call edges % addElementIdxToEdge(edgeIdx, elementIdx)
-          call elements % addEdgeIdxToElement(elementIdx, edgeIdx)
+          call elements % addEdgeToElement(elementIdx, edges % getEdgeBox(edgeIdx))
 
         end do
 
@@ -119,7 +121,7 @@ contains
 
     ! Now collapse the edgeShelf to the number of edges actually created and set number of edges
     ! in the mesh.
-    call edges % collapseShelf(lastIdx)
+    call edges % shrinkShelf(lastIdx)
     self % nEdges = lastIdx
 
   end subroutine buildEdges
@@ -338,7 +340,7 @@ contains
     call vertices % allocateShelf(self % nVertices)
     
     ! Import vertices and set mesh bounding box.
-    call self % initVertexShelf(folderPath, vertices)
+    call self % importVertices(folderPath, vertices)
     call boundingBox % init(vertices % getExtremalCoordinates())
     call self % setBoundingBox(boundingBox)
 
@@ -353,6 +355,7 @@ contains
 
     ! Build edges from elements, faces and vertices.
     call self % buildEdges(edges, elements, faces, vertices)
+    print *, 'Done!'
 
     ! Print original mesh composition.
     !    call self % printComposition(nTetrahedra)
@@ -390,11 +393,12 @@ contains
     integer(shortInt), intent(out)                 :: nConcaveElements
     integer(shortInt)                              :: i, j, elementIdx, vertexIdx
     integer(shortInt), parameter                   :: unit = 10
-    integer(shortInt), dimension(:), allocatable   :: elementIdxs, vertexIdxs
+    integer(shortInt), dimension(:), allocatable   :: elementIdxs
     character(100)                                 :: string
     type(elementInfo), dimension(self % nElements) :: elementInfos
     character(:), allocatable                      :: type
     type(axisAlignedBoundingBox)                   :: boundingBox
+    type(vertexBox), dimension(:), allocatable     :: faceVertices
 
     ! Initialise nConcaveElements = 0
     nConcaveElements = 0
@@ -418,8 +422,8 @@ contains
 
       type = 'Polyhedron'
       if (size(elementInfos(1) % vertexIdxs) == 4) type = 'Tetrahedron'
-      call elements % buildElement(1, 1, elementInfos(1) % faceIdxs, elementInfos(1) % vertexIdxs, faces, vertices, type, &
-                                   boundingBox)
+      call elements % buildElement(1, 1, elementInfos(1) % faceIdxs, faces, &
+                                   vertices % getVertexBox(elementInfos(1) % vertexIdxs), type, boundingBox)
       if (.not. elements % getElementIsConvex(1)) nConcaveElements = 1
       return
 
@@ -443,9 +447,9 @@ contains
       elementIdx = elementIdx + 1
       call append(elementInfos(elementIdx) % faceIdxs, i)
       call faces % addElementIdxToFace(i, elementIdx)
-      vertexIdxs = faces % getFaceVertexIdxs(i)
-      do j = 1, size(vertexIdxs)
-        vertexIdx = vertexIdxs(j)
+      faceVertices = faces % getFaceVertices(i)
+      do j = 1, size(faceVertices)
+        vertexIdx = faceVertices(j) % ptr % getIdx()
         call append(elementInfos(elementIdx) % vertexIdxs, vertexIdx, .true.)
         call vertices % addElementIdxToVertex(vertexIdx, elementIdx)
 
@@ -500,9 +504,9 @@ contains
         elementIdx = elementIdx + 1
         call append(elementInfos(elementIdx) % faceIdxs, -i)
         call faces % addElementIdxToFace(i, elementIdx)
-        vertexIdxs = faces % getFaceVertexIdxs(i)
-        do j = 1, size(vertexIdxs)
-          vertexIdx = vertexIdxs(j)
+        faceVertices = faces % getFaceVertices(i)
+        do j = 1, size(faceVertices)
+          vertexIdx = faceVertices(j) % ptr % getIdx()
           call append(elementInfos(elementIdx) % vertexIdxs, vertexIdx, .true.)
           call vertices % addElementIdxToVertex(vertexIdx, elementIdx)
 
@@ -525,8 +529,8 @@ contains
       end do
       call boundingBox % computeBounds(vertices % getVertexCoordinates(elementInfos(i) % vertexIdxs))
 
-      call elements % buildElement(i, i, elementInfos(i) % faceIdxs, elementInfos(i) % vertexIdxs, faces, vertices, type, &
-                                   boundingBox)
+      call elements % buildElement(i, i, elementInfos(i) % faceIdxs, faces, &
+                                   vertices % getVertexBox(elementInfos(i) % vertexIdxs), type, boundingBox)
       if (.not. elements % getElementIsConvex(i)) nConcaveElements = nConcaveElements + 1
 
     end do
@@ -661,7 +665,7 @@ contains
     class(vertexShelf), intent(inout)            :: vertices
     character(*), intent(in)                     :: folderPath
     integer(shortInt), parameter                 :: unit = 10
-    integer(shortInt)                            :: i, j, k, nVertices, vertexIdx
+    integer(shortInt)                            :: i, j, nVertices, vertexIdx
     integer(shortInt), dimension(:), allocatable :: vertexIdxs
     character(100)                               :: string
     character(:), allocatable                    :: type
@@ -725,7 +729,7 @@ contains
       call boundingBox % computeBounds(vertices % getVertexCoordinates(vertexIdxs))
       type = 'Polygon'
       if (nVertices == 3) type = 'Triangle'
-      call faces % buildFace(i, i, i > self % nInternalFaces, vertexIdxs, vertices, type, boundingBox)
+      call faces % buildFace(i, i, i > self % nInternalFaces, vertices % getVertexBox(vertexIdxs), type, boundingBox)
       
       ! Free memory and move onto the next line.
       deallocate(vertexIdxs)
@@ -746,7 +750,7 @@ contains
   !! Arguments:
   !!   folderPath [in] -> Path to the folder containing the mesh files.
   !!
-  subroutine initVertexShelf(self, folderPath, vertices)
+  subroutine importVertices(self, folderPath, vertices)
     class(OpenFOAMMesh), intent(in)             :: self
     character(*), intent(in)                    :: folderPath
     class(vertexShelf), intent(inout)           :: vertices
@@ -804,7 +808,7 @@ contains
     coords = coords + spread(vertices % getOffset(), 2, self % nVertices)
     call vertices % init(coords)
 
-  end subroutine initVertexShelf
+  end subroutine importVertices
 
   !! Subroutine 'kill'
   !!

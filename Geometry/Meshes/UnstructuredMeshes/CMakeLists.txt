@@ -4,8 +4,6 @@ add_subdirectory(Elements)
 add_subdirectory(Faces)
 add_subdirectory(TopologicalObjects)
 add_sources(
-            ./edge_class.f90
-            ./edgeShelf_class.f90
             ./OpenFOAMMesh_class.f90
             ./unstructuredMesh_inter.f90
            )

@@ -2,6 +2,7 @@
 add_subdirectory(Factories)
 add_subdirectory(Shelves)
 add_sources(
+            ./edge_class.f90
             ./topologicalObject_inter.f90
             ./vertex_class.f90
            )

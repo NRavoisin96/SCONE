@@ -1,10 +1,19 @@
 module edge_class
   
+  use genericProcedures,       only : append, areEqual
   use numPrecision
-  use genericProcedures, only : append
+  use topologicalObject_inter, only : topologicalObject, kill_super => kill
+  use vertex_class,            only : vertexBox
   
   implicit none
   private
+
+  !!
+  !!
+  !!
+  type, public :: edgeBox
+    type(edge), pointer :: ptr => null()
+  end type edgeBox
   
   !!
   !! Edge of a mesh linking two vertices.
@@ -16,23 +25,23 @@ module edge_class
   !!   edgeToFaces    -> Array that stores edge-to-faces connectivity information.
   !!   edgeToElements -> Array that stores edge-to-elements connectivity information.
   !!
-  type, public                                   :: edge
+  type, public, extends(topologicalObject)       :: edge
     private
-    integer(shortInt)                            :: idx = 0
-    integer(shortInt), dimension(2)              :: vertexIdxs = 0
+    type(vertexBox), dimension(2)                :: vertices
+    real(defReal), dimension(3)                  :: edgeVector = ZERO, unitEdgeVector = ZERO
     integer(shortInt), dimension(:), allocatable :: faceIdxs, elementIdxs
   contains
     ! Build procedures.
     procedure                                    :: addElementIdx
     procedure                                    :: addFaceIdx
+    procedure                                    :: init
     procedure                                    :: kill
-    procedure                                    :: setIdx
-    procedure                                    :: setVertexIdxs
     ! Runtime procedures.
+    procedure                                    :: distanceSquared
+    procedure                                    :: getEdgeVector
     procedure                                    :: getElementIdxs
     procedure                                    :: getFaceIdxs
-    procedure                                    :: getIdx
-    procedure                                    :: getVertexIdxs
+    procedure                                    :: getVertices
   end type edge
 
 contains
@@ -69,6 +78,48 @@ contains
 
   end subroutine addFaceIdx
 
+  !!
+  !!
+  !!
+  function distanceSquared(self, r) result(dSquared)
+    class(edge), intent(in)     :: self
+    real(defReal), dimension(3) :: r
+    real(defReal)               :: dSquared
+    real(defReal), dimension(3) :: pointVector
+    real(defReal)               :: lSquared, t
+
+    ! First pointVector and the square of the edge length.
+    pointVector = r - self % vertices(1) % ptr % getCoordinates()
+    lSquared = dot_product(self % edgeVector, self % edgeVector)
+
+    ! Handle the case of a zero-length segment.
+    if (areEqual(lSquared, ZERO)) then
+        dSquared = dot_product(pointVector, pointVector)
+        return
+        
+    end if
+
+    ! Compute the normalisation parameter t by projecting pointVector onto edgeVector and
+    ! snap it to the range [0, 1].
+    t = max(ZERO, min(ONE, dot_product(pointVector, self % edgeVector) / lSquared))
+
+    ! Now compute dSquared.
+    pointVector = pointVector - self % edgeVector * t
+    dSquared = dot_product(pointVector, pointVector)
+
+  end function distanceSquared
+
+  !!
+  !!
+  !!
+  pure function getEdgeVector(self) result(edgeVector)
+    class(edge), intent(in)     :: self
+    real(defReal), dimension(3) :: edgeVector
+
+    edgeVector = self % edgeVector
+
+  end function getEdgeVector
+
   !! Function 'getElementIdxs'
   !!
   !! Basic description:
@@ -101,22 +152,6 @@ contains
 
   end function getFaceIdxs
 
-  !! Function 'getIdx'
-  !!
-  !! Basic description:
-  !!   Returns the index of the edge.
-  !!
-  !! Result:
-  !!   idx -> Index of the edge.
-  !!
-  elemental function getIdx(self) result(idx)
-    class(edge), intent(in) :: self
-    integer(shortInt)       :: idx
-
-    idx = self % idx
-
-  end function getIdx
-
   !! Function 'getVertexIdxs'
   !!
   !! Basic description:
@@ -125,13 +160,29 @@ contains
   !! Result:
   !!   vertexIdxs -> Indices of the vertices in the edge.
   !!
-  pure function getVertexIdxs(self) result(vertexIdxs)
-    class(edge), intent(in)         :: self
-    integer(shortInt), dimension(2) :: vertexIdxs
+  function getVertices(self) result(boxes)
+    class(edge), intent(in)       :: self
+    type(vertexBox), dimension(2) :: boxes
 
-    vertexIdxs = self % vertexIdxs
+    boxes = self % vertices
 
-  end function getVertexIdxs
+  end function getVertices
+
+  !!
+  !!
+  !!
+  subroutine init(self, idx, vertices)
+    class(edge), intent(inout)                :: self
+    integer(shortInt), intent(in)             :: idx
+    type(vertexBox), dimension(2), intent(in) :: vertices
+
+    call self % setIdx(idx)
+    self % vertices = vertices
+    
+    self % edgeVector = vertices(2) % ptr % getCoordinates() - vertices(1) % ptr % getCoordinates()
+    self % unitEdgeVector = self % edgeVector / norm2(self % edgeVector)
+
+  end subroutine init
 
   !! Subroutine 'kill'
   !!
@@ -140,44 +191,21 @@ contains
   !!
   elemental subroutine kill(self)
     class(edge), intent(inout) :: self
+    integer(shortInt)          :: i
 
-    self % idx = 0
-    self % vertexIdxs = 0
+    ! Superclass.
+    call kill_super(self)
+    
+    ! Local.
+    self % edgeVector = ZERO
+    self % unitEdgeVector = ZERO
+    do i = 1, 2
+      nullify(self % vertices(i) % ptr)
+
+    end do
     if (allocated(self % faceIdxs)) deallocate(self % faceIdxs)
     if (allocated(self % elementIdxs)) deallocate(self % elementIdxs)
 
   end subroutine kill
-
-  !! Subroutine 'setIdx'
-  !!
-  !! Basic description:
-  !!   Sets the index of the edge.
-  !!
-  !! Arguments:
-  !!   idx [in] -> Index of the edge.
-  !!
-  elemental subroutine setIdx(self, idx)
-    class(edge), intent(inout)    :: self
-    integer(shortInt), intent(in) :: idx
-
-    self % idx = idx
-
-  end subroutine setIdx
-
-  !! Subroutine 'setVertexIdxs'
-  !!
-  !! Basic description:
-  !!   Sets the indices of the vertices in the edge.
-  !!
-  !! Arguments:
-  !!   vertexIdxs [in] -> Array containing the indices of the vertices in the edge.
-  !!
-  pure subroutine setVertexIdxs(self, vertexIdxs)
-    class(edge), intent(inout)                  :: self
-    integer(shortInt), dimension(2), intent(in) :: vertexIdxs
-
-    self % vertexIdxs = vertexIdxs
-
-  end subroutine setVertexIdxs
 
 end module edge_class

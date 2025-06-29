@@ -384,7 +384,7 @@ contains
     integer(shortInt), intent(in)  :: idx
     type(vertexBox)                :: box
     type(topologicalObjectBox)     :: objectBox
-    character(*), parameter        :: here = 'getVertexPtr_shortInt (vertexShelf_class.f90)'
+    character(*), parameter        :: here = 'getVertexBox_shortInt (vertexShelf_class.f90)'
 
     ! First get a pointer to a polymorphic topological object from the shelf.
     objectBox = self % getObjectBox(idx)
@@ -411,7 +411,7 @@ contains
     type(vertexBox), dimension(size(idxs))            :: boxes
     type(topologicalObjectBox), dimension(size(idxs)) :: objectBoxes
     integer(shortInt)                                 :: i
-    character(*), parameter                           :: here = 'getVertexPtr_shortIntArray (vertexShelf_class.f90)'
+    character(*), parameter                           :: here = 'getVertexBox_shortIntArray (vertexShelf_class.f90)'
 
     objectBoxes = self % getObjectBox(idxs)
     do i = 1, size(idxs)

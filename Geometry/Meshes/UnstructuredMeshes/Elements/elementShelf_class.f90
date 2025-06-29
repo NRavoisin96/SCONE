@@ -2,6 +2,7 @@ module elementShelf_class
   
   use axisAlignedBoundingBox_class, only : axisAlignedBoundingBox
   use coord_class,                  only : coord
+  use edge_class,                   only : edgeBox
   use edgeShelf_class,              only : edgeShelf
   use element_inter,                only : element, elementBox, inclusionTestResult
   use face_inter,                   only : faceBox
@@ -9,6 +10,7 @@ module elementShelf_class
   use numPrecision
   use polyhedron_class,             only : polyhedron
   use tetrahedron_class,            only : tetrahedron
+  use vertex_class,                 only : vertexBox
   use vertexShelf_class,            only : vertexShelf
   
   implicit none
@@ -24,10 +26,10 @@ module elementShelf_class
     private
     type(elementBox), dimension(:), allocatable :: shelf
   contains
-    procedure                                   :: addEdgeIdxToElement
+    procedure                                   :: addEdgeToElement
     procedure                                   :: addElement
     procedure                                   :: addFaceIdxToElement
-    procedure                                   :: addVertexIdxToElement
+    procedure                                   :: addVertexToElement
     procedure                                   :: allocateElement
     procedure                                   :: allocateShelf
     procedure                                   :: buildElement
@@ -37,12 +39,12 @@ module elementShelf_class
     procedure                                   :: getAllElementCentroids
     procedure                                   :: getElementBoundingBox
     procedure                                   :: getElementCentroid
-    procedure                                   :: getElementEdgeIdxs
+    procedure                                   :: getElementEdges
     procedure                                   :: getElementFaceIdxs
     procedure                                   :: getElementIsConvex
     procedure                                   :: getElementParentIdx
     procedure                                   :: getElementType
-    procedure                                   :: getElementVertexIdxs
+    procedure                                   :: getElementVertices
     procedure                                   :: getElementVolume
     procedure                                   :: getSize
     procedure                                   :: initElement
@@ -63,13 +65,14 @@ contains
   !!   idx [in]     -> Index of the element in the shelf.
   !!   edgeIdx [in] -> Index of the edge in the element.
   !!
-  elemental subroutine addEdgeIdxToElement(self, idx, edgeIdx)
+  subroutine addEdgeToElement(self, idx, edge)
     class(elementShelf), intent(inout) :: self
-    integer(shortInt), intent(in)      :: idx, edgeIdx
+    integer(shortInt), intent(in)      :: idx
+    type(edgeBox), intent(in)          :: edge
 
-    call self % shelf(idx) % item % addEdgeIdx(edgeIdx)
+    call self % shelf(idx) % item % addEdge(edge)
 
-  end subroutine addEdgeIdxToElement
+  end subroutine addEdgeToElement
 
   !!
   !!
@@ -109,13 +112,14 @@ contains
   !!   idx [in]       -> Index of the element in the shelf.
   !!   vertexIdx [in] -> Index of the vertex in the element.
   !!
-  elemental subroutine addVertexIdxToElement(self, idx, vertexIdx)
+  subroutine addVertexToElement(self, idx, vertex)
     class(elementShelf), intent(inout) :: self
-    integer(shortInt), intent(in)      :: idx, vertexIdx
+    integer(shortInt), intent(in)      :: idx
+    type(vertexBox), intent(in)        :: vertex
 
-    call self % shelf(idx) % item % addVertexIdx(vertexIdx)
+    call self % shelf(idx) % item % addVertex(vertex)
 
-  end subroutine addVertexIdxToElement
+  end subroutine addVertexToElement
 
   !!
   !!
@@ -155,18 +159,18 @@ contains
   !!
   !!
   !!
-  subroutine buildElement(self, idx, parentIdx, faceIdxs, vertexIdxs, faces, vertices, type, boundingBox)
+  subroutine buildElement(self, idx, parentIdx, faceIdxs, faces, vertices, type, boundingBox)
     class(elementShelf), intent(inout)          :: self
     integer(shortInt), intent(in)               :: idx, parentIdx
-    integer(shortInt), dimension(:), intent(in) :: faceIdxs, vertexIdxs
+    integer(shortInt), dimension(:), intent(in) :: faceIdxs
     type(faceShelf), intent(in)                 :: faces
-    type(vertexShelf), intent(in)               :: vertices
+    type(vertexBox), dimension(:), intent(in)   :: vertices
     character(*), intent(in)                    :: type
     type(axisAlignedBoundingBox), intent(in)    :: boundingBox
 
     ! Allocate element in shelf then build components.
     call self % allocateElement(idx, type)
-    call self % shelf(idx) % item % build(idx, parentIdx, faceIdxs, vertexIdxs, faces, vertices, type, boundingBox)
+    call self % shelf(idx) % item % build(idx, parentIdx, faceIdxs, faces, vertices, type, boundingBox)
 
   end subroutine buildElement
 
@@ -312,14 +316,14 @@ contains
   !! Result:
   !!   edgeIdxs -> Indices of the edges in the element.
   !!
-  pure function getElementEdgeIdxs(self, idx) result(edgeIdxs)
-    class(elementShelf), intent(in)              :: self
-    integer(shortInt), intent(in)                :: idx
-    integer(shortInt), dimension(:), allocatable :: edgeIdxs
+  function getElementEdges(self, idx) result(edges)
+    class(elementShelf), intent(in)          :: self
+    integer(shortInt), intent(in)            :: idx
+    type(edgeBox), dimension(:), allocatable :: edges
 
-    edgeIdxs = self % shelf(idx) % item % getEdgeIdxs()
+    edges = self % shelf(idx) % item % getEdges()
 
-  end function getElementEdgeIdxs
+  end function getElementEdges
 
   !! Function 'getElementFaceIdxs'
   !!
@@ -404,14 +408,14 @@ contains
   !! Result:
   !!   vertexIdxs -> Indices of the vertices in the element.
   !!
-  pure function getElementVertexIdxs(self, idx) result(vertexIdxs)
-    class(elementShelf), intent(in)              :: self
-    integer(shortInt), intent(in)                :: idx
-    integer(shortInt), dimension(:), allocatable :: vertexIdxs
+  function getElementVertices(self, idx) result(vertices)
+    class(elementShelf), intent(in)            :: self
+    integer(shortInt), intent(in)              :: idx
+    type(vertexBox), dimension(:), allocatable :: vertices
 
-    vertexIdxs = self % shelf(idx) % item % getVertexIdxs()
+    vertices = self % shelf(idx) % item % getVertices()
 
-  end function getElementVertexIdxs
+  end function getElementVertices
 
   !! Function 'getElementVolume'
   !!
@@ -459,12 +463,12 @@ contains
   !!   faces [in]    -> A faceShelf.
   !!   vertices [in] -> A vertexShelf.
   !!
-  subroutine initElement(self, idx, parentIdx, faceIdxs, vertexIdxs, faces, vertices, centroid, volume, isConvex, type, boundingBox)
+  subroutine initElement(self, idx, parentIdx, faceIdxs, faces, vertices, centroid, volume, isConvex, type, boundingBox)
     class(elementShelf), intent(inout)          :: self
     integer(shortInt), intent(in)               :: idx, parentIdx
-    integer(shortInt), dimension(:), intent(in) :: faceIdxs, vertexIdxs
+    integer(shortInt), dimension(:), intent(in) :: faceIdxs
     type(faceShelf), intent(in)                 :: faces
-    type(vertexShelf), intent(in)               :: vertices
+    type(vertexBox), dimension(:), intent(in)   :: vertices
     real(defReal), dimension(3), intent(in)     :: centroid
     real(defReal), intent(in)                   :: volume
     logical(defBool), intent(in)                :: isConvex
@@ -472,7 +476,7 @@ contains
     type(axisAlignedBoundingBox), intent(in)    :: boundingBox
 
     call self % allocateElement(idx, type)
-    call self % shelf(idx) % item % init(idx, parentIdx, faceIdxs, vertexIdxs, centroid, volume, isConvex, type, boundingBox)
+    call self % shelf(idx) % item % init(idx, parentIdx, faceIdxs, vertices, centroid, volume, isConvex, type, boundingBox)
 
   end subroutine initElement
   

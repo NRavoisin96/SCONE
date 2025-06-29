@@ -7,6 +7,7 @@ module tetrahedron_class
   use genericProcedures,  only : append, computeTetrahedronCentre, computeTetrahedronVolume
   use numPrecision
   use universalVariables, only : INF, ONE, SURF_TOL, ZERO, targetNotFound
+  use vertex_class,       only : vertexBox
   use vertexShelf_class,  only : vertexShelf
   
   implicit none
@@ -42,11 +43,11 @@ contains
   !!
   !!
   !!
-  subroutine computeComponents(self, faceIdxs, vertexIdxs, faces, vertices, centroid, volume)
+  subroutine computeComponents(self, faceIdxs, faces, vertices, centroid, volume)
     class(tetrahedron), intent(inout)           :: self
-    integer(shortInt), dimension(:), intent(in) :: faceIdxs, vertexIdxs
+    integer(shortInt), dimension(:), intent(in) :: faceIdxs
     type(faceShelf), intent(in)                 :: faces
-    type(vertexShelf), intent(in)               :: vertices
+    type(vertexBox), dimension(:), intent(in)   :: vertices
     real(defReal), dimension(3), intent(out)    :: centroid
     real(defReal), intent(out)                  :: volume
     integer(shortInt)                           :: i
@@ -54,7 +55,7 @@ contains
 
     ! Create array then compute centroid and volume.
     do i = 1, 4
-      array(i, :) = vertices % getVertexCoordinates(vertexIdxs(i))
+      array(i, :) = vertices(i) % ptr % getCoordinates()
 
     end do
 
@@ -84,7 +85,7 @@ contains
   !! Basic description:
   !!   Returns to an uninitialised state.
   !!
-  elemental subroutine kill(self)
+  subroutine kill(self)
     class(tetrahedron), intent(inout) :: self
     
     ! Element.
@@ -147,34 +148,6 @@ contains
     integer(shortInt), dimension(4)               :: faceIdxs, triangleIdxs, vertexIdxs
     integer(shortInt), dimension(6)               :: edgeIdxs
     integer(shortInt), dimension(:), allocatable  :: faceTriangleIdxs
-    
-    ! Increment lastElementIdx and retrieve the indices of the faces and vertices in the tetrahedron.
-    lastNewElementIdx = lastNewElementIdx + 1
-    faceIdxs = self % getFaceIdxs()
-    vertexIdxs = self % getVertexIdxs()
-
-    ! Loop through all the faces of the new tetrahedron.
-    do i = 1, 4
-      ! Retrieve the indices of the triangles in the current face.
-      faceIdx = faceIdxs(i)
-      faceTriangleIdxs = faces % getFaceTriangleIdxs(abs(faceIdx))
-      triangleIdxs(i) = sign(faceTriangleIdxs(1), faceIdx)
-      call newFaces % addElementIdxToFace(faceTriangleIdxs(1), lastNewElementIdx)
-      call newVertices % addElementIdxToVertex(vertexIdxs(i), lastNewElementIdx)
-
-    end do
-
-    edgeIdxs = self % getEdgeIdxs()
-    do i = 1, 6
-      call newEdges % addElementIdxToEdge(edgeIdxs(i), lastNewElementIdx)
-
-    end do
-
-    ! Initialise a new tetrahedron.
-    allocate(tetrahedron :: tetrahedra(lastNewElementIdx) % item)
-    call tetrahedra(lastNewElementIdx) % item % init(lastNewElementIdx, self % getIdx(), triangleIdxs, vertexIdxs, &
-                                                     self % getCentroid(), self % getVolume(), self % getIsConvex(), &
-                                                     'Tetrahedron', self % getBoundingBox(), edgeIdxs)
   
   end subroutine split
   

@@ -372,7 +372,7 @@ contains
 
       ! If the bounding boxes intersect, perform a test based on the separating axis theorem to determine if the bounding box actually
       ! intersects the face.
-      if (.not. faces % intersectsFace(potentialFaceIdx, vertices, boundingbox)) cycle
+      if (.not. faces % intersectsFace(potentialFaceIdx, boundingbox)) cycle
       
       ! For now, just increment nIntersectedPrimitives and append the index of the face to the list.
       nIntersectedFaces = nIntersectedFaces + 1

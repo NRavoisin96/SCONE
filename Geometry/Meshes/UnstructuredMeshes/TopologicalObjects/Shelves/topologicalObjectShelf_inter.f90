@@ -25,6 +25,7 @@ module topologicalObjectShelf_inter
     procedure, private :: getObjectBox_shortIntArray
     procedure          :: getSize
     procedure          :: kill
+    procedure          :: shrinkShelf
   end type topologicalObjectShelf
 
 contains
@@ -145,5 +146,30 @@ contains
     end if
 
   end subroutine kill
+
+  !!
+  !!
+  !!
+  subroutine shrinkShelf(self, newSize)
+    class(topologicalObjectShelf), intent(inout)          :: self
+    integer(shortInt), intent(in)                         :: newSize
+    integer(shortInt)                                     :: oldSize
+    type(topologicalObjectBox), dimension(:), allocatable :: tempShelf
+    character(*), parameter                               :: here = 'shrinkShelf (topologicalObjectShelf_inter.f90)'
+
+    if (newSize < 1) return
+    if (allocated(self % shelf)) then
+      oldSize = size(self % shelf)
+      if (oldSize < newSize) call fatalError(here, 'Attempting to shrink shelf to a size larger than its original size.')
+      allocate(tempShelf(newSize))
+      tempShelf = self % shelf(1:newSize)
+      call move_alloc(tempShelf, self % shelf)
+
+    else
+      allocate(self % shelf(newSize))
+
+    end if
+
+  end subroutine shrinkShelf
 
 end module topologicalObjectShelf_inter

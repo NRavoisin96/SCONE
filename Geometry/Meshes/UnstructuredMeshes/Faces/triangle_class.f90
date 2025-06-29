@@ -1,11 +1,13 @@
 module triangle_class
   
   use axisAlignedBoundingBox_class, only : axisAlignedBoundingBox
+  use edge_class,                   only : edgeBox
   use edgeShelf_class,              only : edgeShelf
   use numPrecision
   use face_inter,                   only : face, faceBox, kill_super => kill
   use genericProcedures,            only : areEqual, computeTriangleArea, computeTriangleCentre, computeTriangleNormal
   use universalVariables,           only : ONE, ZERO, THIRD, INF
+  use vertex_class,                 only : vertexBox
   use vertexShelf_class,            only : vertexShelf
   
   implicit none
@@ -38,18 +40,17 @@ contains
   !!
   !!
   !!
-  subroutine computeComponents(self, vertexIdxs, vertices, centroid, normal, area)
-    class(triangle), intent(inout)              :: self
-    integer(shortInt), dimension(:), intent(in) :: vertexIdxs
-    type(vertexShelf), intent(in)               :: vertices
-    real(defReal), dimension(3), intent(out)    :: centroid, normal
-    real(defReal), intent(out)                  :: area
-    integer(shortInt)                           :: i
-    real(defReal), dimension(3, 3)              :: array
+  subroutine computeComponents(self, vertices, centroid, normal, area)
+    class(triangle), intent(inout)            :: self
+    type(vertexBox), dimension(:), intent(in) :: vertices
+    real(defReal), dimension(3), intent(out)  :: centroid, normal
+    real(defReal), intent(out)                :: area
+    integer(shortInt)                         :: i
+    real(defReal), dimension(3, 3)            :: array
 
     ! Construct array.
     do i = 1, 3
-      array(i, :) = vertices % getVertexCoordinates(vertexIdxs(i))
+      array(i, :) = vertices(i) % ptr % getCoordinates()
 
     end do
 
@@ -64,20 +65,20 @@ contains
   !!
   !!
   !!
-  pure subroutine createTriangle(self, lastNewFaceIdx, edgeIdxs, newVertices, newTriangle, vertexIdxs, boundingBox)
-    class(triangle), intent(in)                    :: self
-    integer(shortInt), intent(in)                  :: lastNewFaceIdx
-    integer(shortInt), dimension(3), intent(in)    :: edgeIdxs
-    type(vertexShelf), intent(in)                  :: newVertices
-    type(faceBox), intent(inout)                   :: newTriangle
-    integer(shortInt), dimension(3), intent(inout) :: vertexIdxs
-    type(axisAlignedBoundingBox), intent(in)       :: boundingBox
+  subroutine createTriangle(self, lastNewFaceIdx, edges, newVertices, newTriangle, vertices, boundingBox)
+    class(triangle), intent(in)               :: self
+    integer(shortInt), intent(in)             :: lastNewFaceIdx
+    type(edgeBox), dimension(3), intent(in)   :: edges
+    type(vertexShelf), intent(in)             :: newVertices
+    type(faceBox), intent(inout)              :: newTriangle
+    type(vertexBox), dimension(3), intent(in) :: vertices
+    type(axisAlignedBoundingBox), intent(in)  :: boundingBox
 
     ! Allocate new triangle and simply copy everything.
     allocate(triangle :: newTriangle % item)
     call newTriangle % item % init(lastNewFaceIdx, self % getIdx(), self % getIsBoundary(), self % getArea(), &
                                    self % getCentroid(), self % getNormal(), self % getAB(), self % getAC(), &
-                                   vertexIdxs, 'Triangle', boundingBox, edgeIdxs)
+                                   vertices, 'Triangle', boundingBox, edges)
 
   end subroutine createTriangle
   

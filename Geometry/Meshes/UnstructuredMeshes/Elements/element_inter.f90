@@ -2,6 +2,7 @@ module element_inter
 
   use axisAlignedBoundingBox_class, only : axisAlignedBoundingBox
   use coord_class,                  only : coord
+  use edge_class,                   only : edgeBox
   use edgeShelf_class,              only : edgeShelf
   use face_inter,                   only : faceBox
   use faceShelf_class,              only : faceShelf
@@ -10,6 +11,7 @@ module element_inter
                                            fatalError, numToChar
   use numPrecision
   use universalVariables,           only : INSIDE_ELEMENT, INF, ON_BOUNDARY_ELEMENT, OUTSIDE_ELEMENT, SURF_TOL, ZERO
+  use vertex_class,                 only : vertexBox
   use vertexShelf_class,            only : vertexShelf
   
   implicit none
@@ -32,7 +34,9 @@ module element_inter
   type, public, abstract                         :: element
     private
     integer(shortInt)                            :: idx = 0, parentIdx = 0
-    integer(shortInt), dimension(:), allocatable :: edgeIdxs, faceIdxs, vertexIdxs, tetrahedronIdxs
+    type(vertexBox), dimension(:), allocatable   :: vertices
+    type(edgeBox), dimension(:), allocatable     :: edges
+    integer(shortInt), dimension(:), allocatable :: faceIdxs, tetrahedronIdxs
     real(defReal)                                :: volume = ZERO
     real(defReal), dimension(3)                  :: centroid = ZERO
     type(axisAlignedBoundingBox)                 :: boundingBox
@@ -40,9 +44,9 @@ module element_inter
     character(:), allocatable                    :: type
   contains
     ! Build procedures.
-    procedure, non_overridable                   :: addEdgeIdx
+    procedure, non_overridable                   :: addEdge
     procedure, non_overridable                   :: addFaceIdx
-    procedure, non_overridable                   :: addVertexIdx
+    procedure, non_overridable                   :: addVertex
     procedure, non_overridable                   :: build
     procedure(computeComponents), deferred       :: computeComponents
     procedure, non_overridable                   :: computeConvexity
@@ -54,13 +58,13 @@ module element_inter
     procedure, non_overridable                   :: computePotentialFaces
     procedure, non_overridable                   :: getBoundingBox
     procedure, non_overridable                   :: getCentroid
-    procedure, non_overridable                   :: getEdgeIdxs
+    procedure, non_overridable                   :: getEdges
     procedure, non_overridable                   :: getFaceIdxs
     procedure, non_overridable                   :: getIdx
     procedure, non_overridable                   :: getIsConvex
     procedure, non_overridable                   :: getParentIdx
     procedure, non_overridable                   :: getType
-    procedure, non_overridable                   :: getVertexIdxs
+    procedure, non_overridable                   :: getVertices
     procedure, non_overridable                   :: getVolume
     procedure                                    :: kill
     procedure, non_overridable                   :: pushFromBoundary
@@ -90,12 +94,12 @@ module element_inter
     !!
     !!
     !!
-    subroutine computeComponents(self, faceIdxs, vertexIdxs, faces, vertices, centroid, volume)
-      import                                      :: element, shortInt, faceShelf, vertexShelf, defReal
+    subroutine computeComponents(self, faceIdxs, faces, vertices, centroid, volume)
+      import                                      :: element, shortInt, faceShelf, vertexBox, defReal
       class(element), intent(inout)               :: self
-      integer(shortInt), dimension(:), intent(in) :: faceIdxs, vertexIdxs
+      integer(shortInt), dimension(:), intent(in) :: faceIdxs
       type(faceShelf), intent(in)                 :: faces
-      type(vertexShelf), intent(in)               :: vertices
+      type(vertexBox), dimension(:), intent(in)   :: vertices
       real(defReal), dimension(3), intent(out)    :: centroid
       real(defReal), intent(out)                  :: volume
 
@@ -127,13 +131,26 @@ contains
   !! Arguments:
   !!   idx [in] -> Index of the edge.
   !!
-  elemental subroutine addEdgeIdx(self, idx)
-    class(element), intent(inout)  :: self
-    integer(shortInt), intent(in)  :: idx
+  subroutine addEdge(self, edge)
+    class(element), intent(inout)            :: self
+    type(edgeBox), intent(in)                :: edge
+    integer(shortInt)                        :: nEdges
+    type(edgeBox), dimension(:), allocatable :: tempEdges
 
-    call append(self % edgeIdxs, idx, .true.)
+    if (allocated(self % edges)) then
+      nEdges = size(self % edges)
+      allocate(tempEdges(nEdges + 1))
+      tempEdges(1:nEdges) = self % edges
+      tempEdges(nEdges + 1) = edge
+      call move_alloc(tempEdges, self % edges)
 
-  end subroutine addEdgeIdx
+    else
+      allocate(self % edges(1))
+      self % edges(1) = edge
+
+    end if
+
+  end subroutine addEdge
   
   !! Subroutine 'addFaceToElement'
   !!
@@ -160,41 +177,54 @@ contains
   !! Arguments:
   !!   vertexIdx [in] -> Index of the vertex.
   !!
-  elemental subroutine addVertexIdx(self, vertexIdx)
-    class(element), intent(inout) :: self
-    integer(shortInt), intent(in) :: vertexIdx
+  subroutine addVertex(self, vertex)
+    class(element), intent(inout)              :: self
+    type(vertexBox), intent(in)                :: vertex
+    integer(shortInt)                          :: nVertices
+    type(vertexBox), dimension(:), allocatable :: tempVertices
 
-    call append(self % vertexIdxs, vertexIdx, .true.)
+    if (allocated(self % vertices)) then
+      nVertices = size(self % vertices)
+      allocate(tempVertices(nVertices + 1))
+      tempVertices(1:nVertices) = self % vertices
+      tempVertices(nVertices + 1) = vertex
+      call move_alloc(tempVertices, self % vertices)
 
-  end subroutine addVertexIdx
+    else
+      allocate(self % vertices(1))
+      self % vertices(1) = vertex
+
+    end if
+
+  end subroutine addVertex
 
   !!
   !!
   !!
-  subroutine build(self, idx, parentIdx, faceIdxs, vertexIdxs, faces, vertices, type, boundingBox)
+  subroutine build(self, idx, parentIdx, faceIdxs, faces, vertices, type, boundingBox)
     class(element), intent(inout)               :: self
     integer(shortInt), intent(in)               :: idx, parentIdx
-    integer(shortInt), dimension(:), intent(in) :: faceIdxs, vertexIdxs
+    integer(shortInt), dimension(:), intent(in) :: faceIdxs
     type(faceShelf), intent(in)                 :: faces
-    type(vertexShelf), intent(in)               :: vertices
+    type(vertexBox), dimension(:), intent(in)   :: vertices
     character(*), intent(in)                    :: type
     logical(defBool)                            :: isConvex
     real(defReal), dimension(3)                 :: centroid
     real(defReal)                               :: volume
     type(axisAlignedBoundingBox), intent(in)    :: boundingBox
 
-    call self % computeComponents(faceIdxs, vertexIdxs, faces, vertices, centroid, volume)
+    call self % computeComponents(faceIdxs, faces, vertices, centroid, volume)
 
     if (type == 'Tetrahedron') then
       isConvex = .true.
 
     else
-      isConvex = self % computeConvexity(faceIdxs, vertexIdxs, faces, vertices)
+      isConvex = self % computeConvexity(faceIdxs, faces, vertices)
 
     end if
 
     ! Initialise element.
-    call self % init(idx, parentIdx, faceIdxs, vertexIdxs, centroid, volume, isConvex, type, boundingBox)
+    call self % init(idx, parentIdx, faceIdxs, vertices, centroid, volume, isConvex, type, boundingBox)
 
   end subroutine build
 
@@ -218,15 +248,15 @@ contains
   !! Result:
   !!   isIt          -> .true. if the element is convex.
   !!
-  function computeConvexity(self, faceIdxs, vertexIdxs, faces, vertices) result(isConvex)
-    class(element), intent(in)                   :: self
-    integer(shortInt), dimension(:), intent(in)  :: faceIdxs, vertexIdxs
-    type(faceShelf), intent(in)                  :: faces
-    type(vertexShelf), intent(in)                :: vertices
-    logical(defBool)                             :: isConvex
-    integer(shortInt)                            :: i, j, k, faceIdx, absFaceIdx, vertexIdx
-    integer(shortInt), dimension(:), allocatable :: faceVertexIdxs
-    real(defReal), dimension(3)                  :: normal, faceVertexCoords
+  function computeConvexity(self, faceIdxs, faces, vertices) result(isConvex)
+    class(element), intent(in)                  :: self
+    integer(shortInt), dimension(:), intent(in) :: faceIdxs
+    type(faceShelf), intent(in)                 :: faces
+    type(vertexBox), dimension(:), intent(in)   :: vertices
+    logical(defBool)                            :: isConvex, isOnFace
+    integer(shortInt)                           :: i, j, k, faceIdx, absFaceIdx, vertexIdx
+    type(vertexBox), dimension(:), allocatable  :: faceVertices
+    real(defReal), dimension(3)                 :: normal, faceVertexCoords
 
     ! Initialise isIt = .false.
     isConvex = .false.
@@ -236,23 +266,25 @@ contains
       ! Retrieve the current face's vertices and signed normal vector.
       faceIdx = faceIdxs(i)
       absFaceIdx = abs(faceIdx)
-      faceVertexIdxs = faces % getFaceVertexIdxs(absFaceIdx)
+      faceVertices = faces % getFaceVertices(absFaceIdx)
       normal = faces % getFaceNormal(faceIdx)
-      
-      ! Loop through all the vertices in the current face.
-      do j = 1, size(faceVertexIdxs)
-        ! Retrieve the coordinates of the current face vertex and loop through all the vertices in the element.
-        faceVertexCoords = vertices % getVertexCoordinates(faceVertexIdxs(j))
-        do k = 1, size(vertexIdxs)
-          ! Cycle to the next vertex if the current vertex index corresponds to the index of a vertex in the current face.
-          vertexIdx = vertexIdxs(k)
-          if (any(faceVertexIdxs == vertexIdx)) cycle
-          
-          ! Assemble the test vector and check if normal .dot. testVector > ZERO. If yes, the element
-          ! is concave and we can return early.
-          if (dot_product(normal, vertices % getVertexCoordinates(vertexIdx) - faceVertexCoords) > ZERO) return
+      faceVertexCoords = faceVertices(1) % ptr % getCoordinates()
+
+      ! Loop through all vertices in the element.
+      do j = 1, size(vertices)
+        isOnFace = .false.
+        do k = 1, size(faceVertices)
+          if (.not. associated(faceVertices(k) % ptr)) cycle
+          if (associated(vertices(j) % ptr, faceVertices(k) % ptr)) then
+            isOnFace = .true.
+            exit
+
+          end if
 
         end do
+
+        if (isOnFace) cycle
+        if (dot_product(normal, vertices(j) % ptr % getCoordinates() - faceVertexCoords) > ZERO) return
 
       end do
 
@@ -401,13 +433,13 @@ contains
   !! Result:
   !!   edgeIdxs -> Indices of the edges in the element.
   !!
-  pure function getEdgeIdxs(self) result(edgeIdxs)
-    class(element), intent(in)                          :: self
-    integer(shortInt), dimension(size(self % edgeIdxs)) :: edgeIdxs
+  function getEdges(self) result(edges)
+    class(element), intent(in)                   :: self
+    type(edgeBox), dimension(size(self % edges)) :: edges
 
-    edgeIdxs = self % edgeIdxs
+    edges = self % edges
 
-  end function getEdgeIdxs
+  end function getEdges
   
   !! Function 'getFaces'
   !!
@@ -441,6 +473,9 @@ contains
 
   end function getIdx
 
+  !!
+  !!
+  !!
   elemental function getIsConvex(self) result(isConvex)
     class(element), intent(in) :: self
     logical(defBool)           :: isConvex
@@ -484,13 +519,13 @@ contains
   !! Result:
   !!   vertexIdxs -> An array listing indices of the vertices in the element.
   !!
-  pure function getVertexIdxs(self) result(vertexIdxs)
-    class(element), intent(in)                            :: self
-    integer(shortInt), dimension(size(self % vertexIdxs)) :: vertexIdxs
+  function getVertices(self) result(vertices)
+    class(element), intent(in)                        :: self
+    type(vertexBox), dimension(size(self % vertices)) :: vertices
     
-    vertexIdxs = self % vertexIdxs
+    vertices = self % vertices
 
-  end function getVertexIdxs
+  end function getVertices
   
   !! Function 'getVolume'
   !!
@@ -511,28 +546,29 @@ contains
   !!
   !!
   !!
-  pure subroutine init(self, idx, parentIdx, faceIdxs, vertexIdxs, centroid, volume, isConvex, type, boundingBox, edgeIdxs)
-    class(element), intent(inout)                         :: self
-    integer(shortInt), intent(in)                         :: idx, parentIdx
-    integer(shortInt), dimension(:), intent(in)           :: faceIdxs, vertexIdxs
-    real(defReal), dimension(3), intent(in)               :: centroid
-    real(defReal), intent(in)                             :: volume
-    logical(defBool), intent(in)                          :: isConvex
-    character(*), intent(in)                              :: type
-    type(axisAlignedBoundingBox), intent(in)              :: boundingBox
-    integer(shortInt), dimension(:), intent(in), optional :: edgeIdxs
+  subroutine init(self, idx, parentIdx, faceIdxs, vertices, centroid, volume, isConvex, type, boundingBox, edges)
+    class(element), intent(inout)                     :: self
+    integer(shortInt), intent(in)                     :: idx, parentIdx
+    integer(shortInt), dimension(:), intent(in)       :: faceIdxs
+    type(vertexBox), dimension(:), intent(in)         :: vertices
+    real(defReal), dimension(3), intent(in)           :: centroid
+    real(defReal), intent(in)                         :: volume
+    logical(defBool), intent(in)                      :: isConvex
+    character(*), intent(in)                          :: type
+    type(axisAlignedBoundingBox), intent(in)          :: boundingBox
+    type(edgeBox), dimension(:), intent(in), optional :: edges
 
     ! Set everything.
     self % idx = idx
     self % parentIdx = parentIdx
     self % faceIdxs = faceIdxs
-    self % vertexIdxs = vertexIdxs
+    self % vertices = vertices
     self % centroid = centroid
     self % volume = volume
     self % isConvex = isConvex
     self % type = type
     self % boundingBox = boundingBox
-    if (present(edgeIdxs)) self % edgeIdxs = edgeIdxs
+    if (present(edges)) self % edges = edges
 
   end subroutine init
   
@@ -541,20 +577,35 @@ contains
   !! Basic description:
   !!   Returns to an uninitialised state.
   !!
-  elemental subroutine kill(self)
+  subroutine kill(self)
     class(element), intent(inout) :: self
+    integer(shortInt)             :: i
     
     self % idx = 0
     self % parentIdx = 0
     self % volume = ZERO
     self % centroid = ZERO
     self % isConvex = .false.
-    if (allocated(self % edgeIdxs)) deallocate(self % edgeIdxs)
-    if (allocated(self % vertexIdxs)) deallocate(self % vertexIdxs)
     if (allocated(self % faceIdxs)) deallocate(self % faceIdxs)
     if (allocated(self % tetrahedronIdxs)) deallocate(self % tetrahedronIdxs)
     if (allocated(self % type)) deallocate(self % type)
     call self % boundingBox % kill()
+
+    if (allocated(self % edges)) then
+      do i = 1, size(self % edges)
+        nullify(self % edges(i) % ptr)
+
+      end do
+
+    end if
+
+    if (allocated(self % vertices)) then
+      do i = 1, size(self % vertices)
+        nullify(self % vertices(i) % ptr)
+
+      end do
+
+    end if
 
   end subroutine kill
 

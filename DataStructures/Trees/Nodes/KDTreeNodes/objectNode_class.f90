@@ -157,12 +157,11 @@ contains
   !!   ballsize [inout] -> Smallest search radius reached up to this point.
   !!   idx [out]        -> Index of the vertex closest to the supplied 3-D coordinates.
   !!
-  subroutine process(self, r, radiusSquared, idxs, vertices, faces, idx)
+  subroutine process(self, r, radiusSquared, idxs, faces, idx)
     class(objectNode), intent(in)               :: self
     real(defReal), dimension(3), intent(in)     :: r
     real(defReal), intent(inout)                :: radiusSquared
     integer(shortInt), dimension(:), intent(in) :: idxs
-    type(vertexShelf), intent(in)               :: vertices
     type(faceShelf), intent(in)                 :: faces
     integer(shortInt), intent(inout)            :: idx
     integer(shortInt)                           :: i
@@ -171,7 +170,7 @@ contains
     ! Loop over all vertices in the terminal node.
     do i = self % getLowerBound(), self % getUpperBound()
       ! Compute the distance squared to the current face and update minimum distance.
-      dSquared = faces % distanceSquaredFromFace(idxs(i), r, vertices)
+      dSquared = faces % distanceSquaredFromFace(idxs(i), r)
 
       if (dSquared < radiusSquared) then
         ! Set idx to the index of the vertex corresponding to the current lowest distance and ballSize
@@ -219,7 +218,7 @@ contains
     
     ! If the current node is a leaf simply process it.
     if (self % getIsLeaf()) then
-      call self % process(r, radiusSquared, idxs, vertices, faces, idx)
+      call self % process(r, radiusSquared, idxs, faces, idx)
       return
 
     end if

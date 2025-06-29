@@ -2,12 +2,14 @@ module polygon_class
   
   use axisAlignedBoundingBox_class, only : axisAlignedBoundingBox
   use numPrecision,
+  use edge_class,                   only : edgeBox
   use edgeShelf_class,              only : edgeShelf
   use face_inter,                   only : face, faceBox, kill_super => kill
   use genericProcedures,            only : append, areEqual, computeTriangleArea, computeTriangleCentre, &
                                            computeTriangleNormal, fatalError, findCommon, numToChar
   use triangle_class,               only : triangle
   use universalVariables,           only : INF, HALF, THIRD, SURF_TOL, ZERO
+  use vertex_class,                 only : vertexBox
   use vertexShelf_class,            only : vertexShelf
   
   implicit none
@@ -49,25 +51,24 @@ contains
   !!   fatalError if area is negative.
   !!   fatalError if area is infinite.
   !!
-  subroutine computeComponents(self, vertexIdxs, vertices, centroid, normal, area)
-    class(polygon), intent(inout)               :: self
-    integer(shortInt), dimension(:), intent(in) :: vertexIdxs
-    type(vertexShelf), intent(in)               :: vertices
-    real(defReal), dimension(3), intent(out)    :: centroid, normal
-    real(defReal), intent(out)                  :: area
-    integer(shortInt)                           :: i, nVertices
-    real(defReal)                               :: norm, sumAreas
-    real(defReal), dimension(3)                 :: C, sumNormals, sumAreasCentroid
-    real(defReal), dimension(3, 3)              :: array
+  subroutine computeComponents(self, vertices, centroid, normal, area)
+    class(polygon), intent(inout)             :: self
+    type(vertexBox), dimension(:), intent(in) :: vertices
+    real(defReal), dimension(3), intent(out)  :: centroid, normal
+    real(defReal), intent(out)                :: area
+    integer(shortInt)                         :: i, nVertices
+    real(defReal)                             :: norm, sumAreas
+    real(defReal), dimension(3)               :: C, sumNormals, sumAreasCentroid
+    real(defReal), dimension(3, 3)            :: array
     
     ! Retrieve the number of vertices in the face and compute its centroid by performing 
     ! an arithmetic average of the vertices' coordinates.
-    nVertices = size(vertexIdxs)
+    nVertices = size(vertices)
     
     ! Initialise C = ZERO and loop over all vertices.
     C = ZERO
     do i = 1, nVertices
-      C = C + vertices % getVertexCoordinates(vertexIdxs(i))
+      C = C + vertices(i) % ptr % getCoordinates()
 
     end do
     
@@ -79,8 +80,8 @@ contains
     do i = 1, nVertices
       ! Set the vectors pointing to the remaining two vertices in the triangle and compute the triangle's
       ! centre and normal vector.
-      array(1, :) = vertices % getVertexCoordinates(vertexIdxs(i))
-      array(2, :) = vertices % getVertexCoordinates(vertexIdxs(mod(i, nVertices) + 1))
+      array(1, :) = vertices(i) % ptr % getCoordinates()
+      array(2, :) = vertices(mod(i, nVertices) + 1) % ptr % getCoordinates()
       
       ! Retrieve current triangle's normal and update sumNormals.
       normal = computeTriangleNormal(array)
@@ -105,19 +106,19 @@ contains
   !!
   !!
   !!
-  subroutine createTriangle(self, lastNewFaceIdx, edgeIdxs, newVertices, newTriangle, vertexIdxs, boundingBox)
-    class(polygon), intent(in)                     :: self
-    integer(shortInt), intent(in)                  :: lastNewFaceIdx
-    integer(shortInt), dimension(3), intent(in)    :: edgeIdxs
-    type(vertexShelf), intent(in)                  :: newVertices
-    type(faceBox), intent(inout)                   :: newTriangle
-    integer(shortInt), dimension(3), intent(inout) :: vertexIdxs
-    type(axisAlignedBoundingBox), intent(in)       :: boundingBox
+  subroutine createTriangle(self, lastNewFaceIdx, edges, newVertices, newTriangle, vertices, boundingBox)
+    class(polygon), intent(in)                :: self
+    integer(shortInt), intent(in)             :: lastNewFaceIdx
+    type(edgeBox), dimension(3), intent(in)   :: edges
+    type(vertexShelf), intent(in)             :: newVertices
+    type(faceBox), intent(inout)              :: newTriangle
+    type(vertexBox), dimension(3), intent(in) :: vertices
+    type(axisAlignedBoundingBox), intent(in)  :: boundingBox
 
     ! Build the new triangle.
     allocate(triangle :: newTriangle % item)
     call newTriangle % item % build(lastNewFaceIdx, self % getIdx(), self % getIsBoundary(), &
-                                    vertexIdxs, newVertices, 'Triangle', boundingBox, edgeIdxs = edgeIdxs)
+                                    vertices, 'Triangle', boundingBox, edges = edges)
 
   end subroutine createTriangle
   
