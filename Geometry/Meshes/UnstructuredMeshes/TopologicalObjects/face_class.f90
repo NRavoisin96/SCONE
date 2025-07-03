@@ -1,20 +1,45 @@
-module face_inter
+module face_class
   
   use axisAlignedBoundingBox_class, only : axisAlignedBoundingBox
   use coord_class,                  only : coord
   use edge_class,                   only : edgeBox
-  use edgeShelf_class,              only : edgeShelf
   use genericProcedures,            only : append, areEqual, crossProduct, fatalError, findCommon, numToChar, swap
+  use topologicalObject_inter,      only : topologicalObject, kill_super => kill
   use numPrecision
   use universalVariables,           only : HALF, INF, ONE, SURF_TOL, THIRD, ZERO
   use vertex_class,                 only : vertexBox
-  use vertexShelf_class,            only : vertexShelf
   
   implicit none
   private
 
-  ! Extendable procedures.
-  public :: kill
+  !!
+  !!
+  !!
+  type, public :: buildFaceInfo
+    integer(shortInt)                          :: idx = 0, parentIdx = 0
+    logical(defBool)                           :: isBoundary = .false.
+    type(vertexBox), dimension(:), allocatable :: vertices
+    type(edgeBox), dimension(:), allocatable   :: edges
+  end type buildFaceInfo
+
+  !!
+  !! Small, local container to store polymorphic faces in a single array.
+  !!
+  !! Public members:
+  !!   name -> Name of the mesh.
+  !!   ptr  -> Pointer to the mesh.
+  !!
+  type, public          :: faceBox
+    type(face), pointer :: ptr => null()
+  end type
+
+  !!
+  !!
+  !!
+  type, public                  :: orientatedFaceBox
+    type(faceBox)               :: face
+    real(defReal), dimension(3) :: outwardNormal = ZERO
+  end type orientatedFaceBox
   
   !! Face of an unstructured mesh. Consists of a list of vertices indices making the face up and 
   !! face-to-element connectivity information.
@@ -29,119 +54,51 @@ module face_inter
   !!   centroid       -> Vector pointing to the centroid of the face.
   !!   normal         -> Normal vector of the face.
   !!
-  type, public, abstract                         :: face
+  type, public, extends(topologicalObject)       :: face
     private
-    integer(shortInt)                            :: idx = 0, parentIdx = 0
+    integer(shortInt)                            :: parentIdx = 0
     type(edgeBox), dimension(:), allocatable     :: edges
     type(vertexBox), dimension(:), allocatable   :: vertices
     integer(shortInt), dimension(:), allocatable :: elementIdxs, triangleIdxs
     logical(defBool)                             :: isBoundary = .false.
     real(defReal)                                :: area = ZERO
-    real(defReal), dimension(3)                  :: centroid = ZERO, normal = ZERO, AB = ZERO, AC = ZERO
+    real(defReal), dimension(3)                  :: centroid = ZERO, normal = ZERO
     type(axisAlignedBoundingBox)                 :: boundingBox
     character(:), allocatable                    :: type
   contains
-    procedure, non_overridable                   :: addEdge
-    procedure, non_overridable                   :: addElementIdx
-    procedure, non_overridable                   :: addTriangleIdx
-    procedure, non_overridable                   :: addVertex
-    procedure, non_overridable                   :: build
-    procedure(computeComponents), deferred       :: computeComponents
-    procedure, non_overridable                   :: computeIntersection
-    procedure(createTriangle), deferred          :: createTriangle
-    procedure, non_overridable                   :: distanceSquared
-    procedure, non_overridable                   :: distanceSquaredToEdge
-    procedure, non_overridable                   :: getAB
-    procedure, non_overridable                   :: getAC
-    procedure, non_overridable                   :: getArea
-    procedure, non_overridable                   :: getBoundingBox
-    procedure, non_overridable                   :: getCentroid
-    procedure, non_overridable                   :: getEdges
-    procedure, non_overridable                   :: getElementIdxs
-    procedure, non_overridable                   :: getFaceIdx
-    procedure, non_overridable                   :: getHasElements
-    procedure, non_overridable                   :: getIdx
-    procedure, non_overridable                   :: getIsBoundary
-    procedure, non_overridable                   :: getNormal
-    procedure, non_overridable                   :: getTriangleIdxs
-    procedure, non_overridable                   :: getType
-    procedure, non_overridable                   :: getVertices
-    procedure, non_overridable                   :: init
-    generic                                      :: intersects => intersects_BoundingBox
-    procedure, private, non_overridable          :: intersects_BoundingBox
-    generic                                      :: intersectsBoundingBox => intersectsBoundingBox_BoundingBox
-    procedure, private, non_overridable          :: intersectsBoundingBox_BoundingBox
-    procedure, non_overridable                   :: isPointInside
-    procedure                                    :: kill
-    procedure, non_overridable                   :: setArea
-    procedure, non_overridable                   :: setCentroid
-    procedure, non_overridable                   :: setIsBoundary
-    procedure, non_overridable                   :: setIdx
-    procedure, non_overridable                   :: setNormal
-    procedure, non_overridable                   :: setVertices
-    procedure                                    :: split
+    procedure          :: addEdge
+    procedure          :: addElementIdx
+    procedure          :: addTriangleIdx
+    procedure          :: addVertex
+    procedure, private :: build
+    procedure          :: computeIntersection
+    procedure          :: distanceSquared
+    procedure          :: getArea
+    procedure          :: getBoundingBox
+    procedure          :: getCentroid
+    procedure          :: getEdges
+    procedure          :: getElementIdxs
+    procedure          :: getFaceIdx
+    procedure          :: getHasElements
+    procedure          :: getIsBoundary
+    procedure          :: getNormal
+    procedure          :: getTriangleIdxs
+    procedure          :: getType
+    procedure          :: getVertices
+    procedure          :: init
+    generic            :: intersects => intersects_BoundingBox
+    procedure, private :: intersects_BoundingBox
+    generic            :: intersectsBoundingBox => intersectsBoundingBox_BoundingBox
+    procedure, private :: intersectsBoundingBox_BoundingBox
+    procedure          :: isPointInside
+    procedure          :: kill
+    procedure          :: setArea
+    procedure          :: setCentroid
+    procedure          :: setIsBoundary
+    procedure          :: setNormal
+    procedure          :: setVertices
+    procedure          :: split
   end type face
-
-  !!
-  !! Small, local container to store polymorphic faces in a single array.
-  !!
-  !! Public members:
-  !!   name -> Name of the mesh.
-  !!   ptr  -> Pointer to the mesh.
-  !!
-  type, public               :: faceBox
-    class(face), allocatable :: item
-  end type
-
-  abstract interface
-
-    !! Subroutine 'computeAreaAndNormal'
-    !!
-    !! Basic description:
-    !!   Computes the area and the normal vector of the face.
-    !!
-    !! Detailed description:
-    !!   First estimates the centroid of the face by performing a simple arithmetic average of the 
-    !!   vertices' coordinates. Using this centroid, the face is then decomposed into a number of 
-    !!   triangles equal to the number of edges in the face where each triangle shares the face 
-    !!   centroid as a common point. The normal vector of each triangle is then computed and the 
-    !!   normal vector for the face is then obtained by summing the normal vectors for each triangle.
-    !!   The overall face area is obtained by normalising the overall normal vector. The face centroid 
-    !!   is then recomputed by performing an area-weighted average of the triangles' centres.
-    !!
-    !! Arguments:
-    !!   vertices -> A vertexShelf.
-    !!
-    !! Errors:
-    !!   fatalError if area is negative.
-    !!   fatalError if area is infinite.
-    !!
-    subroutine computeComponents(self, vertices, centroid, normal, area)
-      import                                    :: face, shortInt, vertexBox, defReal
-      class(face), intent(inout)                :: self
-      type(vertexBox), dimension(:), intent(in) :: vertices
-      real(defReal), dimension(3), intent(out)  :: centroid, normal
-      real(defReal), intent(out)                :: area
-
-    end subroutine computeComponents
-
-    !!
-    !!
-    !!
-    subroutine createTriangle(self, lastNewFaceIdx, edges, newVertices, newTriangle, vertices, boundingBox)
-      import                                    :: axisAlignedBoundingBox, face, shortInt, vertexShelf, faceBox, &
-                                                   defReal, edgeBox, vertexBox
-      class(face), intent(in)                   :: self
-      integer(shortInt), intent(in)             :: lastNewFaceIdx
-      type(edgeBox), dimension(3), intent(in)   :: edges
-      type(vertexShelf), intent(in)             :: newVertices
-      type(faceBox), intent(inout)              :: newTriangle
-      type(vertexBox), dimension(3), intent(in) :: vertices
-      type(axisAlignedBoundingBox), intent(in)  :: boundingBox
-
-    end subroutine createTriangle
-
-  end interface
 
 contains
 
@@ -238,42 +195,70 @@ contains
   !!
   !!
   !!
-  subroutine build(self, idx, faceIdx, isBoundary, vertices, type, boundingBox, testCentroid, edges)
-    class(face), intent(inout)                        :: self
-    integer(shortInt), intent(in)                     :: idx, faceIdx
-    logical(defBool), intent(in)                      :: isBoundary
-    type(vertexBox), dimension(:), intent(in)         :: vertices
-    character(*), intent(in)                          :: type
-    type(axisAlignedBoundingBox), intent(in)          :: boundingBox
-    real(defReal), dimension(3), intent(in), optional :: testCentroid
-    type(edgeBox), dimension(:), intent(in), optional :: edges
-    real(defReal), dimension(3)                       :: centroid, normal, firstVertexCoords, AB, AC
-    real(defReal)                                     :: area
-    type(vertexBox), dimension(:), allocatable        :: reorderedVertices
+  subroutine build(self)
+    class(face), intent(inout)                         :: self
+    integer(shortInt)                                  :: i, nVertices
+    real(defReal), dimension(3, 3)                     :: triangleCoordsArray
+    real(defReal), dimension(3, size(self % vertices)) :: allCoords
+    real(defReal), dimension(3)                        :: normal, sumAreasCentroid, sumNormals
+    real(defReal)                                      :: normalNorm, sumAreas
+    character(*), parameter                            :: here = 'build (face_class.f90)'
 
-    ! Compute centroid, normal vector and area.
-    reorderedVertices = vertices
-    call self % computeComponents(reorderedVertices, centroid, normal, area)
+    ! First retrieve the coordinates of all the vertices in the face.
+    nVertices = size(self % vertices)
+    do i = 1, nVertices
+      if (.not. associated(self % vertices(i) % ptr)) &
+      call fatalError(here, 'Face with index '//numToChar(self % getIdx())//' contains a null vertex pointer.')
+      allCoords(:, i) = self % vertices(i) % ptr % getCoordinates()
 
-    ! Check normal orientation.
-    if (present(testCentroid)) then
-      ! Check that the triangle's normal vector points in the correct direction (outward). If not,
-      ! swap two of the new triangle's vertices and negate its normal vector.
-      if (dot_product(centroid - testCentroid, normal) <= ZERO) then
-        reorderedVertices(1) = vertices(2)
-        reorderedVertices(2) = vertices(1)
-        normal = -normal
+    end do
 
-      end if
+    ! Check if the face is a triangle. If so, perform a direct computation to avoid round-off errors.
+    if (nVertices == 3) then
+      normal = computeTriangleNormal(allCoords)
+      normalNorm = norm2(normal)
+      self % area = HALF * normalNorm
+      self % centroid = THIRD * sum(allCoords, 2)
+      self % normal = normal / normalNorm
+
+    else
+      ! Calculate the polygon's geometric centroid.
+      triangleCoordsArray(:, 3) = sum(allCoords, 2) / nVertices
+      sumAreas = ZERO
+      sumAreasCentroid = ZERO
+      sumNormals = ZERO
+      do i = 1, nVertices
+        triangleCoordsArray(:, 1) = allCoords(:, i)
+        triangleCoordsArray(:, 2) = allCoords(:, merge(1, i + 1, i == nVertices))
+
+        normal = computeTriangleNormal(triangleCoordsArray)
+        sumNormals = sumNormals + normal
+
+        normalNorm = norm2(normal)
+        sumAreas = sumAreas + normalNorm
+        sumAreasCentroid = sumAreasCentroid + normalNorm * sum(triangleCoordsArray, 2)
+
+      end do
+      self % area = HALF * sumAreas
+      self % centroid = THIRD * sumAreasCentroid / sumAreas
+      self % normal = sumNormals / norm2(sumNormals)
 
     end if
+    ! Initialise face bounding box.
+    call self % boundingBox % computeBounds(allCoords)
 
-    ! Compute the two edge vectors of the face then set everything.
-    firstVertexCoords = reorderedVertices(1) % ptr % getCoordinates()
-    AB = reorderedVertices(2) % ptr % getCoordinates() - firstVertexCoords
-    AC = reorderedVertices(3) % ptr % getCoordinates() - firstVertexCoords
-    call self % init(idx, faceIdx, isBoundary, area, centroid, normal, AB, AC, reorderedVertices, type, boundingBox, edges)
+  contains
+    !!
+    !!
+    !!
+    pure function computeTriangleNormal(array) result(n)
+      real(defReal), dimension(3, 3), intent(in) :: array
+      real(defReal), dimension(3)                :: n
 
+      n = crossProduct(array(:, 2) - array(:, 1), array(:, 3) - array(:, 1))
+
+    end function computeTriangleNormal
+    
   end subroutine build
 
   !! Subroutine 'computeIntersection'
@@ -336,9 +321,9 @@ contains
   function distanceSquared(self, r) result(dSquared)
     class(face), intent(in)                 :: self
     real(defReal), dimension(3), intent(in) :: r
-    real(defReal)                           :: d, dSquared, inverseNormalSquared, temp
+    real(defReal)                           :: d, dSquared, inverseNormalSquared
     real(defReal), dimension(3)             :: diff, proj
-    integer(shortInt)                       :: i, nextIdx, nVertices
+    integer(shortInt)                       :: i
 
     ! First compute the distance between the point and the plane of the face.
     diff = r - self % centroid
@@ -364,64 +349,6 @@ contains
     end do
 
   end function distanceSquared
-
-  !!
-  !!
-  !!
-  function distanceSquaredToEdge(self, r, vertices, idx, nextIdx) result(dSquared)
-    class(face), intent(in)                 :: self
-    real(defReal), dimension(3), intent(in) :: r
-    type(vertexShelf), intent(in)           :: vertices
-    integer(shortInt), intent(in)           :: idx, nextIdx
-    real(defReal), dimension(3)             :: edgeVector, pointVector, vertexCoords
-    real(defReal)                           :: dSquared, lSquared, t
-
-    ! First compute edgeVector and pointVector.
-    vertexCoords = vertices % getVertexCoordinates(idx)
-    edgeVector = vertices % getVertexCoordinates(nextIdx) - vertexCoords
-    pointVector = r - vertexCoords
-
-    ! Compute the square of the edge length.
-    lSquared = dot_product(edgeVector, edgeVector)
-
-    ! Handle the case of a zero-length segment.
-    if (areEqual(lSquared, ZERO)) then
-        dSquared = dot_product(pointVector, pointVector)
-        return
-        
-    end if
-
-    ! Compute the normalisation parameter t by projecting pointVector onto edgeVector and
-    ! snap it to the range [0, 1].
-    t = max(ZERO, min(ONE, dot_product(pointVector, edgeVector) / lSquared))
-
-    ! Now compute dSquared.
-    pointVector = pointVector - edgeVector * t
-    dSquared = dot_product(pointVector, pointVector)
-
-  end function distanceSquaredToEdge
-
-  !!
-  !!
-  !!
-  pure function getAB(self) result(AB)
-    class(face), intent(in)     :: self
-    real(defReal), dimension(3) :: AB
-
-    AB = self % AB
-
-  end function getAB
-
-  !!
-  !!
-  !!
-  pure function getAC(self) result(AC)
-    class(face), intent(in)     :: self
-    real(defReal), dimension(3) :: AC
-
-    AC = self % AC
-
-  end function getAC
   
   !! Function 'getArea'
   !!
@@ -534,22 +461,6 @@ contains
     hasElements = allocated(self % elementIdxs)
 
   end function getHasElements
-  
-  !! Function 'getIdx'
-  !!
-  !! Basic description:
-  !!   Returns the index of the face.
-  !!
-  !! Result:
-  !!   idx -> Index of the face.
-  !!
-  elemental function getIdx(self) result(idx)
-    class(face), intent(in) :: self
-    integer(shortInt)       :: idx
-    
-    idx = self % idx
-
-  end function getIdx
 
   !! Function 'getIsBoundary'
   !!
@@ -628,7 +539,7 @@ contains
   !!   vertexIdxs -> Array of vertex indices in the face.
   !!
   function getVertices(self) result(vertices)
-    class(face), intent(in)                             :: self
+    class(face), intent(in)                           :: self
     type(vertexBox), dimension(size(self % vertices)) :: vertices
     
     vertices = self % vertices
@@ -638,30 +549,34 @@ contains
   !!
   !!
   !!
-  subroutine init(self, idx, parentIdx, isBoundary, area, centroid, normal, AB, AC, vertices, type, boundingBox, edges)
-    class(face), intent(inout)                        :: self
-    integer(shortInt), intent(in)                     :: idx, parentIdx
-    logical(defBool), intent(in)                      :: isBoundary
-    real(defReal), intent(in)                         :: area
-    real(defReal), dimension(3), intent(in)           :: centroid, normal, AB, AC
-    type(vertexBox), dimension(:), intent(in)         :: vertices
-    character(*), intent(in)                          :: type
-    type(axisAlignedBoundingBox), intent(in)          :: boundingBox
-    type(edgeBox), dimension(:), intent(in), optional :: edges
+  subroutine init(self, info)
+    class(face), intent(inout)      :: self
+    type(buildFaceInfo), intent(in) :: info
+    integer(shortInt)               :: nVertices
+    character(*), parameter         :: here = 'init (face_class.f90)'
 
-    ! Set everything.
-    self % idx = idx
-    self % parentIdx = parentIdx
-    self % isBoundary = isBoundary
-    self % area = area
-    self % centroid = centroid
-    self % normal = normal
-    self % AB = AB
-    self % AC = AC
-    self % vertices = vertices
-    self % type = type
-    self % boundingBox = boundingBox
-    if (present(edges)) self % edges = edges
+    ! Catch invalid number of vertices.
+    nVertices = size(info % vertices)
+    if (nVertices < 3) then
+      call fatalError(here, 'A face must have at least three vertices. Has: '//numToChar(nVertices)//'.')
+
+    elseif(nVertices == 3) then
+      self % type = 'Triangle'
+
+    else
+      self % type = 'Polygon'
+
+    end if
+
+    ! Set everything from payload.
+    call self % setIdx(info % idx)
+    self % parentIdx = info % parentIdx
+    self % isBoundary = info % isBoundary
+    self % vertices = info % vertices
+    self % edges = info % edges
+
+    ! Build.
+    call self % build()
 
   end subroutine init
 
@@ -674,7 +589,7 @@ contains
     logical(defBool), intent(out)                      :: doesIt
     real(defReal), dimension(3)                        :: boundingBoxCentre, halfwidths, axis, edgeVector, boxAxis
     real(defReal), dimension(3, size(self % vertices)) :: centredVertexCoords
-    integer(shortInt)                                  :: i, j, nextIdx, nVertices
+    integer(shortInt)                                  :: i, j, nVertices
 
     ! Initialise doesIt = .false., retrieve the centre and halfwidths of the boundingBox.
     doesIt = .false.
@@ -803,14 +718,15 @@ contains
     class(face), intent(inout) :: self
     integer(shortInt)          :: i
     
-    self % idx = 0
+    ! Superclass.
+    call kill_super(self)
+
+    ! Local.
     self % parentIdx = 0
     self % isBoundary = .false.
     self % area = ZERO
     self % centroid = ZERO
     self % normal = ZERO
-    self % AB = ZERO
-    self % AC = ZERO
     call self % boundingBox % kill()
     if (allocated(self % elementIdxs)) deallocate(self % elementIdxs)
     if (allocated(self % edges)) then
@@ -875,28 +791,6 @@ contains
     self % centroid = centroid
 
   end subroutine setCentroid
-  
-  !! Subroutine 'setIdx'
-  !!
-  !! Basic description:
-  !!   Sets the index of the face.
-  !!
-  !! Arguments:
-  !!   idx [in] -> Index of the face.
-  !!
-  !! Error:
-  !!   fatalError if idx < 1.
-  !!
-  subroutine setIdx(self, idx)
-    class(face), intent(inout)    :: self
-    integer(shortInt), intent(in) :: idx
-    character(100), parameter     :: Here = 'setIdx (face_class.f90)'
-    
-    ! Catch invalid index.
-    if (idx < 1) call fatalError(Here, 'Face index must be +ve. Is: '//numToChar(idx)//'.')
-    self % idx = idx
-
-  end subroutine setIdx
 
   !! Subroutine 'setNormal'
   !!
@@ -933,82 +827,9 @@ contains
   !!
   !!
   !!
-  subroutine split(self, newEdges, newVertices, lastNewEdgeIdx, lastNewFaceIdx, triangles)
-    class(face), intent(inout)                 :: self
-    type(edgeShelf), intent(inout)             :: newEdges
-    type(vertexShelf), intent(inout)           :: newVertices
-    integer(shortInt), intent(inout)           :: lastNewEdgeIdx, lastNewFaceIdx
-    type(faceBox), dimension(:), intent(inout) :: triangles
-    integer(shortInt)                          :: i, j, k, minVertexLoc, nTriangles, nVertices
-    integer(shortInt), dimension(3)            :: edgeIdxs, vertexIdxs
-    real(defReal), dimension(3, 3)             :: vertexCoords
-    type(axisAlignedBoundingBox)               :: boundingBox
-    type(vertexBox), dimension(2)              :: edgeVertices
-
-    ! First compute the number of vertices and the location of the vertex of minimum index in the current face.
-    nVertices = size(self % vertices)
-    do i = 1, nVertices
-      vertexIdxs(i) = self % vertices(i) % ptr % getIdx()
-
-    end do
-    minVertexLoc = minloc(vertexIdxs, 1)
-    vertexIdxs(1) = vertexIdxs(minVertexLoc)
-
-    ! Compute the number of triangles to be generated, allocate memory and loop through all new triangles.
-    nTriangles = nVertices - 2
-    allocate(self % triangleIdxs(nTriangles))
-    do i = 1, nTriangles
-      ! Increment lastNewFaceIdx and add the new triangle to the list of face's triangle indices.
-      lastNewFaceIdx = lastNewFaceIdx + 1
-      self % triangleIdxs(i) = lastNewFaceIdx
-
-      ! Compute the locations of the second and third vertices in the new triangle then set their indices.
-      if (nVertices == 3) then
-        do j = 1, 3
-          edgeIdxs(i) = self % edges(i) % ptr % getIdx()
-          vertexIdxs(i) = self % vertices(i) % ptr % getIdx()
-
-        end do
-        boundingBox = self % getBoundingBox()
-
-      else
-        vertexIdxs(2) = self % vertices(mod(minVertexLoc + i - 1, nVertices) + 1) % ptr % getIdx()
-        vertexIdxs(3) = self % vertices(mod(minVertexLoc + i, nVertices) + 1) % ptr % getIdx()
-
-        ! If we are not at the last iteration of the loop, create a new edge.
-        if (i < nTriangles) then
-          lastNewEdgeIdx = lastNewEdgeIdx + 1
-          edgeVertices(1) = self % vertices(minVertexLoc)
-          edgeVertices(2) = self % vertices(mod(minVertexLoc + i, nVertices) + 1)
-          call newEdges % initEdge(lastNewEdgeIdx, edgeVertices)
-          call newVertices % addEdgeIdxToVertex(vertexIdxs(1), lastNewEdgeIdx)
-          call newVertices % addEdgeIdxToVertex(vertexIdxs(3), lastNewEdgeIdx)
-
-        end if
-
-        ! Loop through all vertices (and edges) in the new triangle.
-        do j = 1, 3
-          edgeIdxs(j) = newVertices % findCommonEdgeIdx(vertexIdxs(j), vertexIdxs(mod(j, 3) + 1))
-          vertexCoords(:, j) = newVertices % getVertexCoordinates(vertexIdxs(j))
-
-        end do
-        call boundingBox % computeBounds(vertexCoords)
-
-      end if
-
-      ! Create a new triangle.
-      call self % createTriangle(lastNewFaceIdx, self % edges(1:3), newVertices, triangles(lastNewFaceIdx), &
-                                 self % vertices(1:3), boundingBox)
-
-      ! Update mesh connectivity information.
-      do j = 1, 3
-        call newEdges % addFaceIdxToEdge(edgeIdxs(j), lastNewFaceIdx)
-        call newVertices % addFaceIdxToVertex(vertexIdxs(j), lastNewFaceIdx)
-
-      end do
-
-    end do
+  subroutine split(self)
+    class(face), intent(in) :: self
 
   end subroutine split
   
-end module face_inter
+end module face_class

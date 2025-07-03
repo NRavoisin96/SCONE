@@ -88,7 +88,7 @@ contains
   !!
   !! Return to uninitialised state
   !!
-  elemental subroutine kill(self)
+  subroutine kill(self)
     class(geometryStd), intent(inout) :: self
 
     call self % geom % kill()

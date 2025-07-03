@@ -1,6 +1,8 @@
 # Add Source Files to the global list
 add_sources(
             ./edgeShelf_class.f90
+            ./elementShelf_class.f90
+            ./faceShelf_class.f90
             ./topologicalObjectShelf_inter.f90
             ./vertexShelf_class.f90
            )

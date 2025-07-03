@@ -1,27 +1,27 @@
 module vertexFactory_func
 
   use numPrecision
-  use vertex_class, only : vertex
+  use vertex_class, only : vertex, vertexBox
 
   implicit none
   private
 
   ! Public interface.
-  public :: newVertexPtr
+  public :: newVertexBox
 
 contains
   !!
   !!
   !!
-  subroutine newVertexPtr(idx, coords, vertexPtr)
+  subroutine newVertexBox(idx, coords, box)
     integer(shortInt), intent(in)           :: idx
     real(defReal), dimension(3), intent(in) :: coords
-    type(vertex), pointer, intent(out)      :: vertexPtr
+    type(vertexBox), intent(out)            :: box
 
     ! Initialise vertex.
-    allocate(vertex :: vertexPtr)
-    call vertexPtr % init(idx, coords)
+    allocate(vertex :: box % ptr)
+    call box % ptr % init(idx, coords)
 
-  end subroutine newVertexPtr
+  end subroutine newVertexBox
 
 end module vertexFactory_func

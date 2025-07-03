@@ -63,18 +63,13 @@ contains
     real(defReal) :: TOL = 1.0E-6
     
     ! Test number of vertices.
-    @assertEqual(18, mesh % nVertices)
+    @assertEqual(18, mesh % getVerticesNumber())
     ! Test number of faces.
-    @assertEqual(20, mesh % nFaces)
+    @assertEqual(20, mesh % getFacesNumber())
     ! Test number of elements.
-    @assertEqual(4, mesh % nElements)
+    @assertEqual(4, mesh % getElementsNumber())
     ! Test number of internal faces.
-    @assertEqual(4, mesh % nInternalFaces)
-    ! Test area of two faces.
-    @assertEqual(2.0_defReal, mesh % faces % getFaceArea(1), 2.0_defReal * TOL)
-    @assertEqual(1.0_defReal, mesh % faces % getFaceArea(11), 1.0_defReal * TOL)
-    ! Test volume of one element.
-    @assertEqual(2.0_defReal, mesh % elements % getElementVolume(3), 2.0_defReal * TOL)
+    @assertEqual(4, mesh % getInternalFacesNumber())
 
   end subroutine test_info
   

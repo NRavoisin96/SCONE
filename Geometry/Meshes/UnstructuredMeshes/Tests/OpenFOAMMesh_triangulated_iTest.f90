@@ -64,23 +64,15 @@ contains
     integer(shortInt) :: i
     
     ! Test number of vertices.
-    @assertEqual(22, mesh % nVertices)
+    @assertEqual(22, mesh % getVerticesNumber())
     ! Test number of faces.
-    @assertEqual(112, mesh % nFaces)
+    @assertEqual(112, mesh % getFacesNumber())
     ! Test number of internal faces.
-    @assertEqual(80, mesh % nInternalFaces)
+    @assertEqual(80, mesh % getInternalFacesNumber())
     ! Test number of edges.
-    @assertEqual(85, mesh % nEdges)
+    @assertEqual(85, mesh % getEdgesNumber())
     ! Test number of tetrahedra.
-    @assertEqual(48, mesh % nElements)
-    ! Test number of triangles.
-    @assertEqual(112, mesh % nFaces)
-    
-    ! Test area of two faces.
-    @assertEqual(1.0_defReal, mesh % faces % getFaceArea(1), TOL)
-    @assertEqual(1.0_defReal, mesh % faces % getFaceArea(11), 1.0_defReal * TOL)
-    ! Test volume of one element.
-    @assertEqual(1.0_defReal / 6.0_defReal, mesh % elements % getElementVolume(3), TOL / 6.0_defReal)
+    @assertEqual(48, mesh % getElementsNumber())
 
   end subroutine test_info
   

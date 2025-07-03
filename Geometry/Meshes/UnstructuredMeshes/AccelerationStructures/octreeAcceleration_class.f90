@@ -2,7 +2,7 @@ module octreeAcceleration_class
 
   use accelerationStructure_inter, only : accelerationStructure
   use coord_class,                 only : coord
-  use element_inter,               only : inclusionTestResult
+  use element_class,               only : inclusionTestResult
   use elementShelf_class,          only : elementShelf
   use faceShelf_class,             only : faceShelf
   use numPrecision
@@ -30,9 +30,8 @@ contains
   !!
   !!
   !!
-  subroutine findHostElement(self, faces, elements, coords)
+  subroutine findHostElement(self, elements, coords)
     class(octreeAcceleration), intent(in)        :: self
-    type(faceShelf), intent(in)                  :: faces
     type(elementShelf), intent(in)               :: elements
     type(coord), intent(inout)                   :: coords
     integer(shortInt), dimension(:), allocatable :: potentialElementIdxs
@@ -56,6 +55,7 @@ contains
         potentialElementIdx = potentialElementIdxs(1)
         call coords % setElementIdx(potentialElementIdx)
         call coords % setParentElementIdx(elements % getElementParentIdx(potentialElementIdx))
+        call coords % setLocalId(elements % getElementLocalId(potentialElementIdx))
         return
 
       end if
@@ -65,21 +65,22 @@ contains
         do i = 1, nPotentialElements
           ! Perform inclusion test for the current element.
           potentialElementIdx = potentialElementIdxs(i)
-          testResult = elements % isPointInside(potentialElementIdx, coords % getPositionToNudge(), faces)
+          testResult = elements % isPointInside(potentialElementIdx, coords % getPositionToNudge())
 
           if (testResult % status == INSIDE_ELEMENT) then
             ! If coordinates are fully inside, we have found our element.
             call coords % setElementIdx(potentialElementIdx)
             call coords % setParentElementIdx(elements % getElementParentIdx(potentialElementIdx))
+            call coords % setLocalId(elements % getElementLocalId(potentialElementIdx))
             return
 
           elseif (testResult % status == ON_BOUNDARY_ELEMENT) then
             ! If coordinates are on the element boundary (very rare), we need to push them off.
             do while (testResult % status == ON_BOUNDARY_ELEMENT)
-              call elements % pushFromElementBoundary(potentialElementIdx, faces, coords)
+              call elements % pushFromElementBoundary(potentialElementIdx, coords)
 
               ! Perform containment test again.
-              testResult = elements % isPointInside(potentialElementIdx, coords % getPositionToNudge(), faces)
+              testResult = elements % isPointInside(potentialElementIdx, coords % getPositionToNudge())
 
             end do
 
@@ -88,6 +89,7 @@ contains
               ! If coordinates are now well inside the element, we have found our element.
               call coords % setElementIdx(potentialElementIdx)
               call coords % setParentElementIdx(elements % getElementParentIdx(potentialElementIdx))
+              call coords % setLocalId(elements % getElementLocalId(potentialElementIdx))
               return
 
             elseif (testResult % status == OUTSIDE_ELEMENT) then

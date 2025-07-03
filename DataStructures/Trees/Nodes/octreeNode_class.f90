@@ -2,9 +2,9 @@ module octreeNode_class
 
   use axisAlignedBoundingBox_class, only : axisAlignedBoundingBox
   use coord_class,                  only : coord
-  use element_inter,                only : inclusionTestResult
+  use element_class,                only : inclusionTestResult
   use elementShelf_class,           only : elementShelf
-  use face_inter,                   only : face
+  use face_class,                   only : face
   use faceShelf_class,              only : faceShelf
   use genericProcedures,            only : append, areEqual, fatalError
   use objectKDTree_class,           only : objectKDTree
@@ -79,7 +79,7 @@ contains
     do i = 1, size(elementIdxs)
       ! Check for inclusion in the current element.
       elementIdx = elementIdxs(i)
-      insideResult = elements % isPointInside(elementIdx, boundingBoxCentre, faces)
+      insideResult = elements % isPointInside(elementIdx, boundingBoxCentre)
 
       ! If the current element contains the bounding box, assign it to the cell
       ! and return.

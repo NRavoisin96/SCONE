@@ -33,7 +33,7 @@ module geometry_inter
 
     ! Deferred procedures
     procedure(init), deferred           :: init
-    procedure(kill), deferred        :: kill
+    procedure(kill), deferred           :: kill
     procedure(placeCoord), deferred     :: placeCoord
     procedure(whatIsAt), deferred       :: whatIsAt
     procedure(bounds), deferred         :: bounds
@@ -69,7 +69,7 @@ module geometry_inter
     !!
     !! Return to uninitialised state
     !!
-    elemental subroutine kill(self)
+    subroutine kill(self)
       import :: geometry
       class(geometry), intent(inout) :: self
     end subroutine kill

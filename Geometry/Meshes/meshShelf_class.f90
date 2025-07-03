@@ -91,7 +91,7 @@ contains
   !! Basic description:
   !!   Returns to an uninitialised state.
   !!
-  elemental subroutine kill(self)
+  subroutine kill(self)
     class(meshShelf), intent(inout) :: self
     integer(shortInt)               :: i
     
@@ -99,6 +99,7 @@ contains
     if (allocated(self % meshes)) then
         do i = 1, size(self % meshes)
             call self % meshes(i) % ptr % kill()
+            deallocate(self % meshes(i) % ptr)
             if (allocated(self % meshes(i) % name)) deallocate(self % meshes(i) % name)
             
         end do

@@ -21,6 +21,10 @@ module hashFunctions_func
   !! Public interface for Knuth Hash
   !!
   public :: knuthHash
+  interface knuthHash
+    module procedure knuthHash_int32
+    module procedure knuthHash_int64
+  end interface
 
 contains
 
@@ -36,26 +40,56 @@ contains
   !! NOTE: Ratio was changed for fun -> no particular reason
   !!
   !!
-  elemental function knuthHash(key,m) result(hash)
+  elemental function knuthHash_int32(key, m) result(hash)
     integer(int32), intent(in) :: key
     integer(int32), intent(in) :: m
-    integer(int32)             :: hash
-    integer(int32)             :: m_loc
-    integer(int64)             :: hash_loc
-    integer(int64), parameter   :: prime = 3180339487_int64
-    integer(int64), parameter   :: mask = 4294967295_int64
+    integer(int32)             :: hash, m_loc
+    integer(int32), parameter  :: constant = int(Z'9E3779B1', int32)
 
     ! Constrain m to range 1-31
-    m_loc = max(1,m)
-    m_loc = min(31,m_loc)
+    m_loc = max(1, m)
+    m_loc = min(31, m_loc)
 
-    ! Calculate prime * key.
-    hash_loc = iand( prime * key, mask)
+    ! Calculate constant * key.
+    hash = constant * key
 
-    ! Keep m uppermost bits
-    hash = transfer(shiftr(hash_loc, 32 - m_loc),shortInt)
+    ! Keep m uppermost bits.
+    hash = shiftr(hash, 32 - m_loc)
 
-  end function knuthHash
+  end function knuthHash_int32
+
+  !!
+  !! Multiplicative Hash outlined in D. Knuth "The Art of Computer Programming"
+  !!
+  !! Implementation uses a 64-bit hash. To avoid complier warning associated with integer
+  !! overflow on multiplication a temporary integer of higher precision is used and
+  !! then converted to shortInt by ignoring higher bits.
+  !!
+  !! Ratio was changed from the popular "golden ratio" to a value based on sphere
+  !! maximum packing fraction in Euclidian geometry = pi/3/sqrt(2) [3180339487 for 32 bits]
+  !! NOTE: Ratio was changed for fun -> no particular reason
+  !!
+  !!
+  elemental function knuthHash_int64(key, m) result(hash)
+    integer(int64), intent(in) :: key
+    integer(int32), intent(in) :: m
+    integer(int32)             :: hash, m_loc
+    integer(int64)             :: hash_loc
+    integer(int64), parameter  :: constant = int(Z'9E3779B97F4A7C15', int64), mask = int(Z'7FFFFFFFFFFFFFFF', int64)
+    ! Constrain m to range 1-31
+    m_loc = max(1, m)
+    m_loc = min(31, m_loc)
+
+    ! Calculate constant * key.
+    hash_loc = iand(constant * key, mask)
+
+    ! Extract uppermost bits.
+    hash_loc = shiftr(hash_loc, 64 - m_loc)
+
+    ! Convert back to a 32-bit integer.
+    hash = int(hash_loc, int32)
+
+  end function knuthHash_int64
 
   !!
   !! Implementation of Fowler-Noll-Vo 1 hash function for 32 bit integer

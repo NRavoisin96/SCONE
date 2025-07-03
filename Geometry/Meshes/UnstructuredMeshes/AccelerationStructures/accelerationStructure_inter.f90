@@ -26,10 +26,9 @@ module accelerationStructure_inter
     !!
     !!
     !!
-    subroutine findHostElement(self, faces, elements, coords)
+    subroutine findHostElement(self, elements, coords)
       import :: accelerationStructure, coord, faceShelf, elementShelf
       class(accelerationStructure), intent(in) :: self
-      type(faceShelf), intent(in)              :: faces
       type(elementShelf), intent(in)           :: elements
       type(coord), intent(inout)               :: coords
     end subroutine findHostElement

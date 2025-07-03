@@ -1,21 +1,19 @@
 module OpenFOAMMesh_class
 
   use axisAlignedBoundingBox_class, only : axisAlignedBoundingBox
-  use coord_class,                  only : coord
-  use edgeShelf_class,              only : edgeShelf
-  use elementShelf_class,           only : elementShelf
   use cellZoneShelf_class,          only : cellZoneShelf
-  use faceShelf_class,              only : faceShelf
+  use coord_class,                  only : coord
   use genericProcedures,            only : append, fatalError, numToChar, openToRead, quickSort
+  use iso_fortran_env,              only : int64
+  use longIntMap_class,             only : longIntMap
   use numPrecision
-  use universalVariables,           only : INF
+  use publicObjects,                only : basicEdgeInfo, basicElementInfo, basicFaceInfo, meshLocalIdInfo
+  use universalVariables,           only : INF, NOT_PRESENT
   use unstructuredMesh_inter,       only : unstructuredMesh, &
                                            distanceToBoundaryFace_super => distanceToBoundaryFace, &
                                            distanceToNextFace_super => distanceToNextFace, &
                                            findHostElement_super => findHostElement, &
                                            kill_super => kill
-  use vertex_class,                 only : vertexBox
-  use vertexShelf_class,            only : vertexShelf
 
   implicit none
   private
@@ -24,108 +22,21 @@ module OpenFOAMMesh_class
     private
   contains
     ! Superclass procedures.
-    procedure                             :: distanceToBoundaryFace
-    procedure                             :: distanceToNextFace
-    procedure                             :: findHostElement
+    procedure :: distanceToBoundaryFace
+    procedure :: distanceToNextFace
+    procedure :: findHostElement
     ! Local procedures.
-    procedure                             :: buildEdges
-    procedure                             :: checkFiles
-    procedure                             :: getMeshInfo
-    procedure                             :: importMesh
-    procedure                             :: importVertices
-    procedure                             :: initElementShelf
-    procedure                             :: initElementZoneShelf
-    procedure                             :: initFaceShelf
-    procedure                             :: kill
+    procedure :: checkFiles
+    procedure :: getMeshInfo
+    procedure :: importElements
+    procedure :: importElementZones
+    procedure :: importFacesAndEdges
+    procedure :: importMesh
+    procedure :: importVertices
+    procedure :: kill
   end type OpenFOAMMesh
 
-  type :: elementInfo
-    integer(shortInt), dimension(:), allocatable :: faceIdxs, vertexIdxs
-  end type
-
 contains
-
-  !! Subroutine 'buildEdges'
-  !!
-  !! Basic description:
-  !!   Constructs edges from mesh elements, faces and vertices.
-  !!
-  subroutine buildEdges(self, edges, elements, faces, vertices)
-    class(OpenFOAMMesh), intent(inout)           :: self
-    type(edgeShelf), intent(inout)               :: edges
-    type(elementShelf), intent(inout)            :: elements
-    type(faceShelf), intent(inout)               :: faces
-    type(vertexShelf), intent(inout)             :: vertices
-    integer(shortInt)                            :: i, j, k, lastIdx, nVertices, vertexIdx, nextVertexIdx, &
-                                                    elementIdx, edgeIdx
-    integer(shortInt), dimension(:), allocatable :: elementIdxs
-    integer(shortInt), dimension(2)              :: edgeVertexIdxs
-    logical(defBool)                             :: createNew
-    type(vertexBox), dimension(:), allocatable   :: faceVertices
-
-    ! Do a first pass over all elements and allocate memory. This will overshoot the actual number of
-    ! edges to be created.
-    lastIdx = 0
-    do i = 1, self % nElements
-      lastIdx = lastIdx + size(elements % getElementFaceIdxs(i)) + size(elements % getElementVertices(i)) - 2
-
-    end do
-    call edges % allocateShelf(lastIdx)
-
-    ! Reset lastIdx = 0 then loop through all the faces in the mesh and construct edges.
-    lastIdx = 0
-    do i = 1, self % nFaces
-      ! Retrieve the vertices in the current face then loop through all vertices in the current face.
-      faceVertices = faces % getFaceVertices(i)
-      nVertices = size(faceVertices)
-      do j = 1, nVertices
-        ! Retrieve the indices of the two vertices in the edge and sort them.
-        vertexIdx = faceVertices(j) % ptr % getIdx()
-        nextVertexIdx = faceVertices(merge(1, j + 1, j == nVertices)) % ptr % getIdx()
-        edgeVertexIdxs = [vertexIdx, nextVertexIdx]
-        call quickSort(edgeVertexIdxs)
-
-        ! Check if there already exists an edge containing the two vertices.
-        edgeIdx = vertices % findCommonEdgeIdx(vertexIdx, nextVertexIdx)
-        createNew = edgeIdx == 0
-
-        if (createNew) then
-          ! If we need to create a new edge, increment lastIdx, set the indices of the vertices in 
-          ! the new edge and add the new edge to the pair of vertices.
-          lastIdx = lastIdx + 1
-          call edges % initEdge(lastIdx, vertices % getVertexBox(edgeVertexIdxs))
-          call vertices % addEdgeIdxToVertex(vertexIdx, lastIdx)
-          call vertices % addEdgeIdxToVertex(nextVertexIdx, lastIdx)
-          
-          ! Set edgeIdx = lastIdx.
-          edgeIdx = lastIdx
-
-        end if
-
-        ! Add the index of the current face to the edge and add the edge to the current face.
-        call edges % addFaceIdxToEdge(edgeIdx, i)
-        call faces % addEdgeToFace(i, edges % getEdgeBox(edgeIdx))
-        
-        ! Retrieve all elements sharing the current face and update connectivity information.
-        elementIdxs = faces % getFaceElementIdxs(i)
-        do k = 1, size(elementIdxs)
-          elementIdx = elementIdxs(k)
-          call edges % addElementIdxToEdge(edgeIdx, elementIdx)
-          call elements % addEdgeToElement(elementIdx, edges % getEdgeBox(edgeIdx))
-
-        end do
-
-      end do
-
-    end do
-
-    ! Now collapse the edgeShelf to the number of edges actually created and set number of edges
-    ! in the mesh.
-    call edges % shrinkShelf(lastIdx)
-    self % nEdges = lastIdx
-
-  end subroutine buildEdges
-
   !! Subroutine 'checkFiles'
   !!
   !! Basic description:
@@ -146,11 +57,12 @@ contains
   !! Notes:
   !!   The existence of the 'owner' file is checked in 'getMeshInfo'.
   !!
-  subroutine checkFiles(self, folderPath, nInternalFaces)
+  subroutine checkFiles(self, folderPath, nInternalFaces, cellZonesFile)
     class(OpenFOAMMesh), intent(inout) :: self
     character(*), intent(in)           :: folderPath
     integer(shortInt), intent(in)      :: nInternalFaces
-    logical(defBool)                   :: pointsFile, facesFile, neighbourFile, cellZonesFile
+    logical(defBool), intent(out)      :: cellZonesFile
+    logical(defBool)                   :: pointsFile, facesFile, neighbourFile
     character(*), parameter            :: Here = 'checkFiles (OpenFOAMMesh_class.f90)'
 
     ! Check the existence of the 'points' and 'faces' files and report errors if they are not found.
@@ -165,12 +77,11 @@ contains
 
     ! If reached here check that the 'neighbour' file exists and report error if not.
     inquire(file = folderPath//'neighbour', exist = neighbourFile)
-    if (.not. neighbourFile) call fatalError(Here, &
-    "Missing 'neighbour' file for OpenFOAM mesh with Id: "//numToChar(self % getId())//'.')
+    if (.not. neighbourFile) &
+    call fatalError(Here, "Missing 'neighbour' file for OpenFOAM mesh with Id: "//numToChar(self % getId())//'.')
 
-    ! Check that the 'cellZones' file exists and register information into mesh.
+    ! Check that the 'cellZones' file exists.
     inquire(file = folderPath//'cellZones', exist = cellZonesFile)
-    call self % setElementZonesFile(cellZonesFile)
 
   end subroutine checkFiles
 
@@ -198,7 +109,7 @@ contains
   !!
   !! See unstructuredMesh_inter for details.
   !!
-  elemental subroutine distanceToNextFace(self, d, coords)
+  subroutine distanceToNextFace(self, d, coords)
     class(OpenFOAMMesh), intent(in) :: self
     real(defReal), intent(out)      :: d
     type(coord), intent(inout)      :: coords
@@ -237,13 +148,15 @@ contains
   !! Arguments:
   !!   folderPath [in] -> Path of the folder containing the files of the mesh.
   !!
-  subroutine getMeshInfo(self, folderPath)
+  subroutine getMeshInfo(self, folderPath, nVertices, nFaces, nInternalFaces, nElements, hasCellZones)
     class(OpenFOAMMesh), intent(inout) :: self
     character(*), intent(in)           :: folderPath
+    integer(shortInt), intent(out)     :: nVertices, nFaces, nInternalFaces, nElements
+    logical(defBool), intent(out)      :: hasCellZones
     logical(defBool)                   :: ownerFile
-    integer(shortInt)                  :: colIdx, nIdx, endQuoteIdx
+    integer(shortInt)                  :: position
     integer(shortInt), parameter       :: unit = 10
-    character(100)                     :: string, partialString
+    character(256)                     :: buffer
     character(:), allocatable          :: ownerPath
     character(*), parameter            :: Here = 'getMeshInfo (OpenFOAMMesh_class.f90)'
 
@@ -254,46 +167,418 @@ contains
     
     ! Open the 'owner' file and read it. Skip lines until the line with the keyword 'note' is encountered.
     call openToRead(unit, ownerPath)
-    read(unit, "(a)") string
-    do while (index(string, 'note') == 0)
-      read(unit, "(a)") string
+    read(unit, "(a)") buffer
+    do while (index(buffer, 'note') == 0)
+      read(unit, "(a)") buffer
 
     end do
     
-    ! Locate the indices corresponding to the first ':' and ' ' symbols, and retrieve the variable
-    ! 'nVertices', which is simply the piece of the text line located between the two aforementioned
-    ! symbols.
-    colIdx = index(string, ':')
-    nIdx = index(string(colIdx:len_trim(string)), 'n')
-    partialString = trim(adjustl(string(colIdx + 1:colIdx + nIdx)))
-    read(partialString, *) self % nVertices
+    ! Find 'nPoints' and read it.
+    position = index(buffer, 'nPoints:')
+    if (position == 0) call fatalError(here, "Could not find number of vertices in 'owner' file.")
+    read(buffer(position + 8:), *) nVertices
     
-    ! Repeat for nElements.
-    string(colIdx:colIdx) = ' '
-    colIdx = index(string, ':')
-    nIdx = index(string(colIdx:len_trim(string)), 'n')
-    partialString = trim(adjustl(string(colIdx + 1:colIdx + nIdx)))
-    read(partialString, *) self % nElements
+    ! Find 'nCells' and read it.
+    position = index(buffer, 'nCells:')
+    if (position == 0) call fatalError(here, "Could not find number of elements in 'owner' file.")
+    read(buffer(position + 7:), *) nElements
+
+    ! Find 'nFaces' and read it.
+    position = index(buffer, 'nFaces:')
+    if (position == 0) call fatalError(here, "Could not find number of faces in 'owner' file.")
+    read(buffer(position + 7:), *) nFaces
+
+    ! Find 'nInternalFaces' and read it.
+    position = index(buffer, 'nInternalFaces:')
+    if (position == 0) call fatalError(here, "Could not find number of internal faces in 'owner' file.")
+    read(buffer(position + 15:index(buffer, ';') - 2), *) nInternalFaces
     
-    ! Repeat for nFaces.
-    string(colIdx:colIdx) = ' '
-    colIdx = index(string, ':')
-    nIdx = index(string(colIdx:len_trim(string)), 'n')
-    partialString = trim(adjustl(string(colIdx + 1:colIdx + nIdx)))
-    read(partialString, *) self % nFaces
-    
-    ! Repeat for nInternalFaces. Close 'owner' file once done.
-    string(colIdx:colIdx) = ' '
-    colIdx = index(string, ':')
-    endQuoteIdx = index(string(colIdx:len_trim(string)), '"')
-    partialString = trim(adjustl(string(colIdx + 1:colIdx + endQuoteIdx - 2)))
-    read(partialString, *) self % nInternalFaces
+    ! Close 'owner' file and check existence of remaining mesh files.
     close(unit)
-    
-    ! Now check existence of remaining mesh files.
-    call self % checkFiles(folderPath, self % nInternalFaces)
+    call self % checkFiles(folderPath, nInternalFaces, hasCellZones)
 
   end subroutine getMeshInfo
+
+  !! Subroutine 'initElementShelf'
+  !!
+  !! Basic description:
+  !!   Initialises the shelf from the 'owner' and 'neighbour' files.
+  !!
+  !! Arguments:
+  !!   folderPath [in]     -> Path of the folder containing the OpenFOAM mesh files.
+  !!   nFaces [in]         -> Number of faces in the mesh.
+  !!   nInternalFaces [in] -> Number of internal faces in the mesh.
+  !!
+  subroutine importElements(self, folderPath, nVertices, nFaces, nInternalFaces, nElements)
+    class(OpenFOAMMesh), intent(inout)           :: self
+    character(*), intent(in)                     :: folderPath
+    integer(shortInt), intent(in)                :: nVertices, nFaces, nInternalFaces, nElements
+    integer(shortInt)                            :: i, elementIdx
+    integer(shortInt), parameter                 :: unit = 10
+    integer(shortInt), dimension(:), allocatable :: elementIdxs
+    character(256)                               :: buffer
+    type(basicElementInfo), dimension(nElements) :: elementInfos
+
+    ! Loop over all elements first and assign their indices.
+    do i = 1, nElements
+      elementInfos(i) % idx = i
+
+    end do
+    
+    ! If there is only one element in the mesh simply add all the faces and vertices to this element, check convexity and return.
+    if (nElements == 1) then
+      allocate(elementInfos(1) % faceIdxs(nFaces))
+      do i = 1, nFaces
+        elementInfos(1) % faceIdxs(i) = i
+
+      end do
+
+      allocate(elementInfos(1) % vertexIdxs(nVertices))
+      do i = 1, nVertices
+        elementInfos(1) % vertexIdxs(i) = i
+
+      end do
+      return
+
+    end if
+
+    ! Open the 'owner' file and read it until a line containing the symbol '(' is encountered.
+    call openToRead(unit, folderPath//'owner')
+    read(unit, "(a)") buffer
+    do while (index(buffer(1:len_trim(buffer)), "(") == 0)
+      read(unit, "(a)") buffer
+
+    end do
+
+    ! Skip one more line and loop over all faces.
+    read(unit, "(a)") buffer
+    do i = 1, nFaces
+      ! Read the current element index and add the current face to this element. Note
+      ! that we add one since Fortran starts indexing at one and not zero.
+      read(buffer, *) elementIdx
+
+      elementIdx = elementIdx + 1
+      call append(elementInfos(elementIdx) % faceIdxs, i)
+
+      ! Move onto the next line.
+      read(unit, "(a)") buffer
+
+    end do
+
+    ! Close the 'owner' file.
+    close(unit)
+
+    ! If nInternalFaces = 0 we can return early here. Else we need to repeat the above procedure
+    ! for the 'neighbour file.
+    if (nInternalFaces > 0) then
+      ! Open the 'neighbour' file and read it until a line containing the symbol '(' is encountered.
+      call openToRead(unit, folderPath//'neighbour')
+      read(unit, "(a)") buffer
+      do while (index(buffer(1:len_trim(buffer)), "(") == 0)
+        read(unit, "(a)") buffer
+
+      end do
+
+      ! Check if the current line contains the symbol ')'. If it does, then all element indices
+      ! are written on a single line.
+      if (index(buffer(1:len_trim(buffer)), ")") > 0) then
+        ! Allocate the number of entries in the 'elementIndices' array to the number of internal
+        ! faces and copy element indices into this array.
+        allocate(elementIdxs(nInternalFaces))
+        read(buffer(index(buffer(1:len_trim(buffer)), "(") + 1:&
+        index(buffer(1:len_trim(buffer)), ")") - 1), *) elementIdxs
+
+      else
+        ! Skip one more line.
+        read(unit, "(a)") buffer
+
+      end if
+
+      ! Loop over all internal faces.
+      do i = 1, nInternalFaces
+        if (allocated(elementIdxs)) then
+          elementIdx = elementIdxs(i)
+
+        else
+          ! Read the current element index and move onto the next line.
+          read(buffer, *) elementIdx
+          read(unit, "(a)") buffer
+
+        end if
+        ! Update connectivity information.
+        elementIdx = elementIdx + 1
+        call append(elementInfos(elementIdx) % faceIdxs, -i)
+
+      end do
+
+      ! Close the 'neighbour' file.
+      close(unit)
+
+    end if
+
+    ! Initialise elementShelf.
+    call self % initElementShelf(elementInfos)
+
+  end subroutine importElements
+
+  !! Subroutine 'initCellZoneShelf'
+  !!
+  !! Basic description:
+  !!   Initialises the shelf from the cellZones file.
+  !!
+  !! Notes:
+  !!   Due to the structure of the cellZones file the subroutine first scans the file a first time
+  !!   to obtain the name of each cell zone and then rewinds it to read the indices of the elements
+  !!   contained in each zone.
+  !!
+  !! Arguments:
+  !!   folderPath [in] -> Path of the folder containing the OpenFOAM mesh files.
+  !!
+  subroutine importElementZones(self, folderPath, hasCellZones, nElements)
+    class(OpenFOAMMesh), intent(inout)               :: self
+    character(*), intent(in)                         :: folderPath
+    logical(defBool), intent(in)                     :: hasCellZones
+    integer(shortInt), intent(in)                    :: nElements
+    integer(shortInt)                                :: i, j, nElementsInZone, nElementZones
+    integer(shortInt), parameter                     :: unit = 10
+    character(256)                                   :: buffer
+    logical(defBool)                                 :: singleLine
+    type(meshLocalIdInfo), dimension(:), allocatable :: localIdInfos
+
+    ! Check if there are element zones. If not, simply allocate one element zone and set all elements to it.
+    if (.not. hasCellZones) then
+      allocate(localIdInfos(1))
+      localIdInfos(1) % localId = 2
+      localIdInfos(1) % elementIdxs = [(i, i = 1, nElements)]
+
+    else
+      ! Open the 'cellZones' data file and read it. Skip lines until a blank line is encountered.
+      call openToRead(unit, folderPath//'cellZones')
+      read(unit, "(a)") buffer
+      do while (len_trim(buffer) > 0)
+        read(unit, "(a)") buffer
+      end do
+      
+      ! Read the current line and copy the number of cell zones into the variable 'nCellZones'.
+      read(unit, "(a)") buffer
+      read(buffer, *) nElementZones
+      
+      ! Allocate memory and loop through all cell zones.
+      allocate(localIdInfos(nElementZones))
+      do i = 1, nElementZones
+        localIdInfos(i) % localId = i + 1
+        ! Initialise singleLine = .false. and skip lines until a '{' is encountered.
+        singleLine = .false.
+        do while (index(buffer, "{") == 0)
+          read(unit, "(a)") buffer
+
+        end do
+
+        ! Go back to the previous line and read the name of the current cell zone.
+        backspace(unit)
+        read(unit, "(a)") buffer
+        
+        ! Skip lines until the word 'cellLabels' is encoutered.
+        do while (index(buffer, "cellLabels") == 0)
+          read(unit, "(a)") buffer
+
+        end do
+
+        ! If the line contains a ')' then all the elements contained in the current cell zones are
+        ! written on the same line.
+        if (index(buffer, ")") > 0) singleLine = .true.
+
+        ! Read the number of elements in the current cell zone depending on whether they are all
+        ! written a single line or not.
+        if (singleLine) then
+          read(buffer(index(buffer, ">") + 2:index(buffer, "(") - 1), *) nElementsInZone
+
+        else
+          ! Skip one line and retrieve the number of elements in the cell zone..
+          read(unit, "(a)") buffer
+          read(buffer, *) nElementsInZone
+
+        end if
+
+        ! Allocate memory.
+        allocate(localIdInfos(i) % elementIdxs(nElementsInZone))
+
+        ! Now read the indices of the elements in the current cell zone. Again this depends on
+        ! whether they are all written on a single line or not.
+        if (singleLine) then
+          ! Retrieve the element indices.
+          read(buffer(index(buffer, "(") + 1:index(buffer, ")") - 1), *) localIdInfos(i) % elementIdxs
+
+        else
+          ! Skip two lines and retrieve the index of each element in the cell zone line by line..
+          do j = 1, 2
+            read(unit, "(a)") buffer
+
+          end do
+          do j = 1, nElementsInZone
+            read(buffer, *) localIdInfos(i) % elementIdxs(j)
+            read(unit, "(a)") buffer
+
+          end do
+
+        end if
+
+      end do
+      
+      ! Close the 'cellZones' file.
+      close(unit)
+
+    end if
+
+    call self % assignLocalIds(localIdInfos)
+
+  end subroutine importElementZones
+
+  !! Subroutine 'initFaceShelf'
+  !!
+  !! Basic description:
+  !!   Initialises the shelf from the 'faces' file.
+  !!
+  !! Detailed description:
+  !!   Opens the 'faces' file and reads it until a line with the symbol ')' is encountered, which 
+  !!   marks the beginning of the faces' data listing. In the 'faces' file, each line corresponds to
+  !!   a single face. The subroutine then retrieves the number of vertices in each face and their
+  !!   indices sequentially line-by-line.
+  !!
+  !! Arguments:
+  !!   folderPath [in]     -> Path of the folder containing the mesh files.
+  !!   nInternalFaces [in] -> Number of internal faces in the mesh.
+  !!
+  subroutine importFacesAndEdges(self, folderPath, nFaces, nInternalFaces)
+    class(OpenFOAMMesh), intent(inout)             :: self
+    character(*), intent(in)                       :: folderPath
+    integer(shortInt), intent(in)                  :: nFaces, nInternalFaces
+    integer(shortInt)                              :: currentSize, edgeIdx, i, idx, ios, j, lastEdgeIdx, &
+                                                      maxVertexIdx, minVertexIdx, nVertices
+    integer(int64)                                 :: key
+    integer(shortInt), parameter                   :: unit = 10
+    character(256)                                 :: buffer
+    type(basicEdgeInfo), dimension(:), allocatable :: edgeInfos, tempEdgesInfo
+    type(basicFaceInfo), dimension(nFaces)         :: faceInfos
+    type(longIntMap)                               :: edgeIdxsMap
+    character(*), parameter                        :: here = 'importFacesAndEdges (OpenFOAMMesh_class.f90)'
+
+    ! Open the 'faces' data file and read it until a line containing the symbol ')' is encountered.
+    call openToRead(unit, folderPath//'faces')
+    do
+      read(unit, "(a)", iostat = ios) buffer
+      if (ios /= 0) call fatalError(here, 'Could not find beginning of faces data block.')
+      if (index(trim(buffer), ')') > 0) exit
+
+    end do
+    
+    ! Loop through all faces in the file.
+    do i = 1, nFaces
+      ! Check if the vertex list starts on the same line as the count.
+      idx = index(buffer, '(')
+      if (idx > 0) then
+        ! Single-line format, e.g. 4(1 2 3 4)
+        read(buffer(1:idx - 1), *) nVertices
+        allocate(faceInfos(i) % vertexIdxs(nVertices))
+        read(buffer(idx + 1:len_trim(buffer) - 1), *) faceInfos(i) % vertexIdxs
+
+      else
+        ! Multi-line format.
+        read(buffer, *) nVertices
+        allocate(faceInfos(i) % vertexIdxs(nVertices))
+        ! Skip the '(' line.
+        read(unit, "(a)")
+        do j = 1, nVertices
+          read(unit, *) faceInfos(i) % vertexIdxs(j)
+
+        end do
+        ! Skip the ')' line.
+        read(unit, "(a)")
+
+      end if
+      
+      ! Add one to the vertices indices since Fortran starts indexing at one rather than zero. Then
+      ! loop through all vertices in the face.
+      faceInfos(i) % idx = i
+      faceInfos(i) % isBoundary = nInternalFaces < i
+      faceInfos(i) % vertexIdxs = faceInfos(i) % vertexIdxs + 1
+      read(unit, "(a)", iostat = ios) buffer
+
+      ! Skip blank lines (can happen for faces with a large number of vertices).
+      do while(len_trim(buffer) == 0)
+        read(unit, "(a)", iostat = ios) buffer
+        if (ios /= 0) exit
+
+      end do
+      ! Exit main loop if file ends.
+      if (ios /= 0) exit
+
+    end do
+    
+    ! Close the 'faces' file.
+    close(unit)
+
+    ! At this point, we have the information for all the faces. Start by building edges.
+    ! Allocate some initial size for edgeInfos and loop through all the faces.
+    allocate(edgeInfos(2 * nFaces))
+    lastEdgeIdx = 0
+    do i = 1, nFaces
+      ! Loop through all the vertices in the face.
+      nVertices = size(faceInfos(i) % vertexIdxs)
+      allocate(faceInfos(i) % edgeIdxs(nVertices))
+      do j = 1, nVertices
+        ! Compute vertices of minimum and maximum indices.
+        minVertexIdx = min(faceInfos(i) % vertexIdxs(j), faceInfos(i) % vertexIdxs(merge(1, j + 1, j == nVertices)))
+        maxVertexIdx = max(faceInfos(i) % vertexIdxs(j), faceInfos(i) % vertexIdxs(merge(1, j + 1, j == nVertices)))
+        
+        ! Create key and find if it already is in the edgeIdxsMap.
+        key = ishft(int(minVertexIdx, int64), 32) + int(maxVertexIdx, int64)
+        edgeIdx = edgeIdxsMap % getOrDefault(key, NOT_PRESENT)
+
+        ! If not found, create a new edge.
+        if (edgeIdx == NOT_PRESENT) then
+          lastEdgeIdx = lastEdgeIdx + 1
+          
+          ! Double size of edgeInfos if necessary.
+          currentSize = size(edgeInfos)
+          if (currentSize < lastEdgeIdx) then
+            allocate(tempEdgesInfo(2 * currentSize))
+            tempEdgesInfo(1:currentSize) = edgeInfos
+            call move_alloc(tempEdgesInfo, edgeInfos)
+
+          end if
+
+          ! Now add the new edge and insert it in the map.
+          edgeInfos(lastEdgeIdx) % idx = lastEdgeIdx
+          edgeInfos(lastEdgeIdx) % vertexIdxs = [minVertexIdx, maxVertexIdx]
+          call edgeIdxsMap % add(key, lastEdgeIdx)
+
+          ! Add newly created edge to faceInfo.
+          faceInfos(i) % edgeIdxs(j) = lastEdgeIdx
+
+        else
+          ! Simply add the edge found to faceInfo.
+          faceInfos(i) % edgeIdxs(j) = edgeIdx
+
+        end if
+
+      end do
+
+    end do
+
+    ! Resize edgeInfos if necessary.
+    if (lastEdgeIdx < size(edgeInfos)) then
+      allocate(tempEdgesInfo(lastEdgeIdx))
+      tempEdgesInfo = edgeInfos(1:lastEdgeIdx)
+      call move_alloc(tempEdgesInfo, edgeInfos)
+
+    end if
+
+    ! Initialise edgeShelf and faceShelf.
+    call self % initEdgeShelf(edgeInfos)
+    call self % initFaceShelf(faceInfos)
+
+  end subroutine importFacesAndEdges
 
   !! Subroutine 'importMesh'
   !!
@@ -321,426 +606,29 @@ contains
   !! Errors:
   !!   - fatalError if the mesh contains concave elements.
   !!
-  subroutine importMesh(self, folderPath, edges, elements, elementZones, faces, vertices)
+  subroutine importMesh(self, folderPath)
     class(OpenFOAMMesh), intent(inout) :: self
     character(*), intent(in)           :: folderPath
-    type(edgeShelf), intent(out)       :: edges
-    type(elementShelf), intent(out)    :: elements
-    type(cellZoneShelf), intent(out)   :: elementZones
-    type(faceShelf), intent(out)       :: faces
-    type(vertexShelf), intent(out)     :: vertices
-    integer(shortInt)                  :: nConcaveElements
-    type(axisAlignedBoundingBox)       :: boundingBox
+    integer(shortInt)                  :: nElements, nFaces, nInternalFaces, nVertices
+    logical(defBool)                   :: hasCellZones
     character(*), parameter            :: Here = 'importMesh (OpenFOAMMesh_class.f90)'
     
-    ! Retrieve preliminary information about the mesh and allocate memory.
-    call self % getMeshInfo(folderPath)
-    call elements % allocateShelf(self % nElements)
-    call faces % allocateShelf(self % nFaces)
-    call vertices % allocateShelf(self % nVertices)
+    ! Retrieve preliminary information about the mesh.
+    call self % getMeshInfo(folderPath, nVertices, nFaces, nInternalFaces, nElements, hasCellZones)
     
-    ! Import vertices and set mesh bounding box.
-    call self % importVertices(folderPath, vertices)
-    call boundingBox % init(vertices % getExtremalCoordinates())
-    call self % setBoundingBox(boundingBox)
+    ! Import vertices.
+    call self % importVertices(folderPath, nVertices)
 
     ! Import faces and edges.
-    call self % initFaceShelf(faces, vertices, folderPath)
+    call self % importFacesAndEdges(folderPath, nFaces, nInternalFaces)
     
     ! Import elements.
-    call self % initElementShelf(elements, faces, vertices, folderPath, nConcaveElements)
+    call self % importElements(folderPath, nVertices, nFaces, nInternalFaces, nElements)
 
-    ! If there are concave elements in the mesh call fatalError.
-    if (nConcaveElements > 0) call fatalError(Here, numToChar(nConcaveElements)//' elements failed convexity test.')
-
-    ! Build edges from elements, faces and vertices.
-    call self % buildEdges(edges, elements, faces, vertices)
-    print *, 'Done!'
-
-    ! Print original mesh composition.
-    !    call self % printComposition(nTetrahedra)
-
-    ! If the 'cellZones' file is missing, allocate only one 'cellZones' structure and return.
-    if (.not. self % getElementZonesFile()) then
-      call self % setElementZonesNumber(1)
-      call elementZones % allocateShelf(1)
-      call elementZones % initElementZone('Default', 1, 1, self % nElements)
-    
-    else
-      ! If reached here import cell zones.
-      call self % initElementZoneShelf(elementZones, folderPath)
-
-    end if
+    ! Import element zones.
+    call self % importElementZones(folderPath, hasCellZones, nElements)
 
   end subroutine importMesh
-
-  !! Subroutine 'initElementShelf'
-  !!
-  !! Basic description:
-  !!   Initialises the shelf from the 'owner' and 'neighbour' files.
-  !!
-  !! Arguments:
-  !!   folderPath [in]     -> Path of the folder containing the OpenFOAM mesh files.
-  !!   nFaces [in]         -> Number of faces in the mesh.
-  !!   nInternalFaces [in] -> Number of internal faces in the mesh.
-  !!
-  subroutine initElementShelf(self, elements, faces, vertices, folderPath, nConcaveElements)
-    class(OpenFOAMMesh), intent(inout)             :: self
-    class(vertexShelf), intent(inout)              :: vertices
-    class(elementShelf), intent(inout)             :: elements
-    class(faceShelf), intent(inout)                :: faces
-    character(*), intent(in)                       :: folderPath
-    integer(shortInt), intent(out)                 :: nConcaveElements
-    integer(shortInt)                              :: i, j, elementIdx, vertexIdx
-    integer(shortInt), parameter                   :: unit = 10
-    integer(shortInt), dimension(:), allocatable   :: elementIdxs
-    character(100)                                 :: string
-    type(elementInfo), dimension(self % nElements) :: elementInfos
-    character(:), allocatable                      :: type
-    type(axisAlignedBoundingBox)                   :: boundingBox
-    type(vertexBox), dimension(:), allocatable     :: faceVertices
-
-    ! Initialise nConcaveElements = 0
-    nConcaveElements = 0
-
-    ! If there is only one element in the mesh simply add all the faces and vertices to this element, check convexity and return.
-    if (self % nElements == 1) then
-      allocate(elementInfos(1) % faceIdxs(self % nFaces))
-      do i = 1, self % nFaces
-        elementInfos(1) % faceIdxs(i) = i
-        call faces % addElementIdxToFace(i, 1)
-
-      end do
-
-      allocate(elementInfos(1) % vertexIdxs(self % nVertices))
-      do i = 1, self % nVertices
-        elementInfos(1) % vertexIdxs(i) = i
-        call vertices % addElementIdxToVertex(i, 1)
-
-      end do
-      call boundingBox % init(vertices % getExtremalCoordinates())
-
-      type = 'Polyhedron'
-      if (size(elementInfos(1) % vertexIdxs) == 4) type = 'Tetrahedron'
-      call elements % buildElement(1, 1, elementInfos(1) % faceIdxs, faces, &
-                                   vertices % getVertexBox(elementInfos(1) % vertexIdxs), type, boundingBox)
-      if (.not. elements % getElementIsConvex(1)) nConcaveElements = 1
-      return
-
-    end if
-
-    ! Open the 'owner' file and read it until a line containing the symbol '(' is encountered.
-    call openToRead(unit, folderPath//'owner')
-    read(unit, "(a)") string
-    do while (index(string(1:len_trim(string)), "(") == 0)
-      read(unit, "(a)") string
-
-    end do
-
-    ! Skip one more line and loop over all faces.
-    read(unit, "(a)") string
-    do i = 1, self % nFaces
-      ! Read the current element index and add the current face to this element. Note
-      ! that we add one since Fortran starts indexing at one and not zero.
-      read(string, *) elementIdx
-
-      elementIdx = elementIdx + 1
-      call append(elementInfos(elementIdx) % faceIdxs, i)
-      call faces % addElementIdxToFace(i, elementIdx)
-      faceVertices = faces % getFaceVertices(i)
-      do j = 1, size(faceVertices)
-        vertexIdx = faceVertices(j) % ptr % getIdx()
-        call append(elementInfos(elementIdx) % vertexIdxs, vertexIdx, .true.)
-        call vertices % addElementIdxToVertex(vertexIdx, elementIdx)
-
-      end do
-
-      ! Move onto the next line.
-      read(unit, "(a)") string
-
-    end do
-
-    ! Close the 'owner' file.
-    close(unit)
-
-    ! If nInternalFaces = 0 we can return early here. Else we need to repeat the above procedure
-    ! for the 'neighbour file.
-    if (self % nInternalFaces > 0) then
-      ! Open the 'neighbour' file and read it until a line containing the symbol '(' is encountered.
-      call openToRead(unit, folderPath//'neighbour')
-      read(unit, "(a)") string
-      do while (index(string(1:len_trim(string)), "(") == 0)
-        read(unit, "(a)") string
-
-      end do
-
-      ! Check if the current line contains the symbol ')'. If it does, then all element indices
-      ! are written on a single line.
-      if (index(string(1:len_trim(string)), ")") > 0) then
-        ! Allocate the number of entries in the 'elementIndices' array to the number of internal
-        ! faces and copy element indices into this array.
-        allocate(elementIdxs(self % nInternalFaces))
-        read(string(index(string(1:len_trim(string)), "(") + 1:&
-        index(string(1:len_trim(string)), ")") - 1), *) elementIdxs
-
-      else
-        ! Skip one more line.
-        read(unit, "(a)") string
-
-      end if
-
-      ! Loop over all internal faces.
-      do i = 1, self % nInternalFaces
-        if (allocated(elementIdxs)) then
-          elementIdx = elementIdxs(i)
-
-        else
-          ! Read the current element index and move onto the next line.
-          read(string, *) elementIdx
-          read(unit, "(a)") string
-
-        end if
-        ! Update connectivity information.
-        elementIdx = elementIdx + 1
-        call append(elementInfos(elementIdx) % faceIdxs, -i)
-        call faces % addElementIdxToFace(i, elementIdx)
-        faceVertices = faces % getFaceVertices(i)
-        do j = 1, size(faceVertices)
-          vertexIdx = faceVertices(j) % ptr % getIdx()
-          call append(elementInfos(elementIdx) % vertexIdxs, vertexIdx, .true.)
-          call vertices % addElementIdxToVertex(vertexIdx, elementIdx)
-
-        end do
-
-      end do
-
-      ! Close the 'neighbour' file.
-      close(unit)
-
-    end if
-
-    ! Build all elements.
-    do i = 1, self % nElements
-      type = 'Polyhedron'
-      if (size(elementInfos(i) % vertexIdxs) == 4) type = 'Tetrahedron'
-      do j = 1, size(elementInfos(i) % vertexIdxs)
-        vertexIdx = elementInfos(i) % vertexIdxs(j)
-
-      end do
-      call boundingBox % computeBounds(vertices % getVertexCoordinates(elementInfos(i) % vertexIdxs))
-
-      call elements % buildElement(i, i, elementInfos(i) % faceIdxs, faces, &
-                                   vertices % getVertexBox(elementInfos(i) % vertexIdxs), type, boundingBox)
-      if (.not. elements % getElementIsConvex(i)) nConcaveElements = nConcaveElements + 1
-
-    end do
-
-  end subroutine initElementShelf
-
-  !! Subroutine 'initCellZoneShelf'
-  !!
-  !! Basic description:
-  !!   Initialises the shelf from the cellZones file.
-  !!
-  !! Notes:
-  !!   Due to the structure of the cellZones file the subroutine first scans the file a first time
-  !!   to obtain the name of each cell zone and then rewinds it to read the indices of the elements
-  !!   contained in each zone.
-  !!
-  !! Arguments:
-  !!   folderPath [in] -> Path of the folder containing the OpenFOAM mesh files.
-  !!
-  subroutine initElementZoneShelf(self, elementZones, folderPath)
-    class(OpenFOAMMesh), intent(inout)           :: self
-    class(cellZoneShelf), intent(inout)          :: elementZones
-    character(*), intent(in)                     :: folderPath
-    integer(shortInt)                            :: i, j, unit = 10, nElements, nElementZones
-    integer(shortInt), allocatable, dimension(:) :: elementIndices
-    character(100)                               :: string
-    character(:), allocatable                    :: name
-    logical(defBool)                             :: singleLine
-
-    ! Open the 'cellZones' data file and read it. Skip lines until a blank line is encountered.
-    call openToRead(unit, folderPath//'cellZones')
-    read(unit, "(a)") string
-    do while (len_trim(string) > 0)
-      read(unit, "(a)") string
-    end do
-    
-    ! Read the current line and copy the number of cell zones into the variable 'nCellZones'.
-    read(unit, "(a)") string
-    read(string, *) nElementZones
-    
-    ! Allocate memory and loop through all cell zones.
-    call self % setElementZonesNumber(nElementZones)
-    call elementZones % allocateShelf(nElementZones)
-    do i = 1, nElementZones
-      ! Initialise singleLine = .false. and skip lines until a '{' is encountered.
-      singleLine = .false.
-      do while (index(string, "{") == 0)
-        read(unit, "(a)") string
-
-      end do
-
-      ! Go back to the previous line and read the name of the current cell zone.
-      backspace(unit)
-      read(unit, "(a)") string
-      name = trim(string)
-      
-      ! Skip lines until the word 'cellLabels' is encoutered.
-      do while (index(string, "cellLabels") == 0)
-        read(unit, "(a)") string
-
-      end do
-
-      ! If the line contains a ')' then all the elements contained in the current cell zones are
-      ! written on the same line.
-      if (index(string, ")") > 0) singleLine = .true.
-
-      ! Read the number of elements in the current cell zone depending on whether they are all
-      ! written a single line or not.
-      if (singleLine) then
-        read(string(index(string, ">") + 2:index(string, "(") - 1), *) nElements
-
-      else
-        ! Skip one line and retrieve the number of elements in the cell zone..
-        read(unit, "(a)") string
-        read(string, *) nElements
-
-      end if
-
-      ! Allocate memory.
-      allocate(elementIndices(nElements))
-
-      ! Now read the indices of the elements in the current cell zone. Again this depends on
-      ! whether they are all written on a single line or not.
-      if (singleLine) then
-        ! Retrieve the element indices.
-        read(string(index(string, "(") + 1:index(string, ")") - 1), *) elementIndices
-
-      else
-        ! Skip two lines and retrieve the index of each element in the cell zone line by line..
-        do j = 1, 2
-          read(unit, "(a)") string
-
-        end do
-        do j = 1, nElements
-          read(string, *) elementIndices(j)
-          read(unit, "(a)") string
-
-        end do
-
-      end if
-
-      ! Set the start and end elements in the cell zone (note that we encrement by one since Fortran
-      ! starts indexing at one instead of zero) and reset elementIndices array.
-      call elementZones % initElementZone(name, i, elementIndices(1) + 1, elementIndices(nElements) + 1)
-      deallocate(elementIndices)
-
-    end do
-    
-    ! Close the 'cellZones' file.
-    close(unit)
-
-  end subroutine initElementZoneShelf
-
-  !! Subroutine 'initFaceShelf'
-  !!
-  !! Basic description:
-  !!   Initialises the shelf from the 'faces' file.
-  !!
-  !! Detailed description:
-  !!   Opens the 'faces' file and reads it until a line with the symbol ')' is encountered, which 
-  !!   marks the beginning of the faces' data listing. In the 'faces' file, each line corresponds to
-  !!   a single face. The subroutine then retrieves the number of vertices in each face and their
-  !!   indices sequentially line-by-line.
-  !!
-  !! Arguments:
-  !!   folderPath [in]     -> Path of the folder containing the mesh files.
-  !!   nInternalFaces [in] -> Number of internal faces in the mesh.
-  !!
-  subroutine initFaceShelf(self, faces, vertices, folderPath)
-    class(OpenFOAMMesh), intent(inout)           :: self
-    class(faceShelf), intent(inout)              :: faces
-    class(vertexShelf), intent(inout)            :: vertices
-    character(*), intent(in)                     :: folderPath
-    integer(shortInt), parameter                 :: unit = 10
-    integer(shortInt)                            :: i, j, nVertices, vertexIdx
-    integer(shortInt), dimension(:), allocatable :: vertexIdxs
-    character(100)                               :: string
-    character(:), allocatable                    :: type
-    type(axisAlignedBoundingBox)                 :: boundingBox
-
-    ! Open the 'faces' data file and read it until a line containing the symbol ')' is encountered.
-    call openToRead(unit, folderPath//'faces')
-    read(unit, "(a)") string
-    do while (index(string(1:len_trim(string)), ")") == 0)
-      read(unit, "(a)") string
-
-    end do
-    
-    ! Loop through all faces in the shelf.
-    do i = 1, self % nFaces
-      ! Skip lines if they are blank (can happen for faces with a large number of vertices).
-      if (len_trim(string) == 0) read(unit, "(a)") string
-      
-      ! Check if all the vertices are listed on a single line and retrieve nVertices accordingly.
-      if (index(string(1:len_trim(string)), "(") > 0) then
-        read(string(1:index(string, "(") - 1), *) nVertices
-
-      else
-        read(string, *) nVertices
-        read(unit, "(a)") string
-
-      end if
-
-      ! Allocate memory.
-      allocate(vertexIdxs(nVertices))
-      
-      ! If all vertices are listed on a single line copy them directly.
-      if (index(string(1:len_trim(string)), ")") > 0) then
-        read(string(index(string, "(") + 1:len_trim(string) - 1), *) vertexIdxs
-
-      else
-        ! Skip one line and read each vertex index line-by-line.
-        read(unit, "(a)") string
-        do j = 1, nVertices
-          read(string, *) vertexIdxs(j)
-          read(unit, "(a)") string
-
-        end do
-        
-        ! Skip one line.
-        read(unit, "(a)") string
-
-      end if
-      
-      ! Add one to the vertices indices since Fortran starts indexing at one rather than zero. Then
-      ! loop through all vertices in the face.
-      vertexIdxs = vertexIdxs + 1
-      do j = 1, size(vertexIdxs)
-        ! Retrieve current vertex index, add the current face to this vertex.
-        vertexIdx = vertexIdxs(j)
-        call vertices % addFaceIdxToVertex(vertexIdx, i)
-
-      end do
-
-      ! Compute the face's bounding box and initialise the face in the shelf.
-      call boundingBox % computeBounds(vertices % getVertexCoordinates(vertexIdxs))
-      type = 'Polygon'
-      if (nVertices == 3) type = 'Triangle'
-      call faces % buildFace(i, i, i > self % nInternalFaces, vertices % getVertexBox(vertexIdxs), type, boundingBox)
-      
-      ! Free memory and move onto the next line.
-      deallocate(vertexIdxs)
-      read(unit, "(a)") string
-
-    end do
-    
-    ! Close the 'faces' file.
-    close(unit)
-
-  end subroutine initFaceShelf
 
   !! Subroutine 'initVertexShelf'
   !!
@@ -750,10 +638,10 @@ contains
   !! Arguments:
   !!   folderPath [in] -> Path to the folder containing the mesh files.
   !!
-  subroutine importVertices(self, folderPath, vertices)
-    class(OpenFOAMMesh), intent(in)             :: self
+  subroutine importVertices(self, folderPath, nVertices)
+    class(OpenFOAMMesh), intent(inout)          :: self
     character(*), intent(in)                    :: folderPath
-    class(vertexShelf), intent(inout)           :: vertices
+    integer(shortInt), intent(in)               :: nVertices
     integer(shortInt)                           :: i, ios
     integer(shortInt), parameter                :: unit = 10
     real(defReal), dimension(:, :), allocatable :: coords
@@ -776,7 +664,7 @@ contains
     end do
 
     ! Allocate memory to the coords array.
-    allocate(coords(3, self % nVertices))
+    allocate(coords(3, nVertices))
 
     ! The buffer now holds either the single data line '((-0.5...)...)' or the opening parenthesis line '('.
     ! Check if the line contains a closing parenthesis to determine the format.
@@ -794,7 +682,7 @@ contains
       read(dataBuffer, *) coords
 
     else
-      do i = 1, self % nVertices
+      do i = 1, nVertices
         read(unit, '(a)') lineBuffer
         read(lineBuffer(2:len_trim(lineBuffer) - 1), *) coords(:, i)
 
@@ -804,9 +692,8 @@ contains
 
     close(unit)
 
-    ! Get offset and apply it to the coordinates.
-    coords = coords + spread(vertices % getOffset(), 2, self % nVertices)
-    call vertices % init(coords)
+    ! Initialise vertexShelf.
+    call self % initVertexShelf(coords)
 
   end subroutine importVertices
 
@@ -815,7 +702,7 @@ contains
   !! Basic description:
   !!   Returns to an unitialised state.
   !!
-  elemental subroutine kill(self)
+  subroutine kill(self)
     class(OpenFOAMMesh), intent(inout) :: self
 
     ! Call unstructuredMesh procedure.

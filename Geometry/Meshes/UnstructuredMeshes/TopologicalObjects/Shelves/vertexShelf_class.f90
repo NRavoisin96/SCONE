@@ -5,7 +5,7 @@ module vertexShelf_class
   use topologicalObject_inter,      only : topologicalObject, topologicalObjectBox
   use topologicalObjectShelf_inter, only : topologicalObjectShelf, kill_super => kill
   use vertex_class,                 only : vertex, vertexBox
-  use vertexFactory_func,           only : newVertexPtr
+  use vertexFactory_func,           only : newVertexBox
   
   implicit none
   private
@@ -22,35 +22,36 @@ module vertexShelf_class
   !!
   type, public, extends(topologicalObjectShelf) :: vertexShelf
     private
-    real(defReal), dimension(3)                 :: offset = ZERO
     real(defReal), dimension(6)                 :: extremalCoordinates = ZERO
   contains
-    procedure                               :: addEdgeIdxToVertex
-    procedure                               :: addElementIdxToVertex
-    procedure                               :: addFaceIdxToVertex
-    procedure                               :: findCommonEdgeIdx
-    procedure                               :: findCommonFaceIdx
-    procedure                               :: getAllCoordinates
-    procedure                               :: getExtremalCoordinates
-    procedure                               :: getOffset
-    generic                                 :: getVertexCoordinates => getVertexCoordinates_shortInt, &
-                                                                       getVertexCoordinates_shortIntArray
-    procedure, private                      :: getVertexCoordinates_shortInt
-    procedure, private                      :: getVertexCoordinates_shortIntArray
-    procedure                               :: getVertexEdgeIdxs
-    procedure                               :: getVertexElementIdxs
-    generic                                 :: getVertexFaceIdxs => getVertexFaceIdxs_shortInt, &
-                                                                    getVertexFaceIdxs_shortIntArray
-    procedure, private                      :: getVertexFaceIdxs_shortInt
-    procedure, private                      :: getVertexFaceIdxs_shortIntArray
-    generic                                 :: getVertexBox => getVertexBox_shortInt, getVertexBox_shortIntArray
-    procedure, private                      :: getVertexBox_shortInt
-    procedure, private                      :: getVertexBox_shortIntArray
-    procedure                               :: init
-    procedure                               :: initVertex
-    procedure                               :: kill
-    procedure                               :: setExtremalCoordinates
-    procedure                               :: setOffset
+    generic            :: addEdgeIdxToVertex => addEdgeIdxToVertex_shortInt, addEdgeIdxToVertex_shortIntArray
+    procedure, private :: addEdgeIdxToVertex_shortInt
+    procedure, private :: addEdgeIdxToVertex_shortIntArray
+    generic            :: addElementIdxToVertex => addElementIdxToVertex_shortInt, addElementIdxToVertex_shortIntArray
+    procedure, private :: addElementIdxToVertex_shortInt
+    procedure, private :: addElementIdxToVertex_shortIntArray
+    generic            :: addFaceIdxToVertex => addFaceIdxToVertex_shortInt, addFaceIdxToVertex_shortIntArray
+    procedure, private :: addFaceIdxToVertex_shortInt
+    procedure, private :: addFaceIdxToVertex_shortIntArray
+    procedure          :: findCommonEdgeIdx
+    procedure          :: findCommonFaceIdx
+    procedure          :: getAllCoordinates
+    procedure          :: getExtremalCoordinates
+    generic            :: getVertexCoordinates => getVertexCoordinates_shortInt, getVertexCoordinates_shortIntArray
+    procedure, private :: getVertexCoordinates_shortInt
+    procedure, private :: getVertexCoordinates_shortIntArray
+    procedure          :: getVertexEdgeIdxs
+    procedure          :: getVertexElementIdxs
+    generic            :: getVertexFaceIdxs => getVertexFaceIdxs_shortInt, getVertexFaceIdxs_shortIntArray
+    procedure, private :: getVertexFaceIdxs_shortInt
+    procedure, private :: getVertexFaceIdxs_shortIntArray
+    generic            :: getVertexBox => getVertexBox_shortInt, getVertexBox_shortIntArray
+    procedure, private :: getVertexBox_shortInt
+    procedure, private :: getVertexBox_shortIntArray
+    procedure          :: init
+    procedure          :: initVertex
+    procedure          :: kill
+    procedure          :: setExtremalCoordinates
   end type 
 
 contains
@@ -63,7 +64,7 @@ contains
   !!   vertexIdx [in] -> Index of the vertex in the shelf.
   !!   edgeIdx [in]   -> Index of the edge containing the vertex.
   !!
-  subroutine addEdgeIdxToVertex(self, vertexIdx, edgeIdx)
+  subroutine addEdgeIdxToVertex_shortInt(self, vertexIdx, edgeIdx)
     class(vertexShelf), intent(inout) :: self
     integer(shortInt), intent(in)     :: vertexIdx, edgeIdx
     type(vertexBox)                   :: box
@@ -71,7 +72,25 @@ contains
     box = self % getVertexBox(vertexIdx)
     call box % ptr % addEdgeIdx(edgeIdx)
 
-  end subroutine addEdgeIdxToVertex
+  end subroutine addEdgeIdxToVertex_shortInt
+
+  !!
+  !!
+  !!
+  subroutine addEdgeIdxToVertex_shortIntArray(self, vertexIdxs, edgeIdx)
+    class(vertexShelf), intent(inout)            :: self
+    integer(shortInt), dimension(:), intent(in)  :: vertexIdxs
+    integer(shortInt), intent(in)                :: edgeIdx
+    type(vertexBox), dimension(size(vertexIdxs)) :: boxes
+    integer(shortInt)                            :: i
+
+    boxes = self % getVertexBox(vertexIdxs)
+    do i = 1, size(vertexIdxs)
+      call boxes(i) % ptr % addEdgeIdx(edgeIdx)
+
+    end do
+
+  end subroutine addEdgeIdxToVertex_shortIntArray
 
   !! Subroutine 'addElementIdxToVertex'
   !!
@@ -82,15 +101,33 @@ contains
   !!   vertexIdx [in]  -> Index of the vertex in the shelf.
   !!   elementIdx [in] -> Index of the element containing the vertex.
   !!
-  subroutine addElementIdxToVertex(self, vertexIdx, elementIdx)
+  subroutine addElementIdxToVertex_shortInt(self, idx, elementIdx)
     class(vertexShelf), intent(inout) :: self
-    integer(shortInt), intent(in)     :: vertexIdx, elementIdx
+    integer(shortInt), intent(in)     :: idx, elementIdx
     type(vertexBox)                   :: box
 
-    box = self % getVertexBox(vertexIdx)
+    box = self % getVertexBox(idx)
     call box % ptr % addElementIdx(elementIdx)
 
-  end subroutine addElementIdxToVertex
+  end subroutine addElementIdxToVertex_shortInt
+
+  !!
+  !!
+  !!
+  subroutine addElementIdxToVertex_shortIntArray(self, idxs, elementIdx)
+    class(vertexShelf), intent(inout)           :: self
+    integer(shortInt), dimension(:), intent(in) :: idxs
+    integer(shortInt), intent(in)               :: elementIdx
+    type(vertexBox), dimension(size(idxs))      :: boxes
+    integer(shortInt)                           :: i
+
+    boxes = self % getVertexBox(idxs)
+    do i = 1, size(idxs)
+      call boxes(i) % ptr % addElementIdx(elementIdx)
+
+    end do
+
+  end subroutine addElementIdxToVertex_shortIntArray
 
   !! Subroutine 'addFaceIdxToVertex'
   !!
@@ -101,7 +138,7 @@ contains
   !!   vertexIdx [in] -> Index of the vertex in the shelf.
   !!   faceIdx [in]   -> Index of the face containing the vertex.
   !!
-  subroutine addFaceIdxToVertex(self, vertexIdx, faceIdx)
+  subroutine addFaceIdxToVertex_shortInt(self, vertexIdx, faceIdx)
     class(vertexShelf), intent(inout) :: self
     integer(shortInt), intent(in)     :: vertexIdx, faceIdx
     type(vertexBox)                   :: box
@@ -109,7 +146,25 @@ contains
     box = self % getVertexBox(vertexIdx)
     call box % ptr % addFaceIdx(faceIdx)
 
-  end subroutine addFaceIdxToVertex
+  end subroutine addFaceIdxToVertex_shortInt
+
+  !!
+  !!
+  !!
+  subroutine addFaceIdxToVertex_shortIntArray(self, vertexIdxs, faceIdx)
+    class(vertexShelf), intent(inout)            :: self
+    integer(shortInt), dimension(:), intent(in)  :: vertexIdxs
+    integer(shortInt), intent(in)                :: faceIdx
+    type(vertexBox), dimension(size(vertexIdxs)) :: boxes
+    integer(shortInt)                            :: i
+
+    boxes = self % getVertexBox(vertexIdxs)
+    do i = 1, size(vertexIdxs)
+      call boxes(i) % ptr % addFaceIdx(faceIdx)
+
+    end do
+
+  end subroutine addFaceIdxToVertex_shortIntArray
 
   !! Function 'findCommonEdgeIdx'
   !!
@@ -218,22 +273,6 @@ contains
     extremalCoordinates = self % extremalCoordinates
 
   end function getExtremalCoordinates
-
-  !! Function 'getOffset'
-  !!
-  !! Basic description:
-  !!   Returns the offset of the vertices in the shelf.
-  !!
-  !! Result:
-  !!   offset -> Offset of all the vertices in the shelf.
-  !!
-  pure function getOffset(self) result(offset)
-    class(vertexShelf), intent(in) :: self
-    real(defReal), dimension(3)    :: offset
-
-    offset = self % offset
-
-  end function getOffset
 
   !! Function 'getVertexCoordinates_shortInt'
   !!
@@ -438,13 +477,16 @@ contains
   subroutine init(self, coords)
     class(vertexShelf), intent(inout)          :: self
     real(defReal), dimension(:, :), intent(in) :: coords
-    integer(shortInt)                          :: i
+    integer(shortInt)                          :: i, nVertices
     real(defReal), dimension(6)                :: extremalCoordinates
     type(vertexBox)                            :: box
 
-    do i = 1, self % getSize()
-      call newVertexPtr(i, coords(:, i), box % ptr)
-      call self % addObject(i, box % ptr)
+    ! Allocate shelf then populate.
+    nVertices = size(coords, 2)
+    call self % allocateShelf(nVertices)
+    do i = 1, nVertices
+      call newVertexBox(i, coords(:, i), box)
+      call self % addObject(box % ptr)
 
       ! Update extremal coordinates.
       if (i == 1) then
@@ -478,8 +520,8 @@ contains
     real(defReal), dimension(3), intent(in) :: coords
     type(vertexBox)                         :: box
 
-    call newVertexPtr(idx, coords, box % ptr)
-    call self % addObject(idx, box % ptr)
+    call newVertexBox(idx, coords, box)
+    call self % addObject(box % ptr)
 
     ! Good practice.
     nullify(box % ptr)
@@ -491,14 +533,13 @@ contains
   !! Basic description:
   !!   Returns to an uninitialised state.
   !!
-  elemental subroutine kill(self)
+  subroutine kill(self)
     class(vertexShelf), intent(inout) :: self
 
     ! Superclass.
     call kill_super(self)
 
     ! Local.
-    self % offset = ZERO
     self % extremalCoordinates = ZERO
 
   end subroutine kill
@@ -518,22 +559,5 @@ contains
     self % extremalCoordinates = coords
 
   end subroutine setExtremalCoordinates
-
-  !! Subroutine 'setOffset'
-  !!
-  !! Basic description:
-  !!   Sets the offset of the shelf. This is a 3-D translation vector applied to
-  !!   the coordinates of all the vertices in the shelf.
-  !!
-  !! Arguments:
-  !!   offset [in] -> 3-D offset.
-  !!
-  pure subroutine setOffset(self, offset)
-    class(vertexShelf), intent(inout)       :: self
-    real(defReal), dimension(3), intent(in) :: offset
-    
-    self % offset = offset
-
-  end subroutine setOffset
 
 end module vertexShelf_class
