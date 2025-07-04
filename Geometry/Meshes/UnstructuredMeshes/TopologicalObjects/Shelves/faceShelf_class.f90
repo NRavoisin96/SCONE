@@ -5,10 +5,12 @@ module faceShelf_class
   use edge_class,                   only : edgeBox
   use face_class,                   only : buildFaceInfo, face, faceBox
   use faceFactory_func,             only : newFaceBox
-  use genericProcedures,            only : fatalError, numToChar, removeDuplicates
+  use genericProcedures,            only : fatalError, numToChar, removeDuplicates, quickSort
+  use longIntMap_class,             only : longIntMap
   use numPrecision
   use topologicalObject_inter,      only : topologicalObjectBox
-  use topologicalObjectShelf_inter, only : topologicalObjectShelf
+  use topologicalObjectShelf_inter, only : topologicalObjectShelf, kill_super => kill
+  use universalVariables,           only : NOT_PRESENT
   use vertex_class,                 only : vertexBox
   
   implicit none
@@ -22,12 +24,17 @@ module faceShelf_class
   !!
   type, public, extends(topologicalObjectShelf) :: faceShelf
     private
+    type(longIntMap)                            :: idxMap
   contains
     procedure          :: addEdgeToFace
     procedure          :: addElementIdxToFace
+    generic            :: addFace => addFace_info, addFace_infoArray
+    procedure, private :: addFace_info
+    procedure, private :: addFace_infoArray
     procedure          :: addVertexToFace
     procedure          :: computeFaceIntersection
     procedure          :: distanceSquaredFromFace
+    procedure, private :: generateKey
     procedure          :: getAllFaceBoundingBoxes
     procedure          :: getAllFaceCentroids
     procedure          :: getFaceArea
@@ -36,23 +43,23 @@ module faceShelf_class
     procedure, private :: getFaceBox_shortIntArray
     procedure          :: getFaceBoundingBox
     procedure          :: getFaceCentroid
+    procedure          :: getFaceChildrenIdxs
     procedure          :: getFaceEdges
     generic            :: getFaceElementIdxs => getFaceElementIdxs_shortInt, getFaceElementIdxs_shortIntArray
     procedure, private :: getFaceElementIdxs_shortInt
     procedure, private :: getFaceElementIdxs_shortIntArray
     procedure          :: getFaceHasElements
+    procedure          :: getFaceIdxOrDefault
     procedure          :: getFaceIsBoundary
     procedure          :: getFaceNormal
-    procedure          :: getFaceTriangleIdxs
     procedure          :: getFaceType
     procedure          :: getFaceVertices
     procedure          :: init
-    procedure          :: initFace
     generic            :: intersectsFace => intersectsFace_BoundingBox
     procedure, private :: intersectsFace_BoundingBox
     generic            :: intersectsFaceBoundingBox => intersectsFaceBoundingBox_BoundingBox
     procedure, private :: intersectsFaceBoundingBox_BoundingBox
-    procedure          :: splitFace
+    procedure          :: kill
   end type
 
 contains
@@ -95,6 +102,44 @@ contains
     call box % ptr % addElementIdx(elementIdx)
 
   end subroutine addElementIdxToFace
+
+  !! Subroutine 'initFace'
+  !!
+  !! Basic description:
+  !!   Initialises a face in the shelf.
+  !!
+  !! Arguments:
+  !!   idx [in]            -> Index of the face.
+  !!   nInternalFaces [in] -> Number of internal faces in the shelf.
+  !!
+  subroutine addFace_info(self, info)
+    class(faceShelf), intent(inout) :: self
+    type(buildFaceInfo), intent(in) :: info
+    type(faceBox)                   :: box
+
+    call newFaceBox(info, box)
+    call self % addObject(box % ptr)
+    call self % idxMap % add(self % generateKey(info % vertices), info % idx)
+
+  end subroutine addFace_info
+
+  !!
+  !!
+  !!
+  subroutine addFace_infoArray(self, infos)
+    class(faceShelf), intent(inout)               :: self
+    type(buildFaceInfo), dimension(:), intent(in) :: infos
+    integer(shortInt)                             :: i
+    type(faceBox)                                 :: box
+
+    do i = 1, size(infos)
+      call newFaceBox(infos(i), box)
+      call self % addObject(box % ptr)
+      call self % idxMap % add(self % generateKey(infos(i) % vertices), infos(i) % idx)
+
+    end do
+
+  end subroutine addFace_infoArray
 
   !! Subroutine 'addVertexIdxToFace'
   !!
@@ -158,6 +203,34 @@ contains
     dSquared = box % ptr % distanceSquared(r)
 
   end function distanceSquaredFromFace
+
+  !!
+  !!
+  !!
+  function generateKey(self, vertices) result(key)
+    class(faceShelf), intent(in)                 :: self
+    type(vertexBox), dimension(:), intent(in)    :: vertices
+    integer(longInt)                             :: key
+    integer(shortInt), dimension(size(vertices)) :: vertexIdxs
+    integer(shortInt)                            :: i, nVertices
+    integer(longInt), parameter                  :: prime = 31_longInt
+
+    ! Group vertex indices and sort them.
+    nVertices = size(vertices)
+    do i = 1, nVertices
+      vertexIdxs(i) = vertices(i) % ptr % getIdx()
+
+    end do
+    call quickSort(vertexIdxs)
+
+    ! Generate key.
+    key = 0
+    do i = 1, nVertices
+      key = key * prime + vertexIdxs(i)
+
+    end do
+
+  end function generateKey
 
   !! Function 'getAllFaceBoundingBoxes'
   !!
@@ -324,6 +397,28 @@ contains
 
   end function getFaceCentroid
 
+  !! Function 'getFaceTriangleIdxs'
+  !!
+  !! Basic description:
+  !!   Returns the indices of the triangles in a face of the shelf.
+  !!
+  !! Arguments:
+  !!   idx [in]     -> Index of the face in the shelf.
+  !!
+  !! Result:
+  !!   triangleIdxs -> Indices of the triangles in the face.
+  !!
+  function getFaceChildrenIdxs(self, idx) result(childrenIdxs)
+    class(faceShelf), intent(in)                 :: self
+    integer(shortInt), intent(in)                :: idx
+    integer(shortInt), dimension(:), allocatable :: childrenIdxs
+    type(faceBox)                                :: box
+
+    box = self % getFaceBox(idx)
+    childrenIdxs = box % ptr % getChildrenIdxs()
+
+  end function getFaceChildrenIdxs
+
   !! Function 'getFaceEdgeIdxs'
   !!
   !! Basic description:
@@ -437,6 +532,19 @@ contains
 
   end function getFaceHasElements
 
+  !!
+  !!
+  !!
+  function getFaceIdxOrDefault(self, vertices, default) result(idx)
+    class(faceShelf), intent(in)              :: self
+    type(vertexBox), dimension(:), intent(in) :: vertices
+    integer(shortInt), intent(in)             :: default
+    integer(shortInt)                         :: idx
+
+    idx = self % idxMap % getOrDefault(self % generateKey(vertices), default)
+
+  end function getFaceIdxOrDefault
+
   !! Function 'getFaceIsBoundary'
   !!
   !! Basic description:
@@ -480,28 +588,6 @@ contains
     normal = box % ptr % getNormal(idx)
 
   end function getFaceNormal
-
-  !! Function 'getFaceTriangleIdxs'
-  !!
-  !! Basic description:
-  !!   Returns the indices of the triangles in a face of the shelf.
-  !!
-  !! Arguments:
-  !!   idx [in]     -> Index of the face in the shelf.
-  !!
-  !! Result:
-  !!   triangleIdxs -> Indices of the triangles in the face.
-  !!
-  function getFaceTriangleIdxs(self, idx) result(triangleIdxs)
-    class(faceShelf), intent(in)                 :: self
-    integer(shortInt), intent(in)                :: idx
-    integer(shortInt), dimension(:), allocatable :: triangleIdxs
-    type(faceBox)                                :: box
-
-    box = self % getFaceBox(idx)
-    triangleIdxs = box % ptr % getTriangleIdxs()
-
-  end function getFaceTriangleIdxs
 
   !! Function 'getFaceType'
   !!
@@ -562,29 +648,11 @@ contains
     do i = 1, nFaces
       call newFaceBox(infos(i), box)
       call self % addObject(box % ptr)
+      call self % idxMap % add(self % generateKey(infos(i) % vertices), infos(i) % idx)
 
     end do
 
   end subroutine init
-
-  !! Subroutine 'initFace'
-  !!
-  !! Basic description:
-  !!   Initialises a face in the shelf.
-  !!
-  !! Arguments:
-  !!   idx [in]            -> Index of the face.
-  !!   nInternalFaces [in] -> Number of internal faces in the shelf.
-  !!
-  subroutine initFace(self, info)
-    class(faceShelf), intent(inout) :: self
-    type(buildFaceInfo), intent(in) :: info
-    type(faceBox)                   :: box
-
-    call newFaceBox(info, box)
-    call self % addObject(box % ptr)
-
-  end subroutine initFace
 
   !!
   !!
@@ -616,27 +684,18 @@ contains
 
   end function intersectsFaceBoundingBox_BoundingBox
 
-  !! Subroutine 'splitFace'
   !!
-  !! Basic description:
-  !!   Splits a face in the shelf into triangles.
   !!
-  !! Arguments:
-  !!   idx [in]                -> Index of the face in the shelf.
-  !!   edges [inout]           -> An edgeShelf.
-  !!   triangles [inout]       -> A triangleShelf.
-  !!   vertices [inout]        -> A vertexShelf.
-  !!   lastEdgeIdx [inout]     -> Index of the last edge in the edgeShelf.
-  !!   lastTriangleIdx [inout] -> Index of the last triangle in the triangleShelf.
   !!
-  subroutine splitFace(self, idx)
+  subroutine kill(self)
     class(faceShelf), intent(inout) :: self
-    integer(shortInt), intent(in)   :: idx
-    type(faceBox)                   :: box
 
-    box = self % getFaceBox(idx)
-    call box % ptr % split()
+    ! Superclass.
+    call kill_super(self)
 
-  end subroutine splitFace
+    ! Local.
+    call self % idxMap % kill()
+
+  end subroutine kill
   
 end module faceShelf_class

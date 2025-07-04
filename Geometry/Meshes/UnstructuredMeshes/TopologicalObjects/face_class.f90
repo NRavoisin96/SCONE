@@ -3,7 +3,7 @@ module face_class
   use axisAlignedBoundingBox_class, only : axisAlignedBoundingBox
   use coord_class,                  only : coord
   use edge_class,                   only : edgeBox
-  use genericProcedures,            only : append, areEqual, crossProduct, fatalError, findCommon, numToChar, swap
+  use genericProcedures,            only : append, areEqual, crossProduct, fatalError, numToChar
   use topologicalObject_inter,      only : topologicalObject, kill_super => kill
   use numPrecision
   use universalVariables,           only : HALF, INF, ONE, SURF_TOL, THIRD, ZERO
@@ -17,9 +17,10 @@ module face_class
   !!
   type, public :: buildFaceInfo
     integer(shortInt)                          :: idx = 0, parentIdx = 0
-    logical(defBool)                           :: isBoundary = .false.
+    logical(defBool)                           :: isBoundary = .false., testNormal = .false.
     type(vertexBox), dimension(:), allocatable :: vertices
     type(edgeBox), dimension(:), allocatable   :: edges
+    real(defReal), dimension(3)                :: testCentroid = ZERO
   end type buildFaceInfo
 
   !!
@@ -38,6 +39,7 @@ module face_class
   !!
   type, public                  :: orientatedFaceBox
     type(faceBox)               :: face
+    logical(defBool)            :: isOwner = .false.
     real(defReal), dimension(3) :: outwardNormal = ZERO
   end type orientatedFaceBox
   
@@ -59,30 +61,31 @@ module face_class
     integer(shortInt)                            :: parentIdx = 0
     type(edgeBox), dimension(:), allocatable     :: edges
     type(vertexBox), dimension(:), allocatable   :: vertices
-    integer(shortInt), dimension(:), allocatable :: elementIdxs, triangleIdxs
-    logical(defBool)                             :: isBoundary = .false.
+    integer(shortInt), dimension(:), allocatable :: childrenIdxs, elementIdxs
+    logical(defBool)                             :: isActive = .true., isBoundary = .false.
     real(defReal)                                :: area = ZERO
     real(defReal), dimension(3)                  :: centroid = ZERO, normal = ZERO
     type(axisAlignedBoundingBox)                 :: boundingBox
     character(:), allocatable                    :: type
   contains
+    procedure          :: addChildIdx
     procedure          :: addEdge
     procedure          :: addElementIdx
-    procedure          :: addTriangleIdx
     procedure          :: addVertex
     procedure, private :: build
     procedure          :: computeIntersection
+    procedure          :: deactivate
     procedure          :: distanceSquared
     procedure          :: getArea
     procedure          :: getBoundingBox
     procedure          :: getCentroid
+    procedure          :: getChildrenIdxs
     procedure          :: getEdges
     procedure          :: getElementIdxs
     procedure          :: getFaceIdx
     procedure          :: getHasElements
     procedure          :: getIsBoundary
     procedure          :: getNormal
-    procedure          :: getTriangleIdxs
     procedure          :: getType
     procedure          :: getVertices
     procedure          :: init
@@ -97,10 +100,24 @@ module face_class
     procedure          :: setIsBoundary
     procedure          :: setNormal
     procedure          :: setVertices
-    procedure          :: split
   end type face
 
 contains
+  !! Subroutine 'addTriangleIdx'
+  !!
+  !! Basic description:
+  !!   Adds the index of a triangle in the face.
+  !!
+  !! Arguments:
+  !!   idx [in] -> Index of the triangle.
+  !!
+  elemental subroutine addChildIdx(self, idx)
+    class(face), intent(inout)    :: self
+    integer(shortInt), intent(in) :: idx
+    
+    call append(self % childrenIdxs, idx)
+
+  end subroutine addChildIdx
 
   !! Subroutine 'addEdgeIdx'
   !!
@@ -146,22 +163,6 @@ contains
     call append(self % elementIdxs, idx)
 
   end subroutine addElementIdx
-
-  !! Subroutine 'addTriangleIdx'
-  !!
-  !! Basic description:
-  !!   Adds the index of a triangle in the face.
-  !!
-  !! Arguments:
-  !!   idx [in] -> Index of the triangle.
-  !!
-  elemental subroutine addTriangleIdx(self, idx)
-    class(face), intent(inout)    :: self
-    integer(shortInt), intent(in) :: idx
-    
-    call append(self % triangleIdxs, idx)
-
-  end subroutine addTriangleIdx
   
   !! Subroutine 'addVertexIdx'
   !!
@@ -318,6 +319,16 @@ contains
   !!
   !!
   !!
+  elemental subroutine deactivate(self)
+    class(face), intent(inout) :: self
+
+    self % isActive = .false.
+
+  end subroutine deactivate
+
+  !!
+  !!
+  !!
   function distanceSquared(self, r) result(dSquared)
     class(face), intent(in)                 :: self
     real(defReal), dimension(3), intent(in) :: r
@@ -397,6 +408,28 @@ contains
     centroid = self % centroid
 
   end function getCentroid
+
+  !! Function 'getTriangleIdxs'
+  !!
+  !! Basic description:
+  !!   Returns the indices of the triangles in the face.
+  !!
+  !! Result:
+  !!   trianglesIdxs -> Indices of the triangles in the face.
+  !!
+  pure function getChildrenIdxs(self) result(childrenIdxs)
+    class(face), intent(in)                      :: self
+    integer(shortInt), dimension(:), allocatable :: childrenIdxs
+    
+    if (allocated(self % childrenIdxs)) then
+      childrenIdxs = self % childrenIdxs
+
+    else
+      allocate(childrenIdxs(0))
+
+    end if
+
+  end function getChildrenIdxs
 
   !! Function 'getEdgeIdxs'
   !!
@@ -501,22 +534,6 @@ contains
   !! Function 'getTriangleIdxs'
   !!
   !! Basic description:
-  !!   Returns the indices of the triangles in the face.
-  !!
-  !! Result:
-  !!   trianglesIdxs -> Indices of the triangles in the face.
-  !!
-  pure function getTriangleIdxs(self) result(triangleIdxs)
-    class(face), intent(in)                                 :: self
-    integer(shortInt), dimension(size(self % triangleIdxs)) :: triangleIdxs
-    
-    triangleIdxs = self % triangleIdxs
-
-  end function getTriangleIdxs
-
-  !! Function 'getTriangleIdxs'
-  !!
-  !! Basic description:
   !!   Returns the type of the face.
   !!
   !! Result:
@@ -577,6 +594,17 @@ contains
 
     ! Build.
     call self % build()
+
+    ! Check if normal test was requested.
+    if (info % testNormal) then
+      if (dot_product(self % centroid - info % testCentroid, self % normal) < ZERO) then
+        self % vertices(1) = info % vertices(2)
+        self % vertices(2) = info % vertices(1)
+        self % normal = -self % normal
+
+      end if
+
+    end if
 
   end subroutine init
 
@@ -723,11 +751,13 @@ contains
 
     ! Local.
     self % parentIdx = 0
+    self % isActive = .true.
     self % isBoundary = .false.
     self % area = ZERO
     self % centroid = ZERO
     self % normal = ZERO
     call self % boundingBox % kill()
+    if (allocated(self % childrenIdxs)) deallocate(self % childrenIdxs)
     if (allocated(self % elementIdxs)) deallocate(self % elementIdxs)
     if (allocated(self % edges)) then
       do i = 1, size(self % edges)
@@ -823,13 +853,5 @@ contains
     self % vertices = vertices
 
   end subroutine setVertices
-
-  !!
-  !!
-  !!
-  subroutine split(self)
-    class(face), intent(in) :: self
-
-  end subroutine split
   
 end module face_class

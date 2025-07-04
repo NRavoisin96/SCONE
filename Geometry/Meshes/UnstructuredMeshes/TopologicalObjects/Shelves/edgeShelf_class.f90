@@ -1,14 +1,14 @@
 module edgeShelf_class
   
-  use edge_class,                   only : edge, edgeBox
+  use edge_class,                   only : buildEdgeInfo, edge, edgeBox
   use edgeFactory_func,             only : newEdgeBox
   use genericProcedures,            only : fatalError, numToChar
   use longIntMap_class,             only : longIntMap
   use iso_fortran_env,              only : int64
   use numPrecision
-  use publicObjects,                only : buildEdgeInfo
   use topologicalObject_inter,      only : topologicalObjectBox
   use topologicalObjectShelf_inter, only : topologicalObjectShelf, kill_super => kill
+  use universalVariables,           only : NOT_PRESENT
   use vertex_class,                 only : vertexBox
   
   implicit none
@@ -29,6 +29,8 @@ module edgeShelf_class
     procedure, private :: getEdgeBox_shortIntArray
     procedure          :: getEdgeElementIdxs
     procedure          :: getEdgeFaceIdxs
+    procedure          :: getEdgeIdxOrDefault
+    procedure, private :: generateKey
     procedure          :: init
     procedure          :: initEdge
     procedure          :: kill
@@ -130,7 +132,7 @@ contains
 
       class default
         ! Should never happen.
-        call fatalError(here, 'Object in edgeShelf with idx: '//numToChar(idx)//' is not an edge.')
+        call fatalError(here, 'Object in edgeShelf with index: '//numToChar(idx)//' is not an edge.')
 
     end select
 
@@ -213,17 +215,48 @@ contains
   !!
   !!
   !!
-  subroutine init(self, edgeInfos)
+  function getEdgeIdxOrDefault(self, vertices, default) result(idx)
+    class(edgeShelf), intent(inout)           :: self
+    type(vertexBox), dimension(2), intent(in) :: vertices
+    integer(shortInt), intent(in)             :: default
+    integer(shortInt)                         :: idx
+
+    idx = self % idxMap % getOrDefault(self % generateKey(vertices), default)
+
+  end function getEdgeIdxOrDefault
+
+  !!
+  !!
+  !!
+  function generateKey(self, vertices) result(key)
+    class(edgeShelf), intent(in)              :: self
+    type(vertexBox), dimension(2), intent(in) :: vertices
+    integer(longInt)                          :: key
+    integer(shortInt)                         :: maxVertexIdx, minVertexIdx
+
+    minVertexIdx = min(vertices(1) % ptr % getIdx(), vertices(2) % ptr % getIdx())
+    maxVertexIdx = max(vertices(1) % ptr % getIdx(), vertices(2) % ptr % getIdx())
+    key = ishft(int(minVertexIdx, int64), 32) + int(maxVertexIdx, int64)
+
+  end function generateKey
+
+  !!
+  !!
+  !!
+  subroutine init(self, infos)
     class(edgeShelf), intent(inout)               :: self
-    type(buildEdgeInfo), dimension(:), intent(in) :: edgeInfos
+    type(buildEdgeInfo), dimension(:), intent(in) :: infos
     integer(shortInt)                             :: i, nEdges
     type(edgeBox)                                 :: box
 
-    nEdges = size(edgeInfos)
+    nEdges = size(infos)
     call self % allocateShelf(nEdges)
     do i = 1, nEdges
-      call newEdgeBox(edgeInfos(i) % idx, edgeInfos(i) % vertices, box)
+      call newEdgeBox(infos(i), box)
       call self % addObject(box % ptr)
+
+      ! Add index to idxMap.
+      call self % idxMap % add(self % generateKey(infos(i) % vertices), infos(i) % idx)
 
     end do
 
@@ -238,22 +271,18 @@ contains
   !!   idx [in]        -> Index of the edge in the shelf.
   !!   vertexIdxs [in] -> Indices of the vertices in the edge.
   !!
-  subroutine initEdge(self, idx, vertices)
-    class(edgeShelf), intent(inout)           :: self
-    integer(shortInt), intent(in)             :: idx
-    type(vertexBox), dimension(2), intent(in) :: vertices
-    type(edgeBox)                             :: box
-    integer(int64)                            :: key
-    integer(shortInt)                         :: maxVertexIdx, minVertexIdx
+  subroutine initEdge(self, info)
+    class(edgeShelf), intent(inout) :: self
+    type(buildEdgeInfo), intent(in) :: info
+    type(edgeBox)                   :: box
+    integer(int64)                  :: key
+    integer(shortInt)               :: maxVertexIdx, minVertexIdx
 
-    call newEdgeBox(idx, vertices, box)
+    call newEdgeBox(info, box)
     call self % addObject(box % ptr)
 
     ! Add index to idxMap.
-    minVertexIdx = min(vertices(1) % ptr % getIdx(), vertices(2) % ptr % getIdx())
-    maxVertexIdx = max(vertices(1) % ptr % getIdx(), vertices(2) % ptr % getIdx())
-    key = ishft(int(minVertexIdx, int64), 32) + int(maxVertexIdx, int64)
-    call self % idxMap % add(key, idx)
+    call self % idxMap % add(self % generateKey(info % vertices), info % idx)
 
   end subroutine initEdge
 

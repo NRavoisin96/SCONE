@@ -11,6 +11,14 @@ module edge_class
   !!
   !!
   !!
+  type, public :: buildEdgeInfo
+    integer(shortInt)             :: idx = 0
+    type(vertexBox), dimension(2) :: vertices
+  end type buildEdgeInfo
+
+  !!
+  !!
+  !!
   type, public :: edgeBox
     type(edge), pointer :: ptr => null()
   end type edgeBox
@@ -171,15 +179,15 @@ contains
   !!
   !!
   !!
-  subroutine init(self, idx, vertices)
-    class(edge), intent(inout)                :: self
-    integer(shortInt), intent(in)             :: idx
-    type(vertexBox), dimension(2), intent(in) :: vertices
+  subroutine init(self, info)
+    class(edge), intent(inout)      :: self
+    type(buildEdgeInfo), intent(in) :: info
 
-    call self % setIdx(idx)
-    self % vertices = vertices
+    ! Set information from payload.
+    call self % setIdx(info % idx)
+    self % vertices = info % vertices
     
-    self % edgeVector = vertices(2) % ptr % getCoordinates() - vertices(1) % ptr % getCoordinates()
+    self % edgeVector = self % vertices(2) % ptr % getCoordinates() - self % vertices(1) % ptr % getCoordinates()
     self % unitEdgeVector = self % edgeVector / norm2(self % edgeVector)
 
   end subroutine init

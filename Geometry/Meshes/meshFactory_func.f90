@@ -18,7 +18,7 @@ module meshFactory_func
   ! NOTE: It is necessary to adjust trailing blanks so all entries have the same length
   character(nameLen), dimension(*), parameter :: AVAILABLE_MESHES = ['OpenFOAMMesh']
   ! Public interface.
-  public :: new_mesh, new_mesh_ptr
+  public :: new_mesh_ptr
 
   contains
   
@@ -72,29 +72,5 @@ module meshFactory_func
     call new % init(trimmedPath, dict)
     
   end function new_mesh_ptr
-  
-  !! Subroutine 'new_mesh'
-  !!
-  !! Basic description:
-  !!   Allocates an allocatable mesh.
-  !!
-  !! Arguments:
-  !!   new [out] -> Mesh to be allocated.
-  !!   dict [in] -> Dictionary with the mesh definition.
-  !!
-  subroutine new_mesh(new, dict)
-    class(mesh), allocatable, intent(out) :: new
-    class(dictionary), intent(in)         :: dict
-    class(mesh), pointer                  :: temp
-    
-    ! Obtain pointer to temporary mesh.
-    temp => new_mesh_ptr(dict)
-    ! Now copy the temporary mesh into the new mesh.
-    allocate(new, source = temp)
-    ! Clear the temporary mesh and deallocate pointer to prevent memory leaks.
-    call temp % kill()
-    deallocate(temp)
-
-  end subroutine new_mesh
 
 end module meshFactory_func

@@ -12,7 +12,7 @@ module OpenFOAMMesh_tetrahedral_iTest
   
   ! Parameters.
   character(*), parameter :: MESH_DEF = &
-  "id 15; type OpenFOAMMesh; path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/StanfordBunny_LowPoly/; triangulate 1;"
+  "id 15; type OpenFOAMMesh; path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/StanfordBunny_LowPoly/;"
   ! Variables.
   type(OpenFOAMMesh) :: mesh
   type(coord)        :: coords

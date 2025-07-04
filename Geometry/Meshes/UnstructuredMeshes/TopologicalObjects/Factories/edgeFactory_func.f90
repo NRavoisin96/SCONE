@@ -1,8 +1,7 @@
 module edgeFactory_func
 
-  use edge_class,   only : edge, edgeBox
+  use edge_class,   only : buildEdgeInfo, edge, edgeBox
   use numPrecision
-  use vertex_class, only : vertexBox
 
   implicit none
   private
@@ -14,13 +13,12 @@ contains
   !!
   !!
   !!
-  subroutine newEdgeBox(idx, vertices, box)
-    integer(shortInt), intent(in)             :: idx
-    type(vertexBox), dimension(2), intent(in) :: vertices
-    type(edgeBox), intent(out)                :: box
+  subroutine newEdgeBox(info, box)
+    type(buildEdgeInfo), intent(in) :: info
+    type(edgeBox), intent(out)      :: box
 
     allocate(edge :: box % ptr)
-    call box % ptr % init(idx, vertices)
+    call box % ptr % init(info)
 
   end subroutine newEdgeBox
 

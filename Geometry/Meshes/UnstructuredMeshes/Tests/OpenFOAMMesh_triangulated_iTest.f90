@@ -12,7 +12,7 @@ module OpenFOAMMesh_triangulated_iTest
   
   ! Parameters.
   character(*), parameter :: MESH_DEF = &
-  " id 2; type OpenFOAMMesh; path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/testMesh/; triangulate 1;"
+  " id 2; type OpenFOAMMesh; path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/testMesh/;"
   ! Variables.
   type(OpenFOAMMesh) :: mesh
   type(coord)        :: coords

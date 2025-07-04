@@ -1,0 +1,5 @@
+# Add Source Files to the global list
+add_sources(
+            ./centroidTriangulationMethod_class.f90
+            ./fanTriangulationMethod_inter.f90
+           )

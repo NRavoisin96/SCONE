@@ -139,6 +139,9 @@ contains
     integer(shortInt), dimension(:), allocatable, intent(inout) :: array
     integer(shortInt), intent(in)                               :: value
     logical(defBool), intent(in), optional                      :: excludeIfPresent
+    logical(defBool)                                            :: addValue
+    integer(shortInt)                                           :: arraySize
+    integer(shortInt), dimension(:), allocatable                :: temp
     
     if (.not. allocated(array)) then
       allocate(array(1))
@@ -147,16 +150,20 @@ contains
 
     end if
 
+    addValue = .true.
     if (present(excludeIfPresent)) then
-      if (excludeIfPresent) then
-        if (linFind(array, value) == targetNotFound) array = [array, value]
-        return
-
-      end if
+      if (excludeIfPresent) addValue = linFind(array, value) == targetNotFound
 
     end if
     
-    array = [array, value]
+    if (addValue) then
+      arraySize = size(array)
+      allocate(temp(arraySize + 1))
+      temp(1:arraySize) = array
+      temp(arraySize + 1) = value
+      call move_alloc(temp, array)
+
+    end if
 
   end subroutine append_shortInt
   

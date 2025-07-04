@@ -60,7 +60,7 @@ module element_class
     real(defReal)                                      :: volume = ZERO
     real(defReal), dimension(3)                        :: centroid = ZERO
     type(axisAlignedBoundingBox)                       :: boundingBox
-    logical(defBool)                                   :: isConvex = .false.
+    logical(defBool)                                   :: isActive = .true., isConvex = .false.
     character(:), allocatable                          :: type
   contains
     ! Build procedures.
@@ -74,12 +74,13 @@ module element_class
     ! Runtime procedures.
     procedure :: computeIntersectedFace
     procedure :: computePotentialFaces
+    procedure :: deactivate
     procedure :: getBoundingBox
     procedure :: getCentroid
     procedure :: getEdges
-    procedure :: getFaces
     procedure :: getIsConvex
     procedure :: getLocalId
+    procedure :: getOrientatedFaces
     procedure :: getParentIdx
     procedure :: getType
     procedure :: getVertices
@@ -402,6 +403,16 @@ contains
 
   end function computePotentialFaces
 
+  !!
+  !!
+  !!
+  elemental subroutine deactivate(self)
+    class(element), intent(inout) :: self
+
+    self % isActive = .false.
+
+  end subroutine deactivate
+
   !! Function 'getBoundingBox'
   !!
   !! Basic description:
@@ -449,26 +460,6 @@ contains
     edges = self % edges
 
   end function getEdges
-  
-  !! Function 'getFaces'
-  !!
-  !! Basic description:
-  !!   Returns the indices of the faces in the element.
-  !!
-  !! Result:
-  !!   faceIdxs -> An array listing the indices of the faces in the element.
-  !!
-  function getFaces(self) result(faces)
-    class(element), intent(in)                             :: self
-    type(faceBox), dimension(size(self % orientatedFaces)) :: faces
-    integer(shortInt)                                      :: i
-    
-    do i = 1, size(self % orientatedFaces)
-      faces(i) = self % orientatedFaces(i) % face
-    
-    end do
-
-  end function getFaces
 
   !!
   !!
@@ -491,6 +482,28 @@ contains
     localId = self % localId
 
   end function getLocalId
+
+  !! Function 'getFaces'
+  !!
+  !! Basic description:
+  !!   Returns the indices of the faces in the element.
+  !!
+  !! Result:
+  !!   faceIdxs -> An array listing the indices of the faces in the element.
+  !!
+  function getOrientatedFaces(self) result(orientatedFaces)
+    class(element), intent(in)                         :: self
+    type(orientatedFaceBox), dimension(:), allocatable :: orientatedFaces
+    
+    if (allocated(self % orientatedFaces)) then
+      orientatedFaces = self % orientatedFaces
+
+    else
+      allocate(orientatedFaces(0))
+
+    end if
+
+  end function getOrientatedFaces
 
   !! Function 'getParentIdx'
   !!
@@ -674,6 +687,7 @@ contains
     self % localId = 0
     self % volume = ZERO
     self % centroid = ZERO
+    self % isActive = .true.
     self % isConvex = .false.
     if (allocated(self % tetrahedronIdxs)) deallocate(self % tetrahedronIdxs)
     if (allocated(self % type)) deallocate(self % type)

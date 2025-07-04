@@ -1,7 +1,6 @@
 module OpenFOAMMesh_class
 
   use axisAlignedBoundingBox_class, only : axisAlignedBoundingBox
-  use cellZoneShelf_class,          only : cellZoneShelf
   use coord_class,                  only : coord
   use genericProcedures,            only : append, fatalError, numToChar, openToRead, quickSort
   use iso_fortran_env,              only : int64
@@ -224,7 +223,7 @@ contains
       elementInfos(i) % idx = i
 
     end do
-    
+
     ! If there is only one element in the mesh simply add all the faces and vertices to this element, check convexity and return.
     if (nElements == 1) then
       allocate(elementInfos(1) % faceIdxs(nFaces))
@@ -422,6 +421,7 @@ contains
           end do
 
         end if
+        localIdInfos(i) % elementIdxs = localIdInfos(i) % elementIdxs + 1
 
       end do
       

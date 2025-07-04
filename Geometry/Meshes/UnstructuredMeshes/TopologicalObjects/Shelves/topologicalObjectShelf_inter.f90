@@ -23,6 +23,7 @@ module topologicalObjectShelf_inter
     generic            :: getObjectBox => getObjectBox_shortInt, getObjectBox_shortIntArray
     procedure, private :: getObjectBox_shortInt
     procedure, private :: getObjectBox_shortIntArray
+    procedure          :: getObjectsNumber
     procedure          :: getSize
     procedure          :: kill
     procedure          :: shrink
@@ -100,6 +101,17 @@ contains
     end do
 
   end function getObjectBox_shortIntArray
+
+  !!
+  !!
+  !!
+  elemental function getObjectsNumber(self) result(nObjects)
+    class(topologicalObjectShelf), intent(in) :: self
+    integer(shortInt)                         :: nObjects
+
+    nObjects = self % nObjects
+
+  end function getObjectsNumber
 
   !!
   !!

@@ -25,6 +25,9 @@ module elementShelf_class
     private
   contains
     procedure                                   :: addEdgeToElement
+    generic                                     :: addElement => addElement_info, addElement_infoArray
+    procedure, private                          :: addElement_info
+    procedure, private                          :: addElement_infoArray
     procedure                                   :: addFaceToElement
     procedure                                   :: addVertexToElement
     procedure                                   :: computeFaceIntersection
@@ -35,15 +38,14 @@ module elementShelf_class
     procedure, private                          :: getElementBox_shortIntArray
     procedure                                   :: getElementCentroid
     procedure                                   :: getElementEdges
-    procedure                                   :: getElementFaces
     procedure                                   :: getElementIsConvex
     procedure                                   :: getElementLocalId
+    procedure                                   :: getElementOrientatedFaces
     procedure                                   :: getElementParentIdx
     procedure                                   :: getElementType
     procedure                                   :: getElementVertices
     procedure                                   :: getElementVolume
     procedure                                   :: init
-    procedure                                   :: initElement
     procedure                                   :: pushFromElementBoundary
     generic                                     :: setElementLocalId => setElementLocalId_shortInt, setElementLocalId_shortIntArray
     procedure, private                          :: setElementLocalId_shortInt
@@ -52,7 +54,6 @@ module elementShelf_class
   end type elementShelf
 
 contains
-
   !! Subroutine 'addEdgeIdxToElement'
   !!
   !! Basic description:
@@ -72,6 +73,43 @@ contains
     call box % ptr % addEdge(edge)
 
   end subroutine addEdgeToElement
+
+  !! Subroutine 'initElement'
+  !!
+  !! Basic description:
+  !!   Initialises an element in the shelf.
+  !!
+  !! Arguments:
+  !!   idx [in]      -> Index of the element in the shelf.
+  !!   faces [in]    -> A faceShelf.
+  !!   vertices [in] -> A vertexShelf.
+  !!
+  subroutine addElement_info(self, info)
+    class(elementShelf), intent(inout) :: self
+    type(buildElementInfo), intent(in) :: info
+    type(elementBox)                   :: box
+
+    call newElementBox(info, box)
+    call self % addObject(box % ptr)
+
+  end subroutine addElement_info
+
+  !!
+  !!
+  !!
+  subroutine addElement_infoArray(self, infos)
+    class(elementShelf), intent(inout)               :: self
+    type(buildElementInfo), dimension(:), intent(in) :: infos
+    integer(shortInt)                                :: i
+    type(elementBox)                                 :: box
+
+    do i = 1, size(infos)
+      call newElementBox(infos(i), box)
+      call self % addObject(box % ptr)
+
+    end do
+
+  end subroutine addElement_infoArray
 
   !! Subroutine 'addFaceIdxToElement'
   !!
@@ -288,28 +326,6 @@ contains
 
   end function getElementEdges
 
-  !! Function 'getElementFaceIdxs'
-  !!
-  !! Basic description:
-  !!   Returns the indices of the faces in an element of the shelf.
-  !!
-  !! Arguments:
-  !!   idx [in] -> Index of the element in the shelf.
-  !!
-  !! Result:
-  !!   faceIdxs -> Indices of the faces in the element.
-  !!
-  function getElementFaces(self, idx) result(faces)
-    class(elementShelf), intent(in)          :: self
-    integer(shortInt), intent(in)            :: idx
-    type(faceBox), dimension(:), allocatable :: faces
-    type(elementBox)                         :: box
-
-    box = self % getElementBox(idx)
-    faces = box % ptr % getFaces()
-
-  end function getElementFaces
-
   !! Function 'getElementIsConvex'
   !!
   !! Basic description:
@@ -345,6 +361,28 @@ contains
     localId = box % ptr % getLocalId()
 
   end function getElementLocalId
+
+  !! Function 'getElementFaceIdxs'
+  !!
+  !! Basic description:
+  !!   Returns the indices of the faces in an element of the shelf.
+  !!
+  !! Arguments:
+  !!   idx [in] -> Index of the element in the shelf.
+  !!
+  !! Result:
+  !!   faceIdxs -> Indices of the faces in the element.
+  !!
+  function getElementOrientatedFaces(self, idx) result(orientatedFaces)
+    class(elementShelf), intent(in)                    :: self
+    integer(shortInt), intent(in)                      :: idx
+    type(orientatedFaceBox), dimension(:), allocatable :: orientatedFaces
+    type(elementBox)                                   :: box
+
+    box = self % getElementBox(idx)
+    orientatedFaces = box % ptr % getOrientatedFaces()
+
+  end function getElementOrientatedFaces
 
   !! Function 'getElementParentIdx'
   !!
@@ -445,26 +483,6 @@ contains
     end do
 
   end subroutine init
-
-  !! Subroutine 'initElement'
-  !!
-  !! Basic description:
-  !!   Initialises an element in the shelf.
-  !!
-  !! Arguments:
-  !!   idx [in]      -> Index of the element in the shelf.
-  !!   faces [in]    -> A faceShelf.
-  !!   vertices [in] -> A vertexShelf.
-  !!
-  subroutine initElement(self, info)
-    class(elementShelf), intent(inout) :: self
-    type(buildElementInfo), intent(in) :: info
-    type(elementBox)                   :: box
-
-    call newElementBox(info, box)
-    call self % addObject(box % ptr)
-
-  end subroutine initElement
 
   !!
   !!

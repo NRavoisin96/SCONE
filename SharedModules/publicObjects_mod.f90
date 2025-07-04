@@ -1,12 +1,8 @@
 module publicObjects
 
-  use edge_class,              only : edgeBox
-  use face_class,              only : orientatedFaceBox
   use numPrecision
   use RNG_class,               only : RNG
-  use topologicalObject_inter, only : topologicalObject
   use universalVariables,      only : ZERO
-  use vertex_class,            only : vertexBox
 
   implicit none
   public
@@ -35,14 +31,6 @@ module publicObjects
     logical(defBool)                             :: isBoundary = .false.
     integer(shortInt), dimension(:), allocatable :: edgeIdxs, vertexIdxs
   end type basicFaceInfo
-
-  !!
-  !!
-  !!
-  type :: buildEdgeInfo
-    integer(shortInt)             :: idx = 0
-    type(vertexBox), dimension(2) :: vertices
-  end type buildEdgeInfo
 
   !!
   !!

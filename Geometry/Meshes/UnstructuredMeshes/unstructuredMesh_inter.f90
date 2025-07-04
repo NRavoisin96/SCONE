@@ -1,22 +1,24 @@
 module unstructuredMesh_inter
 
-  use accelerationStructure_inter, only : accelerationStructure
-  use coord_class,                 only : coord
-  use dictionary_class,            only : dictionary
-  use edge_class,                  only : edgeBox
-  use edgeShelf_class,             only : edgeShelf
-  use element_class,               only : buildElementInfo, elementBox, inclusionTestResult
-  use elementShelf_class,          only : elementShelf
-  use face_class,                  only : buildFaceInfo, faceBox
-  use faceShelf_class,             only : faceShelf
-  use genericProcedures,           only : append, findDifferent, numToChar, removeDuplicates
-  use mesh_inter,                  only : mesh, kill_super => kill
+  use accelerationStructure_inter,       only : accelerationStructure
+  use centroidTriangulationMethod_class, only : centroidTriangulationMethod
+  use coord_class,                       only : coord
+  use dictionary_class,                  only : dictionary
+  use edge_class,                        only : buildEdgeInfo, edgeBox
+  use edgeShelf_class,                   only : edgeShelf
+  use element_class,                     only : buildElementInfo, elementBox, inclusionTestResult
+  use elementShelf_class,                only : elementShelf
+  use face_class,                        only : buildFaceInfo, faceBox
+  use faceShelf_class,                   only : faceShelf
+  use genericProcedures,                 only : append, findDifferent, numToChar, removeDuplicates
+  use mesh_inter,                        only : mesh, kill_super => kill
   use numPrecision
-  use octreeAcceleration_class,    only : octreeAcceleration
-  use publicObjects,               only : basicEdgeInfo, basicElementInfo, basicFaceInfo, buildEdgeInfo, meshLocalIdInfo
+  use octreeAcceleration_class,          only : octreeAcceleration
+  use publicObjects,                     only : basicEdgeInfo, basicElementInfo, basicFaceInfo, meshLocalIdInfo
+  use triangulationMethod_inter,         only : triangulationMethod
   use universalVariables
-  use vertex_class,                only : vertexBox
-  use vertexShelf_class,           only : vertexShelf
+  use vertex_class,                      only : vertexBox
+  use vertexShelf_class,                 only : vertexShelf
 
   implicit none
   private
@@ -60,6 +62,7 @@ module unstructuredMesh_inter
     type(edgeShelf)                           :: edges
     type(elementShelf)                        :: elements
     type(faceShelf)                           :: faces
+    class(triangulationMethod), allocatable   :: triangulation
     type(vertexShelf)                         :: vertices
   contains
     ! Build procedures.
@@ -72,9 +75,6 @@ module unstructuredMesh_inter
     procedure                       :: initVertexShelf
     procedure                       :: kill
     procedure, non_overridable      :: printComposition
-    procedure                       :: split
-    procedure                       :: splitElements
-    procedure                       :: splitFaces
     ! Runtime procedures.
     procedure                       :: distanceToBoundaryFace
     procedure                       :: distanceToNextFace
@@ -383,8 +383,7 @@ contains
     class(unstructuredMesh), intent(inout) :: self
     character(*), intent(in)               :: folderPath
     class(dictionary), intent(in)          :: dict
-    logical(defBool)                       :: triangulate
-    character(nameLen)                     :: acceleration
+    character(nameLen)                     :: acceleration, triangulation
 
     ! Set up base components.
     call self % setupBase(dict)
@@ -392,10 +391,21 @@ contains
     ! Import mesh from files.
     call self % importMesh(folderPath)
 
-    ! Check if triangulation was requested.
-    call dict % getOrDefault(triangulate, 'triangulate', .false.)
+    ! Check if triangulation was requested by user and triangulate if applicable.
+    call dict % getOrDefault(triangulation, 'triangulationMethod', 'none')
+    if (triangulation /= 'none') then
+      if (triangulation == 'centroidBased') allocate(centroidTriangulationMethod :: self % triangulation)
+      call self % triangulation % triangulate(self % edges, self % elements, self % faces, self % vertices)
 
-    ! Check if acceleration structure was required by user and initialise it if applicable.
+      ! Shrink shelves to their correct size after triangulation.
+      call self % edges % shrink()
+      call self % elements % shrink()
+      call self % faces % shrink()
+      call self % vertices % shrink()
+
+    end if
+
+    ! Check if acceleration structure was requested by user and initialise it if applicable.
     call dict % getOrDefault(acceleration, 'accelerationMethod', 'none')
     if (acceleration /= 'none') then
       if (acceleration == 'octree') allocate(octreeAcceleration :: self % acceleration)
@@ -449,6 +459,7 @@ contains
         absFaceIdx = abs(elementInfos(i) % faceIdxs(j))
         buildInfos(i) % orientatedFaces(j) % face = self % faces % getFaceBox(absFaceIdx)
         buildInfos(i) % orientatedFaces(j) % outwardNormal = self % faces % getFaceNormal(elementInfos(i) % faceIdxs(j))
+        if (0 < elementInfos(i) % faceIdxs(j)) buildInfos(i) % orientatedFaces(j) % isOwner = .true.
 
         ! Update connectivity.
         call self % faces % addElementIdxToFace(absFaceIdx, elementInfos(i) % idx)
@@ -659,7 +670,7 @@ contains
     do i = 1, self % nElements
       ! Retrieve the number of faces in the current element and increment specific polyhedra
       ! accordingly.
-      nFaces = size(self % elements % getElementFaces(i))
+      nFaces = size(self % elements % getElementOrientatedFaces(i))
       select case (nFaces)
         case (4)
           nTetrahedra = nTetrahedra + 1
@@ -682,81 +693,5 @@ contains
     print *, '  Number of other polyhedra: '//numToChar(nOthers)//'.'
 
   end subroutine printComposition
-
-  !! Subroutine 'split'
-  !!
-  !! Basic description:
-  !!   Splits a mesh into tetrahedral elements. If a given element is already a tetrahedron it is
-  !!   not split but simply added to the shelf of tetrahedra in the mesh.
-  !!
-  !! Detailed description:
-  !!   'split' starts by computing the number of pyramids, tetrahedra and triangles that will be
-  !!   generated in the resulting mesh. Then, each element is split into a set of pyramids, whose
-  !!   bases are each of the element's face and whose (common) apex is the element's centroid. This
-  !!   apex is also appended to the list of vertices in the mesh in the process. Once this is done,
-  !!   each face in the original mesh is subdivided into triangles. Lastly, each pyramid previously
-  !!   created is further split into tetrahedra.
-  !!
-  !! Arguments:
-  !!   lastVertexIdx [out] -> Index of the last vertex in the resulting mesh.
-  !!
-  subroutine split(self, edges, elements, faces, vertices, newEdges, newElements, newFaces, newVertices)
-    class(unstructuredMesh), intent(inout)    :: self
-    type(edgeShelf), intent(in)               :: edges
-    type(elementShelf), intent(inout)         :: elements
-    type(faceShelf), intent(inout)            :: faces
-    type(vertexShelf), intent(in)             :: vertices
-    type(edgeShelf), intent(out)              :: newEdges
-    type(elementShelf), intent(out)           :: newElements
-    type(faceShelf), intent(out)              :: newFaces
-    type(vertexShelf), intent(out)            :: newVertices
-    integer(shortInt)                         :: i, j, nEdges, nInternalTriangles, nNewEdges, nTetrahedra, nTriangles, &
-                                                 nVertices, nNewVertices, lastEdgeIdx, lastFaceIdx, lastElementIdx, lastVertexIdx
-    integer(shortInt), dimension(:), allocatable :: edgeIdxs
-    type(elementBox), dimension(:), allocatable  :: tetrahedra
-    type(faceBox), dimension(:), allocatable     :: triangles
-
-  end subroutine split
-
-  !! Subroutine 'splitElements'
-  !!
-  !! Basic description:
-  !!   Splits all elements in the original mesh into pyramids. If a given element is already a
-  !!   tetrahedron it is not split but simply appended to the list of existing tetrahedra.
-  !!
-  !! Arguments:
-  !!   lastEdgeIdx [inout]        -> Index of the last edge in the mesh.
-  !!   lastPyramidIdx [inout]     -> Index of the last pyramid in the mesh.
-  !!   lastTetrahedronIdx [inout] -> Index of the last tetrahedron in the mesh.
-  !!   lastTriangleIdx [inout]    -> Index of the last triangle in the mesh.
-  !!   lastVertexIdx [inout]      -> Index of the last vertex in the mesh.
-  !!
-  subroutine splitElements(self, elements, faces, lastNewEdgeIdx, lastNewElementIdx, lastNewFaceIdx, lastNewVertexIdx, &
-                           newEdges, newElements, newFaces, newVertices, tetrahedra, triangles)
-    class(unstructuredMesh), intent(inout)        :: self
-    type(elementShelf), intent(inout)             :: elements, newElements
-    type(faceShelf), intent(inout)                :: faces, newFaces
-    integer(shortInt), intent(inout)              :: lastNewEdgeIdx, lastNewElementIdx, lastNewFaceIdx, lastNewVertexIdx
-    type(edgeShelf), intent(inout)                :: newEdges
-    type(vertexShelf), intent(inout)              :: newVertices
-    type(elementBox), dimension(:), intent(inout) :: tetrahedra
-    type(faceBox), dimension(:), intent(inout)    :: triangles
-    integer(shortInt)                             :: i, initialElementIdx, j
-
-  end subroutine splitElements
-
-  !!
-  !!
-  !!
-  subroutine splitFaces(self, faces, newEdges, newFaces, newVertices, lastNewEdgeIdx, lastNewFaceIdx, triangles)
-    class(unstructuredMesh), intent(inout)     :: self
-    type(faceShelf), intent(inout)             :: faces, newFaces
-    type(edgeShelf), intent(inout)             :: newEdges
-    type(vertexShelf), intent(inout)           :: newVertices
-    integer(shortInt), intent(inout)           :: lastNewEdgeIdx, lastNewFaceIdx
-    type(faceBox), dimension(:), intent(inout) :: triangles
-    integer(shortInt)                          :: i, initialFaceIdx, j
-
-  end subroutine splitFaces
 
 end module unstructuredMesh_inter

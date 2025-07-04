@@ -1,6 +1,8 @@
 # Add Source Files to the global list
 add_subdirectory(AccelerationStructures)
 add_subdirectory(TopologicalObjects)
+add_subdirectory(TriangulationMethods)
+
 add_sources(
             ./OpenFOAMMesh_class.f90
             ./unstructuredMesh_inter.f90
