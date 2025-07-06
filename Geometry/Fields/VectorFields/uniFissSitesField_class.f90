@@ -128,11 +128,11 @@ contains
   !!
   !! Generate random points to estimate the volume of the elements on the map
   !!
-  subroutine estimateVol(self, geom, rand, type)
+  subroutine estimateVol(self, geom, type, rand)
     class(uniFissSitesField), intent(inout) :: self
     class(geometry), pointer, intent(in)    :: geom
-    class(RNG), intent(inout)               :: rand
     integer(shortInt), intent(in)           :: type
+    class(RNG), intent(inout), optional     :: rand
     real(defReal), dimension(6)             :: bounds
     real(defReal), dimension(3)             :: bottom, top
     real(defReal), dimension(3), save       :: randomNumbers, r
@@ -141,7 +141,7 @@ contains
     integer(shortInt), save                 :: j, binIdx, matIdx, uniqueID
     class(nuclearDatabase), pointer         :: nucData
     class(neutronMaterial), pointer, save   :: mat
-    character(*), parameter :: Here = 'estimateVol (uniFissSitesField_class.f90)'
+    character(*), parameter                 :: Here = 'estimateVol (uniFissSitesField_class.f90)'
     !$omp threadprivate(randomNumbers, r, state, j, binIdx, matIdx, uniqueID, mat)
 
     allocate(self % volFraction(self % N))
@@ -156,15 +156,20 @@ contains
       ! Get pointer to appropriate nuclear database
       if (type == P_NEUTRON_CE) then
         nucData => ndReg_getNeutronCE()
+
       else
         nucData => ndReg_getNeutronMG()
+
       end if
-      if (.not.associated(nucData)) call fatalError(Here, 'Failed to retrieve Nuclear Database')
+      if (.not. associated(nucData)) call fatalError(Here, 'Failed to retrieve Nuclear Database')
+
+      ! Check that pointer to random number generator is associated.
+      if (.not. present(rand)) call fatalError(Here, 'Random number generator was not provided.')
 
       ! Set bounding region
       bounds = geom % bounds()
       bottom = bounds(1:3)
-      top    = bounds(4:6)
+      top = bounds(4:6)
 
       print *, "<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>"
       print *, "VOLUME CALCULATION FOR UFS"
@@ -176,7 +181,7 @@ contains
         j = 0
         rejection : do
           ! Protect against infinite loop
-          j = j +1
+          j = j + 1
           if (j > 1000) then
             call fatalError(Here, 'Infinite loop in sampling of fission sites. Please check that&
                                   & defined volume contains fissile material.')
@@ -193,7 +198,7 @@ contains
           if (matIdx == VOID_MAT .or. matIdx == OUTSIDE_MAT) cycle rejection
 
           mat => neutronMaterial_CptrCast(nucData % getMaterial(matIdx))
-          if (.not.associated(mat)) call fatalError(Here, "Nuclear data did not return neutron material.")
+          if (.not. associated(mat)) call fatalError(Here, "Nuclear data did not return neutron material.")
 
           ! Resample position if material is not fissile
           if (.not. mat % isFissile()) cycle rejection
@@ -220,7 +225,7 @@ contains
       !$omp end parallel do
 
       ! Normalise the volume fraction map
-      self % volFraction = self % volFraction/sum(self % volFraction)
+      self % volFraction = self % volFraction / sum(self % volFraction)
 
       print *, "DONE!"
       print *, "<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>"

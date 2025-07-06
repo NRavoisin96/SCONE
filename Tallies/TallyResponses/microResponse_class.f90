@@ -47,9 +47,9 @@ module microResponse_class
   type, public, extends(tallyResponse) :: microResponse
     private
     !! Response MT number
-    integer(shortInt)        :: MT
+    integer(shortInt)         :: MT
     integer(shortInt), public :: matIdx
-    real(defReal)            :: dens
+    real(defReal)             :: dens
   contains
     ! Superclass Procedures
     procedure  :: init
@@ -128,7 +128,7 @@ contains
       case(N_FISSION)
         self % MT = macroFission
       case(N_ABSORPTION)
-        self % MT = macroAbsorbtion
+        self % MT = macroAbsorption
       case default
         call fatalError(Here,'Unrecognised MT number: '// numToChar(MT))
     end select
@@ -143,14 +143,14 @@ contains
   !! Errors:
   !!   Return ZERO if particle is not a Neutron
   !!
-  function get(self, p, xsData) result(val)
-    class(microResponse), intent(in)      :: self
-    class(particle), intent(in)           :: p
-    class(nuclearDatabase), intent(inout) :: xsData
-    real(defReal)                         :: val
-    class(neutronMaterial), pointer       :: mat
-    type(neutronMacroXSs)                 :: xss
-    character(*), parameter :: Here = 'get ( microResponse_class.f90)'
+  subroutine get(self, p, val, xsData)
+    class(microResponse), intent(in)                :: self
+    class(particle), intent(in)                     :: p
+    real(defReal), intent(out)                      :: val
+    class(nuclearDatabase), intent(inout), optional :: xsData
+    class(neutronMaterial), pointer                 :: mat
+    type(neutronMacroXSs)                           :: xss
+    character(*), parameter                         :: Here = 'get (microResponse_class.f90)'
 
     val = ZERO
 
@@ -159,6 +159,7 @@ contains
     if (p % getMatIdx() == VOID_MAT) return
 
     ! Get pointer to active material data
+    if (.not. present(xsData)) call fatalError(Here, 'Nuclear database was not provided.')
     mat => neutronMaterial_CptrCast(xsData % getMaterial(self % matIdx))
 
     ! Return if material is not a neutronMaterial
@@ -170,7 +171,7 @@ contains
     ! Normalise the macroscopic cross section with the atomic density
     val = xss % get(self % MT) / self % dens
 
-  end function get
+  end subroutine get
 
   !!
   !! Return to uninitialised state

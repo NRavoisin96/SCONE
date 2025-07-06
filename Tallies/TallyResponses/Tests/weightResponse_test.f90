@@ -1,21 +1,21 @@
 module weightResponse_test
 
-  use numPrecision
+  use dictionary_class,          only : dictionary
   use endfConstants
-  use weightResponse_class,           only : weightResponse
-  use particle_class,                 only : particle, P_NEUTRON
-  use dictionary_class,               only : dictionary
-  use testNeutronDatabase_class,      only : testNeutronDatabase
   use funit
+  use numPrecision
+  use particle_class,            only : particle, P_NEUTRON
+  use testNeutronDatabase_class, only : testNeutronDatabase
+  use weightResponse_class,      only : weightResponse
 
   implicit none
 
 @testCase
   type, extends(TestCase) :: test_weightResponse
     private
-    type(weightResponse)        :: response_weight_m0
-    type(weightResponse)        :: response_weight_m2
-    type(testNeutronDatabase)   :: xsData
+    type(weightResponse)      :: response_weight_m0
+    type(weightResponse)      :: response_weight_m2
+    type(testNeutronDatabase) :: xsData
   contains
     procedure :: setUp
     procedure :: tearDown
@@ -69,14 +69,18 @@ contains
   subroutine testGettingResponse(this)
     class(test_weightResponse), intent(inout) :: this
     type(particle)                            :: p
-    real(defReal), parameter                  :: TOL = 1.0E-9
+    real(defReal)                             :: result
+    real(defReal), parameter                  :: tol = 1.0E-9
 
     p % type = P_NEUTRON
     p % w = 2.0_defReal
 
     ! Test response values
-    @assertEqual(2.0_defReal, this % response_weight_m0 % get(p, this % xsData), TOL)
-    @assertEqual(8.0_defReal, this % response_weight_m2 % get(p, this % xsData), TOL)
+    call this % response_weight_m0 % get(p, result, this % xsData)
+    @assertEqual(2.0_defReal, result, tol)
+
+    call this % response_weight_m2 % get(p, result, this % xsData)
+    @assertEqual(8.0_defReal, result, tol)
 
   end subroutine testGettingResponse
 

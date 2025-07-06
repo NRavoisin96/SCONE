@@ -1,12 +1,11 @@
 module densityResponse_test
 
-  use numPrecision
-  use universalVariables,    only : neutronMass, lightSpeed
   use densityResponse_class, only : densityResponse
-  use particle_class,        only : particle, P_NEUTRON, P_PHOTON
   use dictionary_class,      only : dictionary
-  use nuclearDatabase_inter, only : nuclearDatabase
   use funit
+  use numPrecision
+  use particle_class,        only : particle, P_NEUTRON, P_PHOTON
+  use universalVariables,    only : neutronMass, lightSpeed
 
   implicit none
 
@@ -50,24 +49,27 @@ contains
   subroutine densityResponseing(this)
     class(test_densityResponse), intent(inout) :: this
     type(particle)                             :: p
-    class(nuclearDatabase), pointer             :: xsData
-    real(defReal)                              :: res
+    real(defReal)                              :: ref, result
+    real(defReal), parameter                   :: tol = 1.0e-9_defReal
 
     ! Test neutron density with different particle energies
     p % type = P_NEUTRON
     p % isMG = .false.
     p % E = ONE
-    res   = ONE / lightSpeed / sqrt(TWO * p % E / neutronMass)
-    @assertEqual(res, this % response % get(p, xsData), res*1.0E-9_defReal)
+    ref = ONE / lightSpeed / sqrt(TWO * p % E / neutronMass)
+    call this % response % get(p, result)
+    @assertEqual(ref, result, ref * tol)
 
     p % E = 1.6e-06_defReal
-    res   = ONE / lightSpeed / sqrt(TWO * p % E / neutronMass)
-    @assertEqual(res, this % response % get(p, xsData), res*1.0E-9_defReal)
+    ref = ONE / lightSpeed / sqrt(TWO * p % E / neutronMass)
+    call this % response % get(p, result)
+    @assertEqual(ref, result, ref * tol)
 
     ! Test photon density
     p % type = P_PHOTON
-    res   = ONE/lightSpeed
-    @assertEqual(res, this % response % get(p, xsData), res*1.0E-9_defReal)
+    ref = ONE / lightSpeed
+    call this % response % get(p, result)
+    @assertEqual(ref, result, ref * tol)
 
   end subroutine densityResponseing
 

@@ -1,14 +1,13 @@
 module trackClerk_test
 
-  use numPrecision
-  use genericProcedures,              only : numToChar
-  use trackClerk_class,               only :trackClerk
-  use particle_class,                 only : particle
-  use dictionary_class,               only : dictionary
-  use scoreMemory_class,              only : scoreMemory
-  use testNeutronDatabase_class,      only : testNeutronDatabase
-  use outputFile_class,               only : outputFile
+  use dictionary_class,          only : dictionary
   use funit
+  use genericProcedures,         only : numToChar
+  use numPrecision
+  use outputFile_class,          only : outputFile
+  use particle_class,            only : particle
+  use scoreMemory_class,         only : scoreMemory
+  use trackClerk_class,          only : trackClerk
 
   implicit none
 
@@ -129,19 +128,18 @@ contains
   !!
 @Test(cases=[1,2,3,4,5,6,7,8])
   subroutine testScoring(this)
-    class(test_trackClerk), intent(inout)     :: this
-    logical(defBool)                          :: hasFilter, hasMap, has2Res
-    character(:), allocatable                  :: case
-    type(trackClerk)                          :: clerk
-    type(scoreMemory)                         :: mem
-    type(particle)                            :: p
-    type(testNeutronDatabase)                 :: nucData
-    type(outputFile)                          :: outF
-    type(dictionary)                          :: filterDict, mapDict, res1Dict, res2Dict, clerkDict
-    character(nameLen)                        :: res1Name, res2Name, clerkName
-    integer(shortInt)                         :: i
-    real(defReal)                             :: res, L
-    real(defReal), parameter :: TOL = 1.0E-9
+    class(test_trackClerk), intent(inout) :: this
+    logical(defBool)                      :: hasFilter, hasMap, has2Res
+    character(:), allocatable             :: case
+    type(trackClerk)                      :: clerk
+    type(scoreMemory)                     :: mem
+    type(particle)                        :: p
+    type(outputFile)                      :: outF
+    type(dictionary)                      :: filterDict, mapDict, res1Dict, res2Dict, clerkDict
+    character(nameLen)                    :: res1Name, res2Name, clerkName
+    integer(shortInt)                     :: i
+    real(defReal)                         :: res, L
+    real(defReal), parameter              :: TOL = 1.0E-9
 
     ! Copy test settings
     hasFilter = this % hasFilter
@@ -207,11 +205,11 @@ contains
     ! Perform scoring
     p % prePath % matIdx = 1
     p % w = 0.7_defReal
-    call clerk % reportPath(p, L, nucData, mem)
+    call clerk % reportPath(p, L, mem)
 
     p % prePath % matIdx = 6
     p % w = 1.3_defReal
-    call clerk % reportPath(p, L, nucData, mem)
+    call clerk % reportPath(p, L, mem)
 
     call mem % closeCycle(ONE)
 
@@ -231,7 +229,6 @@ contains
     @assertTrue(outF % isValid(), case)
 
     ! Clean up
-    call nucData % kill()
     call clerkDict % kill()
     call filterDict % kill()
     call mapDict % kill()

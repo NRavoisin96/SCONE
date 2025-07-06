@@ -4,7 +4,6 @@ module testResponse_test
   use testResponse_class,    only : testResponse
   use particle_class,        only : particle
   use dictionary_class,      only : dictionary
-  use nuclearDatabase_inter, only : nuclearDatabase
   use funit
 
   implicit none
@@ -53,9 +52,11 @@ contains
   subroutine testResponseing(this)
     class(test_testResponse), intent(inout) :: this
     type(particle)                          :: p
-    class(nuclearDatabase), pointer          :: xsData
+    real(defReal)                           :: result
+    real(defReal), parameter                :: tol = 1.0e-9_defReal
 
-    @assertEqual(1.3_defReal, this % response % get(p, xsData), 1.0E-9_defReal)
+    call this % response % get(p, result)
+    @assertEqual(1.3_defReal, result, tol)
 
   end subroutine testResponseing
 

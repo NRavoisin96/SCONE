@@ -65,13 +65,14 @@ contains
   !! Errors:
   !!   Return ZERO if particle is not a Neutron
   !!
-  function get(self, p, xsData) result(val)
-    class(weightResponse), intent(in)     :: self
-    class(particle), intent(in)           :: p
-    class(nuclearDatabase), intent(inout) :: xsData
-    real(defReal)                         :: val
-    integer(shortInt)                     :: matIdx
-    class(neutronMaterial), pointer       :: mat
+  subroutine get(self, p, val, xsData)
+    class(weightResponse), intent(in)               :: self
+    class(particle), intent(in)                     :: p
+    real(defReal), intent(out)                      :: val
+    class(nuclearDatabase), intent(inout), optional :: xsData
+    integer(shortInt)                               :: matIdx
+    class(neutronMaterial), pointer                 :: mat
+    character(*), parameter                         :: here = 'get (weightResponse_class.f90)'
 
     val = ZERO
 
@@ -80,6 +81,7 @@ contains
 
     ! Get pointer to active material data
     matIdx = p % getMatIdx()
+    if (.not. present(xsData)) call fatalError(here, 'Nuclear database was not provided.')
     mat => neutronMaterial_CptrCast(xsData % getMaterial(matIdx))
 
     ! Return if material is not a neutronMaterial
@@ -91,7 +93,7 @@ contains
       val = xsData % getTotalMatXS(p, matIdx) * ((p % w) ** (self % moment - 1))
     end if
 
-  end function get
+  end subroutine get
 
   !!
   !! Return to uninitialised State

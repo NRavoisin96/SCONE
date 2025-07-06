@@ -216,19 +216,19 @@ contains
   !!
   !! See tallyClerk_inter for details
   !!
-  subroutine reportInColl(self, p, xsData, mem, virtual)
+  subroutine reportInColl(self, p, virtual, xsData, mem)
     class(mgXsClerk), intent(inout)       :: self
     class(particle), intent(in)           :: p
+    logical(defBool), intent(in)          :: virtual
     class(nuclearDatabase), intent(inout) :: xsData
     type(scoreMemory), intent(inout)      :: mem
-    logical(defBool), intent(in)          :: virtual
     type(particleState)                   :: state
     type(neutronMacroXSs)                 :: xss
     class(neutronMaterial), pointer       :: mat
     real(defReal)                         :: nuFissXS, captXS, fissXS, scattXS, flux
     integer(shortInt)                     :: enIdx, matIdx, locIdx, binIdx
     integer(longInt)                      :: addr
-    character(100), parameter :: Here =' reportInColl (mgXsClerk_class.f90)'
+    character(*), parameter               :: Here =' reportInColl (mgXsClerk_class.f90)'
 
     ! Return if collision is virtual but virtual collision handling is off
     if ((.not. self % handleVirtual) .and. virtual) return

@@ -70,18 +70,18 @@ module eigenPhysicsPackage_class
   type, public, extends(physicsPackage) :: eigenPhysicsPackage
     private
     ! Building blocks
-    class(nuclearDatabase), pointer        :: nucData       => null()
-    class(geometry), pointer               :: geom          => null()
-    integer(shortInt)                      :: geomIdx       = 0
-    type(collisionOperator)                :: collOp
-    class(transportOperator), allocatable  :: transOp
-    class(source), allocatable             :: initSource
-    class(RNG), pointer                    :: pRNG          => null()
-    type(tallyAdmin), pointer               :: inactiveTally => null()
-    type(tallyAdmin), pointer               :: activeTally   => null()
-    type(tallyAdmin), pointer               :: inactiveAtch  => null()
-    type(tallyAdmin), pointer               :: activeAtch    => null()
-    class(uniFissSitesField), pointer       :: ufsField      => null()
+    class(nuclearDatabase), pointer       :: nucData => null()
+    class(geometry), pointer              :: geom => null()
+    integer(shortInt)                     :: geomIdx = 0
+    type(collisionOperator)               :: collOp
+    class(transportOperator), allocatable :: transOp
+    class(source), allocatable            :: initSource
+    class(RNG), pointer                   :: pRNG => null()
+    type(tallyAdmin), pointer             :: inactiveTally => null()
+    type(tallyAdmin), pointer             :: activeTally => null()
+    type(tallyAdmin), pointer             :: inactiveAtch => null()
+    type(tallyAdmin), pointer             :: activeAtch => null()
+    class(uniFissSitesField), pointer     :: ufsField => null()
 
 
     ! Settings
@@ -472,7 +472,8 @@ contains
       field => gr_fieldPtr(gr_fieldIdx(nameUFS))
       self % ufsField => uniFissSitesField_TptrCast(field)
       ! Initialise
-      call self % ufsField % estimateVol(self % geom, self % pRNG, self % particleType)
+      call self % ufsField % estimateVol(self % geom, self % particleType, self % pRNG)
+
     end if
 
     ! Read variance reduction option as a geometry field

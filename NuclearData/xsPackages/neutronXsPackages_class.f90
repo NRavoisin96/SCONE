@@ -150,7 +150,7 @@ contains
       case(macroNuFission)
         xs = self % nuFission
 
-      case(macroAbsorbtion)
+      case(macroAbsorption)
         xs = self % fission + self % capture
 
       case default

@@ -224,7 +224,7 @@ contains
 
     end do
 
-    ! If there is only one element in the mesh simply add all the faces and vertices to this element, check convexity and return.
+    ! If there is only one element in the mesh simply add all the faces and vertices to this element.
     if (nElements == 1) then
       allocate(elementInfos(1) % faceIdxs(nFaces))
       do i = 1, nFaces
@@ -237,81 +237,81 @@ contains
         elementInfos(1) % vertexIdxs(i) = i
 
       end do
-      return
 
-    end if
-
-    ! Open the 'owner' file and read it until a line containing the symbol '(' is encountered.
-    call openToRead(unit, folderPath//'owner')
-    read(unit, "(a)") buffer
-    do while (index(buffer(1:len_trim(buffer)), "(") == 0)
-      read(unit, "(a)") buffer
-
-    end do
-
-    ! Skip one more line and loop over all faces.
-    read(unit, "(a)") buffer
-    do i = 1, nFaces
-      ! Read the current element index and add the current face to this element. Note
-      ! that we add one since Fortran starts indexing at one and not zero.
-      read(buffer, *) elementIdx
-
-      elementIdx = elementIdx + 1
-      call append(elementInfos(elementIdx) % faceIdxs, i)
-
-      ! Move onto the next line.
-      read(unit, "(a)") buffer
-
-    end do
-
-    ! Close the 'owner' file.
-    close(unit)
-
-    ! If nInternalFaces = 0 we can return early here. Else we need to repeat the above procedure
-    ! for the 'neighbour file.
-    if (nInternalFaces > 0) then
-      ! Open the 'neighbour' file and read it until a line containing the symbol '(' is encountered.
-      call openToRead(unit, folderPath//'neighbour')
+    else
+      ! Open the 'owner' file and read it until a line containing the symbol '(' is encountered.
+      call openToRead(unit, folderPath//'owner')
       read(unit, "(a)") buffer
       do while (index(buffer(1:len_trim(buffer)), "(") == 0)
         read(unit, "(a)") buffer
 
       end do
 
-      ! Check if the current line contains the symbol ')'. If it does, then all element indices
-      ! are written on a single line.
-      if (index(buffer(1:len_trim(buffer)), ")") > 0) then
-        ! Allocate the number of entries in the 'elementIndices' array to the number of internal
-        ! faces and copy element indices into this array.
-        allocate(elementIdxs(nInternalFaces))
-        read(buffer(index(buffer(1:len_trim(buffer)), "(") + 1:&
-        index(buffer(1:len_trim(buffer)), ")") - 1), *) elementIdxs
+      ! Skip one more line and loop over all faces.
+      read(unit, "(a)") buffer
+      do i = 1, nFaces
+        ! Read the current element index and add the current face to this element. Note
+        ! that we add one since Fortran starts indexing at one and not zero.
+        read(buffer, *) elementIdx
 
-      else
-        ! Skip one more line.
-        read(unit, "(a)") buffer
-
-      end if
-
-      ! Loop over all internal faces.
-      do i = 1, nInternalFaces
-        if (allocated(elementIdxs)) then
-          elementIdx = elementIdxs(i)
-
-        else
-          ! Read the current element index and move onto the next line.
-          read(buffer, *) elementIdx
-          read(unit, "(a)") buffer
-
-        end if
-        ! Update connectivity information.
         elementIdx = elementIdx + 1
-        call append(elementInfos(elementIdx) % faceIdxs, -i)
+        call append(elementInfos(elementIdx) % faceIdxs, i)
+
+        ! Move onto the next line.
+        read(unit, "(a)") buffer
 
       end do
 
-      ! Close the 'neighbour' file.
+      ! Close the 'owner' file.
       close(unit)
+
+      ! If nInternalFaces = 0 we can return early here. Else we need to repeat the above procedure
+      ! for the 'neighbour file.
+      if (nInternalFaces > 0) then
+        ! Open the 'neighbour' file and read it until a line containing the symbol '(' is encountered.
+        call openToRead(unit, folderPath//'neighbour')
+        read(unit, "(a)") buffer
+        do while (index(buffer(1:len_trim(buffer)), "(") == 0)
+          read(unit, "(a)") buffer
+
+        end do
+
+        ! Check if the current line contains the symbol ')'. If it does, then all element indices
+        ! are written on a single line.
+        if (index(buffer(1:len_trim(buffer)), ")") > 0) then
+          ! Allocate the number of entries in the 'elementIndices' array to the number of internal
+          ! faces and copy element indices into this array.
+          allocate(elementIdxs(nInternalFaces))
+          read(buffer(index(buffer(1:len_trim(buffer)), "(") + 1:&
+          index(buffer(1:len_trim(buffer)), ")") - 1), *) elementIdxs
+
+        else
+          ! Skip one more line.
+          read(unit, "(a)") buffer
+
+        end if
+
+        ! Loop over all internal faces.
+        do i = 1, nInternalFaces
+          if (allocated(elementIdxs)) then
+            elementIdx = elementIdxs(i)
+
+          else
+            ! Read the current element index and move onto the next line.
+            read(buffer, *) elementIdx
+            read(unit, "(a)") buffer
+
+          end if
+          ! Update connectivity information.
+          elementIdx = elementIdx + 1
+          call append(elementInfos(elementIdx) % faceIdxs, -i)
+
+        end do
+
+        ! Close the 'neighbour' file.
+        close(unit)
+
+      end if
 
     end if
 

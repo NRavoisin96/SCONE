@@ -89,7 +89,7 @@ contains
 
     ! Check that MT number is valid
     select case(MT)
-      case(macroTotal, macroCapture, macroFission, macroNuFission, macroAbsorbtion)
+      case(macroTotal, macroCapture, macroFission, macroNuFission, macroAbsorption)
         ! Do nothing. MT is Valid
 
       case(macroEscatter)
@@ -112,14 +112,15 @@ contains
   !! Errors:
   !!   Return ZERO if particle is not a Neutron
   !!
-  function get(self, p, xsData) result(val)
-    class(macroResponse), intent(in)      :: self
-    class(particle), intent(in)           :: p
-    class(nuclearDatabase), intent(inout) :: xsData
-    real(defReal)                         :: val
-    integer(shortInt)                     :: matIdx
-    type(neutronMacroXSs)                 :: xss
-    class(neutronMaterial), pointer       :: mat
+  subroutine get(self, p, val, xsData)
+    class(macroResponse), intent(in)                :: self
+    class(particle), intent(in)                     :: p
+    real(defReal), intent(out)                      :: val
+    class(nuclearDatabase), intent(inout), optional :: xsData
+    integer(shortInt)                               :: matIdx
+    type(neutronMacroXSs)                           :: xss
+    class(neutronMaterial), pointer                 :: mat
+    character(*), parameter                         :: here = 'get (macroResponse_class.f90)'
 
     val = ZERO
 
@@ -130,15 +131,16 @@ contains
     if (matIdx == VOID_MAT) return
 
     ! Get pointer to active material data
+    if (.not. present(xsData)) call fatalError(here, 'Nuclear database was not provided.')
     mat => neutronMaterial_CptrCast(xsData % getMaterial(matIdx))
 
     ! Return if material is not a neutronMaterial
-    if (.not.associated(mat)) return
+    if (.not. associated(mat)) return
 
     call mat % getMacroXSs(xss, p)
     val = xss % get(self % MT)
 
-  end function get
+  end subroutine get
 
   !!
   !! Return to uninitialised state

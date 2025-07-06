@@ -4,7 +4,6 @@ module fluxResponse_test
   use fluxResponse_class,    only : fluxResponse
   use particle_class,        only : particle
   use dictionary_class,      only : dictionary
-  use nuclearDatabase_inter, only : nuclearDatabase
   use funit
 
   implicit none
@@ -48,9 +47,11 @@ contains
   subroutine fluxResponseing(this)
     class(test_fluxResponse), intent(inout) :: this
     type(particle)                          :: p
-    class(nuclearDatabase), pointer          :: xsData
+    real(defReal)                           :: result
+    real(defReal), parameter                :: tol = 1.0e-9_defReal
 
-    @assertEqual(ONE, this % response % get(p, xsData), 1.0E-9_defReal)
+    call this % response % get(p, result)
+    @assertEqual(ONE, result, tol)
 
   end subroutine fluxResponseing
 

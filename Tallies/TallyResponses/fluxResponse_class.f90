@@ -47,15 +47,15 @@ contains
   !!
   !! See tallyResponse_inter for details
   !!
-  function get(self, p, xsData) result(val)
-    class(fluxResponse), intent(in)       :: self
-    class(particle), intent(in)           :: p
-    class(nuclearDatabase), intent(inout) :: xsData
-    real(defReal)                         :: val
+  subroutine get(self, p, val, xsData)
+    class(fluxResponse), intent(in)                 :: self
+    class(particle), intent(in)                     :: p
+    real(defReal), intent(out)                      :: val
+    class(nuclearDatabase), intent(inout), optional :: xsData
 
     val = ONE
 
-  end function get
+  end subroutine get
 
   !!
   !! Return to uninitialised State

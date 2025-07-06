@@ -230,15 +230,15 @@ contains
   !! Errors:
   !!   Depend on specific Clerk
   !!
-  subroutine reportInColl(self,p, xsData, mem, virtual)
+  subroutine reportInColl(self, p, virtual, xsData, mem)
     class(tallyClerk), intent(inout)      :: self
     class(particle), intent(in)           :: p
+    logical(defBool), intent(in)          :: virtual
     class(nuclearDatabase), intent(inout) :: xsData
     type(scoreMemory), intent(inout)      :: mem
-    logical(defBool), intent(in)          :: virtual
-    character(100), parameter    :: Here = 'reportInColl (tallyClerk_inter.f90)'
+    character(*), parameter               :: Here = 'reportInColl (tallyClerk_inter.f90)'
 
-    call fatalError(Here,'Report was sent to an instance that does not support it.')
+    call fatalError(Here, 'Report was sent to an instance that does not support it.')
 
   end subroutine reportInColl
 
@@ -285,13 +285,13 @@ contains
   !! Errors:
   !!   Depend on specific Clerk
   !!
-  subroutine reportPath(self, p, L, xsData,mem)
-    class(tallyClerk), intent(inout)      :: self
-    class(particle), intent(in)           :: p
-    real(defReal), intent(in)             :: L
-    class(nuclearDatabase), intent(inout) :: xsData
-    type(scoreMemory), intent(inout)      :: mem
-    character(100), parameter  :: Here = 'reportPath (tallyClerk_inter.f90)'
+  subroutine reportPath(self, p, L, mem, xsData)
+    class(tallyClerk), intent(inout)                :: self
+    class(particle), intent(in)                     :: p
+    real(defReal), intent(in)                       :: L
+    type(scoreMemory), intent(inout)                :: mem
+    class(nuclearDatabase), intent(inout), optional :: xsData
+    character(*), parameter                         :: Here = 'reportPath (tallyClerk_inter.f90)'
 
     call fatalError(Here,'Report was sent to an instance that does not support it.')
 

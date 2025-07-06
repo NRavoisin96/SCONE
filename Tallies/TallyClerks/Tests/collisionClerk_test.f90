@@ -1,15 +1,15 @@
 module collisionClerk_test
 
-  use numPrecision
-  use genericProcedures,              only : numToChar
-  use collisionClerk_class,           only : collisionClerk
-  use particle_class,                 only : particle
-  use dictionary_class,               only : dictionary
-  use scoreMemory_class,              only : scoreMemory
-  use testNeutronDatabase_class,      only : testNeutronDatabase
-  use outputFile_class,               only : outputFile
-  use ceNeutronCache_mod,             only: cache_init => init, trackingCache
+  use ceNeutronCache_mod,        only : cache_init => init, trackingCache
+  use collisionClerk_class,      only : collisionClerk
+  use dictionary_class,          only : dictionary
   use funit
+  use genericProcedures,         only : numToChar
+  use numPrecision
+  use outputFile_class,          only : outputFile
+  use particle_class,            only : particle
+  use scoreMemory_class,         only : scoreMemory
+  use testNeutronDatabase_class, only : testNeutronDatabase
 
   implicit none
 
@@ -132,7 +132,7 @@ contains
   subroutine testScoring(this)
     class(test_collisionClerk), intent(inout) :: this
     logical(defBool)                          :: hasFilter, hasMap, has2Res
-    character(:), allocatable                  :: case
+    character(:), allocatable                 :: case
     type(collisionClerk)                      :: clerk
     type(scoreMemory)                         :: mem
     type(particle)                            :: p
@@ -209,15 +209,15 @@ contains
     ! Perform scoring
     call p % setMatIdx(1)
     p % w = 0.7_defReal
-    call clerk % reportInColl(p, nucData, mem, .false.)
+    call clerk % reportInColl(p, .false., nucData, mem)
 
     call p % setMatIdx(6)
     p % w = 1.3_defReal
-    call clerk % reportInColl(p, nucData, mem, .false.)
+    call clerk % reportInColl(p, .false., nucData, mem)
 
     ! Virtual scoring should not contribute to score in this case
     p % w = 1000.3_defReal
-    call clerk % reportInColl(p, nucData, mem, .true.)
+    call clerk % reportInColl(p, .true., nucData, mem)
 
     call mem % closeCycle(ONE)
 
@@ -250,7 +250,7 @@ contains
   subroutine testScoringVirtual(this)
     class(test_collisionClerk), intent(inout) :: this
     logical(defBool)                          :: hasFilter, hasMap, has2Res
-    character(:), allocatable                  :: case
+    character(:), allocatable                 :: case
     type(collisionClerk)                      :: clerk
     type(scoreMemory)                         :: mem
     type(particle)                            :: p
@@ -313,15 +313,16 @@ contains
     end if
 
     ! Build Clerk
-    clerkName ='myClerk'
+    clerkName = 'myClerk'
     call clerk % init(clerkDict, clerkName)
 
     ! Create score memory
-    call mem % init(int(clerk % getSize(), longInt) , 1)
+    call mem % init(int(clerk % getSize(), longInt), 1)
     call clerk % setMemAddress(1_longInt)
 
     ! Build nuclear data
     call nucData % build(0.3_defReal)
+
     ! Build cache
     call cache_init(1, 1, 1)
     trackingCache % xs = 0.3_defReal
@@ -332,11 +333,11 @@ contains
     p % w = 0.7_defReal
     p % E = 10.0_defReal
     p % isMG = .false.
-    call clerk % reportInColl(p, nucData, mem, .true.)
+    call clerk % reportInColl(p, .true., nucData, mem)
 
     call p % setMatIdx(6)
     p % w = 1.3_defReal
-    call clerk % reportInColl(p, nucData, mem, .false.)
+    call clerk % reportInColl(p, .false., nucData, mem)
 
     call mem % closeCycle(ONE)
 

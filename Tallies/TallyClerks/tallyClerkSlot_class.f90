@@ -166,15 +166,15 @@ contains
   !!
   !! See tallyClerk_inter for details
   !!
-  subroutine reportInColl(self, p, xsData, mem, virtual)
+  subroutine reportInColl(self, p, virtual, xsData, mem)
     class(tallyClerkSlot), intent(inout)  :: self
     class(particle), intent(in)           :: p
+    logical(defBool), intent(in)          :: virtual
     class(nuclearDatabase), intent(inout) :: xsData
     type(scoreMemory), intent(inout)      :: mem
-    logical(defBool), intent(in)          :: virtual
 
     ! Pass call to instance in the slot
-    call self % slot % reportInColl(p, xsData, mem, virtual)
+    call self % slot % reportInColl(p, virtual, xsData, mem)
 
   end subroutine reportInColl
 
@@ -202,15 +202,15 @@ contains
   !!
   !! See tallyClerk_inter for details
   !!
-  subroutine reportPath(self, p, L, xsData, mem)
-    class(tallyClerkSlot), intent(inout)  :: self
-    class(particle), intent(in)           :: p
-    real(defReal), intent(in)             :: L
-    class(nuclearDatabase), intent(inout) :: xsData
-    type(scoreMemory), intent(inout)      :: mem
+  subroutine reportPath(self, p, L, mem, xsData)
+    class(tallyClerkSlot), intent(inout)            :: self
+    class(particle), intent(in)                     :: p
+    real(defReal), intent(in)                       :: L
+    type(scoreMemory), intent(inout)                :: mem
+    class(nuclearDatabase), intent(inout), optional :: xsData
 
     ! Pass call to instance in the slot
-    call self % slot % reportPath(p, L, xsData, mem)
+    call self % slot % reportPath(p, L, mem, xsData)
 
   end subroutine reportPath
 

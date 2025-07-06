@@ -156,17 +156,17 @@ contains
   !!
   !! See tallyClerk_inter for details
   !!
-  subroutine reportInColl(self, p, xsData, mem, virtual)
-    class(keffImplicitClerk), intent(inout)  :: self
-    class(particle), intent(in)              :: p
-    class(nuclearDatabase), intent(inout)     :: xsData
-    type(scoreMemory), intent(inout)         :: mem
-    logical(defBool), intent(in)             :: virtual
-    type(neutronMacroXSs)                    :: xss
-    class(neutronMaterial), pointer          :: mat
-    real(defReal)                            :: nuFissXS, absXS, flux, s1, s2
-    integer(shortInt)                        :: matIdx
-    character(100), parameter  :: Here = 'reportInColl (keffImplicitClerk_class.f90)'
+  subroutine reportInColl(self, p, virtual, xsData, mem)
+    class(keffImplicitClerk), intent(inout) :: self
+    class(particle), intent(in)             :: p
+    logical(defBool), intent(in)            :: virtual
+    class(nuclearDatabase), intent(inout)   :: xsData
+    type(scoreMemory), intent(inout)        :: mem
+    type(neutronMacroXSs)                   :: xss
+    class(neutronMaterial), pointer         :: mat
+    real(defReal)                           :: nuFissXS, absXS, flux, s1, s2
+    integer(shortInt)                       :: matIdx
+    character(*), parameter                 :: Here = 'reportInColl (keffImplicitClerk_class.f90)'
 
     ! Return if collision is virtual but virtual collision handling is off
     if ((.not. self % handleVirtual) .and. virtual) return

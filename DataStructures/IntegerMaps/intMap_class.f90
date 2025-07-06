@@ -128,7 +128,7 @@ contains
     self % L    = 0
     self % Nexp = nextPow2
     self % N    = 2**nextPow2
-    allocate(self % map( self % N))
+    allocate(self % map(self % N))
 
     ! SET map keys to EMTPY
     self % map % status = EMPTY
@@ -194,7 +194,7 @@ contains
     if (self % N == 0) then ! Initialise map
       call self % init(1)
 
-    else if (real(self % Load +1) / self % N > MAX_LOAD) then ! Double storage space
+    else if (real(self % Load + 1) / self % N > MAX_LOAD) then ! Double storage space
       call self % grow()
 
     end if
@@ -565,7 +565,7 @@ contains
     integer(shortInt)            :: i
 
     ! When growing rehasing is required. We will just create new map and copy all values in
-    call tempMap % init( self % Load * 2)
+    call tempMap % init(self % Load * 2)
 
     ! Loop throuth current table and rehash non-empty entries
     do i= 1, self % N

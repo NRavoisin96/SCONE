@@ -130,7 +130,7 @@ contains
     call this % clerk_test1 % reportSpawn(N_FISSION, p, pFiss, this % nucData, mem)
 
     ! Scoring
-    call this % clerk_test1 % reportInColl(p, this % nucData, mem, .false.)
+    call this % clerk_test1 % reportInColl(p, .false., this % nucData, mem)
 
     p % preCollision % wgt = 0.2_defReal
     p % preCollision % E   = 3.0_defReal
@@ -208,7 +208,7 @@ contains
     call this % clerk_test2 % reportSpawn(N_FISSION, p, pFiss, this % nucData, mem)
 
     ! Scoring
-    call this % clerk_test2 % reportInColl(p, this % nucData, mem, .false.)
+    call this % clerk_test2 % reportInColl(p, .false., this % nucData, mem)
 
     p % preCollision % wgt = 0.2_defReal
     p % preCollision % E   = 0.3_defReal

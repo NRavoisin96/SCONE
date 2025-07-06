@@ -191,19 +191,19 @@ contains
   !!
   !! See tallyClerk_inter for details
   !!
-  subroutine reportInColl(self, p, xsData, mem, virtual)
-    class(simpleFMClerk), intent(inout)  :: self
-    class(particle), intent(in)          :: p
+  subroutine reportInColl(self, p, virtual, xsData, mem)
+    class(simpleFMClerk), intent(inout)   :: self
+    class(particle), intent(in)           :: p
+    logical(defBool), intent(in)          :: virtual
     class(nuclearDatabase), intent(inout) :: xsData
-    type(scoreMemory), intent(inout)     :: mem
-    logical(defBool), intent(in)         :: virtual
-    class(neutronMaterial), pointer      :: mat
-    type(particleState)                  :: state
-    integer(shortInt)                    :: sIdx, cIdx
-    integer(longInt)                     :: addr
-    real(defReal)                        :: score, flux
-    integer(shortInt)                    :: matIdx
-    character(*), parameter :: Here = 'reportInColl simpleFMClerk_class.f90'
+    type(scoreMemory), intent(inout)      :: mem
+    class(neutronMaterial), pointer       :: mat
+    type(particleState)                   :: state
+    integer(shortInt)                     :: sIdx, cIdx
+    integer(longInt)                      :: addr
+    real(defReal)                         :: score, flux
+    integer(shortInt)                     :: matIdx
+    character(*), parameter               :: Here = 'reportInColl (simpleFMClerk_class.f90)'
 
     ! Return if collision is virtual but virtual collision handling is off
     if ((.not. self % handleVirtual) .and. virtual) return
@@ -212,11 +212,9 @@ contains
     matIdx = p % getMatIdx()
     if (matIdx == VOID_MAT) return
 
-    ! Get material pointer
+    ! Get material pointer.
     mat => neutronMaterial_CptrCast(xsData % getMaterial(matIdx))
-    if (.not.associated(mat)) then
-      call fatalError(Here,'Unrecognised type of material was retrived from nuclearDatabase')
-    end if
+    if (.not. associated(mat)) call fatalError(Here,'Unrecognised type of material was retrived from nuclear database.')
 
     ! Return if material is not fissile
     if (.not. mat % isFissile()) return
@@ -239,11 +237,11 @@ contains
     if (cIdx == 0 .or. sIdx == 0) return
 
     ! Calculate fission neutron production
-    score = self % resp % get(p, xsData) * flux
+    call self % resp % get(p, score, xsData)
 
     ! Score element of the matrix
     addr = self % getMemAddress() + (sIdx - 1) * self % N + cIdx - 1
-    call mem % score(score, addr)
+    call mem % score(score * flux, addr)
 
   end subroutine reportInColl
 

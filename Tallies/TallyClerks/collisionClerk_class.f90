@@ -54,9 +54,9 @@ module collisionClerk_class
   type, public, extends(tallyClerk) :: collisionClerk
     private
     ! Filter, Map & Vector of Responses
-    class(tallyFilter), allocatable                  :: filter
-    class(tallyMap), allocatable                     :: map
-    type(tallyResponseSlot), dimension(:), allocatable :: response
+    class(tallyFilter), allocatable                    :: filter
+    class(tallyMap), allocatable                       :: map
+    type(tallyResponseSlot), dimension(:), allocatable :: responses
 
     ! Useful data
     integer(shortInt)  :: width = 0
@@ -111,9 +111,9 @@ contains
     call dict % get(responseNames,'response')
 
     ! Load responses
-    allocate(self % response(size(responseNames)))
+    allocate(self % responses(size(responseNames)))
     do i= 1,  size(responseNames)
-      call self % response(i) % init(dict % getDictPtr( responseNames(i) ))
+      call self % responses(i) % init(dict % getDictPtr( responseNames(i) ))
     end do
 
     ! Set width
@@ -145,9 +145,7 @@ contains
     end if
 
     ! Kill and deallocate responses
-    if (allocated(self % response)) then
-      deallocate(self % response)
-    end if
+    if (allocated(self % responses)) deallocate(self % responses)
 
     self % width   = 0
     self % handleVirtual = .true.
@@ -176,7 +174,7 @@ contains
     class(collisionClerk), intent(in) :: self
     integer(shortInt)                 :: S
 
-    S = size(self % response)
+    S = size(self % responses)
     if (allocated(self % map)) S = S * self % map % bins(0)
 
   end function getSize
@@ -186,17 +184,17 @@ contains
   !!
   !! See tallyClerk_inter for details
   !!
-  subroutine reportInColl(self, p, xsData, mem, virtual)
+  subroutine reportInColl(self, p, virtual, xsData, mem)
     class(collisionClerk), intent(inout)  :: self
     class(particle), intent(in)           :: p
+    logical(defBool), intent(in)          :: virtual
     class(nuclearDatabase), intent(inout) :: xsData
     type(scoreMemory), intent(inout)      :: mem
-    logical(defBool), intent(in)          :: virtual
     type(particleState)                   :: state
     integer(shortInt)                     :: binIdx, i
     integer(longInt)                      :: addr
     real(defReal)                         :: scoreVal, flux
-    character(*), parameter :: Here = 'reportInColl (collisionClerk_class.f90)'
+    character(*), parameter               :: Here = 'reportInColl (collisionClerk_class.f90)'
 
     ! Return if collision is virtual but virtual collision handling is off
     if ((.not. self % handleVirtual) .and. virtual) return
@@ -227,12 +225,12 @@ contains
     end if
 
     ! Calculate bin address
-    addr = self % getMemAddress() + self % width * (binIdx - 1)  - 1
+    addr = self % getMemAddress() + self % width * (binIdx - 1) - 1
 
     ! Append all bins
     do i = 1, self % width
-      scoreVal = self % response(i) % get(p, xsData) * flux
-      call mem % score(scoreVal, addr + i)
+      call self % responses(i) % get(p, scoreVal, xsData)
+      call mem % score(scoreVal * flux, addr + i)
 
     end do
 
@@ -276,9 +274,9 @@ contains
     ! Write results.
     ! Get shape of result array
     if (allocated(self % map)) then
-      resArrayShape = [size(self % response), self % map % binArrayShape()]
+      resArrayShape = [size(self % responses), self % map % binArrayShape()]
     else
-      resArrayShape = [size(self % response)]
+      resArrayShape = [size(self % responses)]
     end if
 
     ! Start array

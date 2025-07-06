@@ -1,11 +1,11 @@
 module uniFissSitesField_test
-  use numPrecision
-  use funit
-  use particle_class,           only : particle, particleState
+  
   use dictionary_class,         only : dictionary
   use dictParser_func,          only : charToDict
+  use funit
   use geometry_inter,           only : geometry
-  use RNG_class,                only : RNG
+  use numPrecision
+  use particle_class,           only : particle, particleState
   use uniFissSitesField_class,  only : uniFissSitesField
   use universalVariables,       only : ONE, ZERO
 
@@ -37,7 +37,6 @@ contains
     class(test_uniFissSitesField), intent(inout) :: this
     type(dictionary)                             :: dict, dictMap
     class(geometry), pointer                     :: geom
-    class(RNG), pointer                          :: rand
     integer(shortInt)                            :: type
 
     call charToDict(dictMap, DICT_DEF)
@@ -51,7 +50,7 @@ contains
     call dict % store('map', dictMap)
 
     call this % ufsField % init(dict)
-    call this % ufsField % estimateVol(geom, rand, type)
+    call this % ufsField % estimateVol(geom, type)
 
   end subroutine setUp
 

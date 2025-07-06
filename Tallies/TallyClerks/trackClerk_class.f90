@@ -56,9 +56,9 @@ module trackClerk_class
   type, public, extends(tallyClerk) :: trackClerk
     private
     ! Filter, Map & Vector of Responses
-    class(tallyFilter), allocatable                  :: filter
-    class(tallyMap), allocatable                     :: map
-    type(tallyResponseSlot), dimension(:), allocatable :: response
+    class(tallyFilter), allocatable                    :: filter
+    class(tallyMap), allocatable                       :: map
+    type(tallyResponseSlot), dimension(:), allocatable :: responses
 
     ! Usefull data
     integer(shortInt)  :: width = 0
@@ -110,9 +110,9 @@ contains
     call dict % get(responseNames,'response')
 
     ! Load responses
-    allocate(self % response(size(responseNames)))
+    allocate(self % responses(size(responseNames)))
     do i= 1,  size(responseNames)
-      call self % response(i) % init(dict % getDictPtr( responseNames(i) ))
+      call self % responses(i) % init(dict % getDictPtr( responseNames(i) ))
     end do
 
     ! Set width
@@ -141,8 +141,8 @@ contains
     end if
 
     ! Kill and deallocate responses
-    if (allocated(self % response)) then
-      deallocate(self % response)
+    if (allocated(self % responses)) then
+      deallocate(self % responses)
     end if
 
     self % width = 0
@@ -171,7 +171,7 @@ contains
     class(trackClerk), intent(in)     :: self
     integer(shortInt)                 :: S
 
-    S = size(self % response)
+    S = size(self % responses)
     if (allocated(self % map)) S = S * self % map % bins(0)
 
   end function getSize
@@ -181,32 +181,35 @@ contains
   !!
   !! See tallyClerk_inter for details
   !!
-  subroutine reportPath(self, p, L, xsData,mem)
-    class(trackClerk), intent(inout)      :: self
-    class(particle), intent(in)           :: p
-    real(defReal), intent(in)             :: L
-    class(nuclearDatabase), intent(inout) :: xsData
-    type(scoreMemory), intent(inout)      :: mem
-    type(particleState)                   :: state
-    type(particle)                        :: pTmp
-    integer(shortInt)                     :: binIdx, i
-    integer(longInt)                      :: adrr
-    real(defReal)                         :: scoreVal, flx
-    character(100), parameter :: Here =' reportPath (trackClerk_class.f90)'
+  subroutine reportPath(self, p, L, mem, xsData)
+    class(trackClerk), intent(inout)                :: self
+    class(particle), intent(in)                     :: p
+    real(defReal), intent(in)                       :: L
+    type(scoreMemory), intent(inout)                :: mem
+    class(nuclearDatabase), intent(inout), optional :: xsData
+    type(particleState)                             :: state
+    type(particle)                                  :: pTmp
+    integer(shortInt)                               :: binIdx, i
+    integer(longInt)                                :: adrr
+    real(defReal)                                   :: scoreVal, flx
+    character(*), parameter                         :: Here = 'reportPath (trackClerk_class.f90)'
 
     ! Get pre-transition particle state
     state = p % prePath
 
     ! Check if within filter
-    if (allocated( self % filter)) then
+    if (allocated(self % filter)) then
       if (self % filter % isFail(state)) return
+
     end if
 
     ! Find bin index
     if (allocated(self % map)) then
       binIdx = self % map % map(state)
+
     else
       binIdx = 1
+
     end if
 
     ! Return if invalid bin index
@@ -224,8 +227,9 @@ contains
 
     ! Append all bins
     do i= 1, self % width
-      scoreVal = self % response(i) % get(pTmp, xsData) * p % w * flx
-      call mem % score(scoreVal, adrr + i)
+      call self % responses(i) % get(pTmp, scoreVal, xsData)
+      call mem % score(scoreVal * p % w * flx, adrr + i)
+
     end do
 
   end subroutine reportPath
@@ -268,9 +272,9 @@ contains
     ! Write results.
     ! Get shape of result array
     if (allocated(self % map)) then
-      resArrayShape = [size(self % response), self % map % binArrayShape()]
+      resArrayShape = [size(self % responses), self % map % binArrayShape()]
     else
-      resArrayShape = [size(self % response)]
+      resArrayShape = [size(self % responses)]
     end if
 
     ! Start array

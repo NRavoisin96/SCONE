@@ -53,16 +53,16 @@ contains
   !!
   !! See tallyResponse_inter for details
   !!
-  function get(self, p, xsData) result(val)
-    class(densityResponse), intent(in)    :: self
-    class(particle), intent(in)           :: p
-    class(nuclearDatabase), intent(inout) :: xsData
-    real(defReal)                         :: val
+  subroutine get(self, p, val, xsData)
+    class(densityResponse), intent(in)              :: self
+    class(particle), intent(in)                     :: p
+    real(defReal), intent(out)                      :: val
+    class(nuclearDatabase), intent(inout), optional :: xsData
 
     ! Gets the particle speed from the particle
     val = ONE / p % getSpeed()
 
-  end function get
+  end subroutine get
 
   !!
   !! Return to uninitialised State

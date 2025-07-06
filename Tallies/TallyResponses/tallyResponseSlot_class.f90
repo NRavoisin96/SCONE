@@ -67,15 +67,15 @@ contains
   !! Errors:
   !!   If slot is unallocated (uninitialised) result is undefined (probably SEG ERROR)
   !!
-  function get(self, p, xsData) result(value)
-    class(tallyResponseSlot), intent(in)  :: self
-    class(particle), intent(in)           :: p
-    class(nuclearDatabase), intent(inout) :: xsData
-    real(defReal)                         :: value
+  subroutine get(self, p, value, xsData)
+    class(tallyResponseSlot), intent(in)            :: self
+    class(particle), intent(in)                     :: p
+    real(defReal), intent(out)                      :: value
+    class(nuclearDatabase), intent(inout), optional :: xsData
 
-    value = self % slot % get(p, xsData)
+    call self % slot % get(p, value, xsData)
 
-  end function get
+  end subroutine get
 
   !!
   !! Move allocation from allocatable RHS into slot

@@ -1,25 +1,25 @@
 module microResponse_test
 
-  use numPrecision
+  use dictionary_class,          only : dictionary
   use endfConstants
-  use microResponse_class,            only : microResponse
-  use particle_class,                 only : particle, P_NEUTRON
-  use dictionary_class,               only : dictionary
-  use testNeutronDatabase_class,      only : testNeutronDatabase
-  use materialMenu_mod,               only : init
   use funit
+  use materialMenu_mod,          only : init
+  use microResponse_class,       only : microResponse
+  use numPrecision
+  use particle_class,            only : particle, P_NEUTRON
+  use testNeutronDatabase_class, only : testNeutronDatabase
 
   implicit none
 
 @testCase
-  type, extends(TestCase) :: test_microResponse
+  type, extends(TestCase)     :: test_microResponse
     private
-    type(microResponse)        :: response_total
-    type(microResponse)        :: response_eScatter
-    type(microResponse)        :: response_capture
-    type(microResponse)        :: response_fission
-    type(microResponse)        :: response_absorbtion
-    type(testNeutronDatabase)  :: xsData
+    type(microResponse)       :: response_total
+    type(microResponse)       :: response_eScatter
+    type(microResponse)       :: response_capture
+    type(microResponse)       :: response_fission
+    type(microResponse)       :: response_absorption
+    type(testNeutronDatabase) :: xsData
   contains
     procedure :: setUp
     procedure :: tearDown
@@ -36,7 +36,6 @@ contains
     type(dictionary)                         :: tempDict, dictMat1, dictMat2, dictMat3
 
     ! Allocate and initialise test nuclearData
-
     ! Cross-sections:         Total        eScatering   IeScatter  Capture     Fission       nuFission
     call this % xsData % build(6.0_defReal, 3.0_defReal, ZERO,     2.0_defReal, 1.0_defReal, 1.5_defReal)
 
@@ -93,7 +92,7 @@ contains
     call tempDict % store('type', 'microResponse')
     call tempDict % store('MT', N_ABSORPTION)
     call tempDict % store('material', 'Xenon')
-    call this % response_absorbtion % init(tempDict)
+    call this % response_absorption % init(tempDict)
     call tempDict % kill()
 
   end subroutine setUp
@@ -120,16 +119,26 @@ contains
   subroutine testGettingResponse(this)
     class(test_microResponse), intent(inout) :: this
     type(particle)                           :: p
-    real(defReal), parameter :: TOL = 1.0E-9
+    real(defReal)                            :: result
+    real(defReal), parameter                 :: tol = 1.0E-9
 
     p % type = P_NEUTRON
 
     ! Test response values
-    @assertEqual(3.0_defReal, this % response_total % get(p, this % xsData), TOL)
-    @assertEqual(1.0_defReal, this % response_capture % get(p, this % xsData), TOL)
-    @assertEqual(0.5_defReal, this % response_fission % get(p, this % xsData), TOL)
-    @assertEqual(1.5_defReal, this % response_eScatter % get(p, this % xsData), TOL)
-    @assertEqual(1.5_defReal, this % response_absorbtion % get(p, this % xsData), TOL)
+    call this % response_total % get(p, result, this % xsData)
+    @assertEqual(3.0_defReal, result, tol)
+
+    call this % response_capture % get(p, result, this % xsData)
+    @assertEqual(1.0_defReal, result, tol)
+
+    call this % response_fission % get(p, result, this % xsData)
+    @assertEqual(0.5_defReal, result, tol)
+
+    call this % response_eScatter % get(p, result, this % xsData)
+    @assertEqual(1.5_defReal, result, tol)
+
+    call this % response_absorption % get(p, result, this % xsData)
+    @assertEqual(1.5_defReal, result, tol)
 
   end subroutine testGettingResponse
 

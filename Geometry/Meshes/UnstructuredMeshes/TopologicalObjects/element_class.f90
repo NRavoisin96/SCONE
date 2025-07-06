@@ -15,9 +15,6 @@ module element_class
   implicit none
   private
 
-  ! Extendable procedures.
-  public :: kill
-
   !!
   !!
   !!
@@ -705,6 +702,7 @@ contains
     if (allocated(self % orientatedFaces)) then
       do i = 1, size(self % orientatedFaces)
         nullify(self % orientatedFaces(i) % face % ptr)
+        self % orientatedFaces(i) % isOwner = .false.
         self % orientatedFaces(i) % outwardNormal = ZERO
 
       end do

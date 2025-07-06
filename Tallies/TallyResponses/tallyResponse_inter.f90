@@ -67,16 +67,13 @@ module tallyResponse_inter
     !! Errors:
     !!   Depend on specific implementation
     !!
-    function get(self, p, xsData) result(val)
-      import :: tallyResponse, &
-                particle, &
-                nuclearDatabase, &
-                defReal
-      class(tallyResponse), intent(in)      :: self
-      class(particle), intent(in)           :: p
-      class(nuclearDatabase), intent(inout) :: xsData
-      real(defReal)                         :: val
-    end function get
+    subroutine get(self, p, val, xsData)
+      import :: defReal, nuclearDatabase, particle, tallyResponse
+      class(tallyResponse), intent(in)                :: self
+      class(particle), intent(in)                     :: p
+      real(defReal), intent(out)                      :: val
+      class(nuclearDatabase), intent(inout), optional :: xsData
+    end subroutine get
 
     !!
     !! Return to uninitialised state

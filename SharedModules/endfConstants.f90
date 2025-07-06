@@ -108,7 +108,7 @@ module endfConstants
 
   ! List of Macro MT numbers for macroscopic XSs. Unique to SCONE (not from Serpent)
   integer(shortInt), parameter :: macroAllScatter = -20 ,&
-                                  macroAbsorbtion = -21 ,&
+                                  macroAbsorption = -21 ,&
                                   noInteraction   = -901
 
 

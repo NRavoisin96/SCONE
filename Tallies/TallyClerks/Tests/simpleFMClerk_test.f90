@@ -1,15 +1,15 @@
 module simpleFMClerk_test
 
-  use numPrecision
-  use tallyResult_class,              only : tallyResult
-  use simpleFMClerk_class,            only : simpleFMClerk, FMResult
-  use particle_class,                 only : particle, particleState, P_NEUTRON
-  use particleDungeon_class,          only : particleDungeon
-  use dictionary_class,               only : dictionary
-  use scoreMemory_class,              only : scoreMemory
-  use testNeutronDatabase_class,      only : testNeutronDatabase
-  use outputFile_class,               only : outputFile
+  use dictionary_class,          only : dictionary
   use funit
+  use numPrecision
+  use outputFile_class,          only : outputFile
+  use particle_class,            only : particle, particleState, P_NEUTRON
+  use particleDungeon_class,     only : particleDungeon
+  use scoreMemory_class,         only : scoreMemory
+  use simpleFMClerk_class,       only : simpleFMClerk, FMResult
+  use tallyResult_class,         only : tallyResult
+  use testNeutronDatabase_class, only : testNeutronDatabase
 
   implicit none
 
@@ -111,17 +111,17 @@ contains
     call p % setMatIdx(2)
     p % w = 0.7
     p % preHistory % matIdx = 2
-    call this % clerk % reportInColl(p, xsData, mem, .false.)
+    call this % clerk % reportInColl(p, .false., xsData, mem)
 
     call p % setMatIdx(1)
     p % w = 1.1
     p % preHistory % matIdx = 2
-    call this % clerk % reportInColl(p, xsData, mem, .false.)
+    call this % clerk % reportInColl(p, .false., xsData, mem)
 
     call p % setMatIdx(1)
     p % w = 1.0
     p % preHistory % matIdx = 1
-    call this % clerk % reportInColl(p, xsData, mem, .false.)
+    call this % clerk % reportInColl(p, .false., xsData, mem)
 
     call this % clerk % reportCycleEnd(pop, mem)
 
@@ -230,7 +230,5 @@ contains
     @assertTrue(outF % isValid())
 
   end subroutine testPrintingCorrectness
-
-
 
 end module simpleFMClerk_test

@@ -453,13 +453,11 @@ contains
     class(particle), intent(in)      :: p
     logical(defBool), intent(in)     :: virtual
     integer(shortInt)                :: i, idx
-    class(nuclearDatabase), pointer   :: xsData
-    character(100), parameter :: Here = "reportInColl (tallyAdmin_class.f90)"
+    class(nuclearDatabase), pointer  :: xsData
+    character(*), parameter          :: Here = "reportInColl (tallyAdmin_class.f90)"
 
     ! Call attachment
-    if (associated(self % atch)) then
-      call reportInColl(self % atch, p, virtual)
-    end if
+    if (associated(self % atch)) call reportInColl(self % atch, p, virtual)
 
     ! Get Data
     xsData => ndReg_get(p % getType(), where = Here)
@@ -467,7 +465,7 @@ contains
     ! Go through all clerks that request the report
     do i= 1, self % inCollClerks % getSize()
       idx = self % inCollClerks % get(i)
-      call self % tallyClerks(idx) % reportInColl(p, xsData, self % mem, virtual)
+      call self % tallyClerks(idx) % reportInColl(p, virtual, xsData, self % mem)
 
     end do
 
@@ -528,12 +526,12 @@ contains
   !!   None
   !!
   recursive subroutine reportPath(self, p, L)
-    class(tallyAdmin), intent(inout)     :: self
-    class(particle), intent(in)          :: p
-    real(defReal), intent(in)            :: L
-    integer(shortInt)                    :: i, idx
-    class(nuclearDatabase), pointer       :: xsData
-    character(100), parameter :: Here = "reportPath (tallyAdmin_class.f90)"
+    class(tallyAdmin), intent(inout) :: self
+    class(particle), intent(in)      :: p
+    real(defReal), intent(in)        :: L
+    integer(shortInt)                :: i, idx
+    class(nuclearDatabase), pointer  :: xsData
+    character(*), parameter          :: Here = "reportPath (tallyAdmin_class.f90)"
 
     ! Call attachment
     if (associated(self % atch)) then
@@ -546,7 +544,7 @@ contains
     ! Go through all clerks that request the report
     do i= 1, self % pathClerks % getSize()
       idx = self % pathClerks % get(i)
-      call self % tallyClerks(idx) % reportPath(p, L, xsData, self % mem)
+      call self % tallyClerks(idx) % reportPath(p, L, self % mem, xsData)
 
     end do
 
