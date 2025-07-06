@@ -107,11 +107,11 @@ contains
   !!
   !! See mgNeutronMaterial documentation for more details
   !!
-  subroutine getMacroXSs_byG(self, xss, G, rand)
+  subroutine getMacroXSs_byG(self, G, xss, rand)
     class(baseMgNeutronMaterial), intent(in) :: self
-    type(neutronMacroXSs), intent(out)       :: xss
     integer(shortInt), intent(in)            :: G
-    class(RNG), intent(inout)                :: rand
+    type(neutronMacroXSs), intent(out)       :: xss
+    class(RNG), intent(inout), optional      :: rand
     character(*), parameter :: Here = ' getMacroXSs (baseMgNeutronMaterial_class.f90)'
 
     ! Verify bounds
@@ -141,11 +141,11 @@ contains
   !!
   !! See mgNeutronMaterial documentationfor details
   !!
-  function getTotalXS(self, G, rand) result(xs)
+  subroutine getTotalXS(self, G, xs, rand)
     class(baseMgNeutronMaterial), intent(in) :: self
     integer(shortInt), intent(in)            :: G
-    class(RNG), intent(inout)                :: rand
-    real(defReal)                            :: xs
+    real(defReal), intent(out)               :: xs
+    class(RNG), intent(inout), optional      :: rand
     character(*), parameter :: Here = ' getTotalXS (baseMgNeutronMaterial_class.f90)'
 
     ! Verify bounds
@@ -157,7 +157,7 @@ contains
 
     xs = self % data(TOTAL_XS, G)
 
-  end function getTotalXS
+  end subroutine getTotalXS
 
 
   !!

@@ -54,12 +54,13 @@ contains
     class(nuclearDatabase), pointer   :: ptr
     type(dictionary)                  :: matDict
     type(dictionary)                  :: dataDict
-    class(aceNeutronNuclide), pointer :: H1, O16, C12, H1_2
+    class(aceNeutronNuclide), pointer :: ACENuc, C12, H1, H1_2, O16
     real(defReal)                     :: val
     real(defReal), dimension(2)       :: eBounds, kTBounds
     class(ceNeutronNuclide), pointer  :: nuc
     type(particle)                    :: p
     type(neutronMicroXSs)             :: microXSs
+    integer(shortInt)                 :: C12_Idx, H1_Idx, H1_2_Idx, i, O16_Idx
     real(defReal), parameter          :: TOL = 1.0E-6
 
     ! Prepare dictionaries
@@ -79,10 +80,31 @@ contains
     !!<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 
     ! Get nuclides
-    O16  => aceNeutronNuclide_CptrCast( data % getNuclide(1))
-    H1   => aceNeutronNuclide_CptrCast( data % getNuclide(2))
-    H1_2 => aceNeutronNuclide_CptrCast( data % getNuclide(3))
-    C12  => aceNeutronNuclide_CptrCast( data % getNuclide(4))
+    do i = 1, 4
+      ACENuc => aceNeutronNuclide_CptrCast(data % getNuclide(i))
+      select case(trim(adjustl(ACENuc % ZAID)))
+        case('8016.03c')
+          O16_Idx = i
+        
+        case('1001.03c')
+          if (ACENuc % stochasticMixing) then
+            H1_2_Idx = i
+
+          else
+            H1_Idx = i
+
+          end if
+
+        case('6012.06c')
+          C12_Idx = i
+
+      end select
+
+    end do
+    C12 => aceNeutronNuclide_CptrCast(data % getNuclide(C12_Idx))
+    H1 => aceNeutronNuclide_CptrCast(data % getNuclide(H1_Idx))
+    H1_2 => aceNeutronNuclide_CptrCast(data % getNuclide(H1_2_Idx))
+    O16 => aceNeutronNuclide_CptrCast(data % getNuclide(O16_Idx))
 
     !<><><><><><><><><><><><><><><><><><><><><><><><>
     ! Test scattering tables
@@ -153,22 +175,22 @@ contains
 
     ! Total XS of water
     p % E = 1.8E-6_defReal
-    @assertEqual(ONE, data % getTotalMatXS(p , 1) / 0.0459700882_defReal , TOL)
+    @assertEqual(ONE, data % getTotalMatXS(p, 1) / 0.0459700882_defReal , TOL)
 
     !<><><><><><><><><><><><><><><><><><><><><><><><>
     ! Test getting XSs
     ! H-1
-    nuc  => ceNeutronNuclide_CptrCast(data % getNuclide(2))
-    nuclideCache(2) % E_tot = ONE
+    nuc => ceNeutronNuclide_CptrCast(data % getNuclide(H1_Idx))
+    nuclideCache(H1_Idx) % E_tot = ONE
 
-    call nuc % getMicroXSs(microXSs, 1.8E-6_defReal, ZERO, p % pRNG)
+    call nuc % getMicroXSs(1.8E-6_defReal, ZERO, microXSs, p % pRNG)
 
-    @assertEqual(ONE, 21.05810233858_defReal/ microXSs % total,          TOL)
+    @assertEqual(ONE, 21.05810233858_defReal / microXSs % total, TOL)
     @assertEqual(ONE, 21.01865432_defReal / microXSs % inelasticScatter, TOL)
-    @assertEqual(ONE, 3.94480160E-002_defReal / microXSs % capture,      TOL)
-    @assertEqual(ZERO, microXSs % elasticScatter,   TOL)
-    @assertEqual(ZERO, microXSs % fission,          TOL)
-    @assertEqual(ZERO, microXSs % nuFission,        TOL)
+    @assertEqual(ONE, 3.94480160E-002_defReal / microXSs % capture, TOL)
+    @assertEqual(ZERO, microXSs % elasticScatter, TOL)
+    @assertEqual(ZERO, microXSs % fission, TOL)
+    @assertEqual(ZERO, microXSs % nuFission, TOL)
 
   end subroutine test_thermalScatteringData
 

@@ -52,7 +52,7 @@ contains
     class(nuclearDatabase), pointer  :: ptr
     type(dictionary)                 :: matDict
     type(dictionary)                 :: dataDict
-    type(ceNeutronMaterial), pointer  :: mat
+    type(ceNeutronMaterial), pointer :: mat
     class(ceNeutronNuclide), pointer :: nuc
     type(aceNeutronNuclide), pointer :: nuc2
     class(reactionHandle), pointer   :: reac
@@ -61,7 +61,7 @@ contains
     type(particle)                   :: p
     type(neutronMicroXSs)            :: microXSs
     type(neutronMacroXSs)            :: macroXSs
-    real(defReal)                    :: t1, t2
+    real(defReal)                    :: t1, t2, xs
     integer(shortInt)                :: i, H1, O16, U233
     real(defReal), parameter         :: TOL = 1.0E-6
 
@@ -139,7 +139,7 @@ contains
     !          2 -> U-233
     !          3 -> H-1
     do i= 1, 3
-      nuc2 => aceNeutronNuclide_TptrCast( data % getNuclide(i))
+      nuc2 => aceNeutronNuclide_TptrCast(data % getNuclide(i))
       select case(trim(adjustl(nuc2 % ZAID)))
         case('1001.03c')
           H1 = i
@@ -151,17 +151,17 @@ contains
     end do
 
     ! Get Invalid Reaction
-    @assertNotAssociated( data % getReaction(N_Nl(3), H1))
-    @assertNotAssociated( data % getReaction(macroEscatter, O16))
-    @assertNotAssociated( data % getReaction(N_total, U233))
-    @assertNotAssociated( data % getReaction(N_N_elastic, 4))
-    @assertNotAssociated( data % getReaction(N_N_elastic, -2))
-    @assertNotAssociated( data % getReaction(N_N_elastic, 0))
+    @assertNotAssociated(data % getReaction(N_Nl(3), H1))
+    @assertNotAssociated(data % getReaction(macroEscatter, O16))
+    @assertNotAssociated(data % getReaction(N_total, U233))
+    @assertNotAssociated(data % getReaction(N_N_elastic, 4))
+    @assertNotAssociated(data % getReaction(N_N_elastic, -2))
+    @assertNotAssociated(data % getReaction(N_N_elastic, 0))
 
     ! Get Valid Reaction
-    @assertAssociated( data % getReaction(N_fission, U233))
-    @assertAssociated( data % getReaction(N_N_elastic, O16))
-    @assertAssociated( data % getReaction(N_NL(3), U233))
+    @assertAssociated(data % getReaction(N_fission, U233))
+    @assertAssociated(data % getReaction(N_N_elastic, O16))
+    @assertAssociated(data % getReaction(N_NL(3), U233))
 
     !<><><><><><><><><><><><><><><><><><><><><><><><>
     ! Get material names dictionary
@@ -180,9 +180,10 @@ contains
 
     ! H-1
     nuc  => ceNeutronNuclide_CptrCast( data % getNuclide(H1))
-    @assertEqual(ONE, 20.765855864000002_defReal/ nuc % getTotalXS(1.1E-6_defReal, ONE, p % pRNG), TOL)
+    call nuc % getTotalXS(1.1E-6_defReal, ONE, xs)
+    @assertEqual(ONE, 20.765855864000002_defReal / xs, TOL)
 
-    call nuc % getMicroXSs(microXSs, 5.6E-3_defReal, ONE, p % pRNG)
+    call nuc % getMicroXSs(5.6E-3_defReal, ONE, microXSs)
 
     ! Absent XSs
     @assertEqual(ZERO, microXSs % fission)
@@ -238,7 +239,7 @@ contains
     !
     ! Water
     mat => ceNeutronMaterial_TptrCast( data % getMaterial(1))
-    call mat % getMacroXSs(macroXss, 3.6E-1_defReal, p % pRNG)
+    call mat % getMacroXSs(3.6E-1_defReal, macroXSs, p % pRNG)
 
     ! Absent XSs
     @assertEqual(ZERO, macroXSs % fission)
@@ -250,7 +251,7 @@ contains
     @assertEqual(ONE, 2.198066842597500e-06_defReal/ macroXSs % capture, TOL)
 
     ! Water with some inelastic collisions
-    call mat % getMacroXSs(macroXss, 6.525_defReal, p % pRNG)
+    call mat % getMacroXSs(6.525_defReal, macroXSs, p % pRNG)
 
     @assertEqual(ONE, macroXSs % inelasticScatter/1.903667536E-04_defReal, TOL)
 

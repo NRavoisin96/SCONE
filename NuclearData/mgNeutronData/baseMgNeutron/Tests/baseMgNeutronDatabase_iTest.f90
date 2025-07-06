@@ -99,7 +99,7 @@ contains
     ! Get a material and verify macroXSS
     mat => baseMgNeutronMaterial_TptrCast(database % getMaterial(2))
     @assertTrue(associated(mat), "Type Ptr Cast has failed")
-    call mat % getMacroXSs(xss, 1, p % pRNG)
+    call mat % getMacroXSs(1, xss)
 
     ! Check that is fissile
     @assertTrue(mat % isFissile(), "Is not fissile but should")
@@ -113,7 +113,7 @@ contains
 
     matClass => baseMgNeutronMaterial_CptrCast(database % getMaterial(1))
     @assertTrue(associated(matClass), "Type Ptr Cast has failed")
-    call matClass % getMacroXSs(xss, 4, p % pRNG)
+    call matClass % getMacroXSs(4, xss, p % pRNG)
 
     @assertFalse(matClass % isFissile(), "Is fissile but should not")
 
@@ -225,7 +225,7 @@ contains
     ! Get a material and verify macroXSS
     mat => baseMgNeutronMaterial_TptrCast(database % getMaterial(2))
     @assertTrue(associated(mat), "Type Ptr Cast has failed")
-    call mat % getMacroXSs(xss, 1, p % pRNG)
+    call mat % getMacroXSs(1, xss, p % pRNG)
 
     ! Check that is fissile
     @assertTrue(mat % isFissile(), "Is not fissile but should")
@@ -239,7 +239,7 @@ contains
 
     matClass => baseMgNeutronMaterial_CptrCast(database % getMaterial(1))
     @assertTrue(associated(matClass), "Type Ptr Cast has failed")
-    call matClass % getMacroXSs(xss, 4, p % pRNG)
+    call matClass % getMacroXSs(4, xss, p % pRNG)
 
     @assertFalse(matClass % isFissile(), "Is fissile but should not")
 

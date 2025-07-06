@@ -180,7 +180,7 @@ contains
     if (.not.associated(self % nuc)) call fatalError(Here, 'Failed to retrieve CE Neutron Nuclide')
 
     ! Select Main reaction channel
-    call self % nuc % getMicroXSs(microXss, collDat % E, self % mat % kT, p % pRNG)
+    call self % nuc % getMicroXSs(collDat % E, self % mat % kT, microXSs, p % pRNG)
     call p % pRNG % generate(randomNumber)
     collDat % MT = microXss % invert(randomNumber)
 
@@ -215,7 +215,7 @@ contains
       call p % pRNG % generate(randomNumber)     ! Random number to sample sites
 
       ! Retrieve cross section at the energy used for reaction sampling
-      call self % nuc % getMicroXSs(microXSs, collDat % E, self % mat % kT, p % pRNG)
+      call self % nuc % getMicroXSs(collDat % E, self % mat % kT, microXSs, p % pRNG)
 
       sig_nufiss = microXSs % nuFission
       sig_tot    = microXSs % total

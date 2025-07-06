@@ -187,7 +187,7 @@ contains
     if (.not.associated(mat)) call fatalError(Here, 'Unrecognised type of material was retrieved from nuclearDatabase')
 
     ! Obtain xss
-    call mat % getMacroXSs(xss, p)
+    call mat % getMacroXSs(p, xss)
 
     nuFissXS = xss % nuFission
     absXS    = xss % capture + xss % fission

@@ -107,14 +107,14 @@ contains
   !!
   !! See neutronMaterial_inter for details
   !!
-  subroutine getMacroXSs_byP(self, xss, p)
+  subroutine getMacroXSs_byP(self, p, xss)
     class(ceNeutronMaterial), intent(in) :: self
-    type(neutronMacroXSs), intent(out)   :: xss
     class(particle), intent(in)          :: p
-    character(*), parameter :: Here = 'getMacroXSs_byP (ceNeutronMaterial_class.f90)'
+    type(neutronMacroXSs), intent(out)   :: xss
+    character(*), parameter              :: Here = 'getMacroXSs_byP (ceNeutronMaterial_class.f90)'
 
     if (.not.p % isMG) then
-      call self % getMacroXSs(xss, p % E, p % pRNG)
+      call self % getMacroXSs(p % E, xss, p % pRNG)
 
     else
       call fatalError(Here,'MG neutron given to CE data')
@@ -233,11 +233,11 @@ contains
   !! Errors:
   !!   fatalError if E is out-of-bounds for the stored data
   !!
-  subroutine getMacroXSs_byE(self, xss, E, rand)
+  subroutine getMacroXSs_byE(self, E, xss, rand)
     class(ceNeutronMaterial), intent(in) :: self
-    type(neutronMacroXSs), intent(out)   :: xss
     real(defReal), intent(in)            :: E
-    class(RNG), intent(inout)            :: rand
+    type(neutronMacroXSs), intent(out)   :: xss
+    class(RNG), intent(inout), optional  :: rand
 
     ! Check Cache and update if needed
     if (materialCache(self % matIdx) % E_tail /= E .or. materialCache(self % matIdx) % E_tot /= E) then

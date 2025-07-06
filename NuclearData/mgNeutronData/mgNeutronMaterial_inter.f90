@@ -71,12 +71,12 @@ module mgNeutronMaterial_inter
     !! Errors:
     !!   fatalError if G is out-of-bounds for the stored data
     !!
-    subroutine getMacroXSs_byG(self, xss, G, rand)
+    subroutine getMacroXSs_byG(self, G, xss, rand)
       import :: mgNeutronMaterial, neutronMacroXSs, shortInt, RNG
       class(mgNeutronMaterial), intent(in) :: self
-      type(neutronMacroXSs), intent(out)   :: xss
       integer(shortInt), intent(in)        :: G
-      class(RNG), intent(inout)            :: rand
+      type(neutronMacroXSs), intent(out)   :: xss
+      class(RNG), intent(inout), optional  :: rand
     end subroutine getMacroXSs_byG
 
     !!
@@ -89,13 +89,13 @@ module mgNeutronMaterial_inter
     !! Errors:
     !!   fatalError if G is out-of-bounds for the stored data
     !!
-    function getTotalXS(self, G, rand) result(xs)
+    subroutine getTotalXS(self, G, xs, rand)
       import :: mgNeutronMaterial, defReal, shortInt, RNG
       class(mgNeutronMaterial), intent(in) :: self
       integer(shortInt), intent(in)        :: G
-      class(RNG), intent(inout)            :: rand
-      real(defReal)                        :: xs
-    end function getTotalXS
+      real(defReal), intent(out)           :: xs
+      class(RNG), intent(inout), optional  :: rand
+    end subroutine getTotalXS
   end interface
 
 
@@ -107,12 +107,12 @@ contains
   !!
   !! See neutronMaterial_inter for details
   !!
-  subroutine getMacroXSs_byP(self, xss, p)
+  subroutine getMacroXSs_byP(self, p, xss)
     class(mgNeutronMaterial), intent(in) :: self
-    type(neutronMacroXSs), intent(out)   :: xss
     class(particle), intent(in)          :: p
+    type(neutronMacroXSs), intent(out)   :: xss
     integer(shortInt)                    :: matIdx
-    character(*), parameter :: Here = 'getMacroXSs_byP (mgNeutronMateerial_inter.f90)'
+    character(*), parameter              :: Here = 'getMacroXSs_byP (mgNeutronMateerial_inter.f90)'
 
     if (.not. p % isMG) call fatalError(Here, 'CE particle was given to MG data')
 
@@ -124,7 +124,7 @@ contains
 
       if (matCache % G_tail /= p % G) then
         ! Get cross sections
-        call self % getMacroXSs(xss, p % G, p % pRNG)
+        call self % getMacroXSs(p % G, xss, p % pRNG)
         ! Update cache
         matCache % xss = xss
         matCache % G_tail = p % G

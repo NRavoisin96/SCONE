@@ -166,7 +166,7 @@ contains
     if (.not.associated(mat)) return
 
     ! Get the macroscopic cross section for the material
-    call mat % getMacroXSs(xss, p)
+    call mat % getMacroXSs(p, xss)
 
     ! Normalise the macroscopic cross section with the atomic density
     val = xss % get(self % MT) / self % dens

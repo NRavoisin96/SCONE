@@ -164,7 +164,7 @@ contains
 
       if (matCache % G_tot /= p % G) then
         ! Get cross section
-        xs = self % mats(matIdx) % getTotalXS(p % G, p % pRNG)
+        call self % mats(matIdx) % getTotalXS(p % G, xs, p % pRNG)
         ! Update cache
         matCache % xss % total = xs
         matCache % G_tot = p % G

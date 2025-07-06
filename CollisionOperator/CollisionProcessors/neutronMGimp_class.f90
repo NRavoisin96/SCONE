@@ -140,7 +140,7 @@ contains
     if (.not.associated(self % mat)) call fatalError(Here, "Failed to get MG Neutron Material")
 
     ! Select Main reaction channel
-    call self % mat % getMacroXSs(macroXSs, p % G, p % pRNG)
+    call self % mat % getMacroXSs(p % G, macroXSs, p % pRNG)
     call p % pRNG % generate(randomNumber)
     collDat % MT = macroXSs % invert(randomNumber)
 
@@ -172,7 +172,7 @@ contains
       k_eff = p % k_eff            ! k_eff for normalisation
       call p % pRNG % generate(randomNumber)     ! Random number to sample sites
 
-      call self % mat % getMacroXSs(macroXSs, p % G, p % pRNG)
+      call self % mat % getMacroXSs(p % G, macroXSs, p % pRNG)
 
       sig_tot    = macroXSs % total
       sig_nuFiss = macroXSs % nuFission

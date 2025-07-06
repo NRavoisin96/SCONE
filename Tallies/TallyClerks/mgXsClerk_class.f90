@@ -277,7 +277,7 @@ contains
       end if
 
       ! Retrieve material cross sections
-      call mat % getMacroXSs(xss, p)
+      call mat % getMacroXSs(p, xss)
 
       ! Calculate reaction rates
       nuFissXS = xss % nuFission * flux

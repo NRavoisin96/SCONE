@@ -199,7 +199,7 @@ module ceNeutronDatabase_inter
       real(defReal), intent(in)            :: E
       integer(shortInt), intent(in)        :: nucIdx
       real(defReal), intent(in)            :: kT
-      class(RNG), optional, intent(inout)  :: rand
+      class(RNG), intent(inout), optional  :: rand
     end subroutine updateTotalXS
 
     !!

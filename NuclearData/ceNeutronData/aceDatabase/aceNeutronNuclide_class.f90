@@ -730,7 +730,7 @@ contains
     class(ceNeutronDatabase), pointer, intent(in) :: database
     integer(shortInt)                             :: Ngrid, N, K, i, j, MT, bottom, top
     type(stackInt)                                :: scatterMT, absMT
-    character(100), parameter :: Here = "init (aceNeutronNuclide_class.f90)"
+    character(*), parameter                       :: Here = "init (aceNeutronNuclide_class.f90)"
 
     ! Reset nuclide just in case
     call self % kill()

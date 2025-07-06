@@ -54,11 +54,10 @@ module ceNeutronNuclide_inter
   !!
   type, public, abstract, extends(nuclideHandle) :: ceNeutronNuclide
     private
-    integer(shortInt)                :: nucIdx  =  0
-    class(ceNeutronDatabase), pointer :: data    => null()
-    logical(defBool)                 :: fissile = .false.
-    real(defReal)                    :: mass    =  ZERO
-    real(defReal)                    :: kT      =  ZERO
+    integer(shortInt)                 :: nucIdx =  0
+    class(ceNeutronDatabase), pointer :: data => null()
+    logical(defBool)                  :: fissile = .false.
+    real(defReal)                     :: mass =  ZERO, kT = ZERO
 
     ! DBRC nuclide flag
     logical(defBool)                 :: DBRC = .false.
@@ -190,12 +189,12 @@ contains
   !! Errors:
   !!   fatalError if E is out-of-bounds of the present data
   !!
-  function getTotalXS(self, E, kT, rand) result(xs)
+  subroutine getTotalXS(self, E, kT, xs, rand)
     class(ceNeutronNuclide), intent(in) :: self
     real(defReal), intent(in)           :: E
     real(defReal), intent(in)           :: kT
-    class(RNG), intent(inout)           :: rand
-    real(defReal)                       :: xs
+    real(defReal), intent(out)          :: xs
+    class(RNG), intent(inout), optional :: rand
 
     ! Check Cache and update if needed
     if (nuclideCache(self % nucIdx) % E_tot /= E) then
@@ -204,7 +203,7 @@ contains
 
     xs = nuclideCache(self % nucIdx) % xss % total
 
-  end function getTotalXS
+  end subroutine getTotalXS
 
   !!
   !! Return Microscopic XSs for the nuclide
@@ -218,16 +217,17 @@ contains
   !! Errors:
   !!   fatalError if E is out-of-bounds for the stored data
   !!
-  subroutine getMicroXSs(self, xss, E, kT, rand)
+  subroutine getMicroXSs(self, E, kT, xss, rand)
     class(ceNeutronNuclide), intent(in) :: self
-    type(neutronMicroXSs), intent(out)  :: xss
     real(defReal), intent(in)           :: E
     real(defReal), intent(in)           :: kT
-    class(RNG), intent(inout)           :: rand
+    type(neutronMicroXSs), intent(out)  :: xss
+    class(RNG), intent(inout), optional :: rand
 
     ! Check Cache and update if needed
     if (nuclideCache(self % nucIdx) % E_tail /= E) then
       call self % data % updateMicroXSs(E, self % nucIdx, kT, rand)
+
     end if
 
     xss = nuclideCache(self % nucIdx) % xss

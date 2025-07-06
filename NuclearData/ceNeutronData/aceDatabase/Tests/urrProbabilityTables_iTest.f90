@@ -39,12 +39,13 @@ contains
     class(nuclearDatabase), pointer   :: ptr
     type(dictionary)                  :: matDict
     type(dictionary)                  :: dataDict
-    class(aceNeutronNuclide), pointer :: U235, O16
+    class(aceNeutronNuclide), pointer :: ACENuc, O16, U235
     real(defReal), dimension(3)       :: val
     real(defReal), dimension(2)       :: eBounds
     class(ceNeutronNuclide), pointer  :: nuc
     type(particle)                    :: p
     type(neutronMicroXSs)             :: microXSs
+    integer(shortInt)                 :: i, O16_Idx, U235_Idx
     real(defReal), parameter          :: TOL = 1.0E-6
 
     ! Prepare dictionaries
@@ -64,8 +65,20 @@ contains
     !!<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 
     ! Get nuclides
-    U235  => aceNeutronNuclide_CptrCast( data % getNuclide(1))
-    O16   => aceNeutronNuclide_CptrCast( data % getNuclide(2))
+    do i = 1, 2
+      ACENuc => aceNeutronNuclide_CptrCast(data % getNuclide(i))
+      select case(trim(adjustl(ACENuc % ZAID)))
+      case('92235.03c')
+        U235_Idx = i
+
+      case('8016.03c')
+        O16_Idx = i
+
+      end select
+
+    end do
+    U235 => aceNeutronNuclide_CptrCast(data % getNuclide(U235_Idx))
+    O16 => aceNeutronNuclide_CptrCast(data % getNuclide(O16_Idx))
 
     !<><><><><><><><><><><><><><><><><><><><><><><><>
     ! Test probability tables
@@ -97,12 +110,12 @@ contains
     ! Test getting XSs
 
     ! U-235
-    nuc  => ceNeutronNuclide_CptrCast( data % getNuclide(1))
-    zaidCache(1) % E  = 9.1E-3_defReal
-    zaidCache(1) % xi = 0.347_defReal
-    nuclideCache(1) % E_tot = ONE
+    nuc  => ceNeutronNuclide_CptrCast(data % getNuclide(U235_Idx))
+    zaidCache(U235_Idx) % E  = 9.1E-3_defReal
+    zaidCache(U235_Idx) % xi = 0.347_defReal
+    nuclideCache(U235_Idx) % E_tot = ONE
 
-    call nuc % getMicroXSs(microXSs, 9.1E-3_defReal, ZERO, p % pRNG)
+    call nuc % getMicroXSs(9.1E-3_defReal, ZERO, microXSs, p % pRNG)
 
     @assertEqual(ONE, 15.317184903738868_defReal/ microXSs % total,            TOL)
     @assertEqual(ONE, 11.662135262310867_defReal/ microXSs % elasticScatter,   TOL)

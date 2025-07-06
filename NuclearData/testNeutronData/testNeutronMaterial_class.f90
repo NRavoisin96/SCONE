@@ -60,10 +60,10 @@ contains
   !!
   !! See neutronMaterial_inter for more details
   !!
-  subroutine getMacroXSs_byP(self, xss, p)
+  subroutine getMacroXSs_byP(self, p, xss)
    class(testNeutronMaterial), intent(in) :: self
-   type(neutronMacroXSs), intent(out)     :: xss
    class(particle), intent(in)            :: p
+   type(neutronMacroXSs), intent(out)     :: xss
 
    xss = self % xss
 

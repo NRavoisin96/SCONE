@@ -61,11 +61,11 @@ module neutronMaterial_inter
     !!   fatalError if energy value/group is outside bounds
     !!   fatalError if MG particle is given to CE data and vice versa
     !!
-    subroutine getMacroXSs_byP(self, xss, p)
+    subroutine getMacroXSs_byP(self, p, xss)
       import :: neutronMaterial, particle, neutronMacroXSs
       class(neutronMaterial), intent(in) :: self
-      type(neutronMacroXSs), intent(out) :: xss
       class(particle), intent(in)        :: p
+      type(neutronMacroXSs), intent(out) :: xss
     end subroutine getMacroXSs_byP
 
   end interface

@@ -654,9 +654,10 @@ contains
     integer(shortInt), intent(in)         :: nucIdx
     real(defReal), intent(in)             :: kT
     class(RNG), optional, intent(inout)   :: rand
+    character(*), parameter               :: here = 'updateMicroXSs (aceNeutronDatabase_class.f90)'
 
     associate (nucCache => cache_nuclideCache(nucIdx), &
-               nuc      => self % nuclides(nucIdx)     )
+               nuc => self % nuclides(nucIdx))
 
       nucCache % E_tail = E
 
@@ -673,6 +674,7 @@ contains
 
           if (zaidCache % E /= E) then
             ! Save random number for temperature correlation
+            if (.not. present(rand)) call fatalError(here, 'Random number generator was not provided.')
             call rand % generate(zaidCache % xi)
             zaidCache % E = E
           end if
@@ -753,7 +755,7 @@ contains
   !!
   !! See nuclearDatabase documentation for details
   !!
-  subroutine init(self, dict, ptr, silent )
+  subroutine init(self, dict, ptr, silent)
     class(aceNeutronDatabase), target, intent(inout) :: self
     class(dictionary), intent(in)                    :: dict
     class(nuclearDatabase), pointer, intent(in)      :: ptr
@@ -804,11 +806,13 @@ contains
       do j = 1, size(mat % nuclides)
         name = self % makeNuclideName(mat % nuclides(j))
         call nucSet % add(name, IN_SET)
+
       end do
+
     end do
 
     ! Get path to ACE library
-    call dict % get(aceLibPath,'aceLibrary')
+    call dict % get(aceLibPath, 'aceLibrary')
 
     ! Check if probability tables are on in the input file
     call dict % getOrDefault(self % hasUrr, 'ures', .false.)
@@ -861,19 +865,23 @@ contains
     nucIdx = 1
     do while (i /= nucSet % end())
 
-      idx1 = index(nucSet % atKey(i),'+')
-      idx2 = index(nucSet % atKey(i),'#')
+      idx1 = index(nucSet % atKey(i), '+')
+      idx2 = index(nucSet % atKey(i), '#')
       if (idx1 /= 0) then
         name = trim(nucSet % atKey(i))
         if (idx2 == 0) then
-          name_file1 = trim(name(idx1+1:nameLen))
+          name_file1 = trim(name(idx1 + 1:nameLen))
+
         else
-          name_file1 = trim(name(idx1+1:idx2-1))
-          name_file2 = trim(name(idx2+1:nameLen))
+          name_file1 = trim(name(idx1 + 1:idx2 - 1))
+          name_file2 = trim(name(idx2 + 1:nameLen))
+
         end if
-        name = name(1:idx1-1)
+        name = name(1:idx1 - 1)
+
       else
         name = nucSet % atKey(i)
+
       end if
 
       if (loud) then

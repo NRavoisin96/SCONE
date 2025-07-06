@@ -134,7 +134,7 @@ module materialMenu_mod
 
 
   !! MODULE COMPONENTS
-  type(materialItem), dimension(:), allocatable,target, public :: materialDefs
+  type(materialItem), dimension(:), allocatable, target, public :: materialDefs
   type(charMap), target, public                             :: nameMap
   type(intMap), public                                      :: colourMap
 
@@ -176,6 +176,7 @@ contains
     do i= 1, size(matNames)
       call materialDefs(i) % init(matNames(i), i, dict % getDictPtr(matNames(i)))
       call nameMap % add(matNames(i), i)
+
     end do
 
     ! Add special Material keywords to the dictionary
@@ -200,10 +201,12 @@ contains
 
     call nameMap % kill()
     if (allocated(materialDefs)) then
-      do i= 1, size(materialDefs)
+      do i = 1, size(materialDefs)
         call materialDefs(i) % kill()
+
       end do
       deallocate(materialDefs)
+
     end if
 
   end subroutine kill
@@ -357,7 +360,7 @@ contains
         elseif (size(filenames) == 1) then
           self % nuclides(i) % file_Sab1 = filenames(1)
         else
-          print *,filenames
+          print *, filenames
           call fatalError(Here,'Unexpectedly long moder contents. Should be 1 or 2 '//&
                   'entries.')
         end if
@@ -366,12 +369,13 @@ contains
       ! Initialise the nuclides
       call compDict % get(self % dens(i), keys(i))
       call self % nuclides(i) % init(keys(i))
+
     end do
 
     ! Make sure if a moderator is provided the nuclide is present
     ! in the composition
     if (foundModer /= nSab) then
-      print *,moderKeys
+      print *, moderKeys
       call fatalError(Here, 'Nuclides requested for S(alpha,beta) are not present in composition. '// &
               numToChar(nSab)//' nuclides requested but '//numToChar(foundModer)//' nuclides found.')
     end if
@@ -500,21 +504,21 @@ contains
     character(nameLen), intent(in)    :: str
     integer(shortInt)                 :: dot
     logical(defBool)                  :: flag
-    character(*), parameter :: Here = 'init_nuclideInto (materialMenu_mod.f90)'
+    character(*), parameter           :: Here = 'init_nuclideInto (materialMenu_mod.f90)'
 
     if (.not.isNucDefinition(str)) then
       call fatalError(Here,'Input is not ZZZAAA.TT formated definition: '//trim(str))
     end if
 
     ! Find location of the dot
-    dot = scan(str,'.')
+    dot = scan(str, '.')
 
     ! Catch leading zeros in ZAID
     if (str(1:1) == '0') call fatalError(Here, 'ZA ID begins with a 0')
 
-    self % Z = charToInt(str(1:dot-4), error = flag)
-    self % A = charToInt(str(dot-3:dot-1), error = flag )
-    self % T = charToInt(str(dot+1:len_trim(str)), error = flag)
+    self % Z = charToInt(str(1:dot - 4), error = flag)
+    self % A = charToInt(str(dot - 3:dot - 1), error = flag)
+    self % T = charToInt(str(dot + 1:len_trim(str)), error = flag)
 
     if (flag) call fatalError(Here,'Failed to convert: '//trim(str)// ' to nuclide information')
 

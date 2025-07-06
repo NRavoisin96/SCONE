@@ -137,7 +137,7 @@ contains
     ! Return if material is not a neutronMaterial
     if (.not. associated(mat)) return
 
-    call mat % getMacroXSs(xss, p)
+    call mat % getMacroXSs(p, xss)
     val = xss % get(self % MT)
 
   end subroutine get
