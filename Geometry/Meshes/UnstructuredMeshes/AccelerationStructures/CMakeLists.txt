@@ -2,4 +2,5 @@
 add_sources(
             ./accelerationStructure_inter.f90
             ./octreeAcceleration_class.f90
+            ./patchSearchAcceleration_class.f90
            )

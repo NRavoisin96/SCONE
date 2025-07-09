@@ -145,13 +145,13 @@ contains
     type(tallyAdmin), pointer, intent(inout)   :: tallyAtch
     integer(shortInt), intent(in)             :: N_cycles
     type(particleDungeon), save               :: buffer
-    integer(shortInt)                         :: i, n, Nstart, Nend, nParticles
+    integer(shortInt)                         :: i, n, Nstart, Nend, nParticles, timerIdx
     class(tallyResult), allocatable            :: res
     type(collisionOperator), save             :: collOp
     class(transportOperator), allocatable,save :: transOp
     type(RNG), target, save                   :: pRNG
     type(particle), save                      :: neutron
-    real(defReal)                             :: k_old, k_new
+    real(defReal)                             :: k_old, k_new, t1, t2
     real(defReal)                             :: elapsed_T, end_T, T_toEnd
     character(100), parameter :: Here ='cycles (eigenPhysicsPackage_class.f90)'
     !$omp threadprivate(neutron, buffer, collOp, transOp, pRNG)
@@ -174,6 +174,11 @@ contains
     ! Reset and start timer
     call timerReset(self % timerMain)
     call timerStart(self % timerMain)
+
+    ! start timer for in-cycle calculation
+    timerIdx = registerTimer('In-cycle')       ! register timer
+    call timerStart(timerIdx)                  ! Wall-time
+    call cpu_time(t1)                          ! CPU-time
 
     do i= 1, N_cycles
 
@@ -288,6 +293,15 @@ contains
       print *, 'Time to end:  ', trim(secToChar(T_toEnd))
       call tally % display()
     end do
+
+    ! end timer for in-cycle calculation and print
+    call timerStop(timerIdx)   ! Wall-time
+    call cpu_time(t2)          ! CPU-time
+    print*, "-------------------------------------------------------------"
+    print*, "/\/\ In-cycle procedure time /\/\"
+    print*, "CPU  time: ", t2 - t1, " seconds"
+    print*, "Wall time: ", trim(secToChar(timerTime(timerIdx)))
+    print*, "-------------------------------------------------------------"
 
     ! Load elapsed time
     self % time_transport = self % time_transport + elapsed_T

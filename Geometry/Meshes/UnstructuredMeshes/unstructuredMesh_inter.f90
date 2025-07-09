@@ -1,20 +1,22 @@
 module unstructuredMesh_inter
 
-  use accelerationStructure_inter, only : accelerationStructure
-  use cellZoneShelf_class,         only : cellZoneShelf
-  use coord_class,                 only : coord
-  use dictionary_class,            only : dictionary
-  use edgeShelf_class,             only : edgeShelf
-  use element_inter,               only : elementBox, inclusionTestResult
-  use elementShelf_class,          only : elementShelf
-  use face_inter,                  only : faceBox
-  use faceShelf_class,             only : faceShelf
-  use genericProcedures,           only : append, findDifferent, numToChar
-  use mesh_inter,                  only : mesh, kill_super => kill
+  use accelerationStructure_inter,   only : accelerationStructure
+  use cellZoneShelf_class,           only : cellZoneShelf
+  use coord_class,                   only : coord
+  use dictionary_class,              only : dictionary
+  use edgeShelf_class,               only : edgeShelf
+  use element_inter,                 only : elementBox, inclusionTestResult
+  use elementShelf_class,            only : elementShelf
+  use face_inter,                    only : faceBox
+  use faceShelf_class,               only : faceShelf
+  use genericProcedures,             only : append, findDifferent, numToChar
+  use mesh_inter,                    only : mesh, kill_super => kill
   use numPrecision
-  use octreeAcceleration_class,    only : octreeAcceleration
+  use octreeAcceleration_class,      only : octreeAcceleration
+  use patchSearchAcceleration_class, only : patchSearchAcceleration
   use universalVariables
-  use vertexShelf_class,           only : vertexShelf
+  use vertexShelf_class,             only : vertexShelf
+  use errors_mod,  only : fatalError !!!
 
   implicit none
   private
@@ -340,20 +342,26 @@ contains
   !! See mesh_inter for details.
   !!
   subroutine findHostElement(self, coords)
-    class(unstructuredMesh), intent(in)          :: self
+    class(unstructuredMesh), intent(in)          :: self 
     type(coord), intent(inout)                   :: coords
     integer(shortInt), dimension(:), allocatable :: potentialElementsIdxs
     integer(shortInt)                            :: i, nPotentialElements, potentialElementIdx
     real(defReal), dimension(3)                  :: r
     type(inclusionTestResult)                    :: testResult
+    ! integer(shortInt)           :: coordPatch, coordBrute, coordOctree !!!
     
     ! Initialise parentIdx = 0. Retrieve the mesh's bounding box. If the particle is outside the bounding box we can return early.
     call coords % setElementIdx(0)
     call coords % setParentElementIdx(0)
     if (allocated(self % acceleration)) then
-      call self % acceleration % findHostElement(self % faces, self % elements, coords)
+      call self % acceleration % findHostElement(self % vertices, self % edges, self % faces, self % elements, coords)
+      
+    !!!
+    ! coordPatch = coords % getElementIdx()
+    ! end if
+    !!!
 
-    else
+    else !!!
       ! Perform brute-force search.
       searchLoop: do
         do i = 1, self % nElements
@@ -389,11 +397,20 @@ contains
           end if
 
         end do
+
+        !!!
+        ! coordBrute = coords % getElementIdx()
+        ! if (coordBrute /= coordPatch) then
+        !   call fatalError("here", "patch")
+        ! end if
+        !!!
+
         return
 
       end do searchLoop
 
-    end if
+
+    end if !!!
 
   end subroutine findHostElement
 
@@ -458,8 +475,8 @@ contains
     call dict % getOrDefault(acceleration, 'accelerationMethod', 'none')
     if (acceleration /= 'none') then
       if (acceleration == 'octree') allocate(octreeAcceleration :: self % acceleration)
-      call self % acceleration % init(self % vertices, self % faces, self % elements)
-
+      if (acceleration == 'patch') allocate(patchSearchAcceleration :: self % acceleration)
+      call self % acceleration % init(self % vertices, self % edges, self % faces, self % elements)
     end if
 
   end subroutine init

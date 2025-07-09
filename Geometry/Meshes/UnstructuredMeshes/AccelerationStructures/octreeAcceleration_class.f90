@@ -9,6 +9,7 @@ module octreeAcceleration_class
   use octree_class,                only : octree
   use octreeNode_class,            only : octreeNode
   use vertexShelf_class,           only : vertexShelf
+  use edgeShelf_class,             only : edgeShelf
   use universalVariables,          only : INSIDE_ELEMENT, ON_BOUNDARY_ELEMENT, OUTSIDE_ELEMENT
 
   implicit none
@@ -30,8 +31,10 @@ contains
   !!
   !!
   !!
-  subroutine findHostElement(self, faces, elements, coords)
+  subroutine findHostElement(self, vertices, edges, faces, elements, coords)
     class(octreeAcceleration), intent(in)        :: self
+    class(vertexShelf), intent(in)               :: vertices
+    class(edgeShelf), intent(in)                 :: edges
     type(faceShelf), intent(in)                  :: faces
     type(elementShelf), intent(in)               :: elements
     type(coord), intent(inout)                   :: coords
@@ -111,11 +114,12 @@ contains
   !!
   !!
   !!
-  subroutine init(self, vertices, faces, elements)
+  subroutine init(self, vertices, edges, faces, elements)
     class(octreeAcceleration), intent(inout) :: self
     type(vertexShelf), intent(in)            :: vertices
-    type(faceShelf), intent(in)              :: faces
+    type(faceShelf), intent(inout)           :: faces
     type(elementShelf), intent(in)           :: elements
+    type(edgeShelf), intent(inout)           :: edges
 
     ! Simply initialise the octree.
     call self % tree % init(vertices, faces, elements)

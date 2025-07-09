@@ -32,7 +32,7 @@ module face_inter
     integer(shortInt)                            :: idx = 0, parentIdx = 0
     integer(shortInt), dimension(:), allocatable :: edgeIdxs, elementIdxs, triangleIdxs, vertexIdxs
     logical(defBool)                             :: isBoundary = .false.
-    real(defReal)                                :: area = ZERO
+    real(defReal)                                :: area = ZERO, const = ZERO
     real(defReal), dimension(3)                  :: centroid = ZERO, normal = ZERO, AB = ZERO, AC = ZERO
     type(axisAlignedBoundingBox)                 :: boundingBox
     character(:), allocatable                    :: type
@@ -50,6 +50,7 @@ module face_inter
     procedure, non_overridable                   :: getAB
     procedure, non_overridable                   :: getAC
     procedure, non_overridable                   :: getArea
+    procedure, non_overridable                   :: getConst
     procedure, non_overridable                   :: getBoundingBox
     procedure, non_overridable                   :: getCentroid
     procedure, non_overridable                   :: getEdgeIdxs
@@ -70,6 +71,7 @@ module face_inter
     procedure, non_overridable                   :: isPointInside
     procedure                                    :: kill
     procedure, non_overridable                   :: setArea
+    procedure, non_overridable                   :: setConst
     procedure, non_overridable                   :: setCentroid
     procedure, non_overridable                   :: setIsBoundary
     procedure, non_overridable                   :: setIdx
@@ -412,6 +414,21 @@ contains
     area = self % area
 
   end function getArea
+
+  !!
+  !!
+  !!
+  elemental function getConst(self, idx) result(const)
+    class(face), intent(in)                 :: self
+    integer(shortInt), intent(in), optional :: idx
+    real(defReal)                           :: const
+    
+    const = self % const
+
+    if (.not. present(idx)) return
+    if (idx < 0) const = -const
+
+  end function getConst
 
   !! Function 'getBoundingBox'
   !!
@@ -806,6 +823,17 @@ contains
     self % area = area
 
   end subroutine setArea
+
+  !!
+  !!
+  !!
+  elemental subroutine setConst(self, const)
+    class(face), intent(inout) :: self
+    real(defReal), intent(in)  :: const
+
+    self % const = const
+
+  end subroutine setConst
   
   !! Subroutine 'setBoundaryFace'
   !!

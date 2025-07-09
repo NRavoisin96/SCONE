@@ -13,6 +13,7 @@ module csg_class
   use rootUniverse_class,  only : rootUniverse
   use uniFills_class,      only : uniFills
   use geomGraph_class,     only : geomGraph
+  use timer_mod          , only : registerTimer, timerStart, timerStop, timerTime, secToChar
 
   implicit none
 
@@ -79,12 +80,18 @@ contains
     logical(defBool), optional, intent(in)       :: silent
     logical(defBool)                             :: loud
     type(uniFills)                               :: fills
-    integer(shortInt)                            :: rootId, nesting
+    integer(shortInt)                            :: rootId, nesting, timerIdx
     type(dictionary), pointer                    :: tempDict
     class(universe), pointer                     :: uni_ptr
     class(surface), pointer                      :: surf_ptr
     integer(shortInt), dimension(:), allocatable :: BC
     character(100), parameter                    :: Here = 'init (csg_class.f90)'
+    real(defReal)                                :: t1, t2
+
+    ! start timer for initialisation
+    timerIdx = registerTimer('Initialisation') ! register timer for initialisation
+    call timerStart(timerIdx)                  ! Wall-time
+    call cpu_time(t1)                          ! CPU-time
 
     ! Choose whether to display messages
     loud = .true.
@@ -193,6 +200,15 @@ contains
       print *, "\/\/ FINISHED READING GEOMETRY \/\/"
       print *, repeat('<>', MAX_COL/2)
     end if
+
+    ! end timer for initialisation and print
+    call timerStop(timerIdx)   ! Wall-time
+    call cpu_time(t2)          ! CPU-time
+    print*, "-------------------------------------------------------------"
+    print*, "/\/\ Initialisation procedure time /\/\"
+    print*, "CPU  time: ", t2 - t1, " seconds"
+    print*, "Wall time: ", trim(secToChar(timerTime(timerIdx)))
+    print*, "-------------------------------------------------------------"
 
   end subroutine init
 

@@ -4,7 +4,7 @@ module faceShelf_class
   use coord_class,                  only : coord
   use edgeShelf_class,              only : edgeShelf
   use numPrecision
-  use genericProcedures,            only : fatalError, findCommon, removeDuplicates
+  use genericProcedures,            only : fatalError, findCommon, removeDuplicates, quickSort
   use face_inter,                   only : face, faceBox
   use polygon_class,                only : polygon
   use triangle_class,               only : triangle
@@ -37,6 +37,8 @@ module faceShelf_class
     procedure                                :: getAllFaceBoundingBoxes
     procedure                                :: getAllFaceCentroids
     procedure                                :: getFaceArea
+    procedure                                :: getFaceConst
+    procedure                                :: setFaceConst
     procedure                                :: getFaceBoundingBox
     procedure                                :: getFaceCentroid
     procedure                                :: getFaceEdgeIdxs
@@ -339,6 +341,30 @@ contains
     area = self % shelf(idx) % item % getArea()
 
   end function getFaceArea
+
+  !!
+  !!
+  !!
+  elemental function getFaceConst(self, idx) result(const)
+    class(faceShelf), intent(in)  :: self
+    integer(shortInt), intent(in) :: idx
+    real(defReal)                 :: const
+
+    const = self % shelf(abs(idx)) % item % getConst(idx)
+
+  end function getFaceConst
+
+  !!
+  !!
+  !!
+  elemental subroutine setFaceConst(self, idx, const)
+    class(faceShelf), intent(inout) :: self
+    integer(shortInt), intent(in)   :: idx
+    real(defReal), intent(in)       :: const
+
+    call self % shelf(idx) % item % setConst(const)
+
+  end subroutine setFaceConst
 
   !! Function 'getFaceBoundingBox'
   !!

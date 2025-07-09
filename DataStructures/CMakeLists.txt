@@ -1,6 +1,7 @@
 # Add Source Files to a global List
 add_subdirectory(BoundingBoxes)
 add_subdirectory(Trees)
+add_subdirectory(CartesianGrid)
 
 add_sources( 
             ./charMap_class.f90
