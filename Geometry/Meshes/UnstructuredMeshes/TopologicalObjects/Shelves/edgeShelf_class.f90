@@ -275,8 +275,6 @@ contains
     class(edgeShelf), intent(inout) :: self
     type(buildEdgeInfo), intent(in) :: info
     type(edgeBox)                   :: box
-    integer(int64)                  :: key
-    integer(shortInt)               :: maxVertexIdx, minVertexIdx
 
     call newEdgeBox(info, box)
     call self % addObject(box % ptr)

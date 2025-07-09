@@ -19,7 +19,7 @@ module element_class
   !!
   !!
   type, public :: buildElementInfo
-    integer(shortInt)                                  :: idx = 0, parentIdx = 0
+    integer(shortInt)                                  :: idx = 0, localId = 0, parentIdx = 0
     type(edgeBox), dimension(:), allocatable           :: edges
     type(orientatedFaceBox), dimension(:), allocatable :: orientatedFaces
     type(vertexBox), dimension(:), allocatable         :: vertices
@@ -75,6 +75,7 @@ module element_class
     procedure :: getBoundingBox
     procedure :: getCentroid
     procedure :: getEdges
+    procedure :: getIsActive
     procedure :: getIsConvex
     procedure :: getLocalId
     procedure :: getOrientatedFaces
@@ -461,6 +462,17 @@ contains
   !!
   !!
   !!
+  elemental function getIsActive(self) result(isActive)
+    class(element), intent(in) :: self
+    logical(defBool)           :: isActive
+
+    isActive = self % isActive
+
+  end function getIsActive
+
+  !!
+  !!
+  !!
   elemental function getIsConvex(self) result(isConvex)
     class(element), intent(in) :: self
     logical(defBool)           :: isConvex
@@ -587,6 +599,7 @@ contains
     
     ! Set everything from payload.
     call self % setIdx(info % idx)
+    self % localId = info % localId
     self % parentIdx = info % parentIdx
     self % orientatedFaces = info % orientatedFaces
     self % vertices = info % vertices

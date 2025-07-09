@@ -84,6 +84,7 @@ module face_class
     procedure          :: getElementIdxs
     procedure          :: getFaceIdx
     procedure          :: getHasElements
+    procedure          :: getIsActive
     procedure          :: getIsBoundary
     procedure          :: getNormal
     procedure          :: getType
@@ -494,6 +495,17 @@ contains
     hasElements = allocated(self % elementIdxs)
 
   end function getHasElements
+
+  !!
+  !!
+  !!
+  elemental function getIsActive(self) result(isActive)
+    class(face), intent(in) :: self
+    logical(defBool)        :: isActive
+
+    isActive = self % isActive
+
+  end function getIsActive
 
   !! Function 'getIsBoundary'
   !!

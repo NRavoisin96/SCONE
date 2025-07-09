@@ -38,6 +38,7 @@ module elementShelf_class
     procedure, private                          :: getElementBox_shortIntArray
     procedure                                   :: getElementCentroid
     procedure                                   :: getElementEdges
+    procedure                                   :: getElementIsActive
     procedure                                   :: getElementIsConvex
     procedure                                   :: getElementLocalId
     procedure                                   :: getElementOrientatedFaces
@@ -325,6 +326,20 @@ contains
     edges = box % ptr % getEdges()
 
   end function getElementEdges
+
+  !!
+  !!
+  !!
+  function getElementIsActive(self, idx) result(isActive)
+    class(elementShelf), intent(in) :: self
+    integer(shortInt), intent(in)   :: idx
+    logical(defBool)                :: isActive
+    type(elementBox)                :: box
+
+    box = self % getElementBox(idx)
+    isActive = box % ptr % getIsActive()
+
+  end function getElementIsActive
 
   !! Function 'getElementIsConvex'
   !!

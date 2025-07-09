@@ -1,24 +1,24 @@
 module unstructuredMesh_inter
 
-  use accelerationStructure_inter,       only : accelerationStructure
-  use centroidTriangulationMethod_class, only : centroidTriangulationMethod
-  use coord_class,                       only : coord
-  use dictionary_class,                  only : dictionary
-  use edge_class,                        only : buildEdgeInfo, edgeBox
-  use edgeShelf_class,                   only : edgeShelf
-  use element_class,                     only : buildElementInfo, elementBox, inclusionTestResult
-  use elementShelf_class,                only : elementShelf
-  use face_class,                        only : buildFaceInfo, faceBox
-  use faceShelf_class,                   only : faceShelf
-  use genericProcedures,                 only : append, findDifferent, numToChar, removeDuplicates
-  use mesh_inter,                        only : mesh, kill_super => kill
+  use accelerationStructure_inter, only : accelerationStructure
+  use coord_class,                 only : coord
+  use dictionary_class,            only : dictionary
+  use edge_class,                  only : buildEdgeInfo, edgeBox
+  use edgeShelf_class,             only : edgeShelf
+  use element_class,               only : buildElementInfo, elementBox, inclusionTestResult
+  use elementShelf_class,          only : elementShelf
+  use face_class,                  only : buildFaceInfo, faceBox
+  use faceShelf_class,             only : faceShelf
+  use genericProcedures,           only : append, findDifferent, numToChar, removeDuplicates
+  use mesh_inter,                  only : mesh, kill_super => kill
   use numPrecision
-  use octreeAcceleration_class,          only : octreeAcceleration
-  use publicObjects,                     only : basicEdgeInfo, basicElementInfo, basicFaceInfo, meshLocalIdInfo
-  use triangulationMethod_inter,         only : triangulationMethod
+  use octreeAcceleration_class,    only : octreeAcceleration
+  use publicObjects,               only : basicEdgeInfo, basicElementInfo, basicFaceInfo, meshLocalIdInfo
+  use triangulationFactory_func,   only : newTriangulationPtr
+  use triangulationMethod_inter,   only : triangulationMethod
   use universalVariables
-  use vertex_class,                      only : vertexBox
-  use vertexShelf_class,                 only : vertexShelf
+  use vertex_class,                only : vertexBox
+  use vertexShelf_class,           only : vertexShelf
 
   implicit none
   private
@@ -60,10 +60,10 @@ module unstructuredMesh_inter
                                                  nElements = 0, nInternalFaces = 0
     class(accelerationStructure), allocatable :: acceleration
     type(edgeShelf)                           :: edges
-    type(elementShelf)                        :: elements
+    type(elementShelf), public                :: elements
     type(faceShelf)                           :: faces
-    class(triangulationMethod), allocatable   :: triangulation
-    type(vertexShelf)                         :: vertices
+    class(triangulationMethod), pointer       :: triangulation
+    type(vertexShelf), public                 :: vertices
   contains
     ! Build procedures.
     procedure                       :: assignLocalIds
@@ -75,14 +75,19 @@ module unstructuredMesh_inter
     procedure                       :: initVertexShelf
     procedure                       :: kill
     procedure, non_overridable      :: printComposition
+    procedure                       :: setEdgesNumber
+    procedure                       :: setElementsNumber
+    procedure                       :: setFacesNumber
+    procedure                       :: setInternalFacesNumber
+    procedure                       :: setVerticesNumber
     ! Runtime procedures.
     procedure                       :: distanceToBoundaryFace
     procedure                       :: distanceToNextFace
     procedure                       :: findHostElement
     procedure                       :: getAllVertexCoordinates
     procedure                       :: getEdgesNumber
-    procedure                       :: getFacesNumber
     procedure                       :: getElementsNumber
+    procedure                       :: getFacesNumber
     procedure                       :: getInternalFacesNumber
     procedure                       :: getVerticesNumber
   end type unstructuredMesh
@@ -145,7 +150,9 @@ contains
     d = INF
     call coords % setParentElementIdx(0)
     boundaryFaceIdx = 0
-    do i = 1, self % nFaces
+    do i = 1, self % faces % getObjectsNumber()
+      ! Cycle to next face if current face is not active.
+      if (.not. self % faces % getFaceIsActive(i)) cycle
       if (.not. self % faces % getFaceIsBoundary(i)) cycle
 
       ! Compute distance to boundary face.
@@ -248,8 +255,7 @@ contains
   subroutine findHostElement(self, coords)
     class(unstructuredMesh), intent(in)          :: self
     type(coord), intent(inout)                   :: coords
-    integer(shortInt), dimension(:), allocatable :: potentialElementsIdxs
-    integer(shortInt)                            :: i, nPotentialElements, potentialElementIdx
+    integer(shortInt)                            :: i
     real(defReal), dimension(3)                  :: r
     type(inclusionTestResult)                    :: testResult
     
@@ -262,7 +268,10 @@ contains
     else
       ! Perform brute-force search.
       searchLoop: do
-        do i = 1, self % nElements
+        do i = 1, self % elements % getObjectsNumber()
+          ! Cycle to the next element if the current element is not active.
+          if (.not. self % elements % getElementIsActive(i)) cycle
+          
           testResult = self % elements % isPointInside(i, coords % getPositionToNudge())
           if (testResult % status == INSIDE_ELEMENT) then
             call coords % setElementIdx(i)
@@ -383,7 +392,8 @@ contains
     class(unstructuredMesh), intent(inout) :: self
     character(*), intent(in)               :: folderPath
     class(dictionary), intent(in)          :: dict
-    character(nameLen)                     :: acceleration, triangulation
+    character(nameLen)                     :: acceleration
+    integer(shortInt)                      :: i
 
     ! Set up base components.
     call self % setupBase(dict)
@@ -391,19 +401,36 @@ contains
     ! Import mesh from files.
     call self % importMesh(folderPath)
 
-    ! Check if triangulation was requested by user and triangulate if applicable.
-    call dict % getOrDefault(triangulation, 'triangulationMethod', 'none')
-    if (triangulation /= 'none') then
-      if (triangulation == 'centroidBased') allocate(centroidTriangulationMethod :: self % triangulation)
-      call self % triangulation % triangulate(self % edges, self % elements, self % faces, self % vertices)
+    ! Initialise triangulation method from dictionary then triangulate mesh.
 
-      ! Shrink shelves to their correct size after triangulation.
-      call self % edges % shrink()
-      call self % elements % shrink()
-      call self % faces % shrink()
-      call self % vertices % shrink()
+    call newTriangulationPtr(dict, self % triangulation)
+    call self % triangulation % triangulate(self % edges, self % elements, self % faces, self % vertices)
 
-    end if
+    ! Shrink shelves to their correct size after triangulation.
+    call self % edges % shrink()
+    call self % elements % shrink()
+    call self % faces % shrink()
+    call self % vertices % shrink()
+
+    ! Update number of edges, elements, faces, internal faces, and vertices.
+    self % nEdges = self % edges % getObjectsNumber()
+    self % nVertices = self % vertices % getObjectsNumber()
+    self % nElements = 0
+    do i = 1, self % elements % getObjectsNumber()
+      if (self % elements % getElementIsActive(i)) self % nElements = self % nElements + 1
+
+    end do
+
+    self % nFaces = 0
+    self % nInternalFaces = 0
+    do i = 1, self % faces % getObjectsNumber()
+      if (self % faces % getFaceIsActive(i)) then
+        self % nFaces = self % nFaces + 1
+        if (.not. self % faces % getFaceIsBoundary(i)) self % nInternalFaces = self % nInternalFaces + 1
+
+      end if
+
+    end do
 
     ! Check if acceleration structure was requested by user and initialise it if applicable.
     call dict % getOrDefault(acceleration, 'accelerationMethod', 'none')
@@ -645,6 +672,8 @@ contains
 
     end if
 
+    deallocate(self % triangulation)
+
   end subroutine kill
 
   !! Subroutine 'printComposition'
@@ -693,5 +722,60 @@ contains
     print *, '  Number of other polyhedra: '//numToChar(nOthers)//'.'
 
   end subroutine printComposition
+
+  !!
+  !!
+  !!
+  elemental subroutine setEdgesNumber(self, nEdges)
+    class(unstructuredMesh), intent(inout) :: self
+    integer(shortInt), intent(in)          :: nEdges
+
+    self % nEdges = nEdges
+
+  end subroutine setEdgesNumber
+
+  !!
+  !!
+  !!
+  elemental subroutine setElementsNumber(self, nElements)
+    class(unstructuredMesh), intent(inout) :: self
+    integer(shortInt), intent(in)          :: nElements
+
+    self % nElements = nElements
+
+  end subroutine setElementsNumber
+
+  !!
+  !!
+  !!
+  elemental subroutine setFacesNumber(self, nFaces)
+    class(unstructuredMesh), intent(inout) :: self
+    integer(shortInt), intent(in)          :: nFaces
+
+    self % nFaces = nFaces
+
+  end subroutine setFacesNumber
+
+  !!
+  !!
+  !!
+  elemental subroutine setInternalFacesNumber(self, nInternalFaces)
+    class(unstructuredMesh), intent(inout) :: self
+    integer(shortInt), intent(in)          :: nInternalFaces
+
+    self % nInternalFaces = nInternalFaces
+
+  end subroutine setInternalFacesNumber
+
+  !!
+  !!
+  !!
+  elemental subroutine setVerticesNumber(self, nVertices)
+    class(unstructuredMesh), intent(inout) :: self
+    integer(shortInt), intent(in)          :: nVertices
+
+    self % nVertices = nVertices
+
+  end subroutine setVerticesNumber
 
 end module unstructuredMesh_inter

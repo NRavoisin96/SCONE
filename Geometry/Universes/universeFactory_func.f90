@@ -58,7 +58,7 @@ contains
     integer(shortInt), dimension(:), allocatable, intent(out) :: fills
     class(universe), pointer, intent(out)                     :: ptr
     character(nameLen)                                        :: type
-    character(100), parameter                                 :: Here = 'new_universe_ptr (universeFactory_func.f90)'
+    character(*), parameter                                   :: Here = 'new_universe_ptr (universeFactory_func.f90)'
 
     ! Obtain type of the universe
     call dict % get(type, 'type')

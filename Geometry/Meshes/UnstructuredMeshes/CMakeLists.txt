@@ -11,5 +11,4 @@ add_sources(
 add_integration_tests(
                       ./Tests/OpenFOAMMesh_iTest.f90
                       ./Tests/OpenFOAMMesh_tetrahedral_iTest.f90
-                      ./Tests/OpenFOAMMesh_triangulated_iTest.f90
                      )

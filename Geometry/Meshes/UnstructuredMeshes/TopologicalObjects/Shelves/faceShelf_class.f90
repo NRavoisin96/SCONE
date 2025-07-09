@@ -50,6 +50,7 @@ module faceShelf_class
     procedure, private :: getFaceElementIdxs_shortIntArray
     procedure          :: getFaceHasElements
     procedure          :: getFaceIdxOrDefault
+    procedure          :: getFaceIsActive
     procedure          :: getFaceIsBoundary
     procedure          :: getFaceNormal
     procedure          :: getFaceType
@@ -544,6 +545,20 @@ contains
     idx = self % idxMap % getOrDefault(self % generateKey(vertices), default)
 
   end function getFaceIdxOrDefault
+
+  !!
+  !!
+  !!
+  function getFaceIsActive(self, idx) result(isActive)
+    class(faceShelf), intent(in)  :: self
+    integer(shortInt), intent(in) :: idx
+    logical(defBool)              :: isActive
+    type(faceBox)                 :: box
+
+    box = self % getFaceBox(idx)
+    isActive = box % ptr % getIsActive()
+
+  end function getFaceIsActive
 
   !! Function 'getFaceIsBoundary'
   !!

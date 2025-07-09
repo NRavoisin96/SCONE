@@ -1429,14 +1429,14 @@ contains
   !!
   !! Read ACE card from file in provided filePath that begins at provided lineNum
   !!
-  subroutine readFromFile(self,filePath,lineNum)
-    class(aceCard), intent(inout)  :: self
-    character(*), intent(in)       :: filePath
-    integer(shortInt), intent(in)  :: lineNum
-    integer(shortInt)              :: aceFile = 8
-    integer(shortInt)              :: i, xssLen
-    character(13)                  :: skip
-    character(100), parameter :: Here ='readFromFile (aceCard_class.f90)'
+  subroutine readFromFile(self, filePath, lineNum)
+    class(aceCard), intent(inout) :: self
+    character(*), intent(in)      :: filePath
+    integer(shortInt), intent(in) :: lineNum
+    integer(shortInt)             :: i, xssLen
+    integer(shortInt), parameter  :: aceFile = 8
+    character(13)                 :: skip
+    character(*), parameter       :: Here = 'readFromFile (aceCard_class.f90)'
 
     ! Open file to read data
     ! If a path has whitespace at LHS, file will fail to open. We need to trim the whitespace.

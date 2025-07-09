@@ -1,4 +1,4 @@
-module OpenFOAMMesh_triangulated_iTest
+module centroidTriangulationMethod_iTest
 
   use coord_class,        only : coord
   use dictionary_class,   only : dictionary
@@ -7,12 +7,13 @@ module OpenFOAMMesh_triangulated_iTest
   use numPrecision
   use OpenFOAMMesh_class, only : OpenFOAMMesh
   use universalVariables
+  use vertex_class,       only : vertexBox
   
   implicit none
   
   ! Parameters.
   character(*), parameter :: MESH_DEF = &
-  " id 2; type OpenFOAMMesh; path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/testMesh/;"
+  " id 2; type OpenFOAMMesh; path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/testMesh/; triangulationMethod centroidBased;"
   ! Variables.
   type(OpenFOAMMesh) :: mesh
   type(coord)        :: coords
@@ -90,14 +91,14 @@ contains
     call coords % setPosition(r)
     call coords % setDirection(u)
     call mesh % findHostElement(coords)
-    @assertEqual(36, coords % getElementIdx())
+    @assertEqual(40, coords % getElementIdx())
 
     r = [0.02_defReal, 0.97_defReal, -0.5_defReal]
     u = [ZERO, ONE, ZERO]
       call coords % setPosition(r)
     call coords % setDirection(u)
     call mesh % findHostElement(coords)
-    @assertEqual(35, coords % getElementIdx())
+    @assertEqual(39, coords % getElementIdx())
 
     ! Few points outside.
     r = [1.2_defReal, 0.8_defReal, 0.0_defReal]
@@ -124,7 +125,7 @@ contains
     u = [ONE, ZERO, ZERO]
     call coords % setDirection(u)
     call mesh % findHostElement(coords)
-    @assertEqual(15, coords % getElementIdx())
+    @assertEqual(19, coords % getElementIdx())
 
     ! Points away from the mesh.
     call coords % setPosition(r)
@@ -140,56 +141,56 @@ contains
     call coords % setPosition(r)
     call coords % setDirection(u)
     call mesh % findHostElement(coords)
-    @assertEqual(26, coords % getElementIdx())
+    @assertEqual(30, coords % getElementIdx())
 
     u = [ONE, 2.0_defReal, ZERO]
     u = u / norm2(u)
     call coords % setPosition(r)
     call coords % setDirection(u)
     call mesh % findHostElement(coords)
-    @assertEqual(36, coords % getElementIdx())
+    @assertEqual(40, coords % getElementIdx())
 
     u = [-2.0_defReal, ONE, -ONE]
     u = u / norm2(u)
     call coords % setPosition(r)
     call coords % setDirection(u)
     call mesh % findHostElement(coords)
-    @assertEqual(24, coords % getElementIdx())
+    @assertEqual(28, coords % getElementIdx())
 
     u = [-ONE, 2.0_defReal, ZERO]
     u = u / norm2(u)
     call coords % setPosition(r)
     call coords % setDirection(u)
     call mesh % findHostElement(coords)
-    @assertEqual(14, coords % getElementIdx())
+    @assertEqual(18, coords % getElementIdx())
     
     u = [2.0_defReal, -ONE, -ONE]
     u = u / norm2(u)
     call coords % setPosition(r)
     call coords % setDirection(u)
     call mesh % findHostElement(coords)
-    @assertEqual(48, coords % getElementIdx())
+    @assertEqual(52, coords % getElementIdx())
 
     u = [ONE, -2.0_defReal, ZERO]
     u = u / norm2(u)
     call coords % setPosition(r)
     call coords % setDirection(u)
     call mesh % findHostElement(coords)
-    @assertEqual(45, coords % getElementIdx())
+    @assertEqual(49, coords % getElementIdx())
     
     u = [-2.0_defReal, -ONE, ONE]
     u = u / norm2(u)
     call coords % setPosition(r)
     call coords % setDirection(u)
     call mesh % findHostElement(coords)
-    @assertEqual(2, coords % getElementIdx())
+    @assertEqual(6, coords % getElementIdx())
 
     u = [-ONE, -2.0_defReal, -ONE]
     u = u / norm2(u)
     call coords % setPosition(r)
     call coords % setDirection(u)
     call mesh % findHostElement(coords)
-    @assertEqual(3, coords % getElementIdx())
+    @assertEqual(7, coords % getElementIdx())
 
     ! A point on an internal vertex. Different directions.
     r = [0.5_defReal, -0.5_defReal, ZERO]
@@ -198,84 +199,84 @@ contains
     call coords % setPosition(r)
     call coords % setDirection(u)
     call mesh % findHostElement(coords)
-    @assertEqual(37, coords % getElementIdx())
+    @assertEqual(41, coords % getElementIdx())
 
     u = [ONE, 2.0_defReal, -ONE]
     u = u / norm2(u)
     call coords % setPosition(r)
     call coords % setDirection(u)
     call mesh % findHostElement(coords)
-    @assertEqual(47, coords % getElementIdx())
+    @assertEqual(51, coords % getElementIdx())
 
     u = [-2.0_defReal, ONE, ZERO]
     u = u / norm2(u)
     call coords % setPosition(r)
     call coords % setDirection(u)
     call mesh % findHostElement(coords)
-    @assertEqual(45, coords % getElementIdx())
+    @assertEqual(49, coords % getElementIdx())
 
     u = [-ONE, 2.0_defReal, ZERO]
     u = u / norm2(u)
     call coords % setPosition(r)
     call coords % setDirection(u)
     call mesh % findHostElement(coords)
-    @assertEqual(48, coords % getElementIdx())
+    @assertEqual(52, coords % getElementIdx())
 
     u = [-2.0_defReal, -ONE, -ONE]
     u = u / norm2(u)
     call coords % setPosition(r)
     call coords % setDirection(u)
     call mesh % findHostElement(coords)
-    @assertEqual(46, coords % getElementIdx())
+    @assertEqual(50, coords % getElementIdx())
 
     u = [-ONE, -2.0_defReal, -ONE]
     u = u / norm2(u)
     call coords % setPosition(r)
     call coords % setDirection(u)
     call mesh % findHostElement(coords)
-    @assertEqual(40, coords % getElementIdx())
+    @assertEqual(44, coords % getElementIdx())
 
     u = [2.0_defReal, -ONE, ONE]
     u = u / norm2(u)
     call coords % setPosition(r)
     call coords % setDirection(u)
     call mesh % findHostElement(coords)
-    @assertEqual(38, coords % getElementIdx())
+    @assertEqual(42, coords % getElementIdx())
 
     u = [ONE, -2.0_defReal, ONE]
     u = u / norm2(u)
     call coords % setPosition(r)
     call coords % setDirection(u)
     call mesh % findHostElement(coords)
-    @assertEqual(39, coords % getElementIdx())
+    @assertEqual(43, coords % getElementIdx())
 
     u = [-ONE, ONE, -3.0_defReal]
     u = u / norm2(u)
     call coords % setPosition(r)
     call coords % setDirection(u)
     call mesh % findHostElement(coords)
-    @assertEqual(41, coords % getElementIdx())
+    @assertEqual(45, coords % getElementIdx())
 
     u = [ONE, -ONE, -3.0_defReal]
     u = u / norm2(u)
     call coords % setPosition(r)
     call coords % setDirection(u)
     call mesh % findHostElement(coords)
-    @assertEqual(42, coords % getElementIdx())
+    @assertEqual(46, coords % getElementIdx())
 
     u = [-ONE, ONE, 3.0_defReal]
     u = u / norm2(u)
     call coords % setPosition(r)
     call coords % setDirection(u)
     call mesh % findHostElement(coords)
-    @assertEqual(44, coords % getElementIdx())
+    @assertEqual(48, coords % getElementIdx())
 
     u = [ONE, -ONE, 3.0_defReal]
     u = u / norm2(u)
     call coords % setPosition(r)
     call coords % setDirection(u)
     call mesh % findHostElement(coords)
-    @assertEqual(43, coords % getElementIdx())
+    @assertEqual(47, coords % getElementIdx())
 
     ! A point on a boundary edge. Different directions.
     r = [ONE, ZERO, 0.5_defReal]
@@ -286,28 +287,28 @@ contains
     call coords % setPosition(r)
     call coords % setDirection(u)
     call mesh % findHostElement(coords)
-    @assertEqual(25, coords % getElementIdx())
+    @assertEqual(29, coords % getElementIdx())
 
     u = [-ONE, 2.0_defReal, ONE]
     u = u / norm2(u)
     call coords % setPosition(r)
     call coords % setDirection(u)
     call mesh % findHostElement(coords)
-    @assertEqual(28, coords % getElementIdx())
+    @assertEqual(32, coords % getElementIdx())
 
     u = [-2.0_defReal, -ONE, -ONE]
     u = u / norm2(u)
     call coords % setPosition(r)
     call coords % setDirection(u)
     call mesh % findHostElement(coords)
-    @assertEqual(47, coords % getElementIdx())
+    @assertEqual(51, coords % getElementIdx())
 
     u = [-ONE, -2.0_defReal, -ONE]
     u = u / norm2(u)
     call coords % setPosition(r)
     call coords % setDirection(u)
     call mesh % findHostElement(coords)
-    @assertEqual(37, coords % getElementIdx())
+    @assertEqual(41, coords % getElementIdx())
 
     ! Points away from the mesh.
     u = [2.0_defReal, ONE, ONE]
@@ -347,126 +348,126 @@ contains
     call coords % setPosition(r)
     call coords % setDirection(u)
     call mesh % findHostElement(coords)
-    @assertEqual(1, coords % getElementIdx())
+    @assertEqual(5, coords % getElementIdx())
 
     u = [-2.0_defReal, -ONE, -5.0_defReal]
     u = u / norm2(u)
     call coords % setPosition(r)
     call coords % setDirection(u)
     call mesh % findHostElement(coords)
-    @assertEqual(2, coords % getElementIdx())
+    @assertEqual(6, coords % getElementIdx())
 
     u = [-ONE, -2.0_defReal, -5.0_defReal]
     u = u / norm2(u)
     call coords % setPosition(r)
     call coords % setDirection(u)
     call mesh % findHostElement(coords)
-    @assertEqual(3, coords % getElementIdx())
+    @assertEqual(7, coords % getElementIdx())
 
     u = [-ONE, -3.0_defReal, -3.0_defReal]
     u = u / norm2(u)
     call coords % setPosition(r)
     call coords % setDirection(u)
     call mesh % findHostElement(coords)
-    @assertEqual(4, coords % getElementIdx())
+    @assertEqual(8, coords % getElementIdx())
 
     u = [-ONE, -2.0_defReal, -ONE]
     u = u / norm2(u)
     call coords % setPosition(r)
     call coords % setDirection(u)
     call mesh % findHostElement(coords)
-    @assertEqual(11, coords % getElementIdx())
+    @assertEqual(15, coords % getElementIdx())
 
     u = [-2.0_defReal, -ONE, -ONE]
     u = u / norm2(u)
     call coords % setPosition(r)
     call coords % setDirection(u)
     call mesh % findHostElement(coords)
-    @assertEqual(12, coords % getElementIdx())
+    @assertEqual(16, coords % getElementIdx())
 
     u = [-ONE, 3.0_defReal, -3.0_defReal]
     u = u / norm2(u)
     call coords % setPosition(r)
     call coords % setDirection(u)
     call mesh % findHostElement(coords)
-    @assertEqual(14, coords % getElementIdx())
+    @assertEqual(18, coords % getElementIdx())
 
     u = [-ONE, 2.0_defReal, -ONE]
     u = u / norm2(u)
     call coords % setPosition(r)
     call coords % setDirection(u)
     call mesh % findHostElement(coords)
-    @assertEqual(21, coords % getElementIdx())
+    @assertEqual(25, coords % getElementIdx())
 
     u = [-3.0_defReal, ONE, -3.0_defReal]
     u = u / norm2(u)
     call coords % setPosition(r)
     call coords % setDirection(u)
     call mesh % findHostElement(coords)
-    @assertEqual(23, coords % getElementIdx())
+    @assertEqual(27, coords % getElementIdx())
 
     u = [-2.0_defReal, ONE, -5.0_defReal]
     u = u / norm2(u)
     call coords % setPosition(r)
     call coords % setDirection(u)
     call mesh % findHostElement(coords)
-    @assertEqual(24, coords % getElementIdx())
+    @assertEqual(28, coords % getElementIdx())
 
     u = [2.0_defReal, ONE, -5.0_defReal]
     u = u / norm2(u)
     call coords % setPosition(r)
     call coords % setDirection(u)
     call mesh % findHostElement(coords)
-    @assertEqual(26, coords % getElementIdx())
+    @assertEqual(30, coords % getElementIdx())
 
     u = [2.0_defReal, ONE, -ONE]
     u = u / norm2(u)
     call coords % setPosition(r)
     call coords % setDirection(u)
     call mesh % findHostElement(coords)
-    @assertEqual(33, coords % getElementIdx())
+    @assertEqual(37, coords % getElementIdx())
 
     u = [ONE, 2.0_defReal, -ONE]
     u = u / norm2(u)
     call coords % setPosition(r)
     call coords % setDirection(u)
     call mesh % findHostElement(coords)
-    @assertEqual(34, coords % getElementIdx())
+    @assertEqual(38, coords % getElementIdx())
 
     u = [ONE, 2.0_defReal, -5.0_defReal]
     u = u / norm2(u)
     call coords % setPosition(r)
     call coords % setDirection(u)
     call mesh % findHostElement(coords)
-    @assertEqual(36, coords % getElementIdx())
+    @assertEqual(40, coords % getElementIdx())
 
     u = [ONE, -2.0_defReal, -ONE]
     u = u / norm2(u)
     call coords % setPosition(r)
     call coords % setDirection(u)
     call mesh % findHostElement(coords)
-    @assertEqual(44, coords % getElementIdx())
+    @assertEqual(48, coords % getElementIdx())
 
     u = [ONE, -2.0_defReal, -5.0_defReal]
     u = u / norm2(u)
     call coords % setPosition(r)
     call coords % setDirection(u)
     call mesh % findHostElement(coords)
-    @assertEqual(45, coords % getElementIdx())
+    @assertEqual(49, coords % getElementIdx())
 
     u = [ONE, -3.0_defReal, -3.0_defReal]
     u = u / norm2(u)
     call coords % setPosition(r)
     call coords % setDirection(u)
     call mesh % findHostElement(coords)
-    @assertEqual(46, coords % getElementIdx())
+    @assertEqual(50, coords % getElementIdx())
 
     u = [3.0_defReal, -ONE, -3.0_defReal]
     u = u / norm2(u)
     call coords % setPosition(r)
     call coords % setDirection(u)
     call mesh % findHostElement(coords)
-    @assertEqual(48, coords % getElementIdx())
+    @assertEqual(52, coords % getElementIdx())
 
     ! Points away from the mesh.
     u = [-3.0_defReal, -ONE, 3.0_defReal]
@@ -633,7 +634,7 @@ contains
     call coords % setEndPosition(rEnd)
     call mesh % findHostElement(coords)
     call mesh % distanceToBoundary(distance, coords)
-    @assertEqual(5, coords % getElementIdx())
+    @assertEqual(9, coords % getElementIdx())
     @assertEqual(0.13_defReal, distance, 0.13_defReal * TOL)
     
     r = [0.65_defReal, 0.1_defReal, 1.25_defReal]
@@ -644,7 +645,7 @@ contains
     call coords % setEndPosition(rEnd)
     call mesh % findHostElement(coords)
     call mesh % distanceToBoundary(distance, coords)
-    @assertEqual(33, coords % getElementIdx())
+    @assertEqual(37, coords % getElementIdx())
     @assertEqual(0.25_defReal, distance, 0.25_defReal * TOL)
 
     ! Few more difficult points entering.
@@ -659,7 +660,7 @@ contains
     call coords % setEndPosition(rEnd)
     call mesh % findHostElement(coords)
     call mesh % distanceToBoundary(distance, coords)
-    @assertEqual(9, coords % getElementIdx())
+    @assertEqual(13, coords % getElementIdx())
     @assertEqual(sqrt(77.0_defReal) / 20.0_defReal, distance, sqrt(77.0_defReal) / 20.0_defReal * TOL)    
 
     r = [-0.6_defReal, -0.2_defReal, -1.25_defReal]
@@ -671,7 +672,7 @@ contains
     call coords % setEndPosition(rEnd)
     call mesh % findHostElement(coords)
     call mesh % distanceToBoundary(distance, coords)
-    @assertEqual(20, coords % getElementIdx())
+    @assertEqual(24, coords % getElementIdx())
     @assertEqual(sqrt(77.0_defReal) / 20.0_defReal, distance, sqrt(77.0_defReal) / 20.0_defReal * TOL)
 
     r = [1.1_defReal, -0.1_defReal, 1.1_defReal]
@@ -683,7 +684,7 @@ contains
     call coords % setEndPosition(rEnd)
     call mesh % findHostElement(coords)
     call mesh % distanceToBoundary(distance, coords)
-    @assertEqual(33, coords % getElementIdx())
+    @assertEqual(37, coords % getElementIdx())
     @assertEqual(sqrt(33.0_defReal) / 20.0_defReal, distance, sqrt(33.0_defReal) / 20.0_defReal * TOL)
 
     r = [1.1_defReal, 0.1_defReal, 1.1_defReal]
@@ -695,7 +696,7 @@ contains
     call coords % setEndPosition(rEnd)
     call mesh % findHostElement(coords)
     call mesh % distanceToBoundary(distance, coords)
-    @assertEqual(44, coords % getElementIdx())
+    @assertEqual(48, coords % getElementIdx())
     @assertEqual(sqrt(33.0_defReal) / 20.0_defReal, distance, sqrt(33.0_defReal) / 20.0_defReal * TOL)
 
     ! Entering through boundary vertices.
@@ -708,7 +709,7 @@ contains
     call coords % setEndPosition(rEnd)
     call mesh % findHostElement(coords)
     call mesh % distanceToBoundary(distance, coords)
-    @assertEqual(9, coords % getElementIdx())
+    @assertEqual(13, coords % getElementIdx())
     @assertEqual(sqrt(41.0_defReal) / 20.0_defReal, distance, sqrt(41.0_defReal) * TOL / 20.0_defReal)
 
     r = [0.35_defReal, -0.35_defReal, -1.35_defReal]
@@ -720,7 +721,7 @@ contains
     call coords % setEndPosition(rEnd)
     call mesh % findHostElement(coords)
     call mesh % distanceToBoundary(distance, coords)
-    @assertEqual(20, coords % getElementIdx())
+    @assertEqual(24, coords % getElementIdx())
     @assertEqual(7.0_defReal * sqrt(3.0_defReal) / 20.0_defReal, distance, 7.0_defReal * sqrt(3.0_defReal) * TOL / 20.0_defReal)
 
     r = [-0.1_defReal, -0.25_defReal, 1.13_defReal]
@@ -732,7 +733,7 @@ contains
     call coords % setEndPosition(rEnd)
     call mesh % findHostElement(coords)
     call mesh % distanceToBoundary(distance, coords)
-    @assertEqual(34, coords % getElementIdx())
+    @assertEqual(38, coords % getElementIdx())
     @assertEqual(sqrt(894.0_defReal) / 100.0_defReal, distance, sqrt(894.0_defReal) * TOL / 100.0_defReal)
 
     r = [-0.33_defReal, 0.56_defReal, 1.27_defReal]
@@ -744,7 +745,7 @@ contains
     call coords % setEndPosition(rEnd)
     call mesh % findHostElement(coords)
     call mesh % distanceToBoundary(distance, coords)
-    @assertEqual(44, coords % getElementIdx())
+    @assertEqual(48, coords % getElementIdx())
     @assertEqual(sqrt(4954.0_defReal) / 100.0_defReal, distance, sqrt(4954.0_defReal) * TOL / 100.0_defReal)
     
     ! Few points outside the mesh and not entering.
@@ -931,4 +932,4 @@ contains
   
   end subroutine test_distance
 
-end module OpenFOAMMesh_triangulated_iTest
+end module centroidTriangulationMethod_iTest

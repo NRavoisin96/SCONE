@@ -575,6 +575,7 @@ contains
     end if
 
     ! Initialise edgeShelf and faceShelf.
+    call self % setEdgesNumber(lastEdgeIdx)
     call self % initEdgeShelf(edgeInfos)
     call self % initFaceShelf(faceInfos)
 
@@ -613,8 +614,12 @@ contains
     logical(defBool)                   :: hasCellZones
     character(*), parameter            :: Here = 'importMesh (OpenFOAMMesh_class.f90)'
     
-    ! Retrieve preliminary information about the mesh.
+    ! Retrieve preliminary information about the mesh and set global properties.
     call self % getMeshInfo(folderPath, nVertices, nFaces, nInternalFaces, nElements, hasCellZones)
+    call self % setVerticesNumber(nVertices)
+    call self % setFacesNumber(nFaces)
+    call self % setInternalFacesNumber(nInternalFaces)
+    call self % setElementsNumber(nElements)
     
     ! Import vertices.
     call self % importVertices(folderPath, nVertices)
