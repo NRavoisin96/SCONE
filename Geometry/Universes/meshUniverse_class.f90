@@ -247,7 +247,7 @@ contains
     class(surface), pointer                      :: surfPtr
     integer(shortInt), dimension(:), allocatable :: surfIdxs
     type(axisAlignedBoundingBox)                 :: boundingBox
-    real(defReal), dimension(6)                  :: bounds
+    real(defReal), dimension(3, 2)               :: bounds
     character(*), parameter                      :: Here = 'checkForCropping (meshUniverse_class.f90)'
     
     ! Get local pointer to cell. We need this to select the cell type.
@@ -270,12 +270,12 @@ contains
     boundingBox = self % mesh % ptr % getBoundingBox()
     if (surfPtr % cropsBoundingBox(boundingBox % getBounds())) then
       bounds = boundingBox % getBounds()
-      print *, 'Minimum x-coordinate: '//numToChar(bounds(1))//'.'
-      print *, 'Minimum y-coordinate: '//numToChar(bounds(2))//'.'
-      print *, 'Minimum z-coordinate: '//numToChar(bounds(3))//'.'
-      print *, 'Maximum x-coordinate: '//numToChar(bounds(4))//'.'
-      print *, 'Maximum y-coordinate: '//numToChar(bounds(5))//'.'
-      print *, 'Maximum z-coordinate: '//numToChar(bounds(6))//'.'
+      print *, 'Minimum x-coordinate: '//numToChar(bounds(1, 1))//'.'
+      print *, 'Minimum y-coordinate: '//numToChar(bounds(2, 1))//'.'
+      print *, 'Minimum z-coordinate: '//numToChar(bounds(3, 1))//'.'
+      print *, 'Maximum x-coordinate: '//numToChar(bounds(1, 2))//'.'
+      print *, 'Maximum y-coordinate: '//numToChar(bounds(2, 2))//'.'
+      print *, 'Maximum z-coordinate: '//numToChar(bounds(3, 2))//'.'
       call fatalError(Here, 'Surface with id: '//numToChar(surfPtr % getId())//&
                       ' crops the bounding box of the mesh geometry with id: '//numToChar(self % mesh % ptr % getId())//'.')
 

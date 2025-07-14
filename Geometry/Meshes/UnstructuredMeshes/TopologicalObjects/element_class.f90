@@ -7,7 +7,7 @@ module element_class
   use genericProcedures,            only : append, areEqual, crossProduct, findCommon, fatalError, numToChar
   use numPrecision
   use publicObjects,                only : basicElementInfo
-  use topologicalObject_inter,      only : topologicalObject, kill_super => kill
+  use topologicalObject_inter,      only : topologicalObject, topologicalObjectBox, kill_super => kill
   use universalVariables,           only : FOURTH, INSIDE_ELEMENT, INF, ON_BOUNDARY_ELEMENT, OUTSIDE_ELEMENT, &
                                            SIXTH, SURF_TOL, ZERO
   use vertex_class,                 only : vertexBox
@@ -56,9 +56,9 @@ module element_class
     integer(shortInt), dimension(:), allocatable       :: tetrahedronIdxs
     real(defReal)                                      :: volume = ZERO
     real(defReal), dimension(3)                        :: centroid = ZERO
-    type(axisAlignedBoundingBox)                       :: boundingBox
     logical(defBool)                                   :: isActive = .true., isConvex = .false.
     character(:), allocatable                          :: type
+    type(axisAlignedBoundingBox)                       :: boundingBox
   contains
     ! Build procedures.
     procedure :: addEdge
@@ -72,9 +72,11 @@ module element_class
     procedure :: computeIntersectedFace
     procedure :: computePotentialFaces
     procedure :: deactivate
-    procedure :: getBoundingBox
+    procedure :: distanceSquared
+    procedure :: getBoundingBoxBounds
     procedure :: getCentroid
     procedure :: getEdges
+    procedure :: getElements
     procedure :: getIsActive
     procedure :: getIsConvex
     procedure :: getLocalId
@@ -83,9 +85,10 @@ module element_class
     procedure :: getType
     procedure :: getVertices
     procedure :: getVolume
+    procedure :: intersects_BoundingBox
+    procedure :: isPointInside
     procedure :: kill
     procedure :: pushFromBoundary
-    procedure :: isPointInside
   end type element
 
   !!
@@ -385,7 +388,7 @@ contains
     
     ! Retrieve element's centroid then loop over all faces in the tetrahedron.
     allocate(potentialFaceIdxs(0))
-    centroid = self % centroid
+    centroid = self % getCentroid()
     do i = 1, size(self % orientatedFaces)
       ! Retrieve the signed normal vector of the current face.
       outwardNormal = self % orientatedFaces(i) % outwardNormal
@@ -411,34 +414,41 @@ contains
 
   end subroutine deactivate
 
-  !! Function 'getBoundingBox'
   !!
-  !! Basic description:
-  !!   Returns the bounding box of the element.
   !!
-  !! Result:
-  !!   boundingBox -> 6-D array representing the bounding box of the element.
   !!
-  pure function getBoundingBox(self) result(boundingBox)
-    class(element), intent(in)   :: self
-    type(axisAlignedBoundingBox) :: boundingBox
+  function distanceSquared(self, r) result(dSquared)
+    class(element), intent(in)              :: self
+    real(defReal), dimension(3), intent(in) :: r
+    real(defReal)                           :: dSquared
+    integer(shortInt)                       :: i
 
-    boundingBox = self % boundingBox
+    dSquared = INF
+    do i = 1, size(self % orientatedFaces)
+      dSquared = min(dSquared, self % orientatedFaces(i) % face % ptr % distanceSquared(r))
 
-  end function getBoundingBox
-  
-  !! Function 'getCentroid'
+    end do
+
+  end function distanceSquared
+
   !!
-  !! Basic description:
-  !!   Returns the centroid of the element.
   !!
-  !! Result:
-  !!   centroid -> A vector pointing to the centroid of the element.
+  !!
+  pure function getBoundingBoxBounds(self) result(bounds)
+    class(element), intent(in)     :: self
+    real(defReal), dimension(3, 2) :: bounds
+
+    bounds = self % boundingBox % getBounds()
+
+  end function getBoundingBoxBounds
+
+  !!
+  !!
   !!
   pure function getCentroid(self) result(centroid)
     class(element), intent(in)  :: self
     real(defReal), dimension(3) :: centroid
-    
+
     centroid = self % centroid
 
   end function getCentroid
@@ -458,6 +468,18 @@ contains
     edges = self % edges
 
   end function getEdges
+
+  !!
+  !!
+  !!
+  function getElements(self) result(elements)
+    class(element), target, intent(in)                    :: self
+    type(topologicalObjectBox), dimension(:), allocatable :: elements
+
+    allocate(elements(1))
+    elements(1) % ptr => self
+
+  end function getElements
 
   !!
   !!
@@ -610,7 +632,32 @@ contains
 
   end subroutine init
 
-!! Subroutine 'testForInclusion'
+  !!
+  !!
+  !!
+  elemental function intersects_BoundingBox(self, boundingBox) result(doesIt)
+    class(element), intent(in)               :: self
+    type(axisAlignedBoundingBox), intent(in) :: boundingBox
+    logical(defBool)                         :: doesIt
+    integer(shortInt)                        :: i
+
+    ! Initialise doesIt = .false.
+    doesIt = .false.
+    if (.not. self % boundingBox % intersects(boundingBox)) return
+
+    ! Loop over all faces in the element and check for intersection with any of them.
+    do i = 1, size(self % orientatedFaces)
+      if (self % orientatedFaces(i) % face % ptr % intersects(boundingBox)) then
+        doesIt = .true.
+        return
+
+      end if
+
+    end do
+
+  end function intersects_BoundingBox
+
+  !! Subroutine 'testForInclusion'
   !!
   !! Basic description:
   !!   Tests whether a set of 3-D coordinates is inside the element.
@@ -701,7 +748,6 @@ contains
     self % isConvex = .false.
     if (allocated(self % tetrahedronIdxs)) deallocate(self % tetrahedronIdxs)
     if (allocated(self % type)) deallocate(self % type)
-    call self % boundingBox % kill()
 
     if (allocated(self % edges)) then
       do i = 1, size(self % edges)

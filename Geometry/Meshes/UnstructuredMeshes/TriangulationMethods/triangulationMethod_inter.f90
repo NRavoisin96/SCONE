@@ -75,7 +75,6 @@ contains
       ! Compute centroid of the current tetrahedron.
       faceInfo % testCentroid = ZERO
       do j = 1, 4
-        call tetrahedraInfos(i) % vertices(j) % ptr % addElementIdx(tetrahedraInfos(i) % idx)
         faceInfo % testCentroid = faceInfo % testCentroid + tetrahedraInfos(i) % vertices(j) % ptr % getCoordinates()
 
       end do
@@ -165,9 +164,6 @@ contains
         if (.not. tetrahedraInfos(i) % orientatedFaces(j) % isOwner) outwardNormal = -outwardNormal
         tetrahedraInfos(i) % orientatedFaces(j) % outwardNormal = outwardNormal
 
-        ! Update connectivity.
-        call tetrahedraInfos(i) % orientatedFaces(j) % face % ptr % addElementIdx(tetrahedraInfos(i) % idx)
-
       end do
 
       ! Now build edges.
@@ -201,9 +197,6 @@ contains
         end select
         if (edgeIdx == NOT_PRESENT) call fatalError(here, 'Unable to find edge during tetrahedron initialisation.')
         tetrahedraInfos(i) % edges(j) = edges % getEdgeBox(edgeIdx)
-
-        ! Update connectivity.
-        call tetrahedraInfos(i) % edges(j) % ptr % addElementIdx(tetrahedraInfos(i) % idx)
 
       end do
 

@@ -23,7 +23,18 @@ module topologicalObjectShelf_inter
     generic            :: getObjectBox => getObjectBox_shortInt, getObjectBox_shortIntArray
     procedure, private :: getObjectBox_shortInt
     procedure, private :: getObjectBox_shortIntArray
+    generic            :: getObjectBoundingBoxBounds => getObjectBoundingBoxBounds_shortInt, &
+                                                        getObjectBoundingBoxBounds_shortIntArray
+    procedure, private :: getObjectBoundingBoxBounds_shortInt
+    procedure, private :: getObjectBoundingBoxBounds_shortIntArray
+    generic            :: getObjectCentroid => getObjectCentroid_shortInt, getObjectCentroid_shortIntArray
+    procedure, private :: getObjectCentroid_shortInt
+    procedure, private :: getObjectCentroid_shortIntArray
+    generic            :: getObjectElements => getObjectElements_shortInt, getObjectElements_shortIntArray
+    procedure, private :: getObjectElements_shortInt
+    procedure, private :: getObjectElements_shortIntArray
     procedure          :: getObjectsNumber
+    procedure          :: getShelf
     procedure          :: getSize
     procedure          :: kill
     procedure          :: shrink
@@ -101,6 +112,141 @@ contains
     end do
 
   end function getObjectBox_shortIntArray
+
+  !!
+  !!
+  !!
+  function getObjectBoundingBoxBounds_shortInt(self, idx) result(bounds)
+    class(topologicalObjectShelf), intent(in) :: self
+    integer(shortInt), intent(in)             :: idx
+    real(defReal), dimension(3, 2)            :: bounds
+
+    bounds = self % shelf(idx) % ptr % getBoundingBoxBounds()
+
+  end function getObjectBoundingBoxBounds_shortInt
+
+  !!
+  !!
+  !!
+  function getObjectBoundingBoxBounds_shortIntArray(self, idxs) result(bounds)
+    class(topologicalObjectShelf), intent(in)   :: self
+    integer(shortInt), dimension(:), intent(in) :: idxs
+    real(defReal), dimension(3, 2 * size(idxs)) :: bounds
+    integer(shortInt)                           :: i
+
+    do i = 1, size(idxs)
+      bounds(:, 2 * (i - 1) + 1:2 * i) = self % shelf(idxs(i)) % ptr % getBoundingBoxBounds()
+
+    end do
+
+  end function getObjectBoundingBoxBounds_shortIntArray
+
+  !!
+  !!
+  !!
+  function getObjectCentroid_shortInt(self, idx) result(centroid)
+    class(topologicalObjectShelf), intent(in) :: self
+    integer(shortInt), intent(in)             :: idx
+    real(defReal), dimension(3)               :: centroid
+
+    centroid = self % shelf(idx) % ptr % getCentroid()
+
+  end function getObjectCentroid_shortInt
+
+  !!
+  !!
+  !!
+  function getObjectCentroid_shortIntArray(self, idxs) result(centroids)
+    class(topologicalObjectShelf), intent(in)   :: self
+    integer(shortInt), dimension(:), intent(in) :: idxs
+    real(defReal), dimension(3, size(idxs))     :: centroids
+    integer(shortInt)                           :: i
+
+    do i = 1, size(idxs)
+      centroids(:, i) = self % shelf(idxs(i)) % ptr % getCentroid()
+
+    end do
+
+  end function getObjectCentroid_shortIntArray
+
+  !!
+  !!
+  !!
+  function getShelf(self) result(shelf)
+    class(topologicalObjectShelf), intent(in)             :: self
+    type(topologicalObjectBox), dimension(:), allocatable :: shelf
+
+    if (allocated(self % shelf)) then
+      shelf = self % shelf
+
+    else
+      allocate(shelf(0))
+
+    end if
+
+  end function getShelf
+
+  !!
+  !!
+  !!
+  function getObjectElements_shortInt(self, idx) result(elements)
+    class(topologicalObjectShelf), intent(in)             :: self
+    integer(shortInt), intent(in)                         :: idx
+    type(topologicalObjectBox), dimension(:), allocatable :: elements
+
+    elements = self % shelf(idx) % ptr % getElements()
+
+  end function getObjectElements_shortInt
+
+  !!
+  !!
+  !!
+  function getObjectElements_shortIntArray(self, idxs) result(elements)
+    class(topologicalObjectShelf), intent(in)             :: self
+    integer(shortInt), dimension(:), intent(in)           :: idxs
+    type(topologicalObjectBox), dimension(:), allocatable :: elements, objectElements, tempElements
+    type(topologicalObjectBox), dimension(size(idxs))     :: boxes
+    integer(shortInt)                                     :: i, j, k, nElements
+    logical(defBool)                                      :: alreadyFound
+
+    boxes = self % getObjectBox(idxs)
+    do i = 1, size(idxs)
+      objectElements = boxes(i) % ptr % getElements()
+      do j = 1, size(objectElements)
+        alreadyFound = .false.
+        if (allocated(elements)) then
+          do k = 1, size(elements)
+            if (associated(objectElements(j) % ptr, elements(k) % ptr)) then
+              alreadyFound = .true.
+              exit
+
+            end if
+
+          end do
+
+        end if
+
+        if (.not. alreadyFound) then
+          if (allocated(elements)) then
+            nElements = size(elements)
+            allocate(tempElements(nElements + 1))
+            tempElements(1:nElements) = elements
+            tempElements(nElements + 1) = objectElements(j)
+            call move_alloc(tempElements, elements)
+
+          else
+            allocate(elements(1))
+            elements(1) = objectElements(j)
+
+          end if
+
+        end if
+
+      end do
+
+    end do
+
+  end function getObjectElements_shortIntArray
 
   !!
   !!

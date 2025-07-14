@@ -32,7 +32,6 @@ module elementShelf_class
     procedure                                   :: addVertexToElement
     procedure                                   :: computeFaceIntersection
     procedure                                   :: computePotentialFaceIdxs
-    procedure                                   :: getElementBoundingBox
     generic                                     :: getElementBox => getElementBox_shortInt, getElementBox_shortIntArray
     procedure, private                          :: getElementBox_shortInt
     procedure, private                          :: getElementBox_shortIntArray
@@ -52,6 +51,7 @@ module elementShelf_class
     procedure, private                          :: setElementLocalId_shortInt
     procedure, private                          :: setElementLocalId_shortIntArray
     procedure                                   :: isPointInside
+    procedure                                   :: updateConnectivity
   end type elementShelf
 
 contains
@@ -92,6 +92,7 @@ contains
 
     call newElementBox(info, box)
     call self % addObject(box % ptr)
+    call self % updateConnectivity(box)
 
   end subroutine addElement_info
 
@@ -107,6 +108,7 @@ contains
     do i = 1, size(infos)
       call newElementBox(infos(i), box)
       call self % addObject(box % ptr)
+      call self % updateConnectivity(box)
 
     end do
 
@@ -204,28 +206,6 @@ contains
     potentialFaceIdxs = box % ptr % computePotentialFaces(rEnd)
 
   end function computePotentialFaceIdxs
-
-  !! Function 'getElementBoundingBox'
-  !!
-  !! Basic description:
-  !!   Returns the bounding box of an element in the shelf.
-  !!
-  !! Arguments:
-  !!   idx [in]    -> Index of the element in the shelf.
-  !!
-  !! Result:
-  !!   boundingBox -> Array containing the bounding box of the element.
-  !!
-  function getElementBoundingBox(self, idx) result(boundingBox)
-    class(elementShelf), intent(in) :: self
-    integer(shortInt), intent(in)   :: idx
-    type(axisAlignedBoundingBox)    :: boundingBox
-    type(elementBox)                :: box
-
-    box = self % getElementBox(idx)
-    boundingBox = box % ptr % getBoundingBox()
-
-  end function getElementBoundingBox
 
   !!
   !!
@@ -494,6 +474,7 @@ contains
     do i = 1, nElements
       call newElementBox(infos(i), box)
       call self % addObject(box % ptr)
+      call self % updateConnectivity(box)
 
     end do
 
@@ -567,5 +548,39 @@ contains
     result = box % ptr % isPointInside(r)
 
   end function isPointInside
+
+  !!
+  !!
+  !!
+  subroutine updateConnectivity(self, element)
+    class(elementShelf), intent(in)                    :: self
+    type(elementBox), intent(in)                       :: element
+    type(topologicalObjectBox)                         :: box
+    type(edgeBox), dimension(:), allocatable           :: elementEdges
+    type(orientatedFaceBox), dimension(:), allocatable :: elementOrientatedFaces
+    type(vertexBox), dimension(:), allocatable         :: elementVertices
+    integer(shortInt)                                  :: i
+
+    ! Update connectivity for vertices, edges, and faces.
+    box % ptr => element % ptr
+    elementVertices = element % ptr % getVertices()
+    do i = 1, size(elementVertices)
+      call elementVertices(i) % ptr % addElement(box)
+
+    end do
+
+    elementEdges = element % ptr % getEdges()
+    do i = 1, size(elementEdges)
+      call elementEdges(i) % ptr % addElement(box)
+
+    end do
+
+    elementOrientatedFaces = element % ptr % getOrientatedFaces()
+    do i = 1, size(elementOrientatedFaces)
+      call elementOrientatedFaces(i) % face % ptr % addElement(box)
+
+    end do
+
+  end subroutine updateConnectivity
   
 end module elementShelf_class

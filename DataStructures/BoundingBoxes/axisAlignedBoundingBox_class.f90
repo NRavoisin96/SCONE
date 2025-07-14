@@ -13,8 +13,8 @@ module axisAlignedBoundingBox_class
   !!
   type, public :: axisAlignedBoundingBox
     private
-    real(defReal), dimension(6) :: bounds = ZERO
-    real(defReal), dimension(3) :: centre = ZERO, halfwidths = ZERO
+    real(defReal), dimension(3, 2) :: bounds = ZERO
+    real(defReal), dimension(3)    :: centre = ZERO, halfwidths = ZERO
   contains
     ! Build procedure.
     procedure          :: init
@@ -52,28 +52,28 @@ contains
   !!   nVertices [in]   -> Number of vertices in the node.
   !!   boundingBox [in] -> Bounding boxes of each coordinate in the node.
   !!
-  pure subroutine computeBoundsFromBoundingBoxes(self, primitives)
+  pure subroutine computeBoundsFromBoundingBoxes(self, boundingBoxes)
     class(axisAlignedBoundingBox), intent(inout)           :: self
-    type(axisAlignedBoundingBox), dimension(:), intent(in) :: primitives
-    integer(shortInt)                                      :: i, nPrimitives
+    type(axisAlignedBoundingBox), dimension(:), intent(in) :: boundingBoxes
+    integer(shortInt)                                      :: i, nBoundingBoxes
     real(defReal), dimension(3)                            :: minCoords, maxCoords
-    real(defReal), dimension(6)                            :: bounds
+    real(defReal), dimension(3, 2)                         :: bounds
 
     ! Check against zero-sized arrays.
-    nPrimitives = size(primitives)
-    if (nPrimitives == 0) return
+    nBoundingBoxes = size(boundingBoxes)
+    if (nBoundingBoxes == 0) return
 
-    bounds = primitives(1) % getBounds()
-    minCoords = bounds(1:3)
-    maxCoords = bounds(4:6)
+    bounds = boundingBoxes(1) % getBounds()
+    minCoords = bounds(:, 1)
+    maxCoords = bounds(:, 2)
 
-    do i = 2, nPrimitives
-      bounds = primitives(i) % getBounds()
-      minCoords = min(minCoords, bounds(1:3))
-      maxCoords = max(maxCoords, bounds(4:6))
+    do i = 2, nBoundingBoxes
+      bounds = boundingBoxes(i) % getBounds()
+      minCoords = min(minCoords, bounds(:, 1))
+      maxCoords = max(maxCoords, bounds(:, 2))
 
     end do
-    call self % init([minCoords, maxCoords])
+    call self % init(reshape([minCoords, maxCoords], shape=[3, 2]))
 
   end subroutine computeBoundsFromBoundingBoxes
 
@@ -98,7 +98,7 @@ contains
     type(axisAlignedBoundingBox), intent(in)  :: boundingBox
     logical(defBool)                          :: doesIt
 
-    doesIt = all(self % bounds(1:3) <= boundingBox % bounds(1:3)) .and. all(boundingBox % bounds(4:6) <= self % bounds(4:6))
+    doesIt = all(self % bounds(:, 1) <= boundingBox % bounds(:, 1)) .and. all(boundingBox % bounds(:, 2) <= self % bounds(:, 2))
 
   end function containsBoundingBox
 
@@ -110,7 +110,7 @@ contains
     real(defReal), dimension(3), intent(in)   :: r
     logical(defBool)                          :: doesIt
 
-    doesIt = all(self % bounds(1:3) <= r(1:3)) .and. all(r(1:3) <= self % bounds(4:6))
+    doesIt = all(self % bounds(:, 1) <= r) .and. all(r <= self % bounds(:, 2))
 
   end function containsCoords
 
@@ -127,11 +127,11 @@ contains
     ! Initialise diff = ZERO then loop over all dimensions.
     diff = ZERO
     do i = 1, 3
-      if (r(i) < self % bounds(i)) then
-        diff(i) = self % bounds(i) - r(i)
+      if (r(i) < self % bounds(i, 1)) then
+        diff(i) = self % bounds(i, 1) - r(i)
 
-      elseif (r(i) > self % bounds(i + 3)) then
-        diff(i) = r(i) - self % bounds(i + 3)
+      elseif (r(i) > self % bounds(i, 2)) then
+        diff(i) = r(i) - self % bounds(i, 2)
 
       end if
 
@@ -145,7 +145,7 @@ contains
   !!
   pure function getBounds(self) result(bounds)
     class(axisAlignedBoundingBox), intent(in) :: self
-    real(defReal), dimension(6)               :: bounds
+    real(defReal), dimension(3, 2)            :: bounds
 
     bounds = self % bounds
 
@@ -178,11 +178,11 @@ contains
   !!
   pure subroutine init(self, bounds)
     class(axisAlignedBoundingBox), intent(inout) :: self
-    real(defReal), dimension(6), intent(in)      :: bounds
+    real(defReal), dimension(3, 2), intent(in)   :: bounds
 
     self % bounds = bounds
-    self % centre = HALF * (bounds(1:3) + bounds(4:6))
-    self % halfwidths = HALF * (bounds(4:6) - bounds(1:3))
+    self % centre = HALF * (bounds(:, 1) + bounds(:, 2))
+    self % halfwidths = HALF * (bounds(:, 2) - bounds(:, 1))
 
   end subroutine init
 
@@ -194,7 +194,7 @@ contains
     type(axisAlignedBoundingBox), intent(in)  :: boundingBox
     logical(defBool)                          :: doesIt
 
-    doesIt = all(self % bounds(1:3) <= boundingBox % bounds(4:6)) .and. all(boundingBox % bounds(1:3) <= self % bounds(4:6))
+    doesIt = all(self % bounds(:, 1) <= boundingBox % bounds(:, 2)) .and. all(boundingBox % bounds(:, 1) <= self % bounds(:, 2))
 
   end function intersectsBoundingBox
 
@@ -238,7 +238,7 @@ contains
     ! Initialise hasEscaped = .false. and check if coordinates are on the boundary.
     inside = .true.
     r = coords % getPositionToNudge()
-    isOnBoundary = anyAreEqual(self % bounds(1:3), r) .or. anyAreEqual(self % bounds(4:6), r)
+    isOnBoundary = anyAreEqual(self % bounds(:, 1), r) .or. anyAreEqual(self % bounds(:, 2), r)
 
     ! If the coordinates are not on the boundary simply return.
     if (.not. isOnBoundary) return
@@ -248,10 +248,10 @@ contains
     do while (isOnBoundary)
       nudgeDirection = ZERO
       do i = 1, 3
-        if (areEqual(self % bounds(i), r(i))) then
+        if (areEqual(self % bounds(i, 1), r(i))) then
           if (areEqual(u(i), ZERO)) nudgeDirection(i) = ONE
 
-        elseif (areEqual(self % bounds(i + 3), r(i))) then
+        elseif (areEqual(self % bounds(i, 2), r(i))) then
           if (areEqual(u(i), ZERO)) nudgeDirection(i) = -ONE
 
         end if
@@ -267,7 +267,7 @@ contains
       end if
 
       r = coords % getPositionToNudge()
-      isOnBoundary = anyAreEqual(self % bounds(1:3), r) .or. anyAreEqual(self % bounds(4:6), r)
+      isOnBoundary = anyAreEqual(self % bounds(:, 1), r) .or. anyAreEqual(self % bounds(:, 2), r)
 
     end do
 

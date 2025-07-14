@@ -18,16 +18,16 @@ module edgeShelf_class
     private
     type(longIntMap)   :: idxMap
   contains
-    generic            :: addElementIdxToEdge => addElementIdxToEdge_shortInt, addElementIdxToEdge_shortIntArray
-    procedure, private :: addElementIdxToEdge_shortInt
-    procedure, private :: addElementIdxToEdge_shortIntArray
+    generic            :: addElementToEdge => addElementToEdge_shortInt, addElementToEdge_shortIntArray
+    procedure, private :: addElementToEdge_shortInt
+    procedure, private :: addElementToEdge_shortIntArray
     generic            :: addFaceIdxToEdge => addFaceIdxToEdge_shortInt, addFaceIdxToEdge_shortIntArray
     procedure, private :: addFaceIdxToEdge_shortInt
     procedure, private :: addFaceIdxToEdge_shortIntArray
     generic            :: getEdgeBox => getEdgeBox_shortInt, getEdgeBox_shortIntArray
     procedure, private :: getEdgeBox_shortInt
     procedure, private :: getEdgeBox_shortIntArray
-    procedure          :: getEdgeElementIdxs
+    procedure          :: getEdgeElements
     procedure          :: getEdgeFaceIdxs
     procedure          :: getEdgeIdxOrDefault
     procedure, private :: generateKey
@@ -47,33 +47,34 @@ contains
   !!   idx [in]        -> Index of the edge in the shelf.
   !!   elementIdx [in] -> Index of the element containing the edge.
   !!
-  subroutine addElementIdxToEdge_shortInt(self, idx, elementIdx)
-    class(edgeShelf), intent(inout) :: self
-    integer(shortInt), intent(in)   :: idx, elementIdx
-    type(edgeBox)                   :: boxes
+  subroutine addElementToEdge_shortInt(self, idx, element)
+    class(edgeShelf), intent(inout)        :: self
+    integer(shortInt), intent(in)          :: idx
+    type(topologicalObjectBox), intent(in) :: element
+    type(edgeBox)                          :: boxes
 
     boxes = self % getEdgeBox(idx)
-    call boxes % ptr % addElementIdx(elementIdx)
+    call boxes % ptr % addElement(element)
 
-  end subroutine addElementIdxToEdge_shortInt
+  end subroutine addElementToEdge_shortInt
 
   !!
   !!
   !!
-  subroutine addElementIdxToEdge_shortIntArray(self, idxs, elementIdx)
+  subroutine addElementToEdge_shortIntArray(self, idxs, element)
     class(edgeShelf), intent(inout)             :: self
     integer(shortInt), dimension(:), intent(in) :: idxs
-    integer(shortInt), intent(in)               :: elementIdx
+    type(topologicalObjectBox), intent(in)      :: element
     type(edgeBox), dimension(size(idxs))        :: boxes
     integer(shortInt)                           :: i
 
     boxes = self % getEdgeBox(idxs)
     do i = 1, size(idxs)
-      call boxes(i) % ptr % addElementIdx(elementIdx)
+      call boxes(i) % ptr % addElement(element)
 
     end do
 
-  end subroutine addElementIdxToEdge_shortIntArray
+  end subroutine addElementToEdge_shortIntArray
 
   !! Subroutine 'addFaceIdxToEdge'
   !!
@@ -179,16 +180,16 @@ contains
   !! Result:
   !!   elementIdxs -> Indices of the elements sharing the edge.
   !!
-  function getEdgeElementIdxs(self, idx) result(elementIdxs)
-    class(edgeShelf), intent(in)                 :: self
-    integer(shortInt), intent(in)                :: idx
-    integer(shortInt), dimension(:), allocatable :: elementIdxs
-    type(edgeBox)                                :: box
+  function getEdgeElements(self, idx) result(elements)
+    class(edgeShelf), intent(in)                          :: self
+    integer(shortInt), intent(in)                         :: idx
+    type(topologicalObjectBox), dimension(:), allocatable :: elements
+    type(edgeBox)                                         :: box
 
     box = self % getEdgeBox(idx)
-    elementIdxs = box % ptr % getElementIdxs()
+    elements = box % ptr % getElements()
 
-  end function getEdgeElementIdxs
+  end function getEdgeElements
 
   !! Function 'getEdgeFaceIdxs'
   !!

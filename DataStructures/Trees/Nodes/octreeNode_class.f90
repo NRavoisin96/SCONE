@@ -2,69 +2,109 @@ module octreeNode_class
 
   use axisAlignedBoundingBox_class, only : axisAlignedBoundingBox
   use coord_class,                  only : coord
-  use element_class,                only : inclusionTestResult
+  use element_class,                only : element, elementBox, inclusionTestResult
   use elementShelf_class,           only : elementShelf
   use face_class,                   only : face
   use faceShelf_class,              only : faceShelf
-  use genericProcedures,            only : append, areEqual, fatalError
-  use objectKDTree_class,           only : objectKDTree
+  use genericProcedures,            only : append, areEqual, fatalError, numToChar
+  use kdTree_class,                 only : kdTree
+  use node_inter,                   only : buildNodePayload, kill_super => kill, node, nodeBox
   use numPrecision
-  use node_inter,                   only : node, kill_super => kill
+  use topologicalObject_inter,      only : topologicalObjectBox
+  use topologicalObjectShelf_inter, only : topologicalObjectShelf
   use universalVariables,           only : HALF, INF, INSIDE_ELEMENT, NUDGE, ON_BOUNDARY_ELEMENT, OUTSIDE_ELEMENT
   use vertexShelf_class,            only : vertexShelf
 
   implicit none
   private
 
+  !!
+  !!
+  !!
+  type, public, extends(buildNodePayload)  :: buildOctreeNodePayload
+    real(defReal), dimension(3, 2)         :: bounds
+    type(kdTree), pointer                  :: tree => null()
+  end type buildOctreeNodePayload
+
+  !!
+  !!
+  !!
   type, public, extends(node) :: octreeNode
     private
-    integer(shortInt)                            :: level = 0, nIntersectingFaces = 0
-    integer(shortInt), dimension(:), allocatable :: elementIdxs
-    logical(defBool)                             :: isUnchecked = .true., isInside = .false., isOutside = .false., &
-                                                    isIntersecting = .false.
-    type(octreeNode), dimension(:), allocatable  :: children
-    type(octreeNode), pointer                    :: parent => null()
+    logical(defBool)          :: isUnchecked = .true., isInside = .false., isOutside = .false., isIntersecting = .false.
   contains
     ! Build procedures.
-    procedure :: assignElement
-    procedure :: init
+    procedure :: allocateChild
+    procedure :: assignElements
+    procedure :: build
+    procedure :: getChildrenNumber
     procedure :: kill
-    procedure :: refine
-    procedure :: split
+    procedure :: preparePayloadForChild
     ! Runtime procedures.
     procedure :: countInside
     procedure :: countOutside
-    procedure :: findLeaf
-    procedure :: getElementIdxs
+    procedure :: findNearestObject
+    procedure :: getDescentChildIdx
     procedure :: getIsInside
     procedure :: getIsIntersecting
     procedure :: getIsOutside
+    procedure :: getIsUnchecked
   end type octreeNode
 
 contains
   !!
   !!
   !!
-  recursive subroutine assignElement(self, tree, vertices, faces, elements)
-    class(octreeNode), intent(inout)             :: self
-    type(objectKDTree), intent(in)               :: tree
-    type(vertexShelf), intent(in)                :: vertices
-    type(faceShelf), intent(in)                  :: faces
-    type(elementShelf), intent(in)               :: elements
-    integer(shortInt)                            :: elementIdx, i, nearestFaceIdx
-    integer(shortInt), dimension(:), allocatable :: elementIdxs
-    real(defReal), dimension(3)                  :: boundingBoxCentre
-    type(inclusionTestResult)                    :: insideResult
+  subroutine allocateChild(self, ptr)
+    class(octreeNode), intent(in)     :: self
+    class(node), pointer, intent(out) :: ptr
+
+    allocate(octreeNode :: ptr)
+
+  end subroutine allocateChild
+
+  !!
+  !!
+  !!
+  recursive subroutine assignElements(self, payload)
+    class(octreeNode), intent(inout)                      :: self
+    class(buildNodePayload), intent(in)                   :: payload
+    type(nodeBox), dimension(8)                           :: children
+    integer(shortInt)                                     :: i, nearestFaceIdx, nElements
+    type(buildOctreeNodePayload), pointer                 :: payloadPtr
+    type(topologicalObjectBox), dimension(:), allocatable :: elements
+    real(defReal), dimension(3)                           :: boundingBoxCentre
+    type(inclusionTestResult)                             :: insideResult
+    character(*), parameter                               :: here = 'assignElements (octreeNode_class.f90)'
 
     ! If the cell is not a leaf, descend deeper into the tree.
     if (.not. self % getIsLeaf()) then
+      children = self % getChildren()
       do i = 1, 8
-        call self % children(i) % assignElement(tree, vertices, faces, elements)
+        if (.not. associated(children(i) % ptr)) call fatalError(here, 'Unassociated pointer for child: '//numToChar(i)//'.')
+        select type(ptr => children(i) % ptr)
+          type is(octreeNode)
+            call ptr % assignElements(payload)
+
+          class default
+            call fatalError(here, 'Invalid node type for child: '//numToChar(i)//'.')
+
+        end select
 
       end do
       return
 
     end if
+
+    ! Downcast payload to correct type.
+    select type(ptr => payload)
+      type is(buildOctreeNodePayload)
+        payloadPtr => ptr
+
+      class default
+        call fatalError(here, 'Invalid payload type.')
+
+    end select
 
     ! If the cell has already been checked simply return.
     if (.not. self % isUnchecked) return
@@ -72,43 +112,167 @@ contains
     ! If the cell is unchecked, find the nearest mesh face from the tree.
     self % isUnchecked = .false.
     boundingBoxCentre = self % getBoundingBoxCentre()
-    nearestFaceIdx = tree % findNearestObject(boundingBoxCentre, vertices, faces)
-    
+    nearestFaceIdx = payloadPtr % tree % findNearestObject(boundingBoxCentre)
+
     ! Retrieve the elements associated with the nearest face.
-    elementIdxs = faces % getFaceElementIdxs(nearestFaceIdx)
-    do i = 1, size(elementIdxs)
-      ! Check for inclusion in the current element.
-      elementIdx = elementIdxs(i)
-      insideResult = elements % isPointInside(elementIdx, boundingBoxCentre)
+    elements = payloadPtr % shelf % getObjectElements(nearestFaceIdx)
+    nElements = size(elements)
+    if (nElements == 0) call fatalError(here, 'Unable to retrieve elements associated with face: '//numToChar(nearestFaceIdx)//'.')
+    
+    do i = 1, nElements
+      ! Downcast current element to correct type.
+      select type(ptr => elements(i) % ptr)
+        type is(element)
+          ! Check for inclusion in the current element.
+          insideResult = ptr % isPointInside(boundingBoxCentre)
 
-      ! If the current element contains the bounding box, assign it to the cell
-      ! and return.
-      if (insideResult % status == INSIDE_ELEMENT) then
-        allocate(self % elementIdxs(1))
-        self % elementIdxs(1) = elementIdx
-        self % isInside = .true.
-        return
+          ! If the current element contains the bounding box, assign it to the cell
+          ! and return.
+          if (insideResult % status == INSIDE_ELEMENT) then
+            call self % addContainingObject(elements(i))
+            self % isInside = .true.
+            return
 
-      end if
+          end if
+
+        class default
+          call fatalError(here, 'Element :'//numToChar(ptr % getIdx())//' associated with face: '&
+                          //numToChar(nearestFaceIdx)//' is not an element.')
+
+
+      end select
 
     end do
 
     ! If reached here, the cell is not in any element, so set it as being outside.
     self % isOutside = .true.
 
-  end subroutine assignElement
+  end subroutine assignElements
 
   !!
   !!
   !!
-  pure recursive subroutine countInside(self, nInside)
+  subroutine build(self, payload, stop)
+    class(octreeNode), intent(inout)                      :: self
+    class(buildNodePayload), intent(inout)                :: payload
+    logical(defBool), intent(out)                         :: stop
+    type(buildOctreeNodePayload), pointer                 :: payloadPtr
+    integer(shortInt)                                     :: i, nFaces, nIntersectedFaces
+    integer(shortInt), dimension(:), allocatable          :: faceIdxs
+    type(topologicalObjectBox), dimension(:), allocatable :: elements
+    character(*), parameter                               :: here = 'build (octreeNode_class.f90)'
+
+    ! Initialise stop = .false.
+    stop = .false.
+    
+    ! Downgrade payload type.
+    select type(ptr => payload)
+      type is (buildOctreeNodePayload)
+        payloadPtr => ptr
+
+      class default
+        call fatalError(here, 'Invalid payload type.')
+
+    end select
+
+    ! Check that accelerator tree is correctly associated.
+    if (.not. associated(payloadPtr % tree)) call fatalError(here, 'Unassociated tree pointer.')
+    
+    ! Set the node's bounding box.
+    call self % initBoundingBox(payloadPtr % bounds)
+
+    ! Use simplified logic for the root node.
+    if (self % getDepth() == 1) then
+      self % isUnchecked = .false.
+      self % isIntersecting = .true.
+      ! Retrieve the number of faces in the tree.
+      nFaces = payloadPtr % tree % getObjectsNumber()
+
+      ! If nFaces <= maxFacesNumber (very simple unstructured mesh geometries), there is no need
+      ! to refine the cell and we can simply return.
+      if (nFaces <= self % getBucketSize()) then
+        allocate(faceIdxs(nFaces))
+        do i = 1, nFaces
+          faceIdxs(i) = i
+
+        end do
+        elements = payloadPtr % shelf % getObjectElements(faceIdxs)
+        do i = 1, size(elements)
+          ! Downcast element to correct type.
+          select type(ptr => elements(i) % ptr)
+            type is(element)
+              ! Do nothing.
+
+            class default
+              call fatalError(here, 'Element: '//numToChar(ptr % getIdx())//' is not an element.')
+
+          end select
+
+        end do
+        call self % addContainedObject(payloadPtr % shelf % getShelf())
+        call self % addContainingObject(elements)
+        stop = .true.
+
+      end if
+      return
+
+    end if
+
+    ! Check the number of intersections between the current cell and the faces in the mesh by traversing the
+    ! k-d tree starting from the root node.
+    faceIdxs = payloadPtr % tree % findIntersectedObjects(self % getBoundingBoxPtr())
+    nIntersectedFaces = size(faceIdxs)
+    if (nIntersectedFaces == 0) then
+      stop = .true.
+
+    else
+      self % isUnchecked = .false.
+      self % isIntersecting = .true.
+      if (self % getDepth() == payloadPtr % maxDepth .or. nIntersectedFaces <= self % getBucketSize()) then
+        elements = payloadPtr % shelf % getObjectElements(faceIdxs)
+        do i = 1, size(elements)
+          select type(ptr => elements(i) % ptr)
+            type is(element)
+              ! Ok, do nothing.
+
+            class default
+              call fatalError(here, 'Element: '//numToChar(ptr % getIdx())//' is not an element.')
+
+          end select
+
+        end do
+        call self % addContainedObject(payloadPtr % shelf % getObjectBox(faceIdxs))
+        call self % addContainingObject(elements)
+        stop = .true.
+
+      end if
+
+    end if
+
+  end subroutine build
+
+  !!
+  !!
+  !!
+  recursive subroutine countInside(self, nInside)
     class(octreeNode), intent(in)    :: self
     integer(shortInt), intent(inout) :: nInside
+    type(nodeBox), dimension(8)      :: children
     integer(shortInt)                :: i
+    character(*), parameter          :: here = 'countInside (octreeNode_class.f90)'
 
     if (.not. self % getIsLeaf()) then
+      children = self % getChildren()
       do i = 1, 8
-        call self % children(i) % countInside(nInside)
+        if (.not. associated(children(i) % ptr)) call fatalError(here, 'Unassociated pointer for child: '//numToChar(i)//'.')
+        select type(ptr => children(i) % ptr)
+          type is(octreeNode)
+            call ptr % countInside(nInside)
+
+          class default
+            call fatalError(here, 'Invalid node type for child: '//numToChar(i)//'.')
+
+        end select
 
       end do
       return
@@ -122,14 +286,25 @@ contains
   !!
   !!
   !!
-  pure recursive subroutine countOutside(self, nOutside)
+  recursive subroutine countOutside(self, nOutside)
     class(octreeNode), intent(in)    :: self
     integer(shortInt), intent(inout) :: nOutside
+    type(nodeBox), dimension(8)      :: children
     integer(shortInt)                :: i
+    character(*), parameter          :: here = 'countOutside (octreeNode_class.f90)'
 
     if (.not. self % getIsLeaf()) then
+      children = self % getChildren()
       do i = 1, 8
-        call self % children(i) % countOutside(nOutside)
+        if (.not. associated(children(i) % ptr)) call fatalError(here, 'Unassociated pointer for child: '//numToChar(i)//'.')
+        select type(ptr => children(i) % ptr)
+          type is(octreeNode)
+            call ptr % countOutside(nOutside)
+
+          class default
+            call fatalError(here, 'Invalid node type for child: '//numToChar(i)//'.')
+
+        end select
 
       end do
       return
@@ -143,89 +318,46 @@ contains
   !!
   !!
   !!
-  recursive subroutine findLeaf(self, coords, leaf, requiresContainmentCheck)
-    class(octreeNode), intent(in), target  :: self
-    type(coord), intent(inout)             :: coords
-    type(octreeNode), intent(out), pointer :: leaf
-    logical(defBool), intent(in), optional :: requiresContainmentCheck
-    logical(defBool)                       :: checkContainment, inside
-    real(defReal), dimension(3)            :: boundingBoxCentre, r
-    integer(shortInt)                      :: i, idx
+  recursive subroutine findNearestObject(self, r, radiusSquared, idx)
+    class(octreeNode), intent(in)           :: self
+    real(defReal), dimension(3), intent(in) :: r
+    real(defReal), intent(inout)            :: radiusSquared
+    integer(shortInt), intent(inout)        :: idx
+    character(*), parameter                 :: here = 'findNearestObject (octreeNode_class.f90)'
 
-    ! Only perform containment check if it has been required.
-    checkContainment = .false.
-    if (present(requiresContainmentCheck)) checkContainment = requiresContainmentCheck
+    call fatalError(here, 'Octrees do not support nearest neighbour searches.')
 
-    ! Perform containment check if needed.
-    if (checkContainment) then
-      if (.not. self % boundingBoxContains(coords % getPositionToNudge())) then
-        if (associated(self % parent)) then
-          call self % parent % findLeaf(coords, leaf, .true.)
+  end subroutine findNearestObject
 
-        else
-          leaf => null()
+  !!
+  !!
+  !!
+  elemental function getChildrenNumber(self) result(nChildren)
+    class(octreeNode), intent(in) :: self
+    integer(shortInt)             :: nChildren
 
-        end if
-        return
+    nChildren = 8
 
-      end if
+  end function getChildrenNumber
 
-    end if
+  !!
+  !!
+  !!
+  function getDescentChildIdx(self, r) result(childIdx)
+    class(octreeNode), intent(in)           :: self
+    real(defReal), dimension(3), intent(in) :: r
+    integer(shortInt)                       :: childIdx
+    real(defReal), dimension(3)             :: boundingBoxCentre
+    integer(shortInt)                       :: i
 
-    ! Push coordinates from boundary of bounding box if applicable.
-    call self % pushFromBoundingBoxBoundary(coords, inside)
-
-    ! Check for overshoot.
-    if (.not. inside) then
-      if (associated(self % parent)) then
-        call self % parent % findLeaf(coords, leaf, .true.)
-
-        else
-            ! We are at the root and overshot. Particle is outside the domain.
-            leaf => null()
-
-        end if
-        return
-
-    end if
-
-    ! If cell is a leaf, simply associate the leaf pointer and return.
-    if (self % getIsLeaf()) then
-      leaf => self
-      return
-
-    end if
-
-    ! Retrieve coordinates position and descend into correct child node.
-    r = coords % getPositionToNudge()
     boundingBoxCentre = self % getBoundingBoxCentre()
-    idx = 1
-    if (r(1) >= boundingBoxCentre(1)) idx = idx + 4
-    if (r(2) >= boundingBoxCentre(2)) idx = idx + 2
-    if (r(3) >= boundingBoxCentre(3)) idx = idx + 1
+    childIdx = 1
+    do i = 1, 3
+      if (boundingBoxCentre(i) < r(i)) childIdx = childIdx + 2 ** (i - 1)
 
-    ! Check the correct child cell.
-    call self % children(idx) % findLeaf(coords, leaf)
+    end do
 
-  end subroutine findLeaf
-
-  !!
-  !!
-  !!
-  pure function getElementIdxs(self) result(elementIdxs)
-    class(octreeNode), intent(in)                :: self
-    integer(shortInt), dimension(:), allocatable :: elementIdxs
-
-    ! Check if the elementIdxs component is allocated and return empty array if not.
-    if (.not. allocated(self % elementIdxs)) then
-      allocate(elementIdxs(0))
-
-    else
-      elementIdxs = self % elementIdxs
-
-    end if
-
-  end function getElementIdxs
+  end function getDescentChildIdx
 
   !!
   !!
@@ -260,28 +392,16 @@ contains
 
   end function getIsOutside
 
-  !! Subroutine 'init'
   !!
-  !! Basic description:
-  !!   
-  subroutine init(self, boundingBoxBounds, tree, vertices, faces, level, maxFacesNumber, maxRefinementLevel, &
-                  nLeaves, parent)
-    class(octreeNode), intent(inout)               :: self
-    real(defReal), dimension(6), intent(in)        :: boundingBoxBounds
-    type(objectKDTree), intent(in)                 :: tree
-    type(vertexShelf), intent(in)                  :: vertices
-    type(faceShelf), intent(in)                    :: faces
-    integer(shortInt), intent(in)                  :: level, maxFacesNumber, maxRefinementLevel
-    integer(shortInt), intent(inout)               :: nLeaves
-    type(octreeNode), intent(in), target, optional :: parent
+  !!
+  !!
+  elemental function getIsUnchecked(self) result(isUnchecked)
+    class(octreeNode), intent(in) :: self
+    logical(defBool)              :: isUnchecked
 
-    ! Set the cell's bounding box and level, then begin the recursive refinement procedure.
-    call self % initBoundingBox(boundingBoxBounds)
-    self % level = level
-    if (present(parent)) self % parent => parent
-    call self % refine(tree, vertices, faces, maxFacesNumber, maxRefinementLevel, nLeaves)
+    isUnchecked = self % isUnchecked
 
-  end subroutine init
+  end function getIsUnchecked
 
   !! Subroutine 'kill'
   !!
@@ -290,189 +410,56 @@ contains
   !!
   pure recursive subroutine kill(self)
     class(octreeNode), intent(inout) :: self
-    integer(shortInt)                :: i
 
     ! Superclass.
     call kill_super(self)
 
     ! Local.
-    self % level = 0
-    self % nIntersectingFaces = 0
-    if (allocated(self % elementIdxs)) deallocate(self % elementIdxs)
     self % isUnchecked = .true.
     self % isInside = .false.
     self % isOutside = .false.
     self % isIntersecting = .false.
-    if (associated(self % parent)) nullify(self % parent)
-    if (allocated(self % children)) then
-      do i = 1, size(self % children)
-        call self % children(i) % kill()
-
-      end do
-      deallocate(self % children)
-
-    end if
 
   end subroutine kill
 
-  !! Subroutine 'refine'
   !!
-  !! Basic description:
-  !!   Recursively refines a Cartesian grid cell based on the number of mesh faces it intersects.
   !!
-  recursive subroutine refine(self, tree, vertices, faces, maxFacesNumber, maxRefinementLevel, nLeaves)
-    class(octreeNode), intent(inout)      :: self
-    type(objectKDTree), intent(in)               :: tree
-    type(vertexShelf), intent(in)                :: vertices
-    type(faceShelf), intent(in)                  :: faces
-    integer(shortInt), intent(in)                :: maxFacesNumber, maxRefinementLevel
-    integer(shortInt), intent(inout)             :: nLeaves
-    integer(shortInt)                            :: potentialFaceIdx, i, nFaces, nIntersectedFaces
-    integer(shortInt), dimension(:), allocatable :: potentialFaceIdxs, intersectedFaceIdxs
-    type(axisAlignedBoundingBox)                 :: boundingBox
-
-    ! Use simplified logic for the root Cartesian grid cell.
-    if (self % level == 1) then
-      self % isUnchecked = .false.
-      self % isIntersecting = .true.
-      ! Retrieve the number of faces in the tree.
-      nFaces = tree % getDataNumber()
-
-      ! If nFaces <= maxFacesNumber (very simple unstructured mesh geometries), there is no need
-      ! to refine the cell and we can simply return.
-      if (nFaces <= maxFacesNumber) then
-        call self % setIsLeaf()
-        nLeaves = nLeaves + 1
-        self % nIntersectingFaces = faces % getSize()
-        allocate(intersectedFaceIdxs(self % nIntersectingFaces))
-        do i = 1, self % nIntersectingFaces
-          intersectedFaceIdxs(i) = i
-
-        end do
-        self % elementIdxs = faces % getFaceElementIdxs(intersectedFaceIdxs)
-        return
-
-      end if
-
-      ! Else, split the cell and return.
-      call self % split(tree, vertices, faces, maxFacesNumber, maxRefinementLevel, nLeaves)
-      return
-
-    end if
-
-    ! Check the number of intersections between the current cell and the faces in the mesh by traversing the
-    ! k-d tree starting from the root node.
-    boundingBox = self % getBoundingBox()
-    call tree % findPotentiallyIntersectedObjects(boundingBox, potentialFaceIdxs)
-    nIntersectedFaces = 0
-    do i = 1, size(potentialFaceIdxs)
-      ! First check if bounding box intersects the current face's bounding box.
-      potentialFaceIdx = potentialFaceIdxs(i)
-      if (.not. faces % intersectsFaceBoundingBox(potentialFaceIdx, boundingbox)) cycle
-
-      ! If the bounding boxes intersect, perform a test based on the separating axis theorem to determine if the bounding box actually
-      ! intersects the face.
-      if (.not. faces % intersectsFace(potentialFaceIdx, boundingbox)) cycle
-      
-      ! For now, just increment nIntersectedPrimitives and append the index of the face to the list.
-      nIntersectedFaces = nIntersectedFaces + 1
-      call append(intersectedFaceIdxs, potentialFaceIdx)
-
-    end do
-
-    self % nIntersectingFaces = nIntersectedFaces
-    if (nIntersectedFaces == 0) then
-      call self % setIsLeaf()
-      nLeaves = nLeaves + 1
-
-    else
-      self % isUnchecked = .false.
-      self % isIntersecting = .true.
-      if (self % level == maxRefinementLevel .or. nIntersectedFaces <= maxFacesNumber) then
-        call self % setIsLeaf()
-        nLeaves = nLeaves + 1
-        self % elementIdxs = faces % getFaceElementIdxs(intersectedFaceIdxs)
-
-      else
-        call self % split(tree, vertices, faces, maxFacesNumber, maxRefinementLevel, nLeaves)
-
-      end if
-
-    end if
-
-  end subroutine refine
-
-  !! Subroutine 'split'
   !!
-  !! Basic description:
-  !!   Splits the current Cartesian grid cell into eight children. Computes the bounding box of each child
-  !!   from the current cell's bounding box, then initialises each child cell.
-  !!
-  subroutine split(self, tree, vertices, faces, maxFacesNumber, maxRefinementLevel, nLeaves)
-    class(octreeNode), intent(inout) :: self
-    type(objectKDTree), intent(in)          :: tree
-    type(vertexShelf), intent(in)           :: vertices
-    type(faceShelf), intent(in)             :: faces
-    integer(shortInt), intent(in)           :: maxFacesNumber, maxRefinementLevel
-    integer(shortInt), intent(inout)        :: nLeaves
-    integer(shortInt)                       :: i, j, k, childIdx
-    real(defReal), dimension(3)             :: boundingBoxCentre
-    real(defReal), dimension(6)             :: boundingBoxBounds, childBoundingBoxBounds
+  subroutine preparePayloadForChild(self, childNumber, payload)
+    class(octreeNode), target, intent(in)  :: self
+    integer(shortInt), intent(in)          :: childNumber
+    class(buildNodePayload), intent(inout) :: payload
+    type(buildOctreeNodePayload), pointer  :: payloadPtr
+    real(defReal), dimension(3, 2)         :: boundingBoxBounds
+    real(defReal), dimension(3)            :: boundingBoxCentre
+    integer(shortInt)                      :: i
+    character(*), parameter                :: here = 'preparePayloadForChild (octreeNode_class.f90)'
 
-    ! Allocate 8 children cells for the current cell.
-    allocate(self % children(8))
+    select type(ptr => payload)
+      type is(buildOctreeNodePayload)
+        payloadPtr => ptr
 
-    ! Compute the centre coordinates of the current cell's bounding box.
+      class default
+        call fatalError(here, 'Invalid parent payload type.')
+
+    end select
+
+    ! Calculate the child's bounding box bounds.
     boundingBoxBounds = self % getBoundingBoxBounds()
     boundingBoxCentre = self % getBoundingBoxCentre()
+    do i = 1, 3
+      if (btest(childNumber - 1, i - 1)) then
+        payloadPtr % bounds(i, 1) = boundingBoxCentre(i)
+        payloadPtr % bounds(i, 2) = boundingBoxBounds(i, 2)
 
-    ! Loop through all children cells and initialise them.
-    childIdx = 0
-    do i = 1, 2
-      do j = 1, 2
-        do k = 1, 2
-          ! Increment childIdx and compute the bounding box of the new cell.
-          childIdx = childIdx + 1
-          if (i == 1) then
-            childBoundingBoxBounds(1) = boundingBoxBounds(1)
-            childBoundingBoxBounds(4) = boundingBoxCentre(1)
+      else
+        payloadPtr % bounds(i, 1) = boundingBoxBounds(i, 1)
+        payloadPtr % bounds(i, 2) = boundingBoxCentre(i)
 
-          else
-            childBoundingBoxBounds(1) = boundingBoxCentre(1)
-            childBoundingBoxBounds(4) = boundingBoxBounds(4)
-
-          end if
-
-          if (j == 1) then
-            childBoundingBoxBounds(2) = boundingBoxBounds(2)
-            childBoundingBoxBounds(5) = boundingBoxCentre(2)
-
-          else
-            childBoundingBoxBounds(2) = boundingBoxCentre(2)
-            childBoundingBoxBounds(5) = boundingBoxBounds(5)
-
-          end if
-
-          if (k == 1) then
-            childBoundingBoxBounds(3) = boundingBoxBounds(3)
-            childBoundingBoxBounds(6) = boundingBoxCentre(3)
-
-          else
-            childBoundingBoxBounds(3) = boundingBoxCentre(3)
-            childBoundingBoxBounds(6) = boundingBoxBounds(6)
-
-          end if
-
-          ! Initialise the new cell with the computed bounding box.
-          call self % children(childIdx) % init(childBoundingBoxBounds, tree, vertices, faces, &
-                                                self % level + 1, maxFacesNumber, maxRefinementLevel, nLeaves, self)
-
-        end do
-
-      end do
+      end if
 
     end do
 
-  end subroutine split
+  end subroutine preparePayloadForChild
 
 end module octreeNode_class

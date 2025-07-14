@@ -1,12 +1,15 @@
-module vertexKDTree_test
-  use numPrecision
-  use vertexKDTree_class, only : vertexKDTree
+module kdTree_test
+  
   use funit
+  use kdTree_class,      only : kdTree
+  use kdTreeNode_class,  only : buildKDTreeNodePayload
+  use numPrecision
+  use vertexShelf_class, only : vertexShelf
   
   implicit none
   
   ! Variable.
-  type(vertexKDTree) :: tree
+  type(kdTree) :: tree
 contains
   !!
   !! Setup environment.
@@ -14,6 +17,10 @@ contains
 @Before
   subroutine setUp()
     real(defReal), dimension(3, 18) :: allCoordinates
+    type(vertexShelf), target       :: vertices
+    type(buildKDTreeNodePayload)    :: payload
+    integer(shortInt)               :: i
+    
     ! Populate grid of 3-D coordinates.
     allCoordinates(1, 1) = -1.0_defReal
     allCoordinates(2, 1) = -1.0_defReal
@@ -69,8 +76,16 @@ contains
     allCoordinates(1, 18) = 1.0_defReal
     allCoordinates(2, 18) = -1.0_defReal
     allCoordinates(3, 18) = 1.0_defReal
+    
     ! Build tree.
-    call tree % init(allCoordinates)
+    call vertices % init(allCoordinates)
+    payload % shelf => vertices
+    payload % lowerBound = 1
+    payload % upperBound = 18
+    payload % idxs = [(i, i = 1, 18)]
+    payload % bucketSize = 4
+    call tree % init(payload)
+
   end subroutine setUp
   !!
   !! Clean environment.
@@ -90,24 +105,24 @@ contains
     
     ! Point is very close to vertex 6 [0, -1, 1]
     r_test = [0.0_defReal, -1.1_defReal, 1.2_defReal]
-    idx = tree % findNearestVertex(r_test)
+    idx = tree % findNearestObject(r_test)
     @assertEqual(6, idx)
     
     ! Point is very close to vertex 18 [1, -1, 1]
     r_test = [1.05_defReal, -1.3_defReal, 1.1_defReal]
-    idx = tree % findNearestVertex(r_test)
+    idx = tree % findNearestObject(r_test)
     @assertEqual(18, idx)
 
     ! Point is very close to vertex 3 [-1, 0, -1]
     r_test = [-1.1_defReal, 0.1_defReal, -0.9_defReal]
-    idx = tree % findNearestVertex(r_test)
+    idx = tree % findNearestObject(r_test)
     @assertEqual(3, idx)
 
     ! Point is near the center, close to vertex 8 [0, 0, 1]
     r_test = [0.1_defReal, 0.1_defReal, 0.9_defReal]
-    idx = tree % findNearestVertex(r_test)
+    idx = tree % findNearestObject(r_test)
     @assertEqual(8, idx)
 
   end subroutine nearestNeighbour_test
 
-end module vertexKDTree_test
+end module kdTree_test

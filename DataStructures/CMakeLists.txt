@@ -1,5 +1,6 @@
 # Add Source Files to a global List
 add_subdirectory(BoundingBoxes)
+add_subdirectory(CartesianGrid)
 add_subdirectory(IntegerMaps)
 add_subdirectory(Trees)
 

@@ -27,9 +27,9 @@ module vertexShelf_class
     generic            :: addEdgeIdxToVertex => addEdgeIdxToVertex_shortInt, addEdgeIdxToVertex_shortIntArray
     procedure, private :: addEdgeIdxToVertex_shortInt
     procedure, private :: addEdgeIdxToVertex_shortIntArray
-    generic            :: addElementIdxToVertex => addElementIdxToVertex_shortInt, addElementIdxToVertex_shortIntArray
-    procedure, private :: addElementIdxToVertex_shortInt
-    procedure, private :: addElementIdxToVertex_shortIntArray
+    generic            :: addElementToVertex => addElementToVertex_shortInt, addElementToVertex_shortIntArray
+    procedure, private :: addElementToVertex_shortInt
+    procedure, private :: addElementToVertex_shortIntArray
     generic            :: addFaceIdxToVertex => addFaceIdxToVertex_shortInt, addFaceIdxToVertex_shortIntArray
     procedure, private :: addFaceIdxToVertex_shortInt
     procedure, private :: addFaceIdxToVertex_shortIntArray
@@ -41,7 +41,7 @@ module vertexShelf_class
     procedure, private :: getVertexCoordinates_shortInt
     procedure, private :: getVertexCoordinates_shortIntArray
     procedure          :: getVertexEdgeIdxs
-    procedure          :: getVertexElementIdxs
+    procedure          :: getVertexElements
     generic            :: getVertexFaceIdxs => getVertexFaceIdxs_shortInt, getVertexFaceIdxs_shortIntArray
     procedure, private :: getVertexFaceIdxs_shortInt
     procedure, private :: getVertexFaceIdxs_shortIntArray
@@ -101,33 +101,34 @@ contains
   !!   vertexIdx [in]  -> Index of the vertex in the shelf.
   !!   elementIdx [in] -> Index of the element containing the vertex.
   !!
-  subroutine addElementIdxToVertex_shortInt(self, idx, elementIdx)
-    class(vertexShelf), intent(inout) :: self
-    integer(shortInt), intent(in)     :: idx, elementIdx
-    type(vertexBox)                   :: box
+  subroutine addElementToVertex_shortInt(self, idx, element)
+    class(vertexShelf), intent(inout)      :: self
+    integer(shortInt), intent(in)          :: idx
+    type(topologicalObjectBox), intent(in) :: element
+    type(vertexBox)                        :: box
 
     box = self % getVertexBox(idx)
-    call box % ptr % addElementIdx(elementIdx)
+    call box % ptr % addElement(element)
 
-  end subroutine addElementIdxToVertex_shortInt
+  end subroutine addElementToVertex_shortInt
 
   !!
   !!
   !!
-  subroutine addElementIdxToVertex_shortIntArray(self, idxs, elementIdx)
+  subroutine addElementToVertex_shortIntArray(self, idxs, element)
     class(vertexShelf), intent(inout)           :: self
     integer(shortInt), dimension(:), intent(in) :: idxs
-    integer(shortInt), intent(in)               :: elementIdx
+    type(topologicalObjectBox), intent(in)      :: element
     type(vertexBox), dimension(size(idxs))      :: boxes
     integer(shortInt)                           :: i
 
     boxes = self % getVertexBox(idxs)
     do i = 1, size(idxs)
-      call boxes(i) % ptr % addElementIdx(elementIdx)
+      call boxes(i) % ptr % addElement(element)
 
     end do
 
-  end subroutine addElementIdxToVertex_shortIntArray
+  end subroutine addElementToVertex_shortIntArray
 
   !! Subroutine 'addFaceIdxToVertex'
   !!
@@ -274,6 +275,62 @@ contains
 
   end function getExtremalCoordinates
 
+  !!
+  !!
+  !!
+  function getVertexBox_shortInt(self, idx) result(box)
+    class(vertexShelf), intent(in) :: self
+    integer(shortInt), intent(in)  :: idx
+    type(vertexBox)                :: box
+    type(topologicalObjectBox)     :: objectBox
+    character(*), parameter        :: here = 'getVertexBox_shortInt (vertexShelf_class.f90)'
+
+    ! First get a pointer to a polymorphic topological object from the shelf.
+    objectBox = self % getObjectBox(idx)
+    if (.not. associated(objectBox % ptr)) call fatalError(here, 'Invalid pointer for vertex with index: '//numToChar(idx)//'.')
+
+    select type(ptr => objectBox % ptr)
+      type is (vertex)
+        box % ptr => ptr
+
+      class default
+        ! Should never happen.
+        call fatalError(here, 'Object in vertexShelf with idx: '//numToChar(idx)//' is not a vertex.')
+
+    end select
+
+  end function getVertexBox_shortInt
+
+  !!
+  !!
+  !!
+  function getVertexBox_shortIntArray(self, idxs) result(boxes)
+    class(vertexShelf), intent(in)                    :: self
+    integer(shortInt), dimension(:), intent(in)       :: idxs
+    type(vertexBox), dimension(size(idxs))            :: boxes
+    type(topologicalObjectBox), dimension(size(idxs)) :: objectBoxes
+    integer(shortInt)                                 :: i
+    character(*), parameter                           :: here = 'getVertexBox_shortIntArray (vertexShelf_class.f90)'
+
+    objectBoxes = self % getObjectBox(idxs)
+    do i = 1, size(idxs)
+      if (.not. associated(objectBoxes(i) % ptr)) &
+      call fatalError(here, 'Invalid pointer for vertex with index: '//numToChar(idxs(i))//'.')
+
+      select type(ptr => objectBoxes(i) % ptr)
+        type is (vertex)
+          boxes(i) % ptr => ptr
+
+        class default
+          ! Should never happen.
+          call fatalError(here, 'Object in vertexShelf with idx: '//numToChar(idxs(i))//' is not a vertex.')
+
+      end select
+
+    end do
+
+  end function getVertexBox_shortIntArray
+
   !! Function 'getVertexCoordinates_shortInt'
   !!
   !! Basic description:
@@ -355,16 +412,16 @@ contains
   !! Result:
   !!   elementIdxs -> Indices of all the elements containing the vertex.
   !!
-  function getVertexElementIdxs(self, idx) result(elementIdxs)
-    class(vertexShelf), intent(in)               :: self
-    integer(shortInt), intent(in)                :: idx
-    integer(shortInt), dimension(:), allocatable :: elementIdxs
-    type(vertexBox)                              :: box
+  function getVertexElements(self, idx) result(elements)
+    class(vertexShelf), intent(in)                        :: self
+    integer(shortInt), intent(in)                         :: idx
+    type(topologicalObjectBox), dimension(:), allocatable :: elements
+    type(vertexBox)                                       :: box
 
     box = self % getVertexBox(idx)
-    elementIdxs = box % ptr % getElementIdxs()
+    elements = box % ptr % getElements()
 
-  end function getVertexElementIdxs
+  end function getVertexElements
 
   !! Function 'getVertexFaceIdxs_shortInt'
   !!
@@ -414,62 +471,6 @@ contains
     end do
 
   end function getVertexFaceIdxs_shortIntArray
-
-  !!
-  !!
-  !!
-  function getVertexBox_shortInt(self, idx) result(box)
-    class(vertexShelf), intent(in) :: self
-    integer(shortInt), intent(in)  :: idx
-    type(vertexBox)                :: box
-    type(topologicalObjectBox)     :: objectBox
-    character(*), parameter        :: here = 'getVertexBox_shortInt (vertexShelf_class.f90)'
-
-    ! First get a pointer to a polymorphic topological object from the shelf.
-    objectBox = self % getObjectBox(idx)
-    if (.not. associated(objectBox % ptr)) call fatalError(here, 'Invalid pointer for vertex with index: '//numToChar(idx)//'.')
-
-    select type(ptr => objectBox % ptr)
-      type is (vertex)
-        box % ptr => ptr
-
-      class default
-        ! Should never happen.
-        call fatalError(here, 'Object in vertexShelf with idx: '//numToChar(idx)//' is not a vertex.')
-
-    end select
-
-  end function getVertexBox_shortInt
-
-  !!
-  !!
-  !!
-  function getVertexBox_shortIntArray(self, idxs) result(boxes)
-    class(vertexShelf), intent(in)                    :: self
-    integer(shortInt), dimension(:), intent(in)       :: idxs
-    type(vertexBox), dimension(size(idxs))            :: boxes
-    type(topologicalObjectBox), dimension(size(idxs)) :: objectBoxes
-    integer(shortInt)                                 :: i
-    character(*), parameter                           :: here = 'getVertexBox_shortIntArray (vertexShelf_class.f90)'
-
-    objectBoxes = self % getObjectBox(idxs)
-    do i = 1, size(idxs)
-      if (.not. associated(objectBoxes(i) % ptr)) &
-      call fatalError(here, 'Invalid pointer for vertex with index: '//numToChar(idxs(i))//'.')
-
-      select type(ptr => objectBoxes(i) % ptr)
-        type is (vertex)
-          boxes(i) % ptr => ptr
-
-        class default
-          ! Should never happen.
-          call fatalError(here, 'Object in vertexShelf with idx: '//numToChar(idxs(i))//' is not a vertex.')
-
-      end select
-
-    end do
-
-  end function getVertexBox_shortIntArray
 
   !!
   !!

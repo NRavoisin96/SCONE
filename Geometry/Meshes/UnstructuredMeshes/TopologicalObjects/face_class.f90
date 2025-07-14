@@ -4,7 +4,7 @@ module face_class
   use coord_class,                  only : coord
   use edge_class,                   only : edgeBox
   use genericProcedures,            only : append, areEqual, crossProduct, fatalError, numToChar
-  use topologicalObject_inter,      only : topologicalObject, kill_super => kill
+  use topologicalObject_inter,      only : kill_super => kill, topologicalObject, topologicalObjectBox
   use numPrecision
   use universalVariables,           only : HALF, INF, ONE, SURF_TOL, THIRD, ZERO
   use vertex_class,                 only : vertexBox
@@ -56,32 +56,33 @@ module face_class
   !!   centroid       -> Vector pointing to the centroid of the face.
   !!   normal         -> Normal vector of the face.
   !!
-  type, public, extends(topologicalObject)       :: face
+  type, public, extends(topologicalObject)                :: face
     private
-    integer(shortInt)                            :: parentIdx = 0
-    type(edgeBox), dimension(:), allocatable     :: edges
-    type(vertexBox), dimension(:), allocatable   :: vertices
-    integer(shortInt), dimension(:), allocatable :: childrenIdxs, elementIdxs
-    logical(defBool)                             :: isActive = .true., isBoundary = .false.
-    real(defReal)                                :: area = ZERO
-    real(defReal), dimension(3)                  :: centroid = ZERO, normal = ZERO
-    type(axisAlignedBoundingBox)                 :: boundingBox
-    character(:), allocatable                    :: type
+    integer(shortInt)                                     :: parentIdx = 0
+    type(edgeBox), dimension(:), allocatable              :: edges
+    type(vertexBox), dimension(:), allocatable            :: vertices
+    type(topologicalObjectBox), dimension(:), allocatable :: elements
+    integer(shortInt), dimension(:), allocatable          :: childrenIdxs
+    logical(defBool)                                      :: isActive = .true., isBoundary = .false.
+    real(defReal)                                         :: area = ZERO
+    real(defReal), dimension(3)                           :: centroid = ZERO, normal = ZERO
+    character(:), allocatable                             :: type
+    type(axisAlignedBoundingBox)                          :: boundingBox
   contains
     procedure          :: addChildIdx
     procedure          :: addEdge
-    procedure          :: addElementIdx
+    procedure          :: addElement
     procedure          :: addVertex
     procedure, private :: build
     procedure          :: computeIntersection
     procedure          :: deactivate
     procedure          :: distanceSquared
     procedure          :: getArea
-    procedure          :: getBoundingBox
+    procedure          :: getBoundingBoxBounds
     procedure          :: getCentroid
     procedure          :: getChildrenIdxs
     procedure          :: getEdges
-    procedure          :: getElementIdxs
+    procedure          :: getElements
     procedure          :: getFaceIdx
     procedure          :: getHasElements
     procedure          :: getIsActive
@@ -90,14 +91,10 @@ module face_class
     procedure          :: getType
     procedure          :: getVertices
     procedure          :: init
-    generic            :: intersects => intersects_BoundingBox
-    procedure, private :: intersects_BoundingBox
-    generic            :: intersectsBoundingBox => intersectsBoundingBox_BoundingBox
-    procedure, private :: intersectsBoundingBox_BoundingBox
+    procedure          :: intersects_BoundingBox
     procedure          :: isPointInside
     procedure          :: kill
     procedure          :: setArea
-    procedure          :: setCentroid
     procedure          :: setIsBoundary
     procedure          :: setNormal
     procedure          :: setVertices
@@ -157,13 +154,26 @@ contains
   !! Arguments:
   !!   idx [in] -> Index of the element containing the face.
   !!
-  elemental subroutine addElementIdx(self, idx)
-    class(face), intent(inout)    :: self
-    integer(shortInt), intent(in) :: idx
+  subroutine addElement(self, box)
+    class(face), intent(inout)                            :: self
+    type(topologicalObjectBox), intent(in)                :: box
+    integer(shortInt)                                     :: nElements
+    type(topologicalObjectBox), dimension(:), allocatable :: tempElements
     
-    call append(self % elementIdxs, idx)
+    if (allocated(self % elements)) then
+      nElements = size(self % elements)
+      allocate(tempElements(nElements + 1))
+      tempElements(1:nElements) = self % elements
+      tempElements(nElements + 1) = box
+      call move_alloc(tempElements, self % elements)
 
-  end subroutine addElementIdx
+    else
+      allocate(self % elements(1))
+      self % elements(1) = box
+
+    end if
+
+  end subroutine addElement
   
   !! Subroutine 'addVertexIdx'
   !!
@@ -299,7 +309,7 @@ contains
     ! If the denominator is ZERO, return early since the line segment is parallel to the face's plane.
     ! Else, compute the fraction of the line segment required to intersect the face's plane, s.
     if (areEqual(denominator, ZERO)) return
-    s = dot_product(normal, self % centroid - r) / denominator
+    s = dot_product(normal, self % getCentroid() - r) / denominator
     
     ! If s is ZERO, the line segment's origin is on the face. In this case return early if the segment
     ! points in the same direction as the face's normal.
@@ -338,7 +348,7 @@ contains
     integer(shortInt)                       :: i
 
     ! First compute the distance between the point and the plane of the face.
-    diff = r - self % centroid
+    diff = r - self % getCentroid()
     d = dot_product(diff, self % normal)
 
     ! Now project the point on the plane of the face and check if the projection lies inside the face.
@@ -378,34 +388,24 @@ contains
 
   end function getArea
 
-  !! Function 'getBoundingBox'
   !!
-  !! Basic description:
-  !!   Returns the bounding box of the face.
   !!
-  !! Result:
-  !!   boundingBox -> 6-D coordinates of the bounding box of the face.
   !!
-  pure function getBoundingBox(self) result(boundingBox)
-    class(face), intent(in)      :: self
-    type(axisAlignedBoundingBox) :: boundingBox
-    
-    boundingBox = self % boundingBox
+  pure function getBoundingBoxBounds(self) result(bounds)
+    class(face), intent(in)        :: self
+    real(defReal), dimension(3, 2) :: bounds
 
-  end function getBoundingBox
-  
-  !! Function 'getCentroid'
+    bounds = self % boundingBox % getBounds()
+
+  end function getBoundingBoxBounds
+
   !!
-  !! Basic description:
-  !!   Returns the centroid of the face.
   !!
-  !! Result:
-  !!   centroid -> 3-D coordinates of the centroid of the face.
   !!
   pure function getCentroid(self) result(centroid)
     class(face), intent(in)     :: self
     real(defReal), dimension(3) :: centroid
-    
+
     centroid = self % centroid
 
   end function getCentroid
@@ -456,13 +456,19 @@ contains
   !! Result:
   !!   elementIdxs -> Indices of the elements containing the face.
   !!
-  pure function getElementIdxs(self) result(elementIdxs)
-    class(face), intent(in)                                :: self
-    integer(shortInt), dimension(size(self % elementIdxs)) :: elementIdxs
+  function getElements(self) result(elements)
+    class(face), target, intent(in)                       :: self
+    type(topologicalObjectBox), dimension(:), allocatable :: elements
     
-    elementIdxs = self % elementIdxs
+    if (allocated(self % elements)) then
+      elements = self % elements
 
-  end function getElementIdxs
+    else
+      allocate(elements(0))
+
+    end if
+
+  end function getElements
 
   !! Function 'getFaceIdx'
   !!
@@ -492,7 +498,7 @@ contains
     class(face), intent(in) :: self
     logical(defBool)        :: hasElements
 
-    hasElements = allocated(self % elementIdxs)
+    hasElements = allocated(self % elements)
 
   end function getHasElements
 
@@ -609,7 +615,7 @@ contains
 
     ! Check if normal test was requested.
     if (info % testNormal) then
-      if (dot_product(self % centroid - info % testCentroid, self % normal) < ZERO) then
+      if (dot_product(self % getCentroid() - info % testCentroid, self % normal) < ZERO) then
         self % vertices(1) = info % vertices(2)
         self % vertices(2) = info % vertices(1)
         self % normal = -self % normal
@@ -623,19 +629,22 @@ contains
   !!
   !!
   !!
-  subroutine intersects_BoundingBox(self, boundingBox, doesIt)
+  elemental function intersects_BoundingBox(self, boundingBox) result(doesIt)
     class(face), intent(in)                            :: self
     type(axisAlignedBoundingBox), intent(in)           :: boundingBox
-    logical(defBool), intent(out)                      :: doesIt
+    logical(defBool)                                   :: doesIt
     real(defReal), dimension(3)                        :: boundingBoxCentre, halfwidths, axis, edgeVector, boxAxis
     real(defReal), dimension(3, size(self % vertices)) :: centredVertexCoords
     integer(shortInt)                                  :: i, j, nVertices
 
     ! Initialise doesIt = .false., retrieve the centre and halfwidths of the boundingBox.
     doesIt = .false.
+
+    ! First check if the bounding box intersects the face's bounding box.
+    if (.not. self % boundingBox % intersects(boundingBox)) return
+
     boundingBoxCentre = boundingBox % getCentre()
     halfwidths = boundingBox % getHalfwidths()
-
     ! Offset the coordinates of the face vertices with respect to the box centre.
     nVertices = size(self % vertices)
     do i = 1, nVertices
@@ -685,7 +694,7 @@ contains
       ! Compute the box radius.
       radius = dot_product(h, abs(ax))
 
-      ! Compute d and initialise minProjection and maxProjections.
+      ! Compute d and initialise minProjection and maxProjection.
       d = dot_product(coords(:, 1), ax)
       minProjection = d
       maxProjection = d
@@ -702,19 +711,7 @@ contains
 
     end function overlaps
 
-  end subroutine intersects_BoundingBox
-
-  !!
-  !!
-  !!
-  elemental subroutine intersectsBoundingBox_BoundingBox(self, boundingBox, doesIt)
-    class(face), intent(in)                  :: self
-    type(axisAlignedBoundingBox), intent(in) :: boundingBox
-    logical(defBool), intent(out)            :: doesIt
-
-    doesIt = self % boundingBox % intersects(boundingbox)
-
-  end subroutine intersectsBoundingBox_BoundingBox
+  end function intersects_BoundingBox
 
   !!
   !!
@@ -768,14 +765,22 @@ contains
     self % area = ZERO
     self % centroid = ZERO
     self % normal = ZERO
-    call self % boundingBox % kill()
     if (allocated(self % childrenIdxs)) deallocate(self % childrenIdxs)
-    if (allocated(self % elementIdxs)) deallocate(self % elementIdxs)
     if (allocated(self % edges)) then
       do i = 1, size(self % edges)
         nullify(self % edges(i) % ptr)
 
       end do
+      deallocate(self % edges)
+
+    end if
+
+    if (allocated(self % elements)) then
+      do i = 1, size(self % elements)
+        nullify(self % elements(i) % ptr)
+
+      end do
+      deallocate(self % elements)
 
     end if
 
@@ -784,6 +789,7 @@ contains
         nullify(self % vertices(i) % ptr)
 
       end do
+      deallocate(self % vertices)
 
     end if
 
@@ -817,22 +823,6 @@ contains
     self % isBoundary = isBoundary
 
   end subroutine setIsBoundary
-
-  !! Subroutine 'setCentroid'
-  !!
-  !! Basic description:
-  !!   Sets the centroid of the face.
-  !!
-  !! Arguments:
-  !!   centroid [in] -> 3-D coordinates of the centroid of the face.
-  !!
-  pure subroutine setCentroid(self, centroid)
-    class(face), intent(inout)               :: self
-    real(defReal), dimension(3), intent(in)  :: centroid
-
-    self % centroid = centroid
-
-  end subroutine setCentroid
 
   !! Subroutine 'setNormal'
   !!

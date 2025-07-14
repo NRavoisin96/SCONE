@@ -1,9 +1,10 @@
 module vertex_class
   
+  use axisAlignedBoundingBox_class, only : axisAlignedBoundingBox
   use numPrecision
   use universalVariables
-  use genericProcedures,       only : append
-  use topologicalObject_inter, only : topologicalObject, kill_super => kill
+  use genericProcedures,            only : append
+  use topologicalObject_inter,      only : topologicalObject, topologicalObjectBox, kill_super => kill
   
   implicit none
   private
@@ -26,22 +27,27 @@ module vertex_class
   !!   tetrahedronIdxs -> Array of indices of the tetrahedra sharing the vertex.
   !!   triangleIdxs    -> Array of indices of the triangles sharing the vertex.
   !!
-  type, public, extends(topologicalObject)       :: vertex
+  type, public, extends(topologicalObject)                :: vertex
     private
-    real(defReal), dimension(3)                  :: coordinates = ZERO
-    integer(shortInt), dimension(:), allocatable :: faceIdxs, edgeIdxs, elementIdxs
+    real(defReal), dimension(3)                           :: coordinates = ZERO
+    type(topologicalObjectBox), dimension(:), allocatable :: elements
+    integer(shortInt), dimension(:), allocatable          :: faceIdxs, edgeIdxs
   contains
-    procedure                                    :: addFaceIdx
-    procedure                                    :: addEdgeIdx
-    procedure                                    :: addElementIdx
-    procedure                                    :: getCoordinates
-    procedure                                    :: getEdgeIdxs
-    procedure                                    :: getElementIdxs
-    procedure                                    :: getFaceIdxs
-    procedure                                    :: hasEdges
-    procedure                                    :: hasFaces
-    procedure                                    :: init
-    procedure                                    :: kill
+    procedure :: addFaceIdx
+    procedure :: addEdgeIdx
+    procedure :: addElement
+    procedure :: distanceSquared
+    procedure :: getBoundingBoxBounds
+    procedure :: getCentroid
+    procedure :: getCoordinates
+    procedure :: getEdgeIdxs
+    procedure :: getElements
+    procedure :: getFaceIdxs
+    procedure :: hasEdges
+    procedure :: hasFaces
+    procedure :: init
+    procedure :: intersects_BoundingBox
+    procedure :: kill
   end type vertex
 
 contains
@@ -90,14 +96,62 @@ contains
   !! Arguments:
   !!   elementIdx [in] -> Index of the element.
   !!
-  !! TODO: Check if mesh importation process can be refactored to change this.
-  elemental subroutine addElementIdx(self, elementIdx)
-    class(vertex), intent(inout)  :: self
-    integer(shortInt), intent(in) :: elementIdx
+  subroutine addElement(self, box)
+    class(vertex), intent(inout)                          :: self
+    type(topologicalObjectBox), intent(in)                :: box
+    integer(shortInt)                                     :: nElements
+    type(topologicalObjectBox), dimension(:), allocatable :: tempElements
     
-    call append(self % elementIdxs, elementIdx, .true.)
+    if (allocated(self % elements)) then
+      nElements = size(self % elements)
+      allocate(tempElements(nElements + 1))
+      tempElements(1:nElements) = self % elements
+      tempElements(nElements + 1) = box
+      call move_alloc(tempElements, self % elements)
 
-  end subroutine addElementIdx
+    else
+      allocate(self % elements(1))
+      self % elements(1) = box
+
+    end if
+
+  end subroutine addElement
+
+  !!
+  !!
+  !!
+  function distanceSquared(self, r) result(dSquared)
+    class(vertex), intent(in)               :: self
+    real(defReal), dimension(3), intent(in) :: r
+    real(defReal)                           :: dSquared
+    real(defReal), dimension(3)             :: diff
+
+    diff = self % coordinates - r
+    dSquared = dot_product(diff, diff)
+
+  end function distanceSquared
+
+  !!
+  !!
+  !!
+  pure function getBoundingBoxBounds(self) result(bounds)
+    class(vertex), intent(in)      :: self
+    real(defReal), dimension(3, 2) :: bounds
+
+    bounds = spread(self % coordinates, 2, 2)
+
+  end function getBoundingBoxBounds
+
+  !!
+  !!
+  !!
+  pure function getCentroid(self) result(centroid)
+    class(vertex), intent(in)   :: self
+    real(defReal), dimension(3) :: centroid
+
+    centroid = self % coordinates
+
+  end function getCentroid
   
   !! Function 'getCoordinates'
   !!
@@ -138,13 +192,19 @@ contains
   !! Result:
   !!   elementIdxs -> Array listing the indices of the elements containing the vertex.
   !!
-  pure function getElementIdxs(self) result(elementIdxs)
-    class(vertex), intent(in)                              :: self
-    integer(shortInt), dimension(size(self % elementIdxs)) :: elementIdxs
+  function getElements(self) result(elements)
+    class(vertex), target, intent(in)                     :: self
+    type(topologicalObjectBox), dimension(:), allocatable :: elements
     
-    elementIdxs = self % elementIdxs
+    if (allocated(self % elements)) then
+      elements = self % elements
 
-  end function getElementIdxs
+    else
+      allocate(elements(0))
+
+    end if
+
+  end function getElements
   
   !! Function 'getVertexToFaces'
   !!
@@ -205,6 +265,19 @@ contains
     self % coordinates = coordinates
 
   end subroutine init
+
+  !!
+  !!
+  !!
+  elemental function intersects_BoundingBox(self, boundingBox) result(doesIt)
+    class(vertex), intent(in)                :: self
+    type(axisAlignedBoundingBox), intent(in) :: boundingBox
+    logical(defBool)                         :: doesIt
+
+    ! Return .true. if vertex is inside the bounds of the bounding box.
+    doesIt = boundingBox % contains(self % coordinates)
+
+  end function intersects_BoundingBox
   
   !! Subroutine 'kill'
   !!
@@ -213,6 +286,7 @@ contains
   !!
   elemental subroutine kill(self)
     class(vertex), intent(inout) :: self
+    integer(shortInt)            :: i
 
     ! Superclass.
     call kill_super(self)
@@ -221,7 +295,15 @@ contains
     self % coordinates = ZERO
     if (allocated(self % faceIdxs)) deallocate(self % faceIdxs)
     if (allocated(self % edgeIdxs)) deallocate(self % edgeIdxs)
-    if (allocated(self % elementIdxs)) deallocate(self % elementIdxs)
+    
+    if (allocated(self % elements)) then
+      do i = 1, size(self % elements)
+        nullify(self % elements(i) % ptr)
+
+      end do
+      deallocate(self % elements)
+
+    end if
   
   end subroutine kill
   

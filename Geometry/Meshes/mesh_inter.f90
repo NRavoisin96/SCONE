@@ -194,14 +194,14 @@ contains
     real(defReal), intent(out)     :: d
     type(coord), intent(inout)     :: coords
     real(defReal), dimension(3)    :: r, rEnd
-    real(defReal), dimension(6)    :: bounds
+    real(defReal), dimension(3, 2) :: bounds
 
     ! Initialise d = INF and check that the particle's path intersects the mesh's bounding box.
     d = INF
     r = coords % getPosition()
     rEnd = coords % getEndPosition()
     bounds = self % boundingBox % getBounds()
-    if (any(r < bounds(1:3) .and. rEnd < bounds(1:3)) .or. any(r > bounds(4:6) .and. rEnd > bounds(4:6))) return
+    if (all(r < bounds(:, 1) .and. rEnd < bounds(:, 1)) .or. all(r > bounds(:, 2) .and. rEnd > bounds(:, 2))) return
 
     ! If particle intersects the bounding box, compute the distance to the next intersected boundary face.
     call self % distanceToBoundaryFace(d, coords)
