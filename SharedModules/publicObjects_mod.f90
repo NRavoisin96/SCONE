@@ -35,6 +35,14 @@ module publicObjects
   !!
   !!
   !!
+  type :: basicVertexInfo
+    integer(shortInt)           :: idx = 0
+    real(defReal), dimension(3) :: coordinates = ZERO
+  end type basicVertexInfo
+
+  !!
+  !!
+  !!
   type :: meshLocalIdInfo
     integer(shortInt)                            :: localId = 0
     integer(shortInt), dimension(:), allocatable :: elementIdxs

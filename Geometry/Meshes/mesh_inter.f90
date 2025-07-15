@@ -286,11 +286,11 @@ contains
   !!                       x-, y-, and z-values of the bounding box and the remaining three
   !!                       correspond to the maximum x-, y- and z-values of the bounding box.
   !!
-  pure subroutine initBoundingBox(self, bounds)
-    class(mesh), intent(inout)              :: self
-    real(defReal), dimension(6), intent(in) :: bounds
+  pure subroutine initBoundingBox(self, allCoords)
+    class(mesh), intent(inout)                 :: self
+    real(defReal), dimension(:, :), intent(in) :: allCoords
     
-    call self % boundingBox % init(bounds)
+    call self % boundingBox % computeBounds(allCoords)
 
   end subroutine initBoundingBox
 

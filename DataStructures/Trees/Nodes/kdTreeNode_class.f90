@@ -416,20 +416,20 @@ contains
     real(defReal), dimension(3), intent(in)               :: r
     real(defReal), intent(inout)                          :: radiusSquared
     integer(shortInt), intent(inout)                      :: idx
-    type(topologicalObjectBox), dimension(:), allocatable :: testObjects
+    type(topologicalObjectBox), dimension(:), allocatable :: containedObjects
     integer(shortInt)                                     :: i
     real(defReal)                                         :: dSquared
 
     ! Loop over all objects in the leaf.
-    testObjects = self % getTestObjects()
-    do i = 1, size(testObjects)
+    containedObjects = self % getContainedObjects()
+    do i = 1, size(containedObjects)
       ! Compute the distance squared to the current face and update minimum distance.
-      dSquared = testObjects(i) % ptr % distanceSquared(r)
+      dSquared = containedObjects(i) % ptr % distanceSquared(r)
 
       if (dSquared < radiusSquared) then
         ! Set idx to the index of the vertex corresponding to the current lowest distance and ballSize
         ! to said lowest distance.
-        idx = testObjects(i) % ptr % getIdx()
+        idx = containedObjects(i) % ptr % getIdx()
         radiusSquared = dSquared
 
       end if

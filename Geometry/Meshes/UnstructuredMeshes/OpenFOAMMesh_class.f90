@@ -6,7 +6,8 @@ module OpenFOAMMesh_class
   use iso_fortran_env,              only : int64
   use longIntMap_class,             only : longIntMap
   use numPrecision
-  use publicObjects,                only : basicEdgeInfo, basicElementInfo, basicFaceInfo, meshLocalIdInfo
+  use publicObjects,                only : basicEdgeInfo, basicElementInfo, basicFaceInfo, basicVertexInfo, &
+                                           meshLocalIdInfo
   use universalVariables,           only : INF, NOT_PRESENT
   use unstructuredMesh_inter,       only : unstructuredMesh, &
                                            distanceToBoundaryFace_super => distanceToBoundaryFace, &
@@ -649,7 +650,8 @@ contains
     integer(shortInt), intent(in)               :: nVertices
     integer(shortInt)                           :: i, ios
     integer(shortInt), parameter                :: unit = 10
-    real(defReal), dimension(:, :), allocatable :: coords
+    real(defReal), dimension(3, nVertices)      :: coords
+    type(basicVertexInfo), dimension(nVertices) :: vertexInfos
     logical(defBool)                            :: singleLine
     character(:), allocatable                   :: dataBuffer
     character(256)                              :: lineBuffer ! Note: here the string is longer than usual to deal
@@ -667,9 +669,6 @@ contains
       if (index(trim(lineBuffer), '(') > 0) exit ! Exit when we find the start
 
     end do
-
-    ! Allocate memory to the coords array.
-    allocate(coords(3, nVertices))
 
     ! The buffer now holds either the single data line '((-0.5...)...)' or the opening parenthesis line '('.
     ! Check if the line contains a closing parenthesis to determine the format.
@@ -697,8 +696,15 @@ contains
 
     close(unit)
 
+    ! Create all infos.
+    do i = 1, nVertices
+      vertexInfos(i) % idx = i
+      vertexInfos(i) % coordinates = coords(:, i)
+
+    end do
+
     ! Initialise vertexShelf.
-    call self % initVertexShelf(coords)
+    call self % initVertexShelf(vertexInfos)
 
   end subroutine importVertices
 

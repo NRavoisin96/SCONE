@@ -1,10 +1,11 @@
 module kdTree_test
   
   use funit
-  use kdTree_class,      only : kdTree
-  use kdTreeNode_class,  only : buildKDTreeNodePayload
+  use kdTree_class,                 only : kdTree
+  use kdTreeNode_class,             only : buildKDTreeNodePayload
   use numPrecision
-  use vertexShelf_class, only : vertexShelf
+  use topologicalObjectShelf_class, only : topologicalObjectShelf
+  use vertex_class,                 only : buildVertexPayload
   
   implicit none
   
@@ -16,69 +17,37 @@ contains
   !!
 @Before
   subroutine setUp()
-    real(defReal), dimension(3, 18) :: allCoordinates
-    type(vertexShelf), target       :: vertices
-    type(buildKDTreeNodePayload)    :: payload
-    integer(shortInt)               :: i
+    type(buildVertexPayload), dimension(18) :: vertexPayloads
+    type(topologicalObjectShelf), target    :: vertices
+    type(buildKDTreeNodePayload)            :: payload
+    integer(shortInt)                       :: i
     
-    ! Populate grid of 3-D coordinates.
-    allCoordinates(1, 1) = -1.0_defReal
-    allCoordinates(2, 1) = -1.0_defReal
-    allCoordinates(3, 1) = -1.0_defReal
-    allCoordinates(1, 2) = 0.0_defReal
-    allCoordinates(2, 2) = -1.0_defReal
-    allCoordinates(3, 2) = -1.0_defReal
-    allCoordinates(1, 3) = -1.0_defReal
-    allCoordinates(2, 3) = 0.0_defReal
-    allCoordinates(3, 3) = -1.0_defReal
-    allCoordinates(1, 4) = 0.0_defReal
-    allCoordinates(2, 4) = 0.0_defReal
-    allCoordinates(3, 4) = -1.0_defReal
-    allCoordinates(1, 5) = -1.0_defReal
-    allCoordinates(2, 5) = -1.0_defReal
-    allCoordinates(3, 5) = 1.0_defReal
-    allCoordinates(1, 6) = 0.0_defReal
-    allCoordinates(2, 6) = -1.0_defReal
-    allCoordinates(3, 6) = 1.0_defReal
-    allCoordinates(1, 7) = -1.0_defReal
-    allCoordinates(2, 7) = 0.0_defReal
-    allCoordinates(3, 7) = 1.0_defReal
-    allCoordinates(1, 8) = 0.0_defReal
-    allCoordinates(2, 8) = 0.0_defReal
-    allCoordinates(3, 8) = 1.0_defReal
-    allCoordinates(1, 9) = -1.0_defReal
-    allCoordinates(2, 9) = 1.0_defReal
-    allCoordinates(3, 9) = -1.0_defReal
-    allCoordinates(1, 10) = 0.0_defReal
-    allCoordinates(2, 10) = 1.0_defReal
-    allCoordinates(3, 10) = -1.0_defReal
-    allCoordinates(1, 11) = -1.0_defReal
-    allCoordinates(2, 11) = 1.0_defReal
-    allCoordinates(3, 11) = 1.0_defReal
-    allCoordinates(1, 12) = 0.0_defReal
-    allCoordinates(2, 12) = 1.0_defReal
-    allCoordinates(3, 12) = 1.0_defReal
-    allCoordinates(1, 13) = 1.0_defReal
-    allCoordinates(2, 13) = 0.0_defReal
-    allCoordinates(3, 13) = -1.0_defReal
-    allCoordinates(1, 14) = 1.0_defReal
-    allCoordinates(2, 14) = 1.0_defReal
-    allCoordinates(3, 14) = -1.0_defReal
-    allCoordinates(1, 15) = 1.0_defReal
-    allCoordinates(2, 15) = 0.0_defReal
-    allCoordinates(3, 15) = 1.0_defReal
-    allCoordinates(1, 16) = 1.0_defReal
-    allCoordinates(2, 16) = 1.0_defReal
-    allCoordinates(3, 16) = 1.0_defReal
-    allCoordinates(1, 17) = 1.0_defReal
-    allCoordinates(2, 17) = -1.0_defReal
-    allCoordinates(3, 17) = -1.0_defReal
-    allCoordinates(1, 18) = 1.0_defReal
-    allCoordinates(2, 18) = -1.0_defReal
-    allCoordinates(3, 18) = 1.0_defReal
+    ! Populate vertex payloads.
+    do i = 1, size(vertexPayloads)
+      vertexPayloads(i) % idx = i
+
+    end do
+    vertexPayloads(1) % coordinates = -ONE
+    vertexPayloads(2) % coordinates = [ZERO, -ONE, -ONE]
+    vertexPayloads(3) % coordinates = [-ONE, ZERO, -ONE]
+    vertexPayloads(4) % coordinates = [ZERO, ZERO, -ONE]
+    vertexPayloads(5) % coordinates = [-ONE, -ONE, ONE]
+    vertexPayloads(6) % coordinates = [ZERO, -ONE, ONE]
+    vertexPayloads(7) % coordinates = [-ONE, ZERO, ONE]
+    vertexPayloads(8) % coordinates = [ZERO, ZERO, ONE]
+    vertexPayloads(9) % coordinates = [-ONE, ONE, -ONE]
+    vertexPayloads(10) % coordinates = [ZERO, ONE, -ONE]
+    vertexPayloads(11) % coordinates = [-ONE, ONE, ONE]
+    vertexPayloads(12) % coordinates = [ZERO, ONE, ONE]
+    vertexPayloads(13) % coordinates = [ONE, ZERO, -ONE]
+    vertexPayloads(14) % coordinates = [ONE, ONE, -ONE]
+    vertexPayloads(15) % coordinates = [ONE, ZERO, ONE]
+    vertexPayloads(16) % coordinates = ONE
+    vertexPayloads(17) % coordinates = [ONE, -ONE, -ONE]
+    vertexPayloads(18) % coordinates = [ONE, -ONE, ONE]
     
     ! Build tree.
-    call vertices % init(allCoordinates)
+    call vertices % init(vertexPayloads)
     payload % shelf => vertices
     payload % lowerBound = 1
     payload % upperBound = 18

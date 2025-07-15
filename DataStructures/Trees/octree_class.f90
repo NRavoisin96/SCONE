@@ -1,18 +1,8 @@
 module octree_class
 
-  use coord_class,        only : coord
-  use dictionary_class,   only : dictionary
-  use elementShelf_class, only : elementShelf
-  use faceShelf_class,    only : faceShelf
-  use genericProcedures,  only : areEqual, fatalError
-  use kdTree_class,       only : kdTree
-  use mesh_inter,         only : mesh
   use node_inter,         only : node
-  use numPrecision
-  use octreeNode_class,   only : buildOctreeNodePayload, octreeNode
+  use octreeNode_class,   only : octreeNode
   use tree_inter,         only : tree
-  use universalVariables, only : NUDGE
-  use vertexShelf_class,  only : vertexShelf
 
   implicit none
   private

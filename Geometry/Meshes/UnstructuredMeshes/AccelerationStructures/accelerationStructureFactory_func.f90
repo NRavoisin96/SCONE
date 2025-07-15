@@ -2,15 +2,12 @@ module accelerationStructureFactory_func
 
   use accelerationStructure_inter,   only : accelerationStructure
   use dictionary_class,              only : dictionary
-  use edgeShelf_class,               only : edgeShelf
-  use elementShelf_class,            only : elementShelf
-  use faceShelf_class,               only : faceShelf
   use genericProcedures,             only : fatalError
   use noAcceleration_class,          only : noAcceleration
   use numPrecision
   use octreeAcceleration_class,      only : octreeAcceleration
   use patchSearchAcceleration_class, only : patchSearchAcceleration
-  use vertexShelf_class,             only : vertexShelf
+  use topologicalObjectShelf_class,  only : topologicalObjectShelf
 
   implicit none
   private
@@ -30,10 +27,7 @@ contains
   !!
   subroutine newAccelerationStructurePtr(dict, edges, elements, faces, vertices, ptr)
     class(dictionary), intent(in)                      :: dict
-    type(edgeShelf), intent(in)                        :: edges
-    type(elementShelf), intent(in)                     :: elements
-    type(faceShelf), intent(in)                        :: faces
-    type(vertexShelf), intent(in)                      :: vertices
+    type(topologicalObjectShelf), intent(in)           :: edges, elements, faces, vertices
     class(accelerationStructure), pointer, intent(out) :: ptr
     character(nameLen)                                 :: type
     character(*), parameter :: here = 'newAccelerationStructurePtr (accelerationStructureFactory_func.f90)'

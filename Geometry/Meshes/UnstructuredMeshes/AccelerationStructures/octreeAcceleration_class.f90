@@ -1,22 +1,19 @@
 module octreeAcceleration_class
 
-  use accelerationStructure_inter, only : accelerationStructure
-  use coord_class,                 only : coord
-  use dictionary_class,            only : dictionary
-  use edgeShelf_class,             only : edgeShelf
-  use element_class,               only : element, inclusionTestResult
-  use elementShelf_class,          only : elementShelf
-  use faceShelf_class,             only : faceShelf
-  use genericProcedures,           only : fatalError, numToChar
-  use kdTree_class,                only : kdTree
-  use kdTreeNode_class,            only : buildKDTreeNodePayload
-  use node_inter,                  only : node
+  use accelerationStructure_inter,  only : accelerationStructure
+  use coord_class,                  only : coord
+  use dictionary_class,             only : dictionary
+  use element_class,                only : element, inclusionTestResult
+  use genericProcedures,            only : fatalError, numToChar
+  use kdTree_class,                 only : kdTree
+  use kdTreeNode_class,             only : buildKDTreeNodePayload
+  use node_inter,                   only : node
   use numPrecision
-  use octree_class,                only : octree
-  use octreeNode_class,            only : buildOctreeNodePayload, octreeNode
-  use topologicalObject_inter,     only : topologicalObjectBox
-  use vertexShelf_class,           only : vertexShelf
-  use universalVariables,          only : INSIDE_ELEMENT, NUDGE, ON_BOUNDARY_ELEMENT, OUTSIDE_ELEMENT
+  use octree_class,                 only : octree
+  use octreeNode_class,             only : buildOctreeNodePayload, octreeNode
+  use topologicalObject_inter,      only : topologicalObjectBox
+  use topologicalObjectShelf_class, only : topologicalObjectShelf
+  use universalVariables,           only : INSIDE_ELEMENT, NUDGE, ON_BOUNDARY_ELEMENT, OUTSIDE_ELEMENT
 
   implicit none
   private
@@ -39,7 +36,7 @@ contains
   !!
   subroutine findHostElement(self, elements, coords)
     class(octreeAcceleration), intent(in)                 :: self
-    type(elementShelf), intent(in)                        :: elements
+    type(topologicalObjectShelf), intent(in)              :: elements
     type(coord), intent(inout)                            :: coords
     type(topologicalObjectBox), dimension(:), allocatable :: objects
     integer(shortInt)                                     :: i, nPotentialElements, elementIdx
@@ -150,16 +147,13 @@ contains
   !!
   !!
   subroutine init(self, dict, edges, elements, faces, vertices)
-    class(octreeAcceleration), intent(inout) :: self
-    class(dictionary), intent(in)            :: dict
-    type(edgeShelf), intent(in)              :: edges
-    type(elementShelf), intent(in)           :: elements
-    type(faceShelf), target, intent(in)      :: faces
-    type(vertexShelf), intent(in)            :: vertices
-    type(kdTree), target                     :: tree
-    type(buildKDTreeNodePayload)             :: kdTreePayload
-    integer(shortInt)                        :: i
-    type(buildOctreeNodePayload)             :: octreePayload
+    class(octreeAcceleration), intent(inout)         :: self
+    class(dictionary), intent(in)                    :: dict
+    type(topologicalObjectShelf), target, intent(in) :: edges, elements, faces, vertices
+    type(kdTree), target                             :: tree
+    type(buildKDTreeNodePayload)                     :: kdTreePayload
+    integer(shortInt)                                :: i
+    type(buildOctreeNodePayload)                     :: octreePayload
 
     ! Initialise kd-tree using the faceShelf.
     kdTreePayload % shelf => faces

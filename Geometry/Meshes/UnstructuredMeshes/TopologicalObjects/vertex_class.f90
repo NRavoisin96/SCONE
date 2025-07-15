@@ -3,11 +3,19 @@ module vertex_class
   use axisAlignedBoundingBox_class, only : axisAlignedBoundingBox
   use numPrecision
   use universalVariables
-  use genericProcedures,            only : append
-  use topologicalObject_inter,      only : topologicalObject, topologicalObjectBox, kill_super => kill
+  use genericProcedures,            only : append, fatalError
+  use topologicalObject_inter,      only : buildTopologicalObjectPayload, kill_super => kill, topologicalObject, &
+                                           topologicalObjectBox
   
   implicit none
   private
+
+  !!
+  !!
+  !!
+  type, public, extends(buildTopologicalObjectPayload) :: buildVertexPayload
+    real(defReal), dimension(3) :: coordinates
+  end type buildVertexPayload
 
   !!
   !!
@@ -33,9 +41,13 @@ module vertex_class
     type(topologicalObjectBox), dimension(:), allocatable :: elements
     integer(shortInt), dimension(:), allocatable          :: faceIdxs, edgeIdxs
   contains
+    ! Build procedures.
     procedure :: addFaceIdx
     procedure :: addEdgeIdx
     procedure :: addElement
+    procedure :: build
+    procedure :: kill
+    ! Runtime procedures.
     procedure :: distanceSquared
     procedure :: getBoundingBoxBounds
     procedure :: getCentroid
@@ -45,9 +57,7 @@ module vertex_class
     procedure :: getFaceIdxs
     procedure :: hasEdges
     procedure :: hasFaces
-    procedure :: init
     procedure :: intersects_BoundingBox
-    procedure :: kill
   end type vertex
 
 contains
@@ -116,6 +126,29 @@ contains
     end if
 
   end subroutine addElement
+
+  !!
+  !!
+  !!
+  subroutine build(self, payload)
+    class(vertex), intent(inout)                        :: self
+    class(buildTopologicalObjectPayload), intent(inout) :: payload
+    type(buildVertexPayload), pointer                   :: payloadPtr
+    character(*), parameter                             :: here = 'build (vertex_class.f90)'
+
+    ! Downcast payload to correct type.
+    select type(ptr => payload)
+      type is(buildVertexPayload)
+        payloadPtr => ptr
+
+      class default
+        call fatalError(here, 'Invalid payload type.')
+
+    end select
+
+    self % coordinates = payloadPtr % coordinates
+
+  end subroutine build
 
   !!
   !!
@@ -247,24 +280,6 @@ contains
     doesIt = allocated(self % faceIdxs)
 
   end function hasFaces
-
-  !! Subroutine 'setCoordinates'
-  !!
-  !! Basic description:
-  !!   Sets the 3-D coordinates of the vertex.
-  !!
-  !! Arguments:
-  !!   coordinates [in] -> 3-D coordinates of the vertex.
-  !!
-  pure subroutine init(self, idx, coordinates)
-    class(vertex), intent(inout)            :: self
-    integer(shortInt), intent(in)           :: idx
-    real(defReal), dimension(3), intent(in) :: coordinates
-    
-    call self % setIdx(idx)
-    self % coordinates = coordinates
-
-  end subroutine init
 
   !!
   !!

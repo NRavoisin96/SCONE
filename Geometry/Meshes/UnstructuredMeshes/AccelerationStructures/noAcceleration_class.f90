@@ -1,15 +1,12 @@
 module noAcceleration_class
 
-  use accelerationStructure_inter, only : accelerationStructure
-  use coord_class,                 only : coord
-  use dictionary_class,            only : dictionary
-  use edgeShelf_class,             only : edgeShelf
-  use element_class,               only : elementBox, inclusionTestResult
-  use elementShelf_class,          only : elementShelf
-  use faceShelf_class,             only : faceShelf
+  use accelerationStructure_inter,  only : accelerationStructure
+  use coord_class,                  only : coord
+  use dictionary_class,             only : dictionary
+  use element_class,                only : elementBox, inclusionTestResult
   use numPrecision
-  use universalVariables,          only : INSIDE_ELEMENT, ON_BOUNDARY_ELEMENT, OUTSIDE_ELEMENT
-  use vertexShelf_class,           only : vertexShelf
+  use topologicalObjectShelf_class, only : topologicalObjectShelf
+  use universalVariables,           only : INSIDE_ELEMENT, ON_BOUNDARY_ELEMENT, OUTSIDE_ELEMENT
 
   implicit none
   private
@@ -30,12 +27,12 @@ contains
   !!
   !!
   subroutine findHostElement(self, elements, coords)
-    class(noAcceleration), intent(in) :: self
-    type(elementShelf), intent(in)    :: elements
-    type(coord), intent(inout)        :: coords
-    integer(shortInt)                 :: i
-    type(elementBox)                  :: element
-    type(inclusionTestResult)         :: testResult
+    class(noAcceleration), intent(in)        :: self
+    type(topologicalObjectShelf), intent(in) :: elements
+    type(coord), intent(inout)               :: coords
+    integer(shortInt)                        :: i
+    type(elementBox)                         :: element
+    type(inclusionTestResult)                :: testResult
 
     ! Perform brute-force search.
     searchLoop: do
@@ -46,7 +43,7 @@ contains
         
         testResult = element % ptr % isPointInside(coords % getPositionToNudge())
         if (testResult % status == INSIDE_ELEMENT) then
-          call coords % setElementIdx(i)
+          call coords % setElementIdx(element % ptr % getIdx())
           call coords % setParentElementIdx(element % ptr % getParentIdx())
           call coords % setLocalId(element % ptr % getLocalId())
           return
@@ -64,7 +61,7 @@ contains
           ! Now the coordinates are not on the boundary of the element anymore.
           if (testResult % status == INSIDE_ELEMENT) then
             ! If coordinates are now well inside the element, we have found our element.
-            call coords % setElementIdx(i)
+            call coords % setElementIdx(element % ptr % getIdx())
             call coords % setParentElementIdx(element % ptr % getParentIdx())
             call coords % setLocalId(element % ptr % getLocalId())
             return
@@ -89,12 +86,9 @@ contains
   !!
   !!
   subroutine init(self, dict, edges, elements, faces, vertices)
-    class(noAcceleration), intent(inout) :: self
-    class(dictionary), intent(in)        :: dict
-    type(edgeShelf), intent(in)          :: edges
-    type(elementShelf), intent(in)       :: elements
-    type(faceShelf), target, intent(in)  :: faces
-    type(vertexShelf), intent(in)        :: vertices
+    class(noAcceleration), intent(inout)             :: self
+    class(dictionary), intent(in)                    :: dict
+    type(topologicalObjectShelf), target, intent(in) :: edges, elements, faces, vertices
 
     ! Do nothing.
 

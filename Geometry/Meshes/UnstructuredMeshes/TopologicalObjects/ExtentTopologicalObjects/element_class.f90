@@ -1,16 +1,17 @@
 module element_class
 
-  use axisAlignedBoundingBox_class, only : axisAlignedBoundingBox
-  use coord_class,                  only : coord
-  use edge_class,                   only : edgeBox
-  use face_class,                   only : faceBox, orientatedFaceBox
-  use genericProcedures,            only : append, areEqual, crossProduct, findCommon, fatalError, numToChar
+  use axisAlignedBoundingBox_class,  only : axisAlignedBoundingBox
+  use extentTopologicalObject_inter, only : buildExtentTopologicalObjectPayload, extentTopologicalObject
+  use coord_class,                   only : coord
+  use edge_class,                    only : edgeBox
+  use face_class,                    only : faceBox, orientatedFaceBox
+  use genericProcedures,             only : append, areEqual, crossProduct, findCommon, fatalError, numToChar
   use numPrecision
-  use publicObjects,                only : basicElementInfo
-  use topologicalObject_inter,      only : topologicalObject, topologicalObjectBox, kill_super => kill
-  use universalVariables,           only : FOURTH, INSIDE_ELEMENT, INF, ON_BOUNDARY_ELEMENT, OUTSIDE_ELEMENT, &
-                                           SIXTH, SURF_TOL, ZERO
-  use vertex_class,                 only : vertexBox
+  use publicObjects,                 only : basicElementInfo
+  use topologicalObject_inter,       only : buildTopologicalObjectPayload, kill_super => kill, topologicalObjectBox
+  use universalVariables,            only : FOURTH, INSIDE_ELEMENT, INF, ON_BOUNDARY_ELEMENT, OUTSIDE_ELEMENT, &
+                                            SIXTH, SURF_TOL, ZERO
+  use vertex_class,                  only : vertexBox
   
   implicit none
   private
@@ -18,12 +19,12 @@ module element_class
   !!
   !!
   !!
-  type, public :: buildElementInfo
-    integer(shortInt)                                  :: idx = 0, localId = 0, parentIdx = 0
-    type(edgeBox), dimension(:), allocatable           :: edges
-    type(orientatedFaceBox), dimension(:), allocatable :: orientatedFaces
-    type(vertexBox), dimension(:), allocatable         :: vertices
-  end type buildElementInfo
+  type, public, extends(buildExtentTopologicalObjectPayload) :: buildElementPayload
+    integer(shortInt)                                        :: localId = 0, parentIdx = 0
+    type(edgeBox), dimension(:), allocatable                 :: edges
+    type(orientatedFaceBox), dimension(:), allocatable       :: orientatedFaces
+    type(vertexBox), dimension(:), allocatable               :: vertices
+  end type buildElementPayload
 
   !!
   !! Small, local container to store elements in a single array.
@@ -47,7 +48,7 @@ module element_class
   !!   Volume   -> Volume of the element.
   !!   Centroid -> Vector pointing to the centroid of the element.
   !!
-  type, public, extends(topologicalObject)             :: element
+  type, public, extends(extentTopologicalObject)       :: element
     private
     integer(shortInt)                                  :: parentIdx = 0, localId = 0
     type(edgeBox), dimension(:), allocatable           :: edges
@@ -55,40 +56,35 @@ module element_class
     type(vertexBox), dimension(:), allocatable         :: vertices
     integer(shortInt), dimension(:), allocatable       :: tetrahedronIdxs
     real(defReal)                                      :: volume = ZERO
-    real(defReal), dimension(3)                        :: centroid = ZERO
-    logical(defBool)                                   :: isActive = .true., isConvex = .false.
+    logical(defBool)                                   :: isConvex = .false.
     character(:), allocatable                          :: type
-    type(axisAlignedBoundingBox)                       :: boundingBox
   contains
     ! Build procedures.
-    procedure :: addEdge
-    procedure :: addFace
-    procedure :: addVertex
-    procedure :: build
-    procedure :: computeConvexity
-    procedure :: init
-    procedure :: setLocalId
+    procedure          :: addEdge
+    procedure          :: addFace
+    procedure          :: addVertex
+    procedure          :: build
+    procedure, private :: buildComponents
+    procedure          :: computeConvexity
+    procedure          :: connectComponents
+    procedure          :: setLocalId
     ! Runtime procedures.
-    procedure :: computeIntersectedFace
-    procedure :: computePotentialFaces
-    procedure :: deactivate
-    procedure :: distanceSquared
-    procedure :: getBoundingBoxBounds
-    procedure :: getCentroid
-    procedure :: getEdges
-    procedure :: getElements
-    procedure :: getIsActive
-    procedure :: getIsConvex
-    procedure :: getLocalId
-    procedure :: getOrientatedFaces
-    procedure :: getParentIdx
-    procedure :: getType
-    procedure :: getVertices
-    procedure :: getVolume
-    procedure :: intersects_BoundingBox
-    procedure :: isPointInside
-    procedure :: kill
-    procedure :: pushFromBoundary
+    procedure          :: computeIntersectedFace
+    procedure          :: computePotentialFaces
+    procedure          :: distanceSquared
+    procedure          :: getEdges
+    procedure          :: getElements
+    procedure          :: getIsConvex
+    procedure          :: getLocalId
+    procedure          :: getOrientatedFaces
+    procedure          :: getParentIdx
+    procedure          :: getType
+    procedure          :: getVertices
+    procedure          :: getVolume
+    procedure          :: intersects_BoundingBox
+    procedure          :: isPointInside
+    procedure          :: kill
+    procedure          :: pushFromBoundary
   end type element
 
   !!
@@ -191,13 +187,61 @@ contains
   !!
   !!
   !!
-  subroutine build(self)
+  subroutine build(self, payload)
+    class(element), intent(inout)                       :: self
+    class(buildTopologicalObjectPayload), intent(inout) :: payload
+    type(buildElementPayload), pointer                  :: payloadPtr
+    integer(shortInt)                                   :: nFaces, nVertices
+    character(*), parameter                             :: here = 'build (element_class.f90)'
+
+    ! Downcast payload to correct type.
+    select type(ptr => payload)
+      type is(buildElementPayload)
+        payloadPtr => ptr
+
+      class default
+        call fatalError(here, 'Invalid payload type.')
+
+    end select
+
+    ! Catch invalid number of vertices and faces.
+    nVertices = size(payloadPtr % vertices)
+    if (nVertices < 4) call fatalError(here, 'An element must have at least 4 vertices. Has: '//numToChar(nVertices)//'.')
+
+    nFaces = size(payloadPtr % orientatedFaces)
+    if (nFaces < 4) call fatalError(here, 'An element must have at least 4 faces. Has: '//numToChar(nFaces)//'.')
+    
+    if (nVertices == 4) then
+      self % type = 'Tetrahedron'
+
+    else
+      self % type = 'Polyhedron'
+
+    end if
+    
+    ! Set everything from payload.
+    self % localId = payloadPtr % localId
+    self % parentIdx = payloadPtr % parentIdx
+    self % orientatedFaces = payloadPtr % orientatedFaces
+    self % vertices = payloadPtr % vertices
+    self % edges = payloadPtr % edges
+
+    ! Build.
+    call self % buildComponents(payloadPtr)
+
+  end subroutine build
+
+  !!
+  !!
+  !!
+  subroutine buildComponents(self, payload)
     class(element), intent(inout)                      :: self
+    type(buildElementPayload), intent(inout)           :: payload
     integer(shortInt)                                  :: i, nFaces, nVertices
     real(defReal), dimension(3, size(self % vertices)) :: allCoords
     real(defReal)                                      :: faceArea, pyramidVolume, sumVolumes
     real(defReal), dimension(3)                        :: outwardNormal, faceCentroid, geometricCentroid, sumVolumesCentroid
-    character(*), parameter                            :: here = 'build (element_class.f90)'
+    character(*), parameter                            :: here = 'buildComponents (element_class.f90)'
 
     ! Compute the number of vertices in the element.
     nVertices = size(self % vertices)
@@ -206,11 +250,13 @@ contains
       allCoords(:, i) = self % vertices(i) % ptr % getCoordinates()
 
     end do
+    if (allocated(payload % allCoords)) deallocate(payload % allCoords)
+    payload % allCoords = allCoords
 
     ! If the element is a tetrahedron, perform a direct calculation to avoid round-off errors.
     if (nVertices == 4) then
       self % isConvex = .true.
-      self % centroid = FOURTH * sum(allCoords, 2)
+      payload % centroid = FOURTH * sum(allCoords, 2)
       self % volume = SIXTH * abs(dot_product(crossProduct(allCoords(:, 2) - allCoords(:, 1), allCoords(:, 3) - allCoords(:, 1)), &
                                               allCoords(:, 4) - allCoords(:, 1)))
 
@@ -241,14 +287,11 @@ contains
       ! The volume of the element is simply the sum of volumes, while the centroid is the average of
       ! the volume-weighted sum.
       self % volume = sumVolumes
-      self % centroid = sumVolumesCentroid / sumVolumes
+      payload % centroid = sumVolumesCentroid / sumVolumes
 
     end if
 
-    ! Initialise bounding box.
-    call self % boundingBox % computeBounds(allCoords)
-
-  end subroutine build
+  end subroutine buildComponents
 
   !! Function 'isConvex'
   !!
@@ -311,6 +354,32 @@ contains
     self % isConvex = .true.
 
   end subroutine computeConvexity
+
+  !!
+  !!
+  !!
+  subroutine connectComponents(self)
+    class(element), target, intent(inout) :: self
+    type(topologicalObjectBox)            :: box
+    integer(shortInt)                     :: i
+
+    box % ptr => self
+    do i = 1, size(self % orientatedFaces)
+      call self % orientatedFaces(i) % face % ptr % addElement(box)
+
+    end do
+
+    do i = 1, size(self % edges)
+      call self % edges(i) % ptr % addElement(box)
+
+    end do
+
+    do i = 1, size(self % vertices)
+      call self % vertices(i) % ptr % addElement(box)
+
+    end do
+
+  end subroutine connectComponents
 
   !! Subroutine 'computeIntersectedFace'
   !!
@@ -407,16 +476,6 @@ contains
   !!
   !!
   !!
-  elemental subroutine deactivate(self)
-    class(element), intent(inout) :: self
-
-    self % isActive = .false.
-
-  end subroutine deactivate
-
-  !!
-  !!
-  !!
   function distanceSquared(self, r) result(dSquared)
     class(element), intent(in)              :: self
     real(defReal), dimension(3), intent(in) :: r
@@ -430,28 +489,6 @@ contains
     end do
 
   end function distanceSquared
-
-  !!
-  !!
-  !!
-  pure function getBoundingBoxBounds(self) result(bounds)
-    class(element), intent(in)     :: self
-    real(defReal), dimension(3, 2) :: bounds
-
-    bounds = self % boundingBox % getBounds()
-
-  end function getBoundingBoxBounds
-
-  !!
-  !!
-  !!
-  pure function getCentroid(self) result(centroid)
-    class(element), intent(in)  :: self
-    real(defReal), dimension(3) :: centroid
-
-    centroid = self % centroid
-
-  end function getCentroid
 
   !! Function 'getEdgeIdxs'
   !!
@@ -480,17 +517,6 @@ contains
     elements(1) % ptr => self
 
   end function getElements
-
-  !!
-  !!
-  !!
-  elemental function getIsActive(self) result(isActive)
-    class(element), intent(in) :: self
-    logical(defBool)           :: isActive
-
-    isActive = self % isActive
-
-  end function getIsActive
 
   !!
   !!
@@ -598,43 +624,6 @@ contains
   !!
   !!
   !!
-  subroutine init(self, info)
-    class(element), intent(inout)      :: self
-    type(buildElementInfo), intent(in) :: info
-    integer(shortInt)                  :: nFaces, nVertices
-    character(*), parameter            :: here = 'init (element_class.f90)'
-
-    ! Catch invalid number of vertices and faces.
-    nVertices = size(info % vertices)
-    if (nVertices < 4) call fatalError(here, 'An element must have at least 4 vertices. Has: '//numToChar(nVertices)//'.')
-
-    nFaces = size(info % orientatedFaces)
-    if (nFaces < 4) call fatalError(here, 'An element must have at least 4 faces. Has: '//numToChar(nFaces)//'.')
-    
-    if (nVertices == 4) then
-      self % type = 'Tetrahedron'
-
-    else
-      self % type = 'Polyhedron'
-
-    end if
-    
-    ! Set everything from payload.
-    call self % setIdx(info % idx)
-    self % localId = info % localId
-    self % parentIdx = info % parentIdx
-    self % orientatedFaces = info % orientatedFaces
-    self % vertices = info % vertices
-    self % edges = info % edges
-
-    ! Build.
-    call self % build()
-
-  end subroutine init
-
-  !!
-  !!
-  !!
   elemental function intersects_BoundingBox(self, boundingBox) result(doesIt)
     class(element), intent(in)               :: self
     type(axisAlignedBoundingBox), intent(in) :: boundingBox
@@ -643,7 +632,7 @@ contains
 
     ! Initialise doesIt = .false.
     doesIt = .false.
-    if (.not. self % boundingBox % intersects(boundingBox)) return
+    if (.not. self % intersectsBoundingBox(boundingBox)) return
 
     ! Loop over all faces in the element and check for intersection with any of them.
     do i = 1, size(self % orientatedFaces)
@@ -743,8 +732,6 @@ contains
     self % parentIdx = 0
     self % localId = 0
     self % volume = ZERO
-    self % centroid = ZERO
-    self % isActive = .true.
     self % isConvex = .false.
     if (allocated(self % tetrahedronIdxs)) deallocate(self % tetrahedronIdxs)
     if (allocated(self % type)) deallocate(self % type)

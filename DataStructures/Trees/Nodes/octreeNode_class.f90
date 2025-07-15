@@ -3,17 +3,14 @@ module octreeNode_class
   use axisAlignedBoundingBox_class, only : axisAlignedBoundingBox
   use coord_class,                  only : coord
   use element_class,                only : element, elementBox, inclusionTestResult
-  use elementShelf_class,           only : elementShelf
   use face_class,                   only : face
-  use faceShelf_class,              only : faceShelf
   use genericProcedures,            only : append, areEqual, fatalError, numToChar
   use kdTree_class,                 only : kdTree
   use node_inter,                   only : buildNodePayload, kill_super => kill, node, nodeBox
   use numPrecision
   use topologicalObject_inter,      only : topologicalObjectBox
-  use topologicalObjectShelf_inter, only : topologicalObjectShelf
+  use topologicalObjectShelf_class, only : topologicalObjectShelf
   use universalVariables,           only : HALF, INF, INSIDE_ELEMENT, NUDGE, ON_BOUNDARY_ELEMENT, OUTSIDE_ELEMENT
-  use vertexShelf_class,            only : vertexShelf
 
   implicit none
   private

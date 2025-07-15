@@ -1,14 +1,11 @@
 module centroidTriangulationMethod_class
 
-  use edgeShelf_class,           only : edgeShelf
-  use element_class,             only : buildElementInfo, elementBox
-  use elementShelf_class,        only : elementShelf
-  use face_class,                only : buildFaceInfo, faceBox, orientatedFaceBox
-  use faceShelf_class,           only : faceShelf
+  use element_class,                only : buildElementPayload, elementBox
+  use face_class,                   only : buildFacePayload, faceBox, orientatedFaceBox
   use numPrecision
-  use triangulationMethod_inter, only : triangulationMethod
-  use vertex_class,              only : vertexBox
-  use vertexShelf_class,         only : vertexShelf
+  use topologicalObjectShelf_class, only : topologicalObjectShelf
+  use triangulationMethod_inter,    only : triangulationMethod
+  use vertex_class,                 only : buildVertexPayload, vertexBox
 
   implicit none
   private
@@ -29,22 +26,22 @@ contains
   !!
   !!
   subroutine decomposeFaces(self, edges, faces)
-    class(centroidTriangulationMethod), intent(in) :: self
-    type(edgeShelf), intent(inout)                 :: edges
-    type(faceShelf), intent(inout)                 :: faces
-    integer(shortInt)                              :: faceIdx, i, idx, infoIdx, j, minFaceVertexIdx, minFaceVertexIdxLoc, &
-                                                      newEdgeIdx, nFaces, newFaceIdx, nTriangles, nVertices
-    integer(shortInt), dimension(:), allocatable   :: nTrianglesInFace
-    type(faceBox)                                  :: face
-    type(buildFaceInfo), dimension(:), allocatable :: faceInfos
-    type(vertexBox), dimension(:), allocatable     :: faceVertices
+    class(centroidTriangulationMethod), intent(in)    :: self
+    type(topologicalObjectShelf), intent(inout)       :: edges, faces
+    integer(shortInt)                                 :: faceIdx, i, idx, infoIdx, j, minFaceVertexIdx, minFaceVertexIdxLoc, &
+                                                         newEdgeIdx, nFaces, newFaceIdx, nTriangles, nVertices
+    integer(shortInt), dimension(:), allocatable      :: nTrianglesInFace
+    type(faceBox)                                     :: face
+    type(buildFacePayload), dimension(:), allocatable :: facePayloads
+    type(vertexBox), dimension(:), allocatable        :: faceVertices
 
     ! Compute number of triangles to be created first.
     nFaces = faces % getObjectsNumber()
     allocate(nTrianglesInFace(nFaces))
     nTrianglesInFace = 0
     do i = 1, nFaces
-      nVertices = size(faces % getFaceVertices(i))
+      face = faces % getFaceBox(i)
+      nVertices = size(face % ptr % getVertices())
       if (nVertices == 3) cycle
       nTrianglesInFace(i) = nVertices - 2
 
@@ -54,7 +51,7 @@ contains
     nTriangles = sum(nTrianglesInFace)
 
     if (nTriangles == 0) return
-    allocate(faceInfos(nTriangles))
+    allocate(facePayloads(nTriangles))
     infoIdx = 0
     newEdgeIdx = edges % getObjectsNumber()
     do i = 1, nFaces
@@ -81,14 +78,14 @@ contains
       do j = 1, nTrianglesInFace(i)
         infoIdx = infoIdx + 1
         newFaceIdx = nFaces + infoIdx
-        faceInfos(infoIdx) % idx = newFaceIdx
-        faceInfos(infoIdx) % parentIdx = faceIdx
-        faceInfos(infoIdx) % isBoundary = face % ptr % getIsBoundary()
+        facePayloads(infoIdx) % idx = newFaceIdx
+        facePayloads(infoIdx) % parentIdx = faceIdx
+        facePayloads(infoIdx) % isBoundary = face % ptr % getIsBoundary()
 
-        allocate(faceInfos(infoIdx) % vertices(3))
-        faceInfos(infoIdx) % vertices = faceVertices([minFaceVertexIdxLoc, &
-                                                      mod(minFaceVertexIdxLoc + j - 1, nVertices) + 1, &
-                                                      mod(minFaceVertexIdxLoc + j, nVertices) + 1])
+        allocate(facePayloads(infoIdx) % vertices(3))
+        facePayloads(infoIdx) % vertices = faceVertices([minFaceVertexIdxLoc, &
+                                                         mod(minFaceVertexIdxLoc + j - 1, nVertices) + 1, &
+                                                         mod(minFaceVertexIdxLoc + j, nVertices) + 1])
 
         ! Add this child to the face.
         call face % ptr % addChildIdx(newFaceIdx)
@@ -100,24 +97,24 @@ contains
     end do
 
     ! Create new faces.
-    call self % buildTrianglesFromVertices(faceInfos, edges, faces)
+    call self % buildTrianglesFromVertices(facePayloads, edges, faces)
 
   end subroutine decomposeFaces
 
   !!
   !!
   !!
-  subroutine generateTetrahedra(self, elements, faces, vertices, infos)
-    class(centroidTriangulationMethod), intent(in)      :: self
-    type(elementShelf), intent(in)                      :: elements
-    type(faceShelf), intent(in)                         :: faces
-    type(vertexShelf), intent(inout)                    :: vertices
-    type(buildElementInfo), dimension(:), intent(inout) :: infos
-    integer(shortInt)                                   :: i, infoIdx, j, k, nElements, newElementIdx, newVertexIdx
-    type(elementBox)                                    :: element
-    type(orientatedFaceBox), dimension(:), allocatable  :: elementOrientatedFaces
-    integer(shortInt), dimension(:), allocatable        :: childrenIdxs
-    type(faceBox)                                       :: triangle
+  subroutine generateTetrahedra(self, elements, faces, vertices, payloads)
+    class(centroidTriangulationMethod), intent(in)         :: self
+    type(topologicalObjectShelf), intent(in)               :: elements, faces
+    type(topologicalObjectShelf), intent(inout)            :: vertices
+    type(buildElementPayload), dimension(:), intent(inout) :: payloads
+    integer(shortInt)                                      :: i, infoIdx, j, k, nElements, newElementIdx, newVertexIdx
+    type(elementBox)                                       :: element
+    type(buildVertexPayload)                               :: vertexPayload
+    type(orientatedFaceBox), dimension(:), allocatable     :: elementOrientatedFaces
+    integer(shortInt), dimension(:), allocatable           :: childrenIdxs
+    type(faceBox)                                          :: triangle
 
     ! Initialise nElements and newVertexIdx.
     nElements = elements % getObjectsNumber()
@@ -129,7 +126,9 @@ contains
 
       ! Create a new vertex corresponding to the centroid of the current element.
       newVertexIdx = newVertexIdx + 1
-      call vertices % initVertex(newVertexIdx, element % ptr % getCentroid())
+      vertexPayload % idx = newVertexIdx
+      vertexPayload % coordinates = element % ptr % getCentroid()
+      call vertices % initObject(vertexPayload)
 
       elementOrientatedFaces = element % ptr % getOrientatedFaces()
       do j = 1, size(elementOrientatedFaces)
@@ -137,16 +136,16 @@ contains
         do k = 1, size(childrenIdxs)
           infoIdx = infoIdx + 1
           newElementIdx = nElements + infoIdx
-          infos(infoIdx) % idx = newElementIdx
-          infos(infoIdx) % localId = element % ptr % getLocalId()
-          infos(infoIdx) % parentIdx = element % ptr % getIdx()
+          payloads(infoIdx) % idx = newElementIdx
+          payloads(infoIdx) % localId = element % ptr % getLocalId()
+          payloads(infoIdx) % parentIdx = element % ptr % getIdx()
 
           triangle = faces % getFaceBox(childrenIdxs(k))
           
           ! Allocate number of vertices for the current tetrahedron and populate them.
-          allocate(infos(infoIdx) % vertices(4))
-          infos(infoIdx) % vertices(1:3) = triangle % ptr % getVertices()
-          infos(infoIdx) % vertices(4) = vertices % getVertexBox(newVertexIdx)
+          allocate(payloads(infoIdx) % vertices(4))
+          payloads(infoIdx) % vertices(1:3) = triangle % ptr % getVertices()
+          payloads(infoIdx) % vertices(4) = vertices % getVertexBox(newVertexIdx)
 
         end do
 
@@ -162,15 +161,12 @@ contains
   !!
   !!
   subroutine triangulate(self, edges, elements, faces, vertices)
-    class(centroidTriangulationMethod), intent(in)     :: self
-    type(edgeShelf), intent(inout)                     :: edges
-    type(elementShelf), intent(inout)                  :: elements
-    type(faceShelf), intent(inout)                     :: faces
-    type(vertexShelf), intent(inout)                   :: vertices
-    integer(shortInt)                                  :: i, j, nElements, nTetrahedra
-    type(elementBox)                                   :: element
-    type(orientatedFaceBox), dimension(:), allocatable :: elementOrientatedFaces
-    type(buildElementInfo), dimension(:), allocatable  :: elementInfos
+    class(centroidTriangulationMethod), intent(in)       :: self
+    type(topologicalObjectShelf), intent(inout)          :: edges, elements, faces, vertices
+    integer(shortInt)                                    :: i, j, nElements, nTetrahedra
+    type(elementBox)                                     :: element
+    type(orientatedFaceBox), dimension(:), allocatable   :: elementOrientatedFaces
+    type(buildElementPayload), dimension(:), allocatable :: tetrahedraPayloads
 
     ! Count the number of tetrahedra to be genetated.
     nTetrahedra = 0
@@ -189,16 +185,16 @@ contains
 
     ! Return early if no tetrahedra need to be generated. Allocate elementInfos otherwise.
     if (nTetrahedra == 0) return
-    allocate(elementInfos(nTetrahedra))
+    allocate(tetrahedraPayloads(nTetrahedra))
 
     ! Triangulate faces first.
     call self % decomposeFaces(edges, faces)
 
     ! Populate vertices within each elementInfo.
-    call self % generateTetrahedra(elements, faces, vertices, elementInfos)
+    call self % generateTetrahedra(elements, faces, vertices, tetrahedraPayloads)
 
     ! Call superclass to build tetrahedra.
-    call self % buildTetrahedraFromVertices(elementInfos, edges, elements, faces)
+    call self % buildTetrahedraFromVertices(tetrahedraPayloads, edges, elements, faces)
 
   end subroutine triangulate
 

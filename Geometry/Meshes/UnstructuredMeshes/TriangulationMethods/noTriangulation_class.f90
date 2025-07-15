@@ -1,10 +1,7 @@
 module noTriangulation_class
 
-    use edgeShelf_class,           only : edgeShelf
-    use elementShelf_class,        only : elementShelf
-    use faceShelf_class,           only : faceShelf
-    use triangulationMethod_inter, only : triangulationMethod
-    use vertexShelf_class,         only : vertexShelf
+    use topologicalObjectShelf_class, only : topologicalObjectShelf
+    use triangulationMethod_inter,    only : triangulationMethod
 
     implicit none
     private
@@ -23,11 +20,8 @@ contains
     !!
     !!
     subroutine triangulate(self, edges, elements, faces, vertices)
-        class(noTriangulation), intent(in) :: self
-        type(edgeShelf), intent(inout)     :: edges
-        type(elementShelf), intent(inout)  :: elements
-        type(faceShelf), intent(inout)     :: faces
-        type(vertexShelf), intent(inout)   :: vertices
+        class(noTriangulation), intent(in)          :: self
+        type(topologicalObjectShelf), intent(inout) :: edges, elements, faces, vertices
 
         ! Do nothing.
 

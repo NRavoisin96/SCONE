@@ -3,13 +3,11 @@ module node_inter
   use axisAlignedBoundingBox_class, only : axisAlignedBoundingBox
   use coord_class,                  only : coord
   use element_class,                only : elementBox
-  use faceShelf_class,              only : faceShelf
   use genericProcedures,            only : append, areEqual, fatalError, numToChar, quickSort, removeDuplicates, swap
   use numPrecision
   use topologicalObject_inter,      only : topologicalObjectBox
-  use topologicalObjectShelf_inter, only : topologicalObjectShelf
+  use topologicalObjectShelf_class, only : topologicalObjectShelf
   use universalVariables,           only : ZERO, HALF, SURF_TOL, INF
-  use vertexShelf_class,            only : vertexShelf
   
   implicit none
   private
@@ -20,11 +18,11 @@ module node_inter
   !!
   !!
   !!
-  type, public, abstract :: buildNodePayload
-    class(topologicalObjectShelf), pointer :: shelf => null()
-    integer(shortInt)                      :: bucketSize = 0, depth = 0, maxDepth = 0, nLeaves = 0, nNodes = 0
-    logical(defBool)                       :: computeLeafBoundingBox = .true., updateParentBoundingBox = .true.
-    class(node), pointer                   :: parent => null()
+  type, public :: buildNodePayload
+    type(topologicalObjectShelf), pointer :: shelf => null()
+    integer(shortInt)                     :: bucketSize = 0, depth = 0, maxDepth = 0, nLeaves = 0, nNodes = 0
+    logical(defBool)                      :: computeLeafBoundingBox = .true., updateParentBoundingBox = .true.
+    class(node), pointer                  :: parent => null()
   end type buildNodePayload
 
   !!
@@ -77,35 +75,31 @@ module node_inter
     procedure(allocateChild), deferred          :: allocateChild
     procedure                                   :: assignElements
     procedure(build), deferred                  :: build
-    procedure                                   :: copyPayloads
     procedure(getChildrenNumber), deferred      :: getChildrenNumber
     procedure, non_overridable                  :: init
-    procedure                                   :: initBoundingBox
+    procedure, non_overridable                  :: initBoundingBox
     procedure                                   :: kill
     procedure(preparePayloadForChild), deferred :: preparePayloadForChild
-    procedure                                   :: setBoundingBox
-    procedure                                   :: setIdx
-    procedure                                   :: setIsLeaf
     ! Runtime procedures.
     generic                                     :: boundingBoxContains => boundingBoxContains_Coords
     procedure, private                          :: boundingBoxContains_Coords
     procedure, non_overridable                  :: distanceSquared
     generic                                     :: findIntersectedObjects => findIntersectedObjects_BoundingBox
     procedure, private                          :: findIntersectedObjects_BoundingBox 
-    procedure                                   :: findLeaf
+    procedure, non_overridable                  :: findLeaf
     procedure(findNearestObject), deferred      :: findNearestObject
-    procedure                                   :: getBoundingBoxBounds
-    procedure                                   :: getBoundingBoxCentre
-    procedure                                   :: getBoundingBoxPtr
-    procedure                                   :: getBucketSize
-    procedure                                   :: getChildren
-    procedure                                   :: getDepth
+    procedure, non_overridable                  :: getBoundingBoxBounds
+    procedure, non_overridable                  :: getBoundingBoxCentre
+    procedure, non_overridable                  :: getBoundingBoxPtr
+    procedure, non_overridable                  :: getBucketSize
+    procedure, non_overridable                  :: getChildren
+    procedure, non_overridable                  :: getDepth
     procedure(getDescentChildIdx), deferred     :: getDescentChildIdx
-    procedure                                   :: getIdx
-    procedure                                   :: getIsLeaf
-    procedure                                   :: getContainingObjects
-    procedure                                   :: getTestObjects
-    procedure                                   :: pushFromBoundingBoxBoundary
+    procedure, non_overridable                  :: getIdx
+    procedure, non_overridable                  :: getIsLeaf
+    procedure, non_overridable                  :: getContainedObjects
+    procedure, non_overridable                  :: getContainingObjects
+    procedure, non_overridable                  :: pushFromBoundingBoxBoundary
   end type node
 
   abstract interface
@@ -297,29 +291,6 @@ contains
   !!
   !!
   !!
-  subroutine copyPayloads(self, parentPayload, childPayload)
-    class(node), target, intent(in)        :: self
-    class(buildNodePayload), intent(in)    :: parentPayload
-    class(buildNodePayload), intent(inout) :: childPayload
-
-    ! Copy everything from parentPayload to childPayload.
-    childPayload % shelf => parentPayload % shelf
-    childPayload % bucketSize = parentPayload % bucketSize
-    childPayload % depth = parentPayload % depth
-    childPayload % maxDepth = parentPayload % maxDepth
-    childPayload % nLeaves = parentPayload % nLeaves
-    childPayload % nNodes = parentPayload % nNodes
-    childPayload % computeLeafBoundingBox = parentPayload % computeLeafBoundingBox
-    childPayload % updateParentBoundingBox = parentPayload % updateParentBoundingBox
-    
-    ! Set the parent for childPayload to self.
-    childPayload % parent => self
-
-  end subroutine copyPayloads
-
-  !!
-  !!
-  !!
   pure function distanceSquared(self, r) result(dSquared)
     class(node), intent(in)                 :: self
     real(defReal), dimension(3), intent(in) :: r
@@ -487,13 +458,6 @@ contains
       payload % parent => self
       call self % preparePayloadForChild(i, payload)
       call self % children(i) % ptr % init(payload)
-
-      ! Let's verify where the pointer is pointing AFTER the child is fully initialized.
-      if (self % children(i) % ptr % getIdx() == 1) then
-        print '("INIT DEBUG: Parent ", I0, ", Child #", I0, " is now initialized with index ", I0)', &
-        self % getIdx(), i, self % children(i) % ptr % getIdx()
-
-      end if
 
     end do
 
@@ -672,6 +636,23 @@ contains
   !!
   !!
   !!
+  function getContainedObjects(self) result(testObjects)
+    class(node), intent(in)                               :: self
+    type(topologicalObjectBox), dimension(:), allocatable :: testObjects
+
+    if (allocated(self % containedObjects)) then
+      testObjects = self % containedObjects
+
+    else
+      allocate(testObjects(0))
+
+    end if
+
+  end function getContainedObjects
+
+  !!
+  !!
+  !!
   function getContainingObjects(self) result(containingObjects)
     class(node), intent(in)                               :: self
     type(topologicalObjectBox), dimension(:), allocatable :: containingObjects
@@ -689,23 +670,6 @@ contains
   !!
   !!
   !!
-  function getTestObjects(self) result(testObjects)
-    class(node), intent(in)                               :: self
-    type(topologicalObjectBox), dimension(:), allocatable :: testObjects
-
-    if (allocated(self % containedObjects)) then
-      testObjects = self % containedObjects
-
-    else
-      allocate(testObjects(0))
-
-    end if
-
-  end function getTestObjects
-
-  !!
-  !!
-  !!
   subroutine pushFromBoundingBoxBoundary(self, coords, inside)
     class(node), intent(in)       :: self
     type(coord), intent(inout)    :: coords
@@ -714,37 +678,5 @@ contains
     call self % boundingBox % pushFromBoundary(coords, inside)
 
   end subroutine pushFromBoundingBoxBoundary
-
-  !!
-  !!
-  !!
-  elemental subroutine setBoundingBox(self, boundingBox)
-    class(node), intent(inout)               :: self
-    type(axisAlignedBoundingBox), intent(in) :: boundingBox
-
-    self % boundingBox = boundingBox
-
-  end subroutine setBoundingBox
-
-  !!
-  !!
-  !!
-  elemental subroutine setIdx(self, idx)
-    class(node), intent(inout)    :: self
-    integer(shortInt), intent(in) :: idx
-
-    self % idx = idx
-
-  end subroutine setIdx
-
-  !!
-  !!
-  !!
-  elemental subroutine setIsLeaf(self)
-    class(node), intent(inout) :: self
-
-    self % isLeaf = .true.
-
-  end subroutine setIsLeaf
   
 end module node_inter

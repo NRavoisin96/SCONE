@@ -4,22 +4,20 @@ module unstructuredMesh_inter
   use accelerationStructureFactory_func, only : newAccelerationStructurePtr
   use coord_class,                       only : coord
   use dictionary_class,                  only : dictionary
-  use edge_class,                        only : buildEdgeInfo, edgeBox
-  use edgeShelf_class,                   only : edgeShelf
-  use element_class,                     only : buildElementInfo, element, elementBox, inclusionTestResult
-  use elementShelf_class,                only : elementShelf
-  use face_class,                        only : buildFaceInfo, face, faceBox
-  use faceShelf_class,                   only : faceShelf
+  use edge_class,                        only : buildEdgePayload, edgeBox
+  use element_class,                     only : buildElementPayload, element, elementBox, inclusionTestResult
+  use face_class,                        only : buildFacePayload, face, faceBox
   use genericProcedures,                 only : append, fatalError, numToChar
   use mesh_inter,                        only : mesh, kill_super => kill
   use numPrecision
-  use publicObjects,                     only : basicEdgeInfo, basicElementInfo, basicFaceInfo, meshLocalIdInfo
+  use publicObjects,                     only : basicEdgeInfo, basicElementInfo, basicFaceInfo, basicVertexInfo, &
+                                                meshLocalIdInfo
   use topologicalObject_inter,           only : topologicalObjectBox
+  use topologicalObjectShelf_class,      only : topologicalObjectShelf
   use triangulationFactory_func,         only : newTriangulationPtr
   use triangulationMethod_inter,         only : triangulationMethod
   use universalVariables
-  use vertex_class,                      only : vertexBox
-  use vertexShelf_class,                 only : vertexShelf
+  use vertex_class,                      only : buildVertexPayload, vertexBox
 
   implicit none
   private
@@ -60,11 +58,8 @@ module unstructuredMesh_inter
     integer(shortInt)                     :: nVertices = 0, nFaces = 0, nEdges = 0, &
                                              nElements = 0, nInternalFaces = 0
     class(accelerationStructure), pointer :: acceleration
-    type(edgeShelf)                       :: edges
-    type(elementShelf), public            :: elements
-    type(faceShelf)                       :: faces
+    type(topologicalObjectShelf)          :: edges, elements, faces, vertices
     class(triangulationMethod), pointer   :: triangulation
-    type(vertexShelf), public             :: vertices
   contains
     ! Build procedures.
     procedure                       :: assignLocalIds
@@ -85,7 +80,6 @@ module unstructuredMesh_inter
     procedure                       :: distanceToBoundaryFace
     procedure                       :: distanceToNextFace
     procedure                       :: findHostElement
-    procedure                       :: getAllVertexCoordinates
     procedure                       :: getEdgesNumber
     procedure                       :: getElementsNumber
     procedure                       :: getFacesNumber
@@ -119,12 +113,17 @@ contains
   subroutine assignLocalIds(self, localIdInfos)
     class(unstructuredMesh), intent(inout)          :: self
     type(meshLocalIdInfo), dimension(:), intent(in) :: localIdInfos
-    integer(shortInt)                               :: i, nLocalIds
+    integer(shortInt)                               :: i, j, nLocalIds
+    type(elementBox)                                :: element
 
     nLocalIds = size(localIdInfos)
     call self % setLocalIdsNumber(nLocalIds)
     do i = 1, nLocalIds
-      call self % elements % setElementLocalId(localIdInfos(i) % elementIdxs, localIdInfos(i) % localId)
+      do j = 1, size(localIdInfos(i) % elementIdxs)
+        element = self % elements % getElementBox(localIdInfos(i) % elementIdxs(j))
+        call element % ptr % setLocalId(localIdInfos(i) % localId)
+
+      end do
 
     end do
 
@@ -301,22 +300,6 @@ contains
 
   end subroutine findHostElement
 
-  !! Function 'getAllVertexCoordinates'
-  !!
-  !! Basic description:
-  !!   Returns the 3-D coordinates of all the vertices in the mesh.
-  !!
-  !! Result:
-  !!   coords -> 3-D coordinates of all the vertices in the mesh.
-  !!
-  function getAllVertexCoordinates(self) result(coords)
-    class(unstructuredMesh), intent(in)           :: self
-    real(defReal), dimension(3, self % nVertices) :: coords
-
-    coords = self % vertices % getAllCoordinates()
-
-  end function getAllVertexCoordinates
-
   !!
   !!
   !!
@@ -380,6 +363,8 @@ contains
     character(*), intent(in)               :: folderPath
     class(dictionary), intent(in)          :: dict
     integer(shortInt)                      :: i
+    type(elementBox)                       :: element
+    type(faceBox)                          :: face
 
     ! Set up base components.
     call self % setupBase(dict)
@@ -402,16 +387,18 @@ contains
     self % nVertices = self % vertices % getObjectsNumber()
     self % nElements = 0
     do i = 1, self % elements % getObjectsNumber()
-      if (self % elements % getElementIsActive(i)) self % nElements = self % nElements + 1
+      element = self % elements % getElementBox(i)
+      if (element % ptr % getIsActive()) self % nElements = self % nElements + 1
 
     end do
 
     self % nFaces = 0
     self % nInternalFaces = 0
     do i = 1, self % faces % getObjectsNumber()
-      if (self % faces % getFaceIsActive(i)) then
+      face = self % faces % getFaceBox(i)
+      if (face % ptr % getIsActive()) then
         self % nFaces = self % nFaces + 1
-        if (.not. self % faces % getFaceIsBoundary(i)) self % nInternalFaces = self % nInternalFaces + 1
+        if (.not. face % ptr % getIsBoundary()) self % nInternalFaces = self % nInternalFaces + 1
 
       end if
 
@@ -426,22 +413,20 @@ contains
   !!
   !!
   subroutine initEdgeShelf(self, edgeInfos)
-    class(unstructuredMesh), intent(inout)          :: self
-    type(basicEdgeInfo), dimension(:), intent(in)   :: edgeInfos
-    type(buildEdgeInfo), dimension(size(edgeInfos)) :: buildInfos
-    integer(shortInt)                               :: i, nEdges
+    class(unstructuredMesh), intent(inout)             :: self
+    type(basicEdgeInfo), dimension(:), intent(in)      :: edgeInfos
+    type(buildEdgePayload), dimension(size(edgeInfos)) :: payloads
+    integer(shortInt)                                  :: i, j, nEdges
+    type(edgeBox)                                      :: edge
 
     nEdges = size(edgeInfos)
     self % nEdges = nEdges
     do i = 1, nEdges
-      buildInfos(i) % idx = edgeInfos(i) % idx
-      buildInfos(i) % vertices = self % vertices % getVertexBox(edgeInfos(i) % vertexIdxs)
-      
-      ! Update connectivity.
-      call self % vertices % addEdgeIdxToVertex(edgeInfos(i) % vertexIdxs, edgeInfos(i) % idx)
+      payloads(i) % idx = edgeInfos(i) % idx
+      payloads(i) % vertices = self % vertices % getVertexBox(edgeInfos(i) % vertexIdxs)
 
     end do
-    call self % edges % init(buildInfos)
+    call self % edges % init(payloads)
 
   end subroutine initEdgeShelf
 
@@ -449,37 +434,43 @@ contains
   !!
   !!
   subroutine initElementShelf(self, elementInfos)
-    class(unstructuredMesh), intent(inout)                :: self
-    type(basicElementInfo), dimension(:), intent(inout)   :: elementInfos
-    type(buildElementInfo), dimension(size(elementInfos)) :: buildInfos
-    integer(shortInt)                                     :: absFaceIdx, i, j, nElements, nFaces
+    class(unstructuredMesh), intent(inout)                   :: self
+    type(basicElementInfo), dimension(:), intent(inout)      :: elementInfos
+    type(buildElementPayload), dimension(size(elementInfos)) :: payloads
+    integer(shortInt)                                        :: i, j, nElements, nFaces
+    type(faceBox)                                            :: face
 
     nElements = size(elementInfos)
     self % nElements = nElements
     do i = 1, nElements
-      buildInfos(i) % idx = elementInfos(i) % idx
-      buildInfos(i) % parentIdx = elementInfos(i) % parentIdx
+      payloads(i) % idx = elementInfos(i) % idx
+      payloads(i) % parentIdx = elementInfos(i) % parentIdx
       nFaces = size(elementInfos(i) % faceIdxs)
-      allocate(buildInfos(i) % orientatedFaces(nFaces))
+      allocate(payloads(i) % orientatedFaces(nFaces))
       do j = 1, nFaces
-        ! Create absFaceIdx then retrieve face properties.
-        absFaceIdx = abs(elementInfos(i) % faceIdxs(j))
-        buildInfos(i) % orientatedFaces(j) % face = self % faces % getFaceBox(absFaceIdx)
-        buildInfos(i) % orientatedFaces(j) % outwardNormal = self % faces % getFaceNormal(elementInfos(i) % faceIdxs(j))
-        if (0 < elementInfos(i) % faceIdxs(j)) buildInfos(i) % orientatedFaces(j) % isOwner = .true.
+        face = self % faces % getFaceBox(abs(elementInfos(i) % faceIdxs(j)))
+        payloads(i) % orientatedFaces(j) % face = face
+        if (0 < elementInfos(i) % faceIdxs(j)) then
+          payloads(i) % orientatedFaces(j) % isOwner = .true.
+          payloads(i) % orientatedFaces(j) % outwardNormal = face % ptr % getNormal()
+
+        else
+          payloads(i) % orientatedFaces(j) % outwardNormal = -face % ptr % getNormal()
+
+        end if
 
       end do
 
       ! Check if we need to construct edges.
       if (.not. allocated(elementInfos(i) % edgeIdxs)) call createEdgeIdxs(elementInfos(i))
-      buildInfos(i) % edges = self % edges % getEdgeBox(elementInfos(i) % edgeIdxs)
+      payloads(i) % edges = self % edges % getEdgeBox(elementInfos(i) % edgeIdxs)
 
       ! Check if we need to construct vertices.
       if (.not. allocated(elementInfos(i) % vertexIdxs)) call createVertexIdxs(elementInfos(i))
-      buildInfos(i) % vertices = self % vertices % getVertexBox(elementInfos(i) % vertexIdxs)
+      payloads(i) % vertices = self % vertices % getVertexBox(elementInfos(i) % vertexIdxs)
 
     end do
-    call self % elements % init(buildInfos)
+    call self % elements % init(payloads)
   
   contains
     !!
@@ -489,6 +480,7 @@ contains
       type(basicElementInfo), intent(inout)                 :: info
       logical(defBool), dimension(self % edges % getSize()) :: isPresent
       integer(shortInt)                                     :: currentSize, idx, k, l, nEdges
+      type(faceBox)                                         :: fBox
       type(edgeBox), dimension(:), allocatable              :: faceEdges
       integer(shortInt), dimension(:), allocatable          :: tempIdxs
 
@@ -497,7 +489,8 @@ contains
       allocate(info % edgeIdxs(6))
       nEdges = 0
       do k = 1, size(info % faceIdxs)
-        faceEdges = self % faces % getFaceEdges(abs(info % faceIdxs(k)))
+        fBox = self % faces % getFaceBox(abs(info % faceIdxs(k)))
+        faceEdges = fBox % ptr % getEdges()
         do l = 1, size(faceEdges)
           idx = faceEdges(l) % ptr % getIdx()
           if (.not. isPresent(idx)) then
@@ -535,6 +528,7 @@ contains
       type(basicElementInfo), intent(inout)                    :: info
       logical(defBool), dimension(self % vertices % getSize()) :: isPresent
       integer(shortInt)                                        :: currentSize, idx, k, l, nVertices
+      type(faceBox)                                            :: fBox
       type(vertexBox), dimension(:), allocatable               :: faceVertices
       integer(shortInt), dimension(:), allocatable             :: tempIdxs
 
@@ -543,7 +537,8 @@ contains
       allocate(info % vertexIdxs(4))
       nVertices = 0
       do k = 1, size(info % faceIdxs)
-        faceVertices = self % faces % getFaceVertices(abs(info % faceIdxs(k)))
+        fBox = self % faces % getFaceBox(abs(info % faceIdxs(k)))
+        faceVertices = fBox % ptr % getVertices()
         do l = 1, size(faceVertices)
           idx = faceVertices(l) % ptr % getIdx()
           if (.not. isPresent(idx)) then
@@ -580,39 +575,49 @@ contains
   !!
   !!
   subroutine initFaceShelf(self, faceInfos)
-    class(unstructuredMesh), intent(inout)          :: self
-    type(basicFaceInfo), dimension(:), intent(in)   :: faceInfos
-    type(buildFaceInfo), dimension(size(faceInfos)) :: buildInfos
-    integer(shortInt)                               :: i, nFaces
+    class(unstructuredMesh), intent(inout)             :: self
+    type(basicFaceInfo), dimension(:), intent(in)      :: faceInfos
+    type(buildFacePayload), dimension(size(faceInfos)) :: payloads
+    integer(shortInt)                                  :: i, j, nFaces
 
     nFaces = size(faceInfos)
     self % nFaces = nFaces
     do i = 1, nFaces
-      buildInfos(i) % idx = faceInfos(i) % idx
-      buildInfos(i) % parentIdx = faceInfos(i) % parentIdx
-      buildInfos(i) % isBoundary = faceInfos(i) % isBoundary
-      buildInfos(i) % vertices = self % vertices % getVertexBox(faceInfos(i) % vertexIdxs)
-      buildInfos(i) % edges = self % edges % getEdgeBox(faceInfos(i) % edgeIdxs)
-
-      ! Update connectivity.
-      call self % vertices % addFaceIdxToVertex(faceInfos(i) % vertexIdxs, faceInfos(i) % idx)
-      call self % edges % addFaceIdxToEdge(faceInfos(i) % edgeIdxs, faceInfos(i) % idx)
+      payloads(i) % idx = faceInfos(i) % idx
+      payloads(i) % parentIdx = faceInfos(i) % parentIdx
+      payloads(i) % isBoundary = faceInfos(i) % isBoundary
+      payloads(i) % vertices = self % vertices % getVertexBox(faceInfos(i) % vertexIdxs)
+      payloads(i) % edges = self % edges % getEdgeBox(faceInfos(i) % edgeIdxs)
 
     end do
-    call self % faces % init(buildInfos)
+    call self % faces % init(payloads)
 
   end subroutine initFaceShelf
 
   !!
   !!
   !!
-  subroutine initVertexShelf(self, coords)
-    class(unstructuredMesh), intent(inout)     :: self
-    real(defReal), dimension(:, :), intent(in) :: coords
+  subroutine initVertexShelf(self, vertexInfos)
+    class(unstructuredMesh), intent(inout)                 :: self
+    type(basicVertexInfo), dimension(:), intent(in)        :: vertexInfos
+    type(buildVertexPayload), dimension(size(vertexInfos)) :: payloads
+    integer(shortInt)                                      :: i, nVertices
+    real(defReal), dimension(3)                            :: coords
+    real(defReal), dimension(:, :), allocatable            :: allCoords
 
-    self % nVertices = size(coords, 2)
-    call self % vertices % init(coords)
-    call self % initBoundingBox(self % vertices % getExtremalCoordinates())
+    nVertices = size(vertexInfos)
+    self % nVertices = nVertices
+    allocate(allCoords(3, nVertices))
+
+    do i = 1, nVertices
+      payloads(i) % idx = vertexInfos(i) % idx
+      coords = vertexInfos(i) % coordinates
+      payloads(i) % coordinates = coords
+      allCoords(:, i) = coords
+
+    end do
+    call self % vertices % init(payloads)
+    call self % initBoundingBox(allCoords)
 
   end subroutine
 
@@ -655,6 +660,7 @@ contains
     class(unstructuredMesh), intent(in) :: self
     integer(shortInt), intent(out)      :: nTetrahedra
     integer(shortInt)                   :: nFaces, nPentahedra, nHexahedra, nOthers, i
+    type(elementBox)                    :: element
     
     ! Initialise the numbers of various polyhedra to zero.
     nTetrahedra = 0
@@ -666,7 +672,8 @@ contains
     do i = 1, self % nElements
       ! Retrieve the number of faces in the current element and increment specific polyhedra
       ! accordingly.
-      nFaces = size(self % elements % getElementOrientatedFaces(i))
+      element = self % elements % getElementBox(i)
+      nFaces = size(element % ptr % getOrientatedFaces())
       select case (nFaces)
         case (4)
           nTetrahedra = nTetrahedra + 1

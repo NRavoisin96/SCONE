@@ -1,17 +1,14 @@
 module DompierreTriangulationMethod_class
 
-  use edge_class,                only : edgeBox
-  use edgeShelf_class,           only : edgeShelf
-  use element_class,             only : buildElementInfo, elementBox
-  use elementShelf_class,        only : elementShelf
-  use face_class,                only : buildFaceInfo, faceBox, orientatedFaceBox
-  use faceShelf_class,           only : faceShelf
-  use genericProcedures,         only : areEqual, fatalError, numToChar, quickSort
+  use edge_class,                   only : edgeBox
+  use element_class,                only : buildElementPayload, elementBox
+  use face_class,                   only : buildFacePayload, faceBox, orientatedFaceBox
+  use genericProcedures,            only : areEqual, fatalError, numToChar, quickSort
   use numPrecision
-  use triangulationMethod_inter, only : triangulationMethod
-  use universalVariables,        only : NOT_PRESENT
-  use vertex_class,              only : vertexBox
-  use vertexShelf_class,         only : vertexShelf
+  use topologicalObjectShelf_class, only : topologicalObjectShelf
+  use triangulationMethod_inter,    only : triangulationMethod
+  use universalVariables,           only : NOT_PRESENT
+  use vertex_class,                 only : vertexBox
 
   implicit none
   private
@@ -32,19 +29,18 @@ contains
   !!
   !!
   subroutine decomposeFaces(self, edges, faces)
-    class(DompierreTriangulationMethod), intent(in) :: self
-    type(edgeShelf), intent(inout)                  :: edges
-    type(faceShelf), intent(inout)                  :: faces
-    integer(shortInt)                               :: i, infoIdx, j, &
-                                                       newEdgeIdx, newFaceIdx, nFaces, nVertices, nTriangles
-    type(faceBox)                                   :: face
-    type(vertexBox), dimension(:), allocatable      :: faceVertices
-    type(buildFaceInfo), dimension(:), allocatable  :: infos
-    integer(shortInt), dimension(4)                 :: vertexIdxs
-    real(defReal), dimension(3)                     :: diff_1, diff_2
-    real(defReal)                                   :: dSquared_1, dSquared_2
-    logical(defBool)                                :: splitAlong13
-    character(*), parameter                         :: here = 'decomposeFaces (DompierreTriangulationMethod_class.f90)'
+    class(DompierreTriangulationMethod), intent(in)   :: self
+    type(topologicalObjectShelf), intent(inout)       :: edges, faces
+    integer(shortInt)                                 :: i, infoIdx, j, &
+                                                         newEdgeIdx, newFaceIdx, nFaces, nVertices, nTriangles
+    type(faceBox)                                     :: face
+    type(vertexBox), dimension(:), allocatable        :: faceVertices
+    type(buildFacePayload), dimension(:), allocatable :: trianglePayloads
+    integer(shortInt), dimension(4)                   :: vertexIdxs
+    real(defReal), dimension(3)                       :: diff_1, diff_2
+    real(defReal)                                     :: dSquared_1, dSquared_2
+    logical(defBool)                                  :: splitAlong13
+    character(*), parameter                           :: here = 'decomposeFaces (DompierreTriangulationMethod_class.f90)'
 
     ! Do a first pass and count the number of triangles to be generated.
     nTriangles = 0
@@ -72,7 +68,7 @@ contains
 
     ! Return if no new triangles need to be generated.
     if (nTriangles == 0) return
-    allocate(infos(nTriangles))
+    allocate(trianglePayloads(nTriangles))
 
     infoIdx = 0
     newEdgeIdx = edges % getObjectsNumber()
@@ -98,16 +94,16 @@ contains
         do j = 1, 2
           infoIdx = infoIdx + 1
           newFaceIdx = nFaces + infoIdx
-          infos(infoIdx) % idx = newFaceIdx
-          infos(infoIdx) % parentIdx = face % ptr % getIdx()
-          infos(infoIdx) % isBoundary = face % ptr % getIsBoundary()
+          trianglePayloads(infoIdx) % idx = newFaceIdx
+          trianglePayloads(infoIdx) % parentIdx = face % ptr % getIdx()
+          trianglePayloads(infoIdx) % isBoundary = face % ptr % getIsBoundary()
 
-          allocate(infos(infoIdx) % vertices(3))
+          allocate(trianglePayloads(infoIdx) % vertices(3))
           if (splitAlong13) then
-            infos(infoIdx) % vertices = faceVertices([1, j + 1, j + 2])
+            trianglePayloads(infoIdx) % vertices = faceVertices([1, j + 1, j + 2])
 
           else
-            infos(infoIdx) % vertices = faceVertices([2, j + 2, merge(1, j + 3, j == 2)])
+            trianglePayloads(infoIdx) % vertices = faceVertices([2, j + 2, merge(1, j + 3, j == 2)])
 
           end if
 
@@ -123,31 +119,31 @@ contains
     end do
     
     ! Create new faces.
-    call self % buildTrianglesFromVertices(infos, edges, faces)
+    call self % buildTrianglesFromVertices(trianglePayloads, edges, faces)
 
   end subroutine decomposeFaces
 
   !!
   !!
   !!
-  subroutine generateTetrahedraFromHexahedron(self, hexahedron, vertices, edges, infoIdx, newElementIdx, tetrahedraInfos)
-    class(DompierreTriangulationMethod), intent(in)     :: self
-    type(elementBox), intent(in)                        :: hexahedron
-    type(vertexShelf), intent(in)                       :: vertices
-    type(edgeShelf), intent(inout)                      :: edges
-    integer(shortInt), intent(inout)                    :: infoIdx, newElementIdx
-    type(buildElementInfo), dimension(:), intent(inout) :: tetrahedraInfos
-    type(vertexBox), dimension(8)                       :: hexahedronVertices, sortedVertices
-    integer(shortInt)                                   :: i, idx, j, parity
-    integer(shortInt), dimension(3)                     :: edgeVertexIdxs
-    integer(shortInt), dimension(8)                     :: vertexIdxs
-    integer(shortInt), dimension(:), allocatable        :: edgeIdxs
-    type(edgeBox), dimension(12)                        :: hexahedronEdges
-    type(vertexBox), dimension(2)                       :: edgeVertices
-    type(orientatedFaceBox), dimension(6)               :: hexahedronOrientatedFaces
-    type(vertexBox), dimension(4)                       :: orientatedFaceVertices
-    integer(shortInt), dimension(4)                     :: orientatedFaceVertexIdxs
-    logical(defBool)                                    :: isEven
+  subroutine generateTetrahedraFromHexahedron(self, hexahedron, vertices, edges, infoIdx, newElementIdx, tetrahedraPayloads)
+    class(DompierreTriangulationMethod), intent(in)        :: self
+    type(elementBox), intent(in)                           :: hexahedron
+    type(topologicalObjectShelf), intent(in)               :: vertices
+    type(topologicalObjectShelf), intent(inout)            :: edges
+    integer(shortInt), intent(inout)                       :: infoIdx, newElementIdx
+    type(buildElementPayload), dimension(:), intent(inout) :: tetrahedraPayloads
+    type(vertexBox), dimension(8)                          :: hexahedronVertices, sortedVertices
+    integer(shortInt)                                      :: i, idx, j, parity
+    integer(shortInt), dimension(3)                        :: edgeVertexIdxs
+    integer(shortInt), dimension(8)                        :: vertexIdxs
+    integer(shortInt), dimension(:), allocatable           :: edgeIdxs
+    type(edgeBox), dimension(12)                           :: hexahedronEdges
+    type(vertexBox), dimension(2)                          :: edgeVertices
+    type(orientatedFaceBox), dimension(6)                  :: hexahedronOrientatedFaces
+    type(vertexBox), dimension(4)                          :: orientatedFaceVertices
+    integer(shortInt), dimension(4)                        :: orientatedFaceVertexIdxs
+    logical(defBool)                                       :: isEven
 
     hexahedronVertices = hexahedron % ptr % getVertices()
     do i = 1, 8
@@ -238,69 +234,69 @@ contains
     ! Now that we have sorted the vertices in the correct order, simply compute the parity of the
     ! hexahedron.
     parity = 0
-    if (edges % getEdgeIdxOrDefault(sortedVertices([1, 3]), NOT_PRESENT) == NOT_PRESENT) parity = parity + 1
-    if (edges % getEdgeIdxOrDefault(sortedVertices([1, 6]), NOT_PRESENT) /= NOT_PRESENT) parity = parity + 1
-    if (edges % getEdgeIdxOrDefault(sortedVertices([1, 8]), NOT_PRESENT) /= NOT_PRESENT) parity = parity + 1
+    if (edges % getObjectIdxOrDefault(sortedVertices([1, 3]), NOT_PRESENT) == NOT_PRESENT) parity = parity + 1
+    if (edges % getObjectIdxOrDefault(sortedVertices([1, 6]), NOT_PRESENT) /= NOT_PRESENT) parity = parity + 1
+    if (edges % getObjectIdxOrDefault(sortedVertices([1, 8]), NOT_PRESENT) /= NOT_PRESENT) parity = parity + 1
     isEven = mod(parity, 2) == 0
     do i = 1, 6
       infoIdx = infoIdx + 1
       newElementIdx = newElementIdx + 1
-      tetrahedraInfos(infoIdx) % idx = newElementIdx
-      tetrahedraInfos(infoIdx) % parentIdx = hexahedron % ptr % getIdx()
-      tetrahedraInfos(infoIdx) % localId = hexahedron % ptr % getLocalId()
-      allocate(tetrahedraInfos(infoIdx) % vertices(4))
+      tetrahedraPayloads(infoIdx) % idx = newElementIdx
+      tetrahedraPayloads(infoIdx) % parentIdx = hexahedron % ptr % getIdx()
+      tetrahedraPayloads(infoIdx) % localId = hexahedron % ptr % getLocalId()
+      allocate(tetrahedraPayloads(infoIdx) % vertices(4))
       select case(i)
         case(1)
           if (isEven) then
-            tetrahedraInfos(infoIdx) % vertices = sortedVertices([1, 2, 5, 8])
+            tetrahedraPayloads(infoIdx) % vertices = sortedVertices([1, 2, 5, 8])
 
           else
-            tetrahedraInfos(infoIdx) % vertices = sortedVertices([1, 2, 3, 7])
+            tetrahedraPayloads(infoIdx) % vertices = sortedVertices([1, 2, 3, 7])
 
           end if
 
         case(2)
           if (isEven) then
-            tetrahedraInfos(infoIdx) % vertices = sortedVertices([1, 2, 4, 8])
+            tetrahedraPayloads(infoIdx) % vertices = sortedVertices([1, 2, 4, 8])
 
           else
-            tetrahedraInfos(infoIdx) % vertices = sortedVertices([1, 3, 4, 7])
+            tetrahedraPayloads(infoIdx) % vertices = sortedVertices([1, 3, 4, 7])
 
           end if
 
         case(3)
           if (isEven) then
-            tetrahedraInfos(infoIdx) % vertices = sortedVertices([2, 3, 4, 8])
+            tetrahedraPayloads(infoIdx) % vertices = sortedVertices([2, 3, 4, 8])
 
           else
-            tetrahedraInfos(infoIdx) % vertices = sortedVertices([1, 4, 8, 7])
+            tetrahedraPayloads(infoIdx) % vertices = sortedVertices([1, 4, 8, 7])
 
           end if
 
         case(4)
           if (isEven) then
-            tetrahedraInfos(infoIdx) % vertices = sortedVertices([2, 5, 6, 8])
+            tetrahedraPayloads(infoIdx) % vertices = sortedVertices([2, 5, 6, 8])
 
           else
-            tetrahedraInfos(infoIdx) % vertices = sortedVertices([1, 8, 5, 7])
+            tetrahedraPayloads(infoIdx) % vertices = sortedVertices([1, 8, 5, 7])
 
           end if
 
         case(5)
           if (isEven) then
-            tetrahedraInfos(infoIdx) % vertices = sortedVertices([2, 3, 6, 8])
+            tetrahedraPayloads(infoIdx) % vertices = sortedVertices([2, 3, 6, 8])
 
           else
-            tetrahedraInfos(infoIdx) % vertices = sortedVertices([1, 5, 6, 7])
+            tetrahedraPayloads(infoIdx) % vertices = sortedVertices([1, 5, 6, 7])
 
           end if
 
         case(6)
           if (isEven) then
-            tetrahedraInfos(infoIdx) % vertices = sortedVertices([3, 6, 7, 8])
+            tetrahedraPayloads(infoIdx) % vertices = sortedVertices([3, 6, 7, 8])
 
           else
-            tetrahedraInfos(infoIdx) % vertices = sortedVertices([1, 6, 2, 7])
+            tetrahedraPayloads(infoIdx) % vertices = sortedVertices([1, 6, 2, 7])
 
           end if
 
@@ -314,17 +310,14 @@ contains
   !!
   !!
   subroutine triangulate(self, edges, elements, faces, vertices)
-    class(DompierreTriangulationMethod), intent(in)    :: self
-    type(edgeShelf), intent(inout)                     :: edges
-    type(elementShelf), intent(inout)                  :: elements
-    type(faceShelf), intent(inout)                     :: faces
-    type(vertexShelf), intent(inout)                   :: vertices
-    integer(shortInt)                                  :: i, infoIdx, nElements, newElementIdx, nFaces, nTetrahedra, nVertices
-    type(elementBox)                                   :: element
-    type(orientatedFaceBox), dimension(:), allocatable :: elementOrientatedFaces
-    type(vertexBox), dimension(:), allocatable         :: elementVertices
-    type(buildElementInfo), dimension(:), allocatable  :: infos
-    character(*), parameter                            :: here = 'triangulate (DompierreTriangulationMethod_class.f90)'
+    class(DompierreTriangulationMethod), intent(in)      :: self
+    type(topologicalObjectShelf), intent(inout)          :: edges, elements, faces, vertices
+    integer(shortInt)                                    :: i, infoIdx, nElements, newElementIdx, nFaces, nTetrahedra, nVertices
+    type(elementBox)                                     :: element
+    type(orientatedFaceBox), dimension(:), allocatable   :: elementOrientatedFaces
+    type(vertexBox), dimension(:), allocatable           :: elementVertices
+    type(buildElementPayload), dimension(:), allocatable :: tetrahedraPayloads
+    character(*), parameter                              :: here = 'triangulate (DompierreTriangulationMethod_class.f90)'
 
     ! Do a first pass to count the number of tetrahedra to be generated.
     nElements = elements % getObjectsNumber()
@@ -361,7 +354,7 @@ contains
 
     ! If no new tetrahedra need to be generated return early.
     if (nTetrahedra == 0) return
-    allocate(infos(nTetrahedra))
+    allocate(tetrahedraPayloads(nTetrahedra))
     
     ! Decompose faces first.
     call self % decomposeFaces(edges, faces)
@@ -375,7 +368,7 @@ contains
 
       select case(size(elementVertices))
         case(8)
-          call self % generateTetrahedraFromHexahedron(element, vertices, edges, infoIdx, newElementIdx, infos)
+          call self % generateTetrahedraFromHexahedron(element, vertices, edges, infoIdx, newElementIdx, tetrahedraPayloads)
           
 
       end select
@@ -385,7 +378,7 @@ contains
     end do
     
     ! Call superclass to build tetrahedra.
-    call self % buildTetrahedraFromVertices(infos, edges, elements, faces)
+    call self % buildTetrahedraFromVertices(tetrahedraPayloads, edges, elements, faces)
 
   end subroutine triangulate
 

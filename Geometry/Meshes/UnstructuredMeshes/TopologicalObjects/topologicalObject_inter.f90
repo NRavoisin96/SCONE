@@ -7,7 +7,14 @@ module topologicalObject_inter
   private
 
   ! Extendable procedures.
-  public :: kill
+  public :: init, kill
+
+  !!
+  !!
+  !!
+  type, public :: buildTopologicalObjectPayload
+    integer(shortInt)         :: idx = 0
+  end type buildTopologicalObjectPayload
 
   !!
   !! Small, local container to store polymorphic topological objects in an array.
@@ -25,21 +32,35 @@ module topologicalObject_inter
   type, public, abstract :: topologicalObject
     private
     integer(shortInt)    :: idx = 0
+    logical(defBool)     :: isActive = .true.
   contains
     ! Build procedures.
-    procedure, non_overridable                  :: setIdx
+    procedure(build), deferred                  :: build
+    procedure                                   :: init
+    procedure                                   :: setIdx
     ! Runtime procedures.
+    procedure, non_overridable                  :: deactivate
     procedure(distanceSquared), deferred        :: distanceSquared
     procedure(getBoundingBoxBounds), deferred   :: getBoundingBoxBounds
     procedure(getCentroid), deferred            :: getCentroid
     procedure(getElements), deferred            :: getElements
     procedure, non_overridable                  :: getIdx
+    procedure, non_overridable                  :: getIsActive
     generic                                     :: intersects => intersects_BoundingBox
     procedure(intersects_BoundingBox), deferred :: intersects_BoundingBox
     procedure                                   :: kill
   end type topologicalObject
 
   abstract interface
+    !!
+    !!
+    !!
+    subroutine build(self, payload)
+      import                                              :: buildTopologicalObjectPayload, topologicalObject
+      class(topologicalObject), intent(inout)             :: self
+      class(buildTopologicalObjectPayload), intent(inout) :: payload
+    end subroutine build
+
     !!
     !!
     !!
@@ -93,6 +114,16 @@ contains
   !!
   !!
   !!
+  elemental subroutine deactivate(self)
+    class(topologicalObject), intent(inout) :: self
+
+    self % isActive = .false.
+
+  end subroutine deactivate
+
+  !!
+  !!
+  !!
   elemental function getIdx(self) result(idx)
     class(topologicalObject), intent(in) :: self
     integer(shortInt)                    :: idx
@@ -104,11 +135,36 @@ contains
   !!
   !!
   !!
+  elemental function getIsActive(self) result(isActive)
+    class(topologicalObject), intent(in) :: self
+    logical(defBool)                     :: isActive
+
+    isActive = self % isActive
+
+  end function getIsActive
+
+  !!
+  !!
+  !!
+  subroutine init(self, payload)
+    class(topologicalObject), intent(inout)             :: self
+    class(buildTopologicalObjectPayload), intent(inout) :: payload
+
+    ! Set index from payload then build.
+    self % idx = payload % idx
+    call self % build(payload)
+
+  end subroutine init
+
+  !!
+  !!
+  !!
   elemental subroutine kill(self)
     class(topologicalObject), intent(inout) :: self
 
     ! Local.
     self % idx = 0
+    self % isActive = .true.
 
   end subroutine kill
 

@@ -1,10 +1,11 @@
 module edge_class
   
-  use axisAlignedBoundingBox_class, only : axisAlignedBoundingBox
-  use genericProcedures,            only : append, areEqual
+  use axisAlignedBoundingBox_class,  only : axisAlignedBoundingBox
+  use extentTopologicalObject_inter, only : buildExtentTopologicalObjectPayload, extentTopologicalObject, kill_super => kill
+  use genericProcedures,             only : append, areEqual, fatalError, numToChar
   use numPrecision
-  use topologicalObject_inter,      only : topologicalObject, topologicalObjectBox, kill_super => kill
-  use vertex_class,                 only : vertexBox
+  use topologicalObject_inter,       only : buildTopologicalObjectPayload, topologicalObjectBox
+  use vertex_class,                  only : vertexBox
   
   implicit none
   private
@@ -12,10 +13,9 @@ module edge_class
   !!
   !!
   !!
-  type, public :: buildEdgeInfo
-    integer(shortInt)             :: idx = 0
-    type(vertexBox), dimension(2) :: vertices
-  end type buildEdgeInfo
+  type, public, extends(buildExtentTopologicalObjectPayload) :: buildEdgePayload
+    type(vertexBox), dimension(2)                            :: vertices
+  end type buildEdgePayload
 
   !!
   !!
@@ -34,23 +34,21 @@ module edge_class
   !!   edgeToFaces    -> Array that stores edge-to-faces connectivity information.
   !!   edgeToElements -> Array that stores edge-to-elements connectivity information.
   !!
-  type, public, extends(topologicalObject)                :: edge
+  type, public, extends(extentTopologicalObject)          :: edge
     private
     type(vertexBox), dimension(2)                         :: vertices
     real(defReal), dimension(3)                           :: edgeVector = ZERO, unitEdgeVector = ZERO
     integer(shortInt), dimension(:), allocatable          :: faceIdxs
     type(topologicalObjectBox), dimension(:), allocatable :: elements
-    type(axisAlignedBoundingBox)                          :: boundingBox
   contains
     ! Build procedures.
     procedure :: addElement
     procedure :: addFaceIdx
-    procedure :: init
+    procedure :: build
+    procedure :: connectComponents
     procedure :: kill
     ! Runtime procedures.
     procedure :: distanceSquared
-    procedure :: getBoundingBoxBounds
-    procedure :: getCentroid
     procedure :: getEdgeVector
     procedure :: getElements
     procedure :: getFaceIdxs
@@ -139,28 +137,6 @@ contains
   !!
   !!
   !!
-  pure function getBoundingBoxBounds(self) result(bounds)
-    class(edge), intent(in)        :: self
-    real(defReal), dimension(3, 2) :: bounds
-
-    bounds = self % boundingBox % getBounds()
-
-  end function getBoundingBoxBounds
-
-  !!
-  !!
-  !!
-  pure function getCentroid(self) result(centroid)
-    class(edge), intent(in)     :: self
-    real(defReal), dimension(3) :: centroid
-
-    centroid = HALF * (self % vertices(1) % ptr % getCoordinates() + self % vertices(2) % ptr % getCoordinates())
-
-  end function getCentroid
-
-  !!
-  !!
-  !!
   pure function getEdgeVector(self) result(edgeVector)
     class(edge), intent(in)     :: self
     real(defReal), dimension(3) :: edgeVector
@@ -226,32 +202,58 @@ contains
   !!
   !!
   !!
-  subroutine init(self, info)
-    class(edge), intent(inout)      :: self
-    type(buildEdgeInfo), intent(in) :: info
-    integer(shortInt), dimension(2) :: vertexIdxs
-    integer(shortInt)               :: i
-    real(defReal), dimension(3, 2)  :: allCoords
+  subroutine build(self, payload)
+    class(edge), intent(inout)                          :: self
+    class(buildTopologicalObjectPayload), intent(inout) :: payload
+    type(buildEdgePayload), pointer                     :: payloadPtr
+    integer(shortInt), dimension(2)                     :: vertexIdxs
+    real(defReal), dimension(3, 2)                      :: allCoords
+    integer(shortInt)                                   :: i
+    character(*), parameter                             :: here = 'build (edge_class.f90)'
 
-    ! Set information from payload.
-    call self % setIdx(info % idx)
+    ! Downcast payload to correct type.
+    select type(ptr => payload)
+      type is(buildEdgePayload)
+        payloadPtr => ptr
 
-    ! Sort vertices according to their indices,
+      class default
+        call fatalError(here, 'Invalid payload type.')
+
+    end select
+
+    ! Sort vertices according to their indices.
     do i = 1, 2
-      vertexIdxs(i) = info % vertices(i) % ptr % getIdx()
-      allCoords(:, i) = info % vertices(i) % ptr % getCoordinates()
+      vertexIdxs(i) = payloadPtr % vertices(i) % ptr % getIdx()
+      allCoords(:, i) = payloadPtr % vertices(i) % ptr % getCoordinates()
 
     end do
-    self % vertices(1) = info % vertices(minloc(vertexIdxs, 1))
-    self % vertices(2) = info % vertices(maxloc(vertexIdxs, 1))
+    if (allocated(payloadPtr % allCoords)) deallocate(payloadPtr % allCoords)
+    payloadPtr % allCoords = allCoords
+
+    self % vertices(1) = payloadPtr % vertices(minloc(vertexIdxs, 1))
+    self % vertices(2) = payloadPtr % vertices(maxloc(vertexIdxs, 1))
     
     self % edgeVector = self % vertices(2) % ptr % getCoordinates() - self % vertices(1) % ptr % getCoordinates()
     self % unitEdgeVector = self % edgeVector / norm2(self % edgeVector)
+    payloadPtr % centroid = HALF * sum(allCoords, 2)
 
-    ! Compute bounding box.
-    call self % boundingBox % computeBounds(allCoords)
+  end subroutine build
 
-  end subroutine init
+  !!
+  !!
+  !!
+  subroutine connectComponents(self)
+    class(edge), target, intent(inout) :: self
+    type(topologicalObjectBox)         :: box
+    integer(shortInt)                  :: i
+
+    box % ptr => self
+    do i = 1, 2
+      call self % vertices(i) % ptr % addEdgeIdx(self % getIdx())
+
+    end do
+
+  end subroutine connectComponents
 
   !!
   !!

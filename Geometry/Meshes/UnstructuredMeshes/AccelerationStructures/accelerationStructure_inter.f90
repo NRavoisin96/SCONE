@@ -1,11 +1,8 @@
 module accelerationStructure_inter
 
-  use coord_class,        only : coord
-  use dictionary_class,   only : dictionary
-  use edgeShelf_class,    only : edgeShelf
-  use elementShelf_class, only : elementShelf
-  use faceShelf_class,    only : faceShelf
-  use vertexShelf_class,  only : vertexShelf
+  use coord_class,                  only : coord
+  use dictionary_class,             only : dictionary
+  use topologicalObjectShelf_class, only : topologicalObjectShelf
 
   implicit none
   private
@@ -29,9 +26,9 @@ module accelerationStructure_inter
     !!
     !!
     subroutine findHostElement(self, elements, coords)
-      import :: accelerationStructure, coord, faceShelf, elementShelf
+      import :: accelerationStructure, coord, topologicalObjectShelf
       class(accelerationStructure), intent(in) :: self
-      type(elementShelf), intent(in)           :: elements
+      type(topologicalObjectShelf), intent(in) :: elements
       type(coord), intent(inout)               :: coords
     end subroutine findHostElement
 
@@ -39,13 +36,10 @@ module accelerationStructure_inter
     !!
     !!
     subroutine init(self, dict, edges, elements, faces, vertices)
-      import :: accelerationStructure, dictionary, edgeShelf, elementShelf, faceShelf, vertexShelf
-      class(accelerationStructure), intent(inout) :: self
-      class(dictionary), intent(in)               :: dict
-      type(edgeShelf), intent(in)                 :: edges
-      type(elementShelf), intent(in)              :: elements
-      type(faceShelf), target, intent(in)         :: faces
-      type(vertexShelf), intent(in)               :: vertices
+      import :: accelerationStructure, dictionary, topologicalObjectShelf
+      class(accelerationStructure), intent(inout)      :: self
+      class(dictionary), intent(in)                    :: dict
+      type(topologicalObjectShelf), target, intent(in) :: edges, elements, faces, vertices
     end subroutine init
 
     !!

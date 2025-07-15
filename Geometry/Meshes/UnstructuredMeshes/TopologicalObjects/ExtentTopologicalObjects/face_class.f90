@@ -1,13 +1,14 @@
 module face_class
   
-  use axisAlignedBoundingBox_class, only : axisAlignedBoundingBox
-  use coord_class,                  only : coord
-  use edge_class,                   only : edgeBox
-  use genericProcedures,            only : append, areEqual, crossProduct, fatalError, numToChar
-  use topologicalObject_inter,      only : kill_super => kill, topologicalObject, topologicalObjectBox
+  use axisAlignedBoundingBox_class,  only : axisAlignedBoundingBox
+  use extentTopologicalObject_inter, only : buildExtentTopologicalObjectPayload, extentTopologicalObject
+  use coord_class,                   only : coord
+  use edge_class,                    only : edgeBox
+  use genericProcedures,             only : append, areEqual, crossProduct, fatalError, numToChar
+  use topologicalObject_inter,       only : buildTopologicalObjectPayload, kill_super => kill, topologicalObjectBox
   use numPrecision
-  use universalVariables,           only : HALF, INF, ONE, SURF_TOL, THIRD, ZERO
-  use vertex_class,                 only : vertexBox
+  use universalVariables,            only : HALF, INF, ONE, SURF_TOL, THIRD, ZERO
+  use vertex_class,                  only : vertexBox
   
   implicit none
   private
@@ -15,13 +16,13 @@ module face_class
   !!
   !!
   !!
-  type, public :: buildFaceInfo
-    integer(shortInt)                          :: idx = 0, parentIdx = 0
-    logical(defBool)                           :: isBoundary = .false., testNormal = .false.
-    type(vertexBox), dimension(:), allocatable :: vertices
-    type(edgeBox), dimension(:), allocatable   :: edges
-    real(defReal), dimension(3)                :: testCentroid = ZERO
-  end type buildFaceInfo
+  type, public, extends(buildExtentTopologicalObjectPayload) :: buildFacePayload
+    integer(shortInt)                                        :: parentIdx = 0
+    logical(defBool)                                         :: isBoundary = .false., testNormal = .false.
+    type(edgeBox), dimension(:), allocatable                 :: edges
+    type(vertexBox), dimension(:), allocatable               :: vertices
+    real(defReal), dimension(3)                              :: testCentroid = ZERO
+  end type buildFacePayload
 
   !!
   !! Small, local container to store polymorphic faces in a single array.
@@ -56,41 +57,37 @@ module face_class
   !!   centroid       -> Vector pointing to the centroid of the face.
   !!   normal         -> Normal vector of the face.
   !!
-  type, public, extends(topologicalObject)                :: face
+  type, public, extends(extentTopologicalObject)          :: face
     private
     integer(shortInt)                                     :: parentIdx = 0
     type(edgeBox), dimension(:), allocatable              :: edges
     type(vertexBox), dimension(:), allocatable            :: vertices
     type(topologicalObjectBox), dimension(:), allocatable :: elements
     integer(shortInt), dimension(:), allocatable          :: childrenIdxs
-    logical(defBool)                                      :: isActive = .true., isBoundary = .false.
+    logical(defBool)                                      :: isBoundary = .false.
     real(defReal)                                         :: area = ZERO
-    real(defReal), dimension(3)                           :: centroid = ZERO, normal = ZERO
+    real(defReal), dimension(3)                           :: normal = ZERO
     character(:), allocatable                             :: type
-    type(axisAlignedBoundingBox)                          :: boundingBox
   contains
     procedure          :: addChildIdx
     procedure          :: addEdge
     procedure          :: addElement
     procedure          :: addVertex
-    procedure, private :: build
+    procedure          :: build
+    procedure, private :: buildComponents
     procedure          :: computeIntersection
-    procedure          :: deactivate
+    procedure          :: connectComponents
     procedure          :: distanceSquared
     procedure          :: getArea
-    procedure          :: getBoundingBoxBounds
-    procedure          :: getCentroid
     procedure          :: getChildrenIdxs
     procedure          :: getEdges
     procedure          :: getElements
     procedure          :: getFaceIdx
     procedure          :: getHasElements
-    procedure          :: getIsActive
     procedure          :: getIsBoundary
     procedure          :: getNormal
     procedure          :: getType
     procedure          :: getVertices
-    procedure          :: init
     procedure          :: intersects_BoundingBox
     procedure          :: isPointInside
     procedure          :: kill
@@ -207,11 +204,67 @@ contains
   !!
   !!
   !!
-  subroutine build(self)
+  subroutine build(self, payload)
+    class(face), intent(inout)                          :: self
+    class(buildTopologicalObjectPayload), intent(inout) :: payload
+    type(buildFacePayload), pointer                     :: payloadPtr
+    integer(shortInt)                                   :: nVertices
+    character(*), parameter                             :: here = 'init (face_class.f90)'
+
+    ! Downcast payload to correct type.
+    select type(ptr => payload)
+      type is(buildFacePayload)
+        payloadPtr => ptr
+
+      class default
+        call fatalError(here, 'Invalid payload type.')
+
+    end select
+
+    ! Catch invalid number of vertices.
+    nVertices = size(payloadPtr % vertices)
+    if (nVertices < 3) then
+      call fatalError(here, 'A face must have at least three vertices. Has: '//numToChar(nVertices)//'.')
+
+    elseif(nVertices == 3) then
+      self % type = 'Triangle'
+
+    else
+      self % type = 'Polygon'
+
+    end if
+
+    ! Set everything from payload.
+    self % parentIdx = payloadPtr % parentIdx
+    self % isBoundary = payloadPtr % isBoundary
+    self % vertices = payloadPtr % vertices
+    self % edges = payloadPtr % edges
+
+    ! Build components.
+    call self % buildComponents(payloadPtr)
+
+    ! Check if normal test was requested.
+    if (payloadPtr % testNormal) then
+      if (dot_product(payloadPtr % centroid - payloadPtr % testCentroid, self % normal) < ZERO) then
+        self % vertices(1) = payloadPtr % vertices(2)
+        self % vertices(2) = payloadPtr % vertices(1)
+        self % normal = -self % normal
+
+      end if
+
+    end if
+
+  end subroutine build
+
+  !!
+  !!
+  !!
+  subroutine buildComponents(self, payload)
     class(face), intent(inout)                         :: self
+    type(buildFacePayload), intent(inout)              :: payload
     integer(shortInt)                                  :: i, nVertices
-    real(defReal), dimension(3, 3)                     :: triangleCoordsArray
     real(defReal), dimension(3, size(self % vertices)) :: allCoords
+    real(defReal), dimension(3, 3)                     :: triangleCoordsArray
     real(defReal), dimension(3)                        :: normal, sumAreasCentroid, sumNormals
     real(defReal)                                      :: normalNorm, sumAreas
     character(*), parameter                            :: here = 'build (face_class.f90)'
@@ -224,24 +277,26 @@ contains
       allCoords(:, i) = self % vertices(i) % ptr % getCoordinates()
 
     end do
+    if (allocated(payload % allCoords)) deallocate(payload % allCoords)
+    payload % allCoords = allCoords
 
     ! Check if the face is a triangle. If so, perform a direct computation to avoid round-off errors.
     if (nVertices == 3) then
-      normal = computeTriangleNormal(allCoords)
+      normal = computeTriangleNormal(payload % allCoords)
       normalNorm = norm2(normal)
       self % area = HALF * normalNorm
-      self % centroid = THIRD * sum(allCoords, 2)
+      payload % centroid = THIRD * sum(payload % allCoords, 2)
       self % normal = normal / normalNorm
 
     else
       ! Calculate the polygon's geometric centroid.
-      triangleCoordsArray(:, 3) = sum(allCoords, 2) / nVertices
+      triangleCoordsArray(:, 3) = sum(payload % allCoords, 2) / nVertices
       sumAreas = ZERO
       sumAreasCentroid = ZERO
       sumNormals = ZERO
       do i = 1, nVertices
-        triangleCoordsArray(:, 1) = allCoords(:, i)
-        triangleCoordsArray(:, 2) = allCoords(:, merge(1, i + 1, i == nVertices))
+        triangleCoordsArray(:, 1) = payload % allCoords(:, i)
+        triangleCoordsArray(:, 2) = payload % allCoords(:, merge(1, i + 1, i == nVertices))
 
         normal = computeTriangleNormal(triangleCoordsArray)
         sumNormals = sumNormals + normal
@@ -252,12 +307,10 @@ contains
 
       end do
       self % area = HALF * sumAreas
-      self % centroid = THIRD * sumAreasCentroid / sumAreas
+      payload % centroid = THIRD * sumAreasCentroid / sumAreas
       self % normal = sumNormals / norm2(sumNormals)
 
     end if
-    ! Initialise face bounding box.
-    call self % boundingBox % computeBounds(allCoords)
 
   contains
     !!
@@ -271,7 +324,25 @@ contains
 
     end function computeTriangleNormal
     
-  end subroutine build
+  end subroutine buildComponents
+
+  !!
+  !!
+  !!
+  subroutine connectComponents(self)
+    class(face), target, intent(inout) :: self
+    type(topologicalObjectBox)         :: box
+    integer(shortInt)                  :: i, idx
+
+    box % ptr => self
+    idx = self % getIdx()
+    do i = 1, size(self % vertices)
+      call self % vertices(i) % ptr % addFaceIdx(idx)
+      call self % edges(i) % ptr % addFaceIdx(idx)
+
+    end do
+
+  end subroutine connectComponents
 
   !! Subroutine 'computeIntersection'
   !!
@@ -330,16 +401,6 @@ contains
   !!
   !!
   !!
-  elemental subroutine deactivate(self)
-    class(face), intent(inout) :: self
-
-    self % isActive = .false.
-
-  end subroutine deactivate
-
-  !!
-  !!
-  !!
   function distanceSquared(self, r) result(dSquared)
     class(face), intent(in)                 :: self
     real(defReal), dimension(3), intent(in) :: r
@@ -387,28 +448,6 @@ contains
     area = self % area
 
   end function getArea
-
-  !!
-  !!
-  !!
-  pure function getBoundingBoxBounds(self) result(bounds)
-    class(face), intent(in)        :: self
-    real(defReal), dimension(3, 2) :: bounds
-
-    bounds = self % boundingBox % getBounds()
-
-  end function getBoundingBoxBounds
-
-  !!
-  !!
-  !!
-  pure function getCentroid(self) result(centroid)
-    class(face), intent(in)     :: self
-    real(defReal), dimension(3) :: centroid
-
-    centroid = self % centroid
-
-  end function getCentroid
 
   !! Function 'getTriangleIdxs'
   !!
@@ -502,17 +541,6 @@ contains
 
   end function getHasElements
 
-  !!
-  !!
-  !!
-  elemental function getIsActive(self) result(isActive)
-    class(face), intent(in) :: self
-    logical(defBool)        :: isActive
-
-    isActive = self % isActive
-
-  end function getIsActive
-
   !! Function 'getIsBoundary'
   !!
   !! Basic description:
@@ -584,51 +612,6 @@ contains
   !!
   !!
   !!
-  subroutine init(self, info)
-    class(face), intent(inout)      :: self
-    type(buildFaceInfo), intent(in) :: info
-    integer(shortInt)               :: nVertices
-    character(*), parameter         :: here = 'init (face_class.f90)'
-
-    ! Catch invalid number of vertices.
-    nVertices = size(info % vertices)
-    if (nVertices < 3) then
-      call fatalError(here, 'A face must have at least three vertices. Has: '//numToChar(nVertices)//'.')
-
-    elseif(nVertices == 3) then
-      self % type = 'Triangle'
-
-    else
-      self % type = 'Polygon'
-
-    end if
-
-    ! Set everything from payload.
-    call self % setIdx(info % idx)
-    self % parentIdx = info % parentIdx
-    self % isBoundary = info % isBoundary
-    self % vertices = info % vertices
-    self % edges = info % edges
-
-    ! Build.
-    call self % build()
-
-    ! Check if normal test was requested.
-    if (info % testNormal) then
-      if (dot_product(self % getCentroid() - info % testCentroid, self % normal) < ZERO) then
-        self % vertices(1) = info % vertices(2)
-        self % vertices(2) = info % vertices(1)
-        self % normal = -self % normal
-
-      end if
-
-    end if
-
-  end subroutine init
-
-  !!
-  !!
-  !!
   elemental function intersects_BoundingBox(self, boundingBox) result(doesIt)
     class(face), intent(in)                            :: self
     type(axisAlignedBoundingBox), intent(in)           :: boundingBox
@@ -641,7 +624,7 @@ contains
     doesIt = .false.
 
     ! First check if the bounding box intersects the face's bounding box.
-    if (.not. self % boundingBox % intersects(boundingBox)) return
+    if (.not. self % intersectsBoundingBox(boundingBox)) return
 
     boundingBoxCentre = boundingBox % getCentre()
     halfwidths = boundingBox % getHalfwidths()
@@ -760,10 +743,8 @@ contains
 
     ! Local.
     self % parentIdx = 0
-    self % isActive = .true.
     self % isBoundary = .false.
     self % area = ZERO
-    self % centroid = ZERO
     self % normal = ZERO
     if (allocated(self % childrenIdxs)) deallocate(self % childrenIdxs)
     if (allocated(self % edges)) then
