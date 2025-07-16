@@ -125,12 +125,12 @@ module node_inter
     !!
     !!
     !!
-    recursive subroutine findNearestObject(self, r, radiusSquared, idx)
-      import                                  :: defReal, node, shortInt
-      class(node), intent(in)                 :: self
-      real(defReal), dimension(3), intent(in) :: r
-      real(defReal), intent(inout)            :: radiusSquared
-      integer(shortInt), intent(inout)        :: idx
+    recursive subroutine findNearestObject(self, r, radiusSquared, nearestObject)
+      import                                    :: defReal, node, topologicalObjectBox
+      class(node), intent(in)                   :: self
+      real(defReal), dimension(3), intent(in)   :: r
+      real(defReal), intent(inout)              :: radiusSquared
+      type(topologicalObjectBox), intent(inout) :: nearestObject
     end subroutine findNearestObject
 
     !!
@@ -303,19 +303,33 @@ contains
   !!
   !!
   !!
-  recursive subroutine findIntersectedObjects_BoundingBox(self, boundingBox, idxs)
-    class(node), intent(in)                                     :: self
-    type(axisAlignedBoundingBox), intent(in)                    :: boundingBox
-    integer(shortInt), dimension(:), allocatable, intent(inout) :: idxs
-    integer(shortInt)                                           :: i
-    character(*), parameter                                     :: here = 'findIntersectedObjects_BoundingBox (node_inter.f90)'
+  recursive subroutine findIntersectedObjects_BoundingBox(self, boundingBox, intersectedObjects)
+    class(node), intent(in)                                              :: self
+    type(axisAlignedBoundingBox), intent(in)                             :: boundingBox
+    type(topologicalObjectBox), dimension(:), allocatable, intent(inout) :: intersectedObjects
+    integer(shortInt)                                                    :: i, nIntersectedObjects
+    type(topologicalObjectBox), dimension(:), allocatable                :: tempIntersectedObjects
+    character(*), parameter :: here = 'findIntersectedObjects_BoundingBox (node_inter.f90)'
 
     ! Check if node is a leaf and if so simply test all its testObjects for an intersection.
     if (self % isLeaf) then
       if (.not. allocated(self % containedObjects)) return
       do i = 1, size(self % containedObjects)
-        if (self % containedObjects(i) % ptr % intersects(boundingBox)) &
-        call append(idxs, self % containedObjects(i) % ptr % getIdx())
+        if (self % containedObjects(i) % ptr % intersects(boundingBox)) then
+          if (allocated(intersectedObjects)) then
+            nIntersectedObjects = size(intersectedObjects)
+            allocate(tempIntersectedObjects(nIntersectedObjects + 1))
+            tempIntersectedObjects(1:nIntersectedObjects) = intersectedObjects
+            tempIntersectedObjects(nIntersectedObjects + 1) = self % containedObjects(i)
+            call move_alloc(tempIntersectedObjects, intersectedObjects)
+
+          else
+            allocate(intersectedObjects(1))
+            intersectedObjects(1) = self % containedObjects(i)
+
+          end if
+
+        end if
 
       end do
       return
@@ -325,7 +339,7 @@ contains
     ! Check for intersection in each of the node's children.
     if (.not. allocated(self % children)) call fatalError(here, 'Internal node has no children.')
     do i = 1, size(self % children)
-      call self % children(i) % ptr % findIntersectedObjects_BoundingBox(boundingBox, idxs)
+      call self % children(i) % ptr % findIntersectedObjects_BoundingBox(boundingBox, intersectedObjects)
 
     end do
 

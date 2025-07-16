@@ -23,7 +23,6 @@ module element_class
     integer(shortInt)                                        :: localId = 0, parentIdx = 0
     type(edgeBox), dimension(:), allocatable                 :: edges
     type(orientatedFaceBox), dimension(:), allocatable       :: orientatedFaces
-    type(vertexBox), dimension(:), allocatable               :: vertices
   end type buildElementPayload
 
   !!
@@ -73,7 +72,7 @@ module element_class
     procedure          :: computePotentialFaces
     procedure          :: distanceSquared
     procedure          :: getEdges
-    procedure          :: getElements
+    procedure          :: getSharingElements
     procedure          :: getIsConvex
     procedure          :: getLocalId
     procedure          :: getOrientatedFaces
@@ -235,30 +234,29 @@ contains
   !!
   !!
   subroutine buildComponents(self, payload)
-    class(element), intent(inout)                      :: self
-    type(buildElementPayload), intent(inout)           :: payload
-    integer(shortInt)                                  :: i, nFaces, nVertices
-    real(defReal), dimension(3, size(self % vertices)) :: allCoords
-    real(defReal)                                      :: faceArea, pyramidVolume, sumVolumes
-    real(defReal), dimension(3)                        :: outwardNormal, faceCentroid, geometricCentroid, sumVolumesCentroid
-    character(*), parameter                            :: here = 'buildComponents (element_class.f90)'
+    class(element), intent(inout)            :: self
+    type(buildElementPayload), intent(inout) :: payload
+    integer(shortInt)                        :: i, nFaces, nVertices
+    real(defReal)                            :: faceArea, pyramidVolume, sumVolumes
+    real(defReal), dimension(3)              :: outwardNormal, faceCentroid, geometricCentroid, sumVolumesCentroid
+    character(*), parameter                  :: here = 'buildComponents (element_class.f90)'
 
     ! Compute the number of vertices in the element.
     nVertices = size(self % vertices)
+    allocate(payload % allCoords(3, nVertices))
     do i = 1, nVertices
       if (.not. associated(self % vertices(i) % ptr)) call fatalError(here, 'Element contains a null vertex pointer.')
-      allCoords(:, i) = self % vertices(i) % ptr % getCoordinates()
+      payload % allCoords(:, i) = self % vertices(i) % ptr % getCoordinates()
 
     end do
-    if (allocated(payload % allCoords)) deallocate(payload % allCoords)
-    payload % allCoords = allCoords
 
     ! If the element is a tetrahedron, perform a direct calculation to avoid round-off errors.
     if (nVertices == 4) then
       self % isConvex = .true.
-      payload % centroid = FOURTH * sum(allCoords, 2)
-      self % volume = SIXTH * abs(dot_product(crossProduct(allCoords(:, 2) - allCoords(:, 1), allCoords(:, 3) - allCoords(:, 1)), &
-                                              allCoords(:, 4) - allCoords(:, 1)))
+      payload % centroid = FOURTH * sum(payload % allCoords, 2)
+      self % volume = SIXTH * abs(dot_product(crossProduct(payload % allCoords(:, 2) - payload % allCoords(:, 1), &
+                                                           payload % allCoords(:, 3) - payload % allCoords(:, 1)), &
+                                              payload % allCoords(:, 4) - payload % allCoords(:, 1)))
 
     else
       ! Check if current element is convex and call fatalError if not.
@@ -266,7 +264,7 @@ contains
       if (.not. self % isConvex) call fatalError(here, 'Element with index: '//numToChar(self % getIdx())//' is concave.')
 
       ! Approximate the centroid by taking the arithmetic average of all the vertices in the polyhedron.
-      geometricCentroid = sum(allCoords, 2) / nVertices
+      geometricCentroid = sum(payload % allCoords, 2) / nVertices
       
       nFaces = size(self % orientatedFaces)
       sumVolumes = ZERO
@@ -365,17 +363,17 @@ contains
 
     box % ptr => self
     do i = 1, size(self % orientatedFaces)
-      call self % orientatedFaces(i) % face % ptr % addElement(box)
+      call self % orientatedFaces(i) % face % ptr % addSharingElement(box)
 
     end do
 
     do i = 1, size(self % edges)
-      call self % edges(i) % ptr % addElement(box)
+      call self % edges(i) % ptr % addSharingElement(box)
 
     end do
 
     do i = 1, size(self % vertices)
-      call self % vertices(i) % ptr % addElement(box)
+      call self % vertices(i) % ptr % addSharingElement(box)
 
     end do
 
@@ -509,18 +507,6 @@ contains
   !!
   !!
   !!
-  function getElements(self) result(elements)
-    class(element), target, intent(in)                    :: self
-    type(topologicalObjectBox), dimension(:), allocatable :: elements
-
-    allocate(elements(1))
-    elements(1) % ptr => self
-
-  end function getElements
-
-  !!
-  !!
-  !!
   elemental function getIsConvex(self) result(isConvex)
     class(element), intent(in) :: self
     logical(defBool)           :: isConvex
@@ -577,6 +563,18 @@ contains
     parentIdx = self % parentIdx
 
   end function getParentIdx
+
+  !!
+  !!
+  !!
+  function getSharingElements(self) result(sharingElements)
+    class(element), target, intent(in)                    :: self
+    type(topologicalObjectBox), dimension(:), allocatable :: sharingElements
+
+    allocate(sharingElements(1))
+    sharingElements(1) % ptr => self
+
+  end function getSharingElements
 
   !!
   !!

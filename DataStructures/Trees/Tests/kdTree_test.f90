@@ -4,6 +4,7 @@ module kdTree_test
   use kdTree_class,                 only : kdTree
   use kdTreeNode_class,             only : buildKDTreeNodePayload
   use numPrecision
+  use topologicalObject_inter,      only : topologicalObjectBox
   use topologicalObjectShelf_class, only : topologicalObjectShelf
   use vertex_class,                 only : buildVertexPayload
   
@@ -70,27 +71,27 @@ contains
 @Test
   subroutine nearestNeighbour_test()
     real(defReal), dimension(3) :: r_test
-    integer(shortInt)           :: idx
+    type(topologicalObjectBox)  :: nearestVertex
     
     ! Point is very close to vertex 6 [0, -1, 1]
     r_test = [0.0_defReal, -1.1_defReal, 1.2_defReal]
-    idx = tree % findNearestObject(r_test)
-    @assertEqual(6, idx)
+    nearestVertex = tree % findNearestObject(r_test)
+    @assertEqual(6, nearestVertex % ptr % getIdx())
     
     ! Point is very close to vertex 18 [1, -1, 1]
     r_test = [1.05_defReal, -1.3_defReal, 1.1_defReal]
-    idx = tree % findNearestObject(r_test)
-    @assertEqual(18, idx)
+    nearestVertex = tree % findNearestObject(r_test)
+    @assertEqual(18, nearestVertex % ptr % getIdx())
 
     ! Point is very close to vertex 3 [-1, 0, -1]
     r_test = [-1.1_defReal, 0.1_defReal, -0.9_defReal]
-    idx = tree % findNearestObject(r_test)
-    @assertEqual(3, idx)
+    nearestVertex = tree % findNearestObject(r_test)
+    @assertEqual(3, nearestVertex % ptr % getIdx())
 
     ! Point is near the center, close to vertex 8 [0, 0, 1]
     r_test = [0.1_defReal, 0.1_defReal, 0.9_defReal]
-    idx = tree % findNearestObject(r_test)
-    @assertEqual(8, idx)
+    nearestVertex = tree % findNearestObject(r_test)
+    @assertEqual(8, nearestVertex % ptr % getIdx())
 
   end subroutine nearestNeighbour_test
 

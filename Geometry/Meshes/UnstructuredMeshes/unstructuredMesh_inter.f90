@@ -4,8 +4,9 @@ module unstructuredMesh_inter
   use accelerationStructureFactory_func, only : newAccelerationStructurePtr
   use coord_class,                       only : coord
   use dictionary_class,                  only : dictionary
-  use edge_class,                        only : buildEdgePayload, edgeBox
+  use edge_class,                        only : edgeBox
   use element_class,                     only : buildElementPayload, element, elementBox, inclusionTestResult
+  use extentTopologicalObject_inter,     only : buildExtentTopologicalObjectPayload
   use face_class,                        only : buildFacePayload, face, faceBox
   use genericProcedures,                 only : append, fatalError, numToChar
   use mesh_inter,                        only : mesh, kill_super => kill
@@ -170,7 +171,7 @@ contains
 
     ! Retrieve the element associated with the boundary face.
     if (associated(boundaryFacePtr)) then
-      elements = boundaryFacePtr % getElements()
+      elements = boundaryFacePtr % getSharingElements()
       ! Downcast elements to correct type.
       select type(ptr => elements(1) % ptr)
         type is(element)
@@ -255,7 +256,7 @@ contains
 
     ! Else, retrieve the elements sharing the intersected face from mesh connectivity then
     ! update elementIdx and localId.
-    faceElements = intersectedFace % ptr % getElements()
+    faceElements = intersectedFace % ptr % getSharingElements()
     nElements = size(faceElements)
     if (nElements /= 2) call fatalError(here, 'Internal face: '//numToChar(intersectedFace % ptr % getIdx())// &
                                               ' is not associated to the correct number of elements.')
@@ -413,11 +414,10 @@ contains
   !!
   !!
   subroutine initEdgeShelf(self, edgeInfos)
-    class(unstructuredMesh), intent(inout)             :: self
-    type(basicEdgeInfo), dimension(:), intent(in)      :: edgeInfos
-    type(buildEdgePayload), dimension(size(edgeInfos)) :: payloads
-    integer(shortInt)                                  :: i, j, nEdges
-    type(edgeBox)                                      :: edge
+    class(unstructuredMesh), intent(inout)                                :: self
+    type(basicEdgeInfo), dimension(:), intent(in)                         :: edgeInfos
+    type(buildExtentTopologicalObjectPayload), dimension(size(edgeInfos)) :: payloads
+    integer(shortInt)                                                     :: i, nEdges
 
     nEdges = size(edgeInfos)
     self % nEdges = nEdges
@@ -578,7 +578,7 @@ contains
     class(unstructuredMesh), intent(inout)             :: self
     type(basicFaceInfo), dimension(:), intent(in)      :: faceInfos
     type(buildFacePayload), dimension(size(faceInfos)) :: payloads
-    integer(shortInt)                                  :: i, j, nFaces
+    integer(shortInt)                                  :: i, nFaces
 
     nFaces = size(faceInfos)
     self % nFaces = nFaces

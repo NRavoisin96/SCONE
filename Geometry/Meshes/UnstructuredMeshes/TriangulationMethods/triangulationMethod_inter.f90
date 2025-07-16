@@ -1,7 +1,7 @@
 module triangulationMethod_inter
 
-  use edge_class,                    only : buildEdgePayload
   use element_class,                 only : buildElementPayload, elementBox
+  use extentTopologicalObject_inter, only : buildExtentTopologicalObjectPayload
   use face_class,                    only : buildFacePayload, faceBox, orientatedFaceBox
   use genericProcedures,             only : fatalError
   use numPrecision
@@ -47,7 +47,7 @@ contains
     type(topologicalObjectShelf), intent(inout)            :: edges, elements, faces
     type(buildFacePayload)                                 :: facePayload
     integer(shortInt)                                      :: edgeIdx, i, j, k, newEdgeIdx, newFaceIdx, triangleIdx
-    type(buildEdgePayload)                                 :: edgePayload
+    type(buildExtentTopologicalObjectPayload)              :: edgePayload
     type(elementBox)                                       :: element
     type(orientatedFaceBox), dimension(:), allocatable     :: elementOrientatedFaces
     integer(shortInt), dimension(:), allocatable           :: childrenIdxs
@@ -198,7 +198,7 @@ contains
     type(buildFacePayload), dimension(:), intent(inout) :: trianglePayloads
     type(topologicalObjectShelf), intent(inout)         :: edges, faces
     integer(shortInt)                                   :: edgeIdx, i, j, newEdgeIdx
-    type(buildEdgePayload)                              :: edgePayload
+    type(buildExtentTopologicalObjectPayload)           :: edgePayload
 
     ! Initialise variables.
     newEdgeIdx = edges % getObjectsNumber()

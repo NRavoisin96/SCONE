@@ -6,8 +6,8 @@ module topologicalObject_inter
   implicit none
   private
 
-  ! Extendable procedures.
-  public :: init, kill
+  ! Public procedures.
+  public :: getUniqueSharingElements, init, kill
 
   !!
   !!
@@ -43,9 +43,9 @@ module topologicalObject_inter
     procedure(distanceSquared), deferred        :: distanceSquared
     procedure(getBoundingBoxBounds), deferred   :: getBoundingBoxBounds
     procedure(getCentroid), deferred            :: getCentroid
-    procedure(getElements), deferred            :: getElements
     procedure, non_overridable                  :: getIdx
     procedure, non_overridable                  :: getIsActive
+    procedure(getSharingElements), deferred     :: getSharingElements
     generic                                     :: intersects => intersects_BoundingBox
     procedure(intersects_BoundingBox), deferred :: intersects_BoundingBox
     procedure                                   :: kill
@@ -92,11 +92,11 @@ module topologicalObject_inter
     !!
     !!
     !!
-    function getElements(self) result(elements)
+    function getSharingElements(self) result(sharingElements)
       import                                                :: topologicalObject, topologicalObjectBox
       class(topologicalObject), target, intent(in)          :: self
-      type(topologicalObjectBox), dimension(:), allocatable :: elements
-    end function getElements
+      type(topologicalObjectBox), dimension(:), allocatable :: sharingElements
+    end function getSharingElements
 
     !!
     !!
@@ -142,6 +142,54 @@ contains
     isActive = self % isActive
 
   end function getIsActive
+
+  !!
+  !!
+  !!
+  function getUniqueSharingElements(objects) result(uniqueSharingElements)
+    type(topologicalObjectBox), dimension(:), intent(in)  :: objects
+    type(topologicalObjectBox), dimension(:), allocatable :: sharingElements, tempUniqueSharingElements,&
+                                                             uniqueSharingElements
+    integer(shortInt)                                     :: i, j, k, nUniqueSharingElements
+    logical(defBool)                                      :: alreadyFound
+
+    do i = 1, size(objects)
+      sharingElements = objects(i) % ptr % getSharingElements()
+      do j = 1, size(sharingElements)
+        alreadyFound = .false.
+        if (allocated(uniqueSharingElements)) then
+          do k = 1, size(uniqueSharingElements)
+            if (associated(sharingElements(j) % ptr, uniqueSharingElements(k) % ptr)) then
+              alreadyFound = .true.
+              exit
+
+            end if
+
+          end do
+
+        end if
+
+        if (.not. alreadyFound) then
+          if (allocated(uniqueSharingElements)) then
+            nUniqueSharingElements = size(uniqueSharingElements)
+            allocate(tempUniqueSharingElements(nUniqueSharingElements + 1))
+            tempUniqueSharingElements(1:nUniqueSharingElements) = uniqueSharingElements
+            tempUniqueSharingElements(nUniqueSharingElements + 1) = sharingElements(j)
+            call move_alloc(tempUniqueSharingElements, uniqueSharingElements)
+
+          else
+            allocate(uniqueSharingElements(1))
+            uniqueSharingElements(1) = sharingElements(j)
+
+          end if
+
+        end if
+
+      end do
+
+    end do
+
+  end function getUniqueSharingElements
 
   !!
   !!

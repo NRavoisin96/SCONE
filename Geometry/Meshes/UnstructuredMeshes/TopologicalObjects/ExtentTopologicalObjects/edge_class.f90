@@ -13,13 +13,6 @@ module edge_class
   !!
   !!
   !!
-  type, public, extends(buildExtentTopologicalObjectPayload) :: buildEdgePayload
-    type(vertexBox), dimension(2)                            :: vertices
-  end type buildEdgePayload
-
-  !!
-  !!
-  !!
   type, public :: edgeBox
     type(edge), pointer :: ptr => null()
   end type edgeBox
@@ -38,20 +31,19 @@ module edge_class
     private
     type(vertexBox), dimension(2)                         :: vertices
     real(defReal), dimension(3)                           :: edgeVector = ZERO, unitEdgeVector = ZERO
-    integer(shortInt), dimension(:), allocatable          :: faceIdxs
-    type(topologicalObjectBox), dimension(:), allocatable :: elements
+    type(topologicalObjectBox), dimension(:), allocatable :: sharingElements, sharingFaces
   contains
     ! Build procedures.
-    procedure :: addElement
-    procedure :: addFaceIdx
+    procedure :: addSharingElement
+    procedure :: addSharingFace
     procedure :: build
     procedure :: connectComponents
     procedure :: kill
     ! Runtime procedures.
     procedure :: distanceSquared
     procedure :: getEdgeVector
-    procedure :: getElements
-    procedure :: getFaceIdxs
+    procedure :: getSharingElements
+    procedure :: getSharingFaces
     procedure :: getVertices
     procedure :: intersects_BoundingBox
   end type edge
@@ -66,26 +58,26 @@ contains
   !! Arguments:
   !!   idx [in] -> Index of the element.
   !!
-  subroutine addElement(self, box)
+  subroutine addSharingElement(self, box)
     class(edge), intent(inout)                            :: self
     type(topologicalObjectBox), intent(in)                :: box
-    integer(shortInt)                                     :: nElements
-    type(topologicalObjectBox), dimension(:), allocatable :: tempElements
+    integer(shortInt)                                     :: nSharingElements
+    type(topologicalObjectBox), dimension(:), allocatable :: tempSharingElements
 
-    if (allocated(self % elements)) then
-      nElements = size(self % elements)
-      allocate(tempElements(nElements + 1))
-      tempElements(1:nElements) = self % elements
-      tempElements(nElements + 1) = box
-      call move_alloc(tempElements, self % elements)
+    if (allocated(self % sharingElements)) then
+      nSharingElements = size(self % sharingElements)
+      allocate(tempSharingElements(nSharingElements + 1))
+      tempSharingElements(1:nSharingElements) = self % sharingElements
+      tempSharingElements(nSharingElements + 1) = box
+      call move_alloc(tempSharingElements, self % sharingElements)
 
     else
-      allocate(self % elements(1))
-      self % elements(1) = box
+      allocate(self % sharingElements(1))
+      self % sharingElements(1) = box
 
     end if
 
-  end subroutine addElement
+  end subroutine addSharingElement
 
   !! Subroutine 'addFaceIdx'
   !!
@@ -95,13 +87,26 @@ contains
   !! Arguments:
   !!   idx [in] -> Index of the face.
   !!
-  elemental subroutine addFaceIdx(self, idx)
-    class(edge), intent(inout)    :: self
-    integer(shortInt), intent(in) :: idx
+  subroutine addSharingFace(self, box)
+    class(edge), intent(inout)                            :: self
+    type(topologicalObjectBox), intent(in)                :: box
+    integer(shortInt)                                     :: nSharingFaces
+    type(topologicalObjectBox), dimension(:), allocatable :: tempSharingFaces
 
-    call append(self % faceIdxs, idx)
+    if (allocated(self % sharingFaces)) then
+      nSharingFaces = size(self % sharingFaces)
+      allocate(tempSharingFaces(nSharingFaces + 1))
+      tempSharingFaces(1:nSharingFaces) = self % sharingFaces
+      tempSharingFaces(nSharingFaces + 1) = box
+      call move_alloc(tempSharingFaces, self % sharingFaces)
 
-  end subroutine addFaceIdx
+    else
+      allocate(self % sharingFaces(1))
+      self % sharingFaces(1) = box
+
+    end if
+
+  end subroutine addSharingFace
 
   !!
   !!
@@ -153,19 +158,19 @@ contains
   !! Result:
   !!   elementIdxs -> Indices of the elements sharing the edge.
   !!
-  function getElements(self) result(elements)
+  function getSharingElements(self) result(sharingElements)
     class(edge), target, intent(in)                       :: self
-    type(topologicalObjectBox), dimension(:), allocatable :: elements
+    type(topologicalObjectBox), dimension(:), allocatable :: sharingElements
 
-    if (allocated(self % elements)) then
-      elements = self % elements
+    if (allocated(self % sharingElements)) then
+      sharingElements = self % sharingElements
 
     else
-      allocate(elements(0))
+      allocate(sharingElements(0))
 
     end if
 
-  end function getElements
+  end function getSharingElements
 
   !! Function 'getFaceIdxs'
   !!
@@ -175,13 +180,19 @@ contains
   !! Result:
   !!   faceIdxs -> Indices of the faces sharing the edge.
   !!
-  pure function getFaceIdxs(self) result(faceIdxs)
-    class(edge), intent(in)                             :: self
-    integer(shortInt), dimension(size(self % faceIdxs)) :: faceIdxs
+  function getSharingFaces(self) result(sharingFaces)
+    class(edge), target, intent(in)                       :: self
+    type(topologicalObjectBox), dimension(:), allocatable :: sharingFaces
 
-    faceIdxs = self % faceIdxs
+    if (allocated(self % sharingFaces)) then
+      sharingFaces = self % sharingFaces
 
-  end function getFaceIdxs
+    else
+      allocate(sharingFaces(0))
+
+    end if
+
+  end function getSharingFaces
 
   !! Function 'getVertexIdxs'
   !!
@@ -205,15 +216,14 @@ contains
   subroutine build(self, payload)
     class(edge), intent(inout)                          :: self
     class(buildTopologicalObjectPayload), intent(inout) :: payload
-    type(buildEdgePayload), pointer                     :: payloadPtr
+    type(buildExtentTopologicalObjectPayload), pointer  :: payloadPtr
     integer(shortInt), dimension(2)                     :: vertexIdxs
-    real(defReal), dimension(3, 2)                      :: allCoords
     integer(shortInt)                                   :: i
     character(*), parameter                             :: here = 'build (edge_class.f90)'
 
     ! Downcast payload to correct type.
     select type(ptr => payload)
-      type is(buildEdgePayload)
+      type is(buildExtentTopologicalObjectPayload)
         payloadPtr => ptr
 
       class default
@@ -222,20 +232,20 @@ contains
     end select
 
     ! Sort vertices according to their indices.
+    if (size(payloadPtr % vertices) /= 2) call fatalError(here, 'Invalid number of vertices.')
+    allocate(payloadPtr % allCoords(3, 2))
     do i = 1, 2
       vertexIdxs(i) = payloadPtr % vertices(i) % ptr % getIdx()
-      allCoords(:, i) = payloadPtr % vertices(i) % ptr % getCoordinates()
+      payloadPtr % allCoords(:, i) = payloadPtr % vertices(i) % ptr % getCoordinates()
 
     end do
-    if (allocated(payloadPtr % allCoords)) deallocate(payloadPtr % allCoords)
-    payloadPtr % allCoords = allCoords
 
     self % vertices(1) = payloadPtr % vertices(minloc(vertexIdxs, 1))
     self % vertices(2) = payloadPtr % vertices(maxloc(vertexIdxs, 1))
     
     self % edgeVector = self % vertices(2) % ptr % getCoordinates() - self % vertices(1) % ptr % getCoordinates()
     self % unitEdgeVector = self % edgeVector / norm2(self % edgeVector)
-    payloadPtr % centroid = HALF * sum(allCoords, 2)
+    payloadPtr % centroid = HALF * sum(payloadPtr % allCoords, 2)
 
   end subroutine build
 
@@ -249,7 +259,7 @@ contains
 
     box % ptr => self
     do i = 1, 2
-      call self % vertices(i) % ptr % addEdgeIdx(self % getIdx())
+      call self % vertices(i) % ptr % addSharingEdge(box)
 
     end do
 
@@ -287,14 +297,22 @@ contains
       nullify(self % vertices(i) % ptr)
 
     end do
-    if (allocated(self % faceIdxs)) deallocate(self % faceIdxs)
     
-    if (allocated(self % elements)) then
-      do i = 1, size(self % elements)
-        nullify(self % elements(i) % ptr)
+    if (allocated(self % sharingElements)) then
+      do i = 1, size(self % sharingElements)
+        nullify(self % sharingElements(i) % ptr)
 
       end do
-      deallocate(self % elements)
+      deallocate(self % sharingElements)
+
+    end if
+
+    if (allocated(self % sharingFaces)) then
+      do i = 1, size(self % sharingFaces)
+        nullify(self % sharingFaces(i) % ptr)
+
+      end do
+      deallocate(self % sharingFaces)
 
     end if
 

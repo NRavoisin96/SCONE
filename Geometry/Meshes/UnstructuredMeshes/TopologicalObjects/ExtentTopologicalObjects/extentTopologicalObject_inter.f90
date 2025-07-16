@@ -19,6 +19,7 @@ module extentTopologicalObject_inter
   type, public, extends(buildTopologicalObjectPayload) :: buildExtentTopologicalObjectPayload
     real(defReal), dimension(3)                        :: centroid
     real(defReal), dimension(:, :), allocatable        :: allCoords
+    type(vertexBox), dimension(:), allocatable         :: vertices
   end type buildExtentTopologicalObjectPayload
 
   !!
@@ -101,6 +102,7 @@ contains
         payloadPtr => ptr
 
         ! Initialise superclass and update connectivity.
+        if (allocated(payloadPtr % allCoords)) deallocate(payloadPtr % allCoords)
         call init_super(self, payloadPtr)
         call self % connectComponents()
 

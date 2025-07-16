@@ -1,7 +1,8 @@
 module topologicalObjectShelf_class
 
-  use edge_class,                    only : buildEdgePayload, edge, edgeBox
+  use edge_class,                    only : edge, edgeBox
   use element_class,                 only : buildElementPayload, element, elementBox
+  use extentTopologicalObject_inter, only : buildExtentTopologicalObjectPayload
   use face_class,                    only : buildFacePayload, face, faceBox
   use genericProcedures,             only : fatalError, numToChar, quickSort
   use iso_fortran_env,               only : int64
@@ -28,6 +29,7 @@ module topologicalObjectShelf_class
     procedure, private :: generateKey_idx
     procedure, private :: generateKey_payload
     procedure, private :: generateKey_vertices
+    procedure          :: getActiveObjectIdxs
     generic            :: getEdgeBox => getEdgeBox_shortInt, getEdgeBox_shortIntArray
     procedure, private :: getEdgeBox_shortInt
     procedure, private :: getEdgeBox_shortIntArray
@@ -50,9 +52,6 @@ module topologicalObjectShelf_class
     generic            :: getObjectCentroid => getObjectCentroid_shortInt, getObjectCentroid_shortIntArray
     procedure, private :: getObjectCentroid_shortInt
     procedure, private :: getObjectCentroid_shortIntArray
-    generic            :: getObjectElements => getObjectElements_shortInt, getObjectElements_shortIntArray
-    procedure, private :: getObjectElements_shortInt
-    procedure, private :: getObjectElements_shortIntArray
     procedure          :: getObjectIdxOrDefault
     procedure          :: getObjectsNumber
     procedure          :: getShelf
@@ -113,27 +112,17 @@ contains
   !!
   !!
   function generateKey_payload(self, payload) result(key)
-    class(topologicalObjectShelf), intent(in)        :: self
-    class(buildTopologicalObjectPayload), intent(in) :: payload
-    integer(longInt)                                 :: key
-    type(buildEdgePayload), pointer                  :: edgePayloadPtr
-    type(buildElementPayload), pointer               :: elementPayloadPtr
-    type(buildFacePayload), pointer                  :: facePayloadPtr
-    type(buildVertexPayload), pointer                :: vertexPayloadPtr
-    character(*), parameter                          :: here = 'generateKey_payload (topologicalObjectShelf_class.f90)'
+    class(topologicalObjectShelf), intent(in)           :: self
+    class(buildTopologicalObjectPayload), intent(in)    :: payload
+    integer(longInt)                                    :: key
+    class(buildExtentTopologicalObjectPayload), pointer :: extentPayloadPtr
+    type(buildVertexPayload), pointer                   :: vertexPayloadPtr
+    character(*), parameter                             :: here = 'generateKey_payload (topologicalObjectShelf_class.f90)'
 
     select type(ptr => payload)
-      type is(buildEdgePayload)
-        edgePayloadPtr => ptr
-        key = self % generateKey_vertices(edgePayloadPtr % vertices)
-
-      type is(buildElementPayload)
-        elementPayloadPtr => ptr
-        key = self % generateKey_vertices(elementPayloadPtr % vertices)
-
-      type is(buildFacePayload)
-        facePayloadPtr => ptr
-        key = self % generateKey_vertices(facePayloadPtr % vertices)
+      class is(buildExtentTopologicalObjectPayload)
+        extentPayloadPtr => ptr
+        key = self % generateKey_vertices(extentPayloadPtr % vertices)
 
       type is(buildVertexPayload)
         vertexPayloadPtr => ptr
@@ -185,6 +174,31 @@ contains
     end select
 
   end function generateKey_vertices
+
+  !!
+  !!
+  !!
+  function getActiveObjectIdxs(self) result(activeObjectIdxs)
+    class(topologicalObjectShelf), intent(in)    :: self
+    integer(shortInt), dimension(:), allocatable :: activeObjectIdxs, tempActiveObjectIdxs
+    integer(shortInt)                            :: i, nActiveObjects
+
+    ! Initialise nActiveObjects = 0
+    nActiveObjects = 0
+    allocate(activeObjectIdxs(self % nObjects))
+    do i = 1, self % nObjects
+      if (.not. self % shelf(i) % ptr % getIsActive()) cycle
+      nActiveObjects = nActiveObjects + 1
+      activeObjectIdxs(nActiveObjects) = self % shelf(i) % ptr % getIdx()
+
+    end do
+
+    ! Now resize activeObjectIdxs to correct size.
+    allocate(tempActiveObjectIdxs(nActiveObjects))
+    tempActiveObjectIdxs = activeObjectIdxs(1:nActiveObjects)
+    call move_alloc(tempActiveObjectIdxs, activeObjectIdxs)
+
+  end function getActiveObjectIdxs
 
   !!
   !!
@@ -478,68 +492,6 @@ contains
     end if
 
   end function getShelf
-
-  !!
-  !!
-  !!
-  function getObjectElements_shortInt(self, idx) result(elements)
-    class(topologicalObjectShelf), intent(in)             :: self
-    integer(shortInt), intent(in)                         :: idx
-    type(topologicalObjectBox), dimension(:), allocatable :: elements
-
-    elements = self % shelf(idx) % ptr % getElements()
-
-  end function getObjectElements_shortInt
-
-  !!
-  !!
-  !!
-  function getObjectElements_shortIntArray(self, idxs) result(elements)
-    class(topologicalObjectShelf), intent(in)             :: self
-    integer(shortInt), dimension(:), intent(in)           :: idxs
-    type(topologicalObjectBox), dimension(:), allocatable :: elements, objectElements, tempElements
-    type(topologicalObjectBox), dimension(size(idxs))     :: boxes
-    integer(shortInt)                                     :: i, j, k, nElements
-    logical(defBool)                                      :: alreadyFound
-
-    boxes = self % getObjectBox(idxs)
-    do i = 1, size(idxs)
-      objectElements = boxes(i) % ptr % getElements()
-      do j = 1, size(objectElements)
-        alreadyFound = .false.
-        if (allocated(elements)) then
-          do k = 1, size(elements)
-            if (associated(objectElements(j) % ptr, elements(k) % ptr)) then
-              alreadyFound = .true.
-              exit
-
-            end if
-
-          end do
-
-        end if
-
-        if (.not. alreadyFound) then
-          if (allocated(elements)) then
-            nElements = size(elements)
-            allocate(tempElements(nElements + 1))
-            tempElements(1:nElements) = elements
-            tempElements(nElements + 1) = objectElements(j)
-            call move_alloc(tempElements, elements)
-
-          else
-            allocate(elements(1))
-            elements(1) = objectElements(j)
-
-          end if
-
-        end if
-
-      end do
-
-    end do
-
-  end function getObjectElements_shortIntArray
 
   !!
   !!

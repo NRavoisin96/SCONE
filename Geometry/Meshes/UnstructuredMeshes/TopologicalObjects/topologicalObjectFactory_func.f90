@@ -1,12 +1,13 @@
 module topologicalObjectFactory_func
 
-  use edge_class,              only : buildEdgePayload, edge
-  use element_class,           only : buildElementPayload, element
-  use face_class,              only : buildFacePayload, face
-  use genericProcedures,       only : fatalError
+  use edge_class,                    only : edge
+  use element_class,                 only : buildElementPayload, element
+  use extentTopologicalObject_inter, only : buildExtentTopologicalObjectPayload
+  use face_class,                    only : buildFacePayload, face
+  use genericProcedures,             only : fatalError
   use numPrecision
-  use topologicalObject_inter, only : buildTopologicalObjectPayload, topologicalObjectBox
-  use vertex_class,            only : buildVertexPayload, vertex
+  use topologicalObject_inter,       only : buildTopologicalObjectPayload, topologicalObjectBox
+  use vertex_class,                  only : buildVertexPayload, vertex
 
   implicit none
   private
@@ -32,7 +33,7 @@ contains
 
     ! Allocate pointer inside box to correct class.
     select type(payload)
-      type is(buildEdgePayload)
+      type is(buildExtentTopologicalObjectPayload)
         allocate(edge :: box % ptr)
 
       type is(buildElementPayload)

@@ -38,13 +38,12 @@ module vertex_class
   type, public, extends(topologicalObject)                :: vertex
     private
     real(defReal), dimension(3)                           :: coordinates = ZERO
-    type(topologicalObjectBox), dimension(:), allocatable :: elements
-    integer(shortInt), dimension(:), allocatable          :: faceIdxs, edgeIdxs
+    type(topologicalObjectBox), dimension(:), allocatable :: sharingEdges, sharingElements, sharingFaces
   contains
     ! Build procedures.
-    procedure :: addFaceIdx
-    procedure :: addEdgeIdx
-    procedure :: addElement
+    procedure :: addSharingEdge
+    procedure :: addSharingElement
+    procedure :: addSharingFace
     procedure :: build
     procedure :: kill
     ! Runtime procedures.
@@ -52,32 +51,13 @@ module vertex_class
     procedure :: getBoundingBoxBounds
     procedure :: getCentroid
     procedure :: getCoordinates
-    procedure :: getEdgeIdxs
-    procedure :: getElements
-    procedure :: getFaceIdxs
-    procedure :: hasEdges
-    procedure :: hasFaces
+    procedure :: getSharingEdges
+    procedure :: getSharingElements
+    procedure :: getSharingFaces
     procedure :: intersects_BoundingBox
   end type vertex
 
 contains
-  
-  !! Subroutine 'addFaceIdx'
-  !!
-  !! Basic description:
-  !!   Adds the index of a face sharing the vertex.
-  !!
-  !! Arguments:
-  !!   faceIdx [in] -> Index of the face.
-  !!
-  elemental subroutine addFaceIdx(self, faceIdx)
-    class(vertex), intent(inout)  :: self
-    integer(shortInt), intent(in) :: faceIdx
-    
-    call append(self % faceIdxs, faceIdx)
-
-  end subroutine addFaceIdx
-
   !! Subroutine 'addEdgeIdx'
   !!
   !! Basic description:
@@ -86,13 +66,26 @@ contains
   !! Arguments:
   !!   edgeIdx [in] -> Index of the edge.
   !!
-  elemental subroutine addEdgeIdx(self, edgeIdx)
-    class(vertex), intent(inout)  :: self
-    integer(shortInt), intent(in) :: edgeIdx
+  subroutine addSharingEdge(self, box)
+    class(vertex), intent(inout)                          :: self
+    type(topologicalObjectBox), intent(in)                :: box
+    integer(shortInt)                                     :: nSharingEdges
+    type(topologicalObjectBox), dimension(:), allocatable :: tempSharingEdges
 
-    call append(self % edgeIdxs, edgeIdx)
+    if (allocated(self % sharingEdges)) then
+      nSharingEdges = size(self % sharingEdges)
+      allocate(tempSharingEdges(nSharingEdges + 1))
+      tempSharingEdges(1:nSharingEdges) = self % sharingEdges
+      tempSharingEdges(nSharingEdges + 1) = box
+      call move_alloc(tempSharingEdges, self % sharingEdges)
 
-  end subroutine addEdgeIdx
+    else
+      allocate(self % sharingEdges(1))
+      self % sharingEdges(1) = box
+
+    end if
+
+  end subroutine addSharingEdge
   
   !! Subroutine 'addElementIdx'
   !!
@@ -106,26 +99,55 @@ contains
   !! Arguments:
   !!   elementIdx [in] -> Index of the element.
   !!
-  subroutine addElement(self, box)
+  subroutine addSharingElement(self, box)
     class(vertex), intent(inout)                          :: self
     type(topologicalObjectBox), intent(in)                :: box
-    integer(shortInt)                                     :: nElements
-    type(topologicalObjectBox), dimension(:), allocatable :: tempElements
+    integer(shortInt)                                     :: nSharingElements
+    type(topologicalObjectBox), dimension(:), allocatable :: tempSharingElements
     
-    if (allocated(self % elements)) then
-      nElements = size(self % elements)
-      allocate(tempElements(nElements + 1))
-      tempElements(1:nElements) = self % elements
-      tempElements(nElements + 1) = box
-      call move_alloc(tempElements, self % elements)
+    if (allocated(self % sharingElements)) then
+      nSharingElements = size(self % sharingElements)
+      allocate(tempSharingElements(nSharingElements + 1))
+      tempSharingElements(1:nSharingElements) = self % sharingElements
+      tempSharingElements(nSharingElements + 1) = box
+      call move_alloc(tempSharingElements, self % sharingElements)
 
     else
-      allocate(self % elements(1))
-      self % elements(1) = box
+      allocate(self % sharingElements(1))
+      self % sharingElements(1) = box
 
     end if
 
-  end subroutine addElement
+  end subroutine addSharingElement
+
+  !! Subroutine 'addFaceIdx'
+  !!
+  !! Basic description:
+  !!   Adds the index of a face sharing the vertex.
+  !!
+  !! Arguments:
+  !!   faceIdx [in] -> Index of the face.
+  !!
+  subroutine addSharingFace(self, box)
+    class(vertex), intent(inout)                          :: self
+    type(topologicalObjectBox), intent(in)                :: box
+    integer(shortInt)                                     :: nSharingFaces
+    type(topologicalObjectBox), dimension(:), allocatable :: tempSharingFaces
+
+    if (allocated(self % sharingFaces)) then
+      nSharingFaces = size(self % sharingFaces)
+      allocate(tempSharingFaces(nSharingFaces + 1))
+      tempSharingFaces(1:nSharingFaces) = self % sharingFaces
+      tempSharingFaces(nSharingFaces + 1) = box
+      call move_alloc(tempSharingFaces, self % sharingFaces)
+
+    else
+      allocate(self % sharingFaces(1))
+      self % sharingFaces(1) = box
+
+    end if
+
+  end subroutine addSharingFace
 
   !!
   !!
@@ -209,13 +231,19 @@ contains
   !! Result:
   !!   edgeIdxs -> Array listing the indices of the edges containing the vertex.
   !!
-  pure function getEdgeIdxs(self) result(edgeIdxs)
-    class(vertex), intent(in)                           :: self
-    integer(shortInt), dimension(size(self % edgeIdxs)) :: edgeIdxs
+  function getSharingEdges(self) result(sharingEdges)
+    class(vertex), intent(in)                             :: self
+    type(topologicalObjectBox), dimension(:), allocatable :: sharingEdges
 
-    edgeIdxs = self % edgeIdxs
+    if (allocated(self % sharingEdges)) then
+      sharingEdges = self % sharingEdges
 
-  end function getEdgeIdxs
+    else
+      allocate(sharingEdges(0))
+
+    end if
+
+  end function getSharingEdges
 
   !! Function 'getVertexToElements'
   !!
@@ -225,19 +253,19 @@ contains
   !! Result:
   !!   elementIdxs -> Array listing the indices of the elements containing the vertex.
   !!
-  function getElements(self) result(elements)
+  function getSharingElements(self) result(sharingElements)
     class(vertex), target, intent(in)                     :: self
-    type(topologicalObjectBox), dimension(:), allocatable :: elements
+    type(topologicalObjectBox), dimension(:), allocatable :: sharingElements
     
-    if (allocated(self % elements)) then
-      elements = self % elements
+    if (allocated(self % sharingElements)) then
+      sharingElements = self % sharingElements
 
     else
-      allocate(elements(0))
+      allocate(sharingElements(0))
 
     end if
 
-  end function getElements
+  end function getSharingElements
   
   !! Function 'getVertexToFaces'
   !!
@@ -247,39 +275,19 @@ contains
   !! Result:
   !!   faceIdxs -> Array listing the indices of the faces containing the vertex.
   !!
-  pure function getFaceIdxs(self) result(faceIdxs)
-    class(vertex), intent(in)                           :: self
-    integer(shortInt), dimension(size(self % faceIdxs)) :: faceIdxs
+  function getSharingFaces(self) result(sharingFaces)
+    class(vertex), intent(in)                             :: self
+    type(topologicalObjectBox), dimension(:), allocatable :: sharingFaces
     
-    faceIdxs = self % faceIdxs
+    if (allocated(self % sharingFaces)) then
+      sharingFaces = self % sharingFaces
 
-  end function getFaceIdxs
+    else
+      allocate(sharingFaces(0))
 
-  !! Function 'hasEdges'
-  !!
-  !! Basic description:
-  !!   Returns .true. if edgeIdxs is allocated.
-  !!
-  elemental function hasEdges(self) result(doesIt)
-    class(vertex), intent(in) :: self
-    logical(defBool)          :: doesIt
+    end if
 
-    doesIt = allocated(self % edgeIdxs)
-
-  end function hasEdges
-
-  !! Function 'hasTriangles'
-  !!
-  !! Basic description:
-  !!   Returns .true. if triangleIdxs is allocated.
-  !!
-  elemental function hasFaces(self) result(doesIt)
-    class(vertex), intent(in) :: self
-    logical(defBool)          :: doesIt
-
-    doesIt = allocated(self % faceIdxs)
-
-  end function hasFaces
+  end function getSharingFaces
 
   !!
   !!
@@ -308,15 +316,31 @@ contains
     
     ! Local.
     self % coordinates = ZERO
-    if (allocated(self % faceIdxs)) deallocate(self % faceIdxs)
-    if (allocated(self % edgeIdxs)) deallocate(self % edgeIdxs)
-    
-    if (allocated(self % elements)) then
-      do i = 1, size(self % elements)
-        nullify(self % elements(i) % ptr)
+
+    if (allocated(self % sharingEdges)) then
+      do i = 1, size(self % sharingEdges)
+        nullify(self % sharingEdges(i) % ptr)
 
       end do
-      deallocate(self % elements)
+      deallocate(self % sharingEdges)
+
+    end if
+    
+    if (allocated(self % sharingElements)) then
+      do i = 1, size(self % sharingElements)
+        nullify(self % sharingElements(i) % ptr)
+
+      end do
+      deallocate(self % sharingElements)
+
+    end if
+
+    if (allocated(self % sharingFaces)) then
+      do i = 1, size(self % sharingFaces)
+        nullify(self % sharingFaces(i) % ptr)
+
+      end do
+      deallocate(self % sharingFaces)
 
     end if
   

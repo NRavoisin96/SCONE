@@ -8,7 +8,7 @@ module octreeNode_class
   use kdTree_class,                 only : kdTree
   use node_inter,                   only : buildNodePayload, kill_super => kill, node, nodeBox
   use numPrecision
-  use topologicalObject_inter,      only : topologicalObjectBox
+  use topologicalObject_inter,      only : getUniqueSharingElements, topologicalObjectBox
   use topologicalObjectShelf_class, only : topologicalObjectShelf
   use universalVariables,           only : HALF, INF, INSIDE_ELEMENT, NUDGE, ON_BOUNDARY_ELEMENT, OUTSIDE_ELEMENT
 
@@ -67,10 +67,11 @@ contains
     class(octreeNode), intent(inout)                      :: self
     class(buildNodePayload), intent(in)                   :: payload
     type(nodeBox), dimension(8)                           :: children
-    integer(shortInt)                                     :: i, nearestFaceIdx, nElements
+    integer(shortInt)                                     :: i, nElements
     type(buildOctreeNodePayload), pointer                 :: payloadPtr
     type(topologicalObjectBox), dimension(:), allocatable :: elements
     real(defReal), dimension(3)                           :: boundingBoxCentre
+    type(topologicalObjectBox)                            :: nearestFace
     type(inclusionTestResult)                             :: insideResult
     character(*), parameter                               :: here = 'assignElements (octreeNode_class.f90)'
 
@@ -109,12 +110,13 @@ contains
     ! If the cell is unchecked, find the nearest mesh face from the tree.
     self % isUnchecked = .false.
     boundingBoxCentre = self % getBoundingBoxCentre()
-    nearestFaceIdx = payloadPtr % tree % findNearestObject(boundingBoxCentre)
+    nearestFace = payloadPtr % tree % findNearestObject(boundingBoxCentre)
 
     ! Retrieve the elements associated with the nearest face.
-    elements = payloadPtr % shelf % getObjectElements(nearestFaceIdx)
+    elements = nearestFace % ptr % getSharingElements()
     nElements = size(elements)
-    if (nElements == 0) call fatalError(here, 'Unable to retrieve elements associated with face: '//numToChar(nearestFaceIdx)//'.')
+    if (nElements == 0) &
+    call fatalError(here, 'Unable to retrieve elements associated with face: '//numToChar(nearestFace % ptr % getIdx())//'.')
     
     do i = 1, nElements
       ! Downcast current element to correct type.
@@ -134,7 +136,7 @@ contains
 
         class default
           call fatalError(here, 'Element :'//numToChar(ptr % getIdx())//' associated with face: '&
-                          //numToChar(nearestFaceIdx)//' is not an element.')
+                          //numToChar(nearestFace % ptr % getIdx())//' is not an element.')
 
 
       end select
@@ -155,8 +157,7 @@ contains
     logical(defBool), intent(out)                         :: stop
     type(buildOctreeNodePayload), pointer                 :: payloadPtr
     integer(shortInt)                                     :: i, nFaces, nIntersectedFaces
-    integer(shortInt), dimension(:), allocatable          :: faceIdxs
-    type(topologicalObjectBox), dimension(:), allocatable :: elements
+    type(topologicalObjectBox), dimension(:), allocatable :: elements, intersectedFaces
     character(*), parameter                               :: here = 'build (octreeNode_class.f90)'
 
     ! Initialise stop = .false.
@@ -188,12 +189,8 @@ contains
       ! If nFaces <= maxFacesNumber (very simple unstructured mesh geometries), there is no need
       ! to refine the cell and we can simply return.
       if (nFaces <= self % getBucketSize()) then
-        allocate(faceIdxs(nFaces))
-        do i = 1, nFaces
-          faceIdxs(i) = i
-
-        end do
-        elements = payloadPtr % shelf % getObjectElements(faceIdxs)
+        intersectedFaces = payloadPtr % shelf % getShelf()
+        elements = getUniqueSharingElements(intersectedFaces)
         do i = 1, size(elements)
           ! Downcast element to correct type.
           select type(ptr => elements(i) % ptr)
@@ -206,7 +203,7 @@ contains
           end select
 
         end do
-        call self % addContainedObject(payloadPtr % shelf % getShelf())
+        call self % addContainedObject(intersectedFaces)
         call self % addContainingObject(elements)
         stop = .true.
 
@@ -217,8 +214,8 @@ contains
 
     ! Check the number of intersections between the current cell and the faces in the mesh by traversing the
     ! k-d tree starting from the root node.
-    faceIdxs = payloadPtr % tree % findIntersectedObjects(self % getBoundingBoxPtr())
-    nIntersectedFaces = size(faceIdxs)
+    intersectedFaces = payloadPtr % tree % findIntersectedObjects(self % getBoundingBoxPtr())
+    nIntersectedFaces = size(intersectedFaces)
     if (nIntersectedFaces == 0) then
       stop = .true.
 
@@ -226,7 +223,7 @@ contains
       self % isUnchecked = .false.
       self % isIntersecting = .true.
       if (self % getDepth() == payloadPtr % maxDepth .or. nIntersectedFaces <= self % getBucketSize()) then
-        elements = payloadPtr % shelf % getObjectElements(faceIdxs)
+        elements = getUniqueSharingElements(intersectedFaces)
         do i = 1, size(elements)
           select type(ptr => elements(i) % ptr)
             type is(element)
@@ -238,7 +235,7 @@ contains
           end select
 
         end do
-        call self % addContainedObject(payloadPtr % shelf % getObjectBox(faceIdxs))
+        call self % addContainedObject(intersectedFaces)
         call self % addContainingObject(elements)
         stop = .true.
 
@@ -315,12 +312,12 @@ contains
   !!
   !!
   !!
-  recursive subroutine findNearestObject(self, r, radiusSquared, idx)
-    class(octreeNode), intent(in)           :: self
-    real(defReal), dimension(3), intent(in) :: r
-    real(defReal), intent(inout)            :: radiusSquared
-    integer(shortInt), intent(inout)        :: idx
-    character(*), parameter                 :: here = 'findNearestObject (octreeNode_class.f90)'
+  recursive subroutine findNearestObject(self, r, radiusSquared, nearestObject)
+    class(octreeNode), intent(in)             :: self
+    real(defReal), dimension(3), intent(in)   :: r
+    real(defReal), intent(inout)              :: radiusSquared
+    type(topologicalObjectBox), intent(inout) :: nearestObject
+    character(*), parameter                   :: here = 'findNearestObject (octreeNode_class.f90)'
 
     call fatalError(here, 'Octrees do not support nearest neighbour searches.')
 

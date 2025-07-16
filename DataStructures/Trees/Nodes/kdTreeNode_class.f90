@@ -179,20 +179,20 @@ contains
   !!
   !!
   !!
-  recursive subroutine findNearestObject(self, r, radiusSquared, idx)
-    class(kdTreeNode), intent(in)            :: self
-    real(defReal), dimension(3), intent(in)  :: r
-    real(defReal), intent(inout)             :: radiusSquared
-    integer(shortInt), intent(inout)         :: idx
-    type(nodeBox), dimension(2)              :: children
-    integer(shortInt)                        :: nChildren
-    class(node), pointer                     :: genericFar, genericNear
-    class(kdTreeNode), pointer               :: farNode, nearNode
-    character(*), parameter                  :: here = 'search (kdTreeNode_class.f90)'
+  recursive subroutine findNearestObject(self, r, radiusSquared, nearestObject)
+    class(kdTreeNode), intent(in)             :: self
+    real(defReal), dimension(3), intent(in)   :: r
+    real(defReal), intent(inout)              :: radiusSquared
+    type(topologicalObjectBox), intent(inout) :: nearestObject
+    type(nodeBox), dimension(2)               :: children
+    integer(shortInt)                         :: nChildren
+    class(node), pointer                      :: genericFar, genericNear
+    class(kdTreeNode), pointer                :: farNode, nearNode
+    character(*), parameter                   :: here = 'search (kdTreeNode_class.f90)'
 
     ! If the current node is a leaf simply process it.
     if (self % getIsLeaf()) then
-      call self % process(r, radiusSquared, idx)
+      call self % process(r, radiusSquared, nearestObject)
       return
 
     end if
@@ -243,12 +243,12 @@ contains
     end if
 
     ! Always search the nearer node first.
-    if (associated(nearNode)) call nearNode % findNearestObject(r, radiusSquared, idx)
+    if (associated(nearNode)) call nearNode % findNearestObject(r, radiusSquared, nearestObject)
 
     ! Search the further node only if the distance to its bounding box is less than the current
     ! best distance.
     if (associated(farNode)) then
-      if (farNode % distanceSquared(r) < radiusSquared) call farNode % findNearestObject(r, radiusSquared, idx)
+      if (farNode % distanceSquared(r) < radiusSquared) call farNode % findNearestObject(r, radiusSquared, nearestObject)
 
     end if
 
@@ -411,11 +411,11 @@ contains
   !!
   !!
   !!
-  subroutine process(self, r, radiusSquared, idx)
+  subroutine process(self, r, radiusSquared, nearestObject)
     class(kdTreeNode), intent(in)                         :: self
     real(defReal), dimension(3), intent(in)               :: r
     real(defReal), intent(inout)                          :: radiusSquared
-    integer(shortInt), intent(inout)                      :: idx
+    type(topologicalObjectBox), intent(inout)             :: nearestObject
     type(topologicalObjectBox), dimension(:), allocatable :: containedObjects
     integer(shortInt)                                     :: i
     real(defReal)                                         :: dSquared
@@ -429,7 +429,7 @@ contains
       if (dSquared < radiusSquared) then
         ! Set idx to the index of the vertex corresponding to the current lowest distance and ballSize
         ! to said lowest distance.
-        idx = containedObjects(i) % ptr % getIdx()
+        nearestObject = containedObjects(i)
         radiusSquared = dSquared
 
       end if

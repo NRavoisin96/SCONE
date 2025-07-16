@@ -1,10 +1,11 @@
 module DompierreTriangulationMethod_class
 
-  use edge_class,                   only : edgeBox
+  use edge_class,                   only : edge, edgeBox
   use element_class,                only : buildElementPayload, elementBox
   use face_class,                   only : buildFacePayload, faceBox, orientatedFaceBox
   use genericProcedures,            only : areEqual, fatalError, numToChar, quickSort
   use numPrecision
+  use topologicalObject_inter,      only : topologicalObjectBox
   use topologicalObjectShelf_class, only : topologicalObjectShelf
   use triangulationMethod_inter,    only : triangulationMethod
   use universalVariables,           only : NOT_PRESENT
@@ -134,9 +135,10 @@ contains
     integer(shortInt), intent(inout)                       :: infoIdx, newElementIdx
     type(buildElementPayload), dimension(:), intent(inout) :: tetrahedraPayloads
     type(vertexBox), dimension(8)                          :: hexahedronVertices, sortedVertices
-    integer(shortInt)                                      :: i, idx, j, parity
+    integer(shortInt)                                      :: i, idx, j, nEdges, parity
     integer(shortInt), dimension(3)                        :: edgeVertexIdxs
     integer(shortInt), dimension(8)                        :: vertexIdxs
+    type(topologicalObjectBox), dimension(:), allocatable  :: vertexEdges
     integer(shortInt), dimension(:), allocatable           :: edgeIdxs
     type(edgeBox), dimension(12)                           :: hexahedronEdges
     type(vertexBox), dimension(2)                          :: edgeVertices
@@ -144,6 +146,7 @@ contains
     type(vertexBox), dimension(4)                          :: orientatedFaceVertices
     integer(shortInt), dimension(4)                        :: orientatedFaceVertexIdxs
     logical(defBool)                                       :: isEven
+    character(*), parameter :: here = 'generateTetrahedraFromHexahedron (DompierreTriangulationMethod_class.f90)'
 
     hexahedronVertices = hexahedron % ptr % getVertices()
     do i = 1, 8
@@ -153,7 +156,21 @@ contains
 
     ! First sorted vertex is the vertex with smallest global index.
     sortedVertices(1) = hexahedronVertices(minloc(vertexIdxs, 1))
-    edgeIdxs = sortedVertices(1) % ptr % getEdgeIdxs()
+    vertexEdges = sortedVertices(1) % ptr % getSharingEdges()
+    nEdges = size(vertexEdges)
+    allocate(edgeIdxs(nEdges))
+    do i = 1, nEdges
+      ! Downcast to correct type.
+      select type(ptr => vertexEdges(i) % ptr)
+        type is(edge)
+          edgeIdxs(i) = ptr % getIdx()
+
+        class default
+          call fatalError(here, 'Edge with index: '//numToChar(ptr % getIdx())//' is not an edge.')
+
+      end select
+
+    end do
 
     ! Loop through all the edges containing the first vertex and find the second, fourth, and fifth vertices.
     hexahedronEdges = hexahedron % ptr % getEdges()
@@ -205,7 +222,23 @@ contains
 
     ! Now assign vertices 6, 7, and 8. Vertex 6 is connected to vertex 2.
     do i = 2, 4
-      edgeIdxs = sortedVertices(i) % ptr % getEdgeIdxs()
+      if (allocated(edgeIdxs)) deallocate(edgeIdxs)
+      vertexEdges = sortedVertices(i) % ptr % getSharingEdges()
+      nEdges = size(vertexEdges)
+      allocate(edgeIdxs(nEdges))
+      do j = 1, nEdges
+        ! Downcast to correct type.
+        select type(ptr => vertexEdges(j) % ptr)
+          type is(edge)
+            edgeIdxs(j) = ptr % getIdx()
+
+          class default
+            call fatalError(here, 'Edge with index: '//numToChar(ptr % getIdx())//' is not an edge.')
+
+        end select
+
+      end do
+
       do j = 1, 12
         if (any(edgeIdxs == hexahedronEdges(j) % ptr % getIdx())) then
           edgeVertices = hexahedronEdges(j) % ptr % getVertices()

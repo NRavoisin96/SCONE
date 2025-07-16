@@ -20,7 +20,6 @@ module face_class
     integer(shortInt)                                        :: parentIdx = 0
     logical(defBool)                                         :: isBoundary = .false., testNormal = .false.
     type(edgeBox), dimension(:), allocatable                 :: edges
-    type(vertexBox), dimension(:), allocatable               :: vertices
     real(defReal), dimension(3)                              :: testCentroid = ZERO
   end type buildFacePayload
 
@@ -62,7 +61,7 @@ module face_class
     integer(shortInt)                                     :: parentIdx = 0
     type(edgeBox), dimension(:), allocatable              :: edges
     type(vertexBox), dimension(:), allocatable            :: vertices
-    type(topologicalObjectBox), dimension(:), allocatable :: elements
+    type(topologicalObjectBox), dimension(:), allocatable :: sharingElements
     integer(shortInt), dimension(:), allocatable          :: childrenIdxs
     logical(defBool)                                      :: isBoundary = .false.
     real(defReal)                                         :: area = ZERO
@@ -71,7 +70,7 @@ module face_class
   contains
     procedure          :: addChildIdx
     procedure          :: addEdge
-    procedure          :: addElement
+    procedure          :: addSharingElement
     procedure          :: addVertex
     procedure          :: build
     procedure, private :: buildComponents
@@ -81,9 +80,8 @@ module face_class
     procedure          :: getArea
     procedure          :: getChildrenIdxs
     procedure          :: getEdges
-    procedure          :: getElements
+    procedure          :: getSharingElements
     procedure          :: getFaceIdx
-    procedure          :: getHasElements
     procedure          :: getIsBoundary
     procedure          :: getNormal
     procedure          :: getType
@@ -151,26 +149,26 @@ contains
   !! Arguments:
   !!   idx [in] -> Index of the element containing the face.
   !!
-  subroutine addElement(self, box)
+  subroutine addSharingElement(self, box)
     class(face), intent(inout)                            :: self
     type(topologicalObjectBox), intent(in)                :: box
-    integer(shortInt)                                     :: nElements
-    type(topologicalObjectBox), dimension(:), allocatable :: tempElements
+    integer(shortInt)                                     :: nSharingElements
+    type(topologicalObjectBox), dimension(:), allocatable :: tempSharingElements
     
-    if (allocated(self % elements)) then
-      nElements = size(self % elements)
-      allocate(tempElements(nElements + 1))
-      tempElements(1:nElements) = self % elements
-      tempElements(nElements + 1) = box
-      call move_alloc(tempElements, self % elements)
+    if (allocated(self % sharingElements)) then
+      nSharingElements = size(self % sharingElements)
+      allocate(tempSharingElements(nSharingElements + 1))
+      tempSharingElements(1:nSharingElements) = self % sharingElements
+      tempSharingElements(nSharingElements + 1) = box
+      call move_alloc(tempSharingElements, self % sharingElements)
 
     else
-      allocate(self % elements(1))
-      self % elements(1) = box
+      allocate(self % sharingElements(1))
+      self % sharingElements(1) = box
 
     end if
 
-  end subroutine addElement
+  end subroutine addSharingElement
   
   !! Subroutine 'addVertexIdx'
   !!
@@ -260,25 +258,23 @@ contains
   !!
   !!
   subroutine buildComponents(self, payload)
-    class(face), intent(inout)                         :: self
-    type(buildFacePayload), intent(inout)              :: payload
-    integer(shortInt)                                  :: i, nVertices
-    real(defReal), dimension(3, size(self % vertices)) :: allCoords
-    real(defReal), dimension(3, 3)                     :: triangleCoordsArray
-    real(defReal), dimension(3)                        :: normal, sumAreasCentroid, sumNormals
-    real(defReal)                                      :: normalNorm, sumAreas
-    character(*), parameter                            :: here = 'build (face_class.f90)'
+    class(face), intent(inout)            :: self
+    type(buildFacePayload), intent(inout) :: payload
+    integer(shortInt)                     :: i, nVertices
+    real(defReal), dimension(3, 3)        :: triangleCoordsArray
+    real(defReal), dimension(3)           :: normal, sumAreasCentroid, sumNormals
+    real(defReal)                         :: normalNorm, sumAreas
+    character(*), parameter               :: here = 'buildComponents (face_class.f90)'
 
     ! First retrieve the coordinates of all the vertices in the face.
     nVertices = size(self % vertices)
+    allocate(payload % allCoords(3, nVertices))
     do i = 1, nVertices
       if (.not. associated(self % vertices(i) % ptr)) &
       call fatalError(here, 'Face with index '//numToChar(self % getIdx())//' contains a null vertex pointer.')
-      allCoords(:, i) = self % vertices(i) % ptr % getCoordinates()
+      payload % allCoords(:, i) = self % vertices(i) % ptr % getCoordinates()
 
     end do
-    if (allocated(payload % allCoords)) deallocate(payload % allCoords)
-    payload % allCoords = allCoords
 
     ! Check if the face is a triangle. If so, perform a direct computation to avoid round-off errors.
     if (nVertices == 3) then
@@ -332,13 +328,12 @@ contains
   subroutine connectComponents(self)
     class(face), target, intent(inout) :: self
     type(topologicalObjectBox)         :: box
-    integer(shortInt)                  :: i, idx
+    integer(shortInt)                  :: i
 
     box % ptr => self
-    idx = self % getIdx()
     do i = 1, size(self % vertices)
-      call self % vertices(i) % ptr % addFaceIdx(idx)
-      call self % edges(i) % ptr % addFaceIdx(idx)
+      call self % vertices(i) % ptr % addSharingFace(box)
+      call self % edges(i) % ptr % addSharingFace(box)
 
     end do
 
@@ -495,19 +490,19 @@ contains
   !! Result:
   !!   elementIdxs -> Indices of the elements containing the face.
   !!
-  function getElements(self) result(elements)
+  function getSharingElements(self) result(sharingElements)
     class(face), target, intent(in)                       :: self
-    type(topologicalObjectBox), dimension(:), allocatable :: elements
+    type(topologicalObjectBox), dimension(:), allocatable :: sharingElements
     
-    if (allocated(self % elements)) then
-      elements = self % elements
+    if (allocated(self % sharingElements)) then
+      sharingElements = self % sharingElements
 
     else
-      allocate(elements(0))
+      allocate(sharingElements(0))
 
     end if
 
-  end function getElements
+  end function getSharingElements
 
   !! Function 'getFaceIdx'
   !!
@@ -524,22 +519,6 @@ contains
     faceIdx = self % parentIdx
 
   end function getFaceIdx
-
-  !! Function 'getHasElements'
-  !!
-  !! Basic description:
-  !!   Returns .true. if elementIdxs is allocated.
-  !!
-  !! Result:
-  !!   hasElements -> .true. if elementIdxs is allocated.
-  !!
-  elemental function getHasElements(self) result(hasElements)
-    class(face), intent(in) :: self
-    logical(defBool)        :: hasElements
-
-    hasElements = allocated(self % elements)
-
-  end function getHasElements
 
   !! Function 'getIsBoundary'
   !!
@@ -756,12 +735,12 @@ contains
 
     end if
 
-    if (allocated(self % elements)) then
-      do i = 1, size(self % elements)
-        nullify(self % elements(i) % ptr)
+    if (allocated(self % sharingElements)) then
+      do i = 1, size(self % sharingElements)
+        nullify(self % sharingElements(i) % ptr)
 
       end do
-      deallocate(self % elements)
+      deallocate(self % sharingElements)
 
     end if
 

@@ -6,6 +6,7 @@ module tree_inter
   use genericProcedures,            only : fatalError
   use node_inter,                   only : buildNodePayload, node
   use numPrecision
+  use topologicalObject_inter,      only : topologicalObjectBox
   use universalVariables,           only : INF
 
   implicit none
@@ -78,30 +79,29 @@ contains
   !!
   !!
   !!
-  function findIntersectedObjects_BoundingBox(self, boundingBox) result(idxs)
-    class(tree), intent(in)                      :: self
-    type(axisAlignedBoundingBox), intent(in)     :: boundingBox
-    integer(shortInt), dimension(:), allocatable :: idxs
+  function findIntersectedObjects_BoundingBox(self, boundingBox) result(intersectedObjects)
+    class(tree), intent(in)                               :: self
+    type(axisAlignedBoundingBox), intent(in)              :: boundingBox
+    type(topologicalObjectBox), dimension(:), allocatable :: intersectedObjects
 
     ! Initialise idxs to a zero-sized array then query the root node.
-    allocate(idxs(0))
-    call self % root % findIntersectedObjects(boundingBox, idxs)
+    allocate(intersectedObjects(0))
+    call self % root % findIntersectedObjects(boundingBox, intersectedObjects)
 
   end function findIntersectedObjects_BoundingBox
 
   !!
   !!
   !!
-  function findNearestObject(self, r) result(idx)
+  function findNearestObject(self, r) result(nearestObject)
     class(tree), intent(in)                 :: self
     real(defReal), dimension(3), intent(in) :: r
-    integer(shortInt)                       :: idx
+    type(topologicalObjectBox)              :: nearestObject
     real(defReal)                           :: radiusSquared
 
-    ! Initialise radiusSquared = INF and idx = 0, then search root node.
+    ! Initialise radiusSquared = INF then search root node.
     radiusSquared = INF
-    idx = 0
-    call self % root % findNearestObject(r, radiusSquared, idx)
+    call self % root % findNearestObject(r, radiusSquared, nearestObject)
 
   end function findNearestObject
 

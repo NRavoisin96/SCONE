@@ -13,7 +13,7 @@ module octreeAcceleration_class
   use octreeNode_class,             only : buildOctreeNodePayload, octreeNode
   use topologicalObject_inter,      only : topologicalObjectBox
   use topologicalObjectShelf_class, only : topologicalObjectShelf
-  use universalVariables,           only : INSIDE_ELEMENT, NUDGE, ON_BOUNDARY_ELEMENT, OUTSIDE_ELEMENT
+  use universalVariables,           only : INSIDE_ELEMENT, NUDGE, ON_BOUNDARY_ELEMENT, OUTSIDE_ELEMENT, TWO
 
   implicit none
   private
@@ -157,9 +157,9 @@ contains
 
     ! Initialise kd-tree using the faceShelf.
     kdTreePayload % shelf => faces
+    kdTreePayload % idxs = kdTreePayload % shelf % getActiveObjectIdxs()
     kdTreePayload % lowerBound = 1
-    kdTreePayload % upperBound = faces % getObjectsNumber()
-    kdTreePayload % idxs = [(i, i = kdTreePayload % lowerBound, kdTreePayload % upperBound)]
+    kdTreePayload % upperBound = size(kdTreePayload % idxs)
     kdTreePayload % bucketSize = 4
     call tree % init(kdTreePayload)
     
@@ -169,7 +169,7 @@ contains
     octreePayload % updateParentBoundingBox = .false.
     octreePayload % tree => tree
     octreePayload % bounds = octreePayload % tree % getRootBoundingBoxBounds() + &
-                             reshape([-NUDGE, -NUDGE, -NUDGE, NUDGE, NUDGE, NUDGE], [3, 2])
+                             reshape(TWO * [-NUDGE, -NUDGE, -NUDGE, NUDGE, NUDGE, NUDGE], [3, 2])
     call self % tree % init(octreePayload, dict)
 
     ! Assign non-intersecting cells to elements.
