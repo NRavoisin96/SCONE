@@ -11,7 +11,7 @@ module mesh_inter
   private
   
   ! Extendable methods.
-  public :: kill
+  public :: distanceToBoundary, findHostElement, kill
   
   !!
   !! Abstract interface for all meshes.
@@ -47,22 +47,20 @@ module mesh_inter
     type(axisAlignedBoundingBox) :: boundingBox
   contains
     ! Build procedures.
-    procedure(init), deferred                   :: init
-    procedure, non_overridable                  :: initBoundingBox
-    procedure                                   :: kill
-    procedure, non_overridable                  :: setId
-    procedure, non_overridable                  :: setLocalIdsNumber
-    procedure, non_overridable                  :: setupBase
+    procedure(init), deferred               :: init
+    procedure, non_overridable              :: initBoundingBox
+    procedure                               :: kill
+    procedure, non_overridable              :: setId
+    procedure, non_overridable              :: setLocalIdsNumber
+    procedure, non_overridable              :: setupBase
     ! Runtime procedures.
-    procedure, non_overridable                  :: distance
-    procedure, non_overridable                  :: distanceToBoundary
-    procedure(distanceToBoundaryFace), deferred :: distanceToBoundaryFace
-    procedure(distanceToNextFace), deferred     :: distanceToNextFace
-    procedure, non_overridable                  :: findOccupiedElementIdx
-    procedure(findHostElement), deferred        :: findHostElement
-    procedure, non_overridable                  :: getBoundingBox
-    procedure, non_overridable                  :: getId
-    procedure, non_overridable                  :: getLocalIdsNumber
+    procedure                               :: distance
+    procedure                               :: distanceToBoundary
+    procedure(distanceToNextFace), deferred :: distanceToNextFace
+    procedure                               :: findHostElement
+    procedure, non_overridable              :: getBoundingBoxPtr
+    procedure, non_overridable              :: getId
+    procedure, non_overridable              :: getLocalIdsNumber
   end type mesh
   
   abstract interface
@@ -82,42 +80,6 @@ module mesh_inter
       real(defReal), intent(out) :: d
       type(coord), intent(inout) :: coords
     end subroutine distanceToNextFace
-
-    !! Subroutine 'distanceToBoundaryFace'
-    !!
-    !! Basic description:
-    !!   Returns the distance to the mesh boundary face intersected by a particle's path. Also
-    !!   returns the index of the parent element containing the intersected boundary face.
-    !!
-    !! Arguments:
-    !!   d [out]         -> Distance to the mesh boundary face.
-    !!   coords [inout]  -> Particle's coordinates.
-    !!   parentIdx [out] -> Index of the parent element containing the boundary face.
-    !!
-    subroutine distanceToBoundaryFace(self, d, coords)
-      import                       :: mesh, defReal, coord
-      class(mesh), intent(in)      :: self
-      real(defReal), intent(inout) :: d
-      type(coord), intent(inout)   :: coords
-    end subroutine distanceToBoundaryFace
-
-    !! Subroutine 'findElementAndParentIdxs'
-    !!
-    !! Basic description:
-    !!   Returns the index of the mesh element occupied by a particle. Also returns the index
-    !!   of the parent mesh element containing the occupied element.
-    !!
-    !! Arguments:
-    !!   r [in]           -> Particle's location.
-    !!   u [in]           -> Particle's direction.
-    !!   elementIdx [out] -> Index of the mesh element occupied by the particle.
-    !!   parentIdx [out]  -> Index of the parent mesh element containing the occupied element.
-    !!
-    subroutine findHostElement(self, coords)
-      import                                 :: coord, mesh 
-      class(mesh), intent(in)                :: self
-      type(coord), intent(inout)             :: coords
-    end subroutine findHostElement
 
     !! Subroutine 'init'
     !!
@@ -139,7 +101,6 @@ module mesh_inter
   end interface
 
 contains
-
   !! Subroutine 'distance'
   !!
   !! Basic description:
@@ -186,14 +147,14 @@ contains
   !!   parentIdx [out] -> Index of the parent element containing the intersected mesh boundary face.
   !!
   subroutine distanceToBoundary(self, d, coords)
-    class(mesh), intent(in)      :: self
+    class(mesh), intent(in)    :: self
     real(defReal), intent(out) :: d
     type(coord), intent(inout) :: coords
 
     ! If particle intersects the bounding box, compute the distance to the next intersected boundary face.
     d = INF
     call coords % setParentElementIdx(0)
-    call self % distanceToBoundaryFace(d, coords)
+    call coords % setLocalId(1)
 
   end subroutine distanceToBoundary
 
@@ -208,18 +169,16 @@ contains
   !!   elementIdx [out] -> Index of the element in which the particle is.
   !!   localId [out]    -> Local Id for the given particle.
   !!
-  subroutine findOccupiedElementIdx(self, coords)
+  subroutine findHostElement(self, coords)
     class(mesh), intent(in)    :: self
     type(coord), intent(inout) :: coords
 
     ! Initialise localId = 1 (corresponds to the particle being in the CSG cell).
+    call coords % setElementIdx(0)
+    call coords % setParentElementIdx(0)
     call coords % setLocalId(1)
 
-    ! Find indices of the occupied mesh element and its parent element. Update localId only if particle is not 
-    ! outside the mesh.
-    call self % findHostElement(coords)
-
-  end subroutine findOccupiedElementIdx
+  end subroutine findHostElement
 
   !! Function 'getBoundingBox'
   !!
@@ -229,13 +188,13 @@ contains
   !! Result:
   !!   boundingBox -> AABB of the mesh.
   !!
-  pure function getBoundingBox(self) result(boundingBox)
-    class(mesh), intent(in)      :: self
-    type(axisAlignedBoundingBox) :: boundingBox
+  function getBoundingBoxPtr(self) result(boundingBoxPtr)
+    class(mesh), target, intent(in)       :: self
+    type(axisAlignedBoundingBox), pointer :: boundingBoxPtr
     
-    boundingBox = self % boundingBox
+    boundingBoxPtr => self % boundingBox
 
-  end function getBoundingBox
+  end function getBoundingBoxPtr
 
   !! Function 'getId'
   !!

@@ -52,115 +52,108 @@ contains
   !!
   !!
   !!
-  subroutine findHostElement(self, elements, coords)
+  subroutine findHostElement(self, elements, coords, stopSearch)
     class(octreeAcceleration), intent(in)                 :: self
     type(topologicalObjectShelf), intent(in)              :: elements
     type(coord), intent(inout)                            :: coords
+    logical(defBool), intent(out)                         :: stopSearch
     type(topologicalObjectBox), dimension(:), allocatable :: objects
-    integer(shortInt)                                     :: i, nPotentialElements, elementIdx
+    integer(shortInt)                                     :: i, nPotentialElements
     class(node), pointer                                  :: genericLeaf
     type(octreeNode), pointer                             :: leaf
     type(inclusionTestResult)                             :: testResult
     character(*), parameter                               :: here = 'findHostElement (octreeAcceleration_class.f90)'
 
-    searchLoop: do
-      ! First search the acceleration structure for the indices of potential elements containing the coordinates.
-      call self % tree % findLeaf(coords, genericLeaf, .true.)
+    ! First search the acceleration structure for the indices of potential elements containing the coordinates.
+    stopSearch = .true.
+    call self % tree % findLeaf(coords, genericLeaf)
 
-      ! If check if the leaf node pointer is associated.
-      if (.not. associated(genericLeaf)) return
+    ! If check if the leaf node pointer is associated.
+    if (.not. associated(genericLeaf)) return
 
-      ! Downcast leaf to correct type.
-      select type(ptr => genericLeaf)
-        type is(octreeNode)
-          leaf => ptr
+    ! Downcast leaf to correct type.
+    select type(ptr => genericLeaf)
+      type is(octreeNode)
+        leaf => ptr
+
+      class default
+        call fatalError(here, 'Invalid leaf node type.')
+
+    end select
+
+    ! Call fatalError if leaf is unchecked.
+    if (leaf % getIsUnchecked()) call fatalError(here, 'Leaf node is neither fully inside, fully outside, nor intersecting.')
+    if (leaf % getIsOutside()) return
+    
+    ! Retrieve the element in the leaf.
+    objects = leaf % getContainingObjects()
+
+    if (leaf % getIsInside()) then
+      ! Downcast objects to correct type.
+      select type(ptr => objects(1) % ptr)
+        type is(element)
+          call coords % setElementIdx(ptr % getIdx())
+          call coords % setParentElementIdx(ptr % getParentIdx())
+          call coords % setLocalId(ptr % getLocalId())
+          return
 
         class default
-          call fatalError(here, 'Invalid leaf node type.')
+          call fatalError(here, 'Object: '//numToChar(ptr % getIdx())//' is not an element.')
 
       end select
 
-      ! Call fatalError if leaf is unchecked.
-      if (leaf % getIsUnchecked()) call fatalError(here, 'Leaf node is neither fully inside, fully outside, nor intersecting.')
-      if (leaf % getIsOutside()) return
-      
-      ! Retrieve the element in the leaf.
-      objects = leaf % getContainingObjects()
+    end if
 
-      if (leaf % getIsInside()) then
-        ! Downcast objects to correct type.
-        select type(ptr => objects(1) % ptr)
+    if (leaf % getIsIntersecting()) then
+      nPotentialElements = size(objects)
+      do i = 1, nPotentialElements
+        ! Downcast current object to correct type.
+        select type(ptr => objects(i) % ptr)
           type is(element)
-            call coords % setElementIdx(ptr % getIdx())
-            call coords % setParentElementIdx(ptr % getParentIdx())
-            call coords % setLocalId(ptr % getLocalId())
-            return
+            ! Perform inclusion test for the current element.
+            testResult = ptr % isPointInside(coords % getPositionToNudge())
+
+            if (testResult % status == INSIDE_ELEMENT) then
+              ! If coordinates are fully inside, we have found our element.
+              call coords % setElementIdx(ptr % getIdx())
+              call coords % setParentElementIdx(ptr % getParentIdx())
+              call coords % setLocalId(ptr % getLocalId())
+              return
+
+            elseif (testResult % status == ON_BOUNDARY_ELEMENT) then
+              ! If coordinates are on the element boundary (very rare), we need to push them off.
+              do while (testResult % status == ON_BOUNDARY_ELEMENT)
+                call ptr % pushFromBoundary(coords)
+
+                ! Perform containment test again.
+                testResult = ptr % isPointInside(coords % getPositionToNudge())
+
+              end do
+
+              ! Now the coordinates are not on the boundary of the element anymore.
+              if (testResult % status == INSIDE_ELEMENT) then
+                ! If coordinates are now well inside the element, we have found our element.
+                call coords % setElementIdx(ptr % getIdx())
+                call coords % setParentElementIdx(ptr % getParentIdx())
+                call coords % setLocalId(ptr % getLocalId())
+
+              elseif (testResult % status == OUTSIDE_ELEMENT) then
+                ! If the nudge has resulted in an overshoot, we cycle searchLoop and begin the entire process again.
+                stopSearch = .false.
+
+              end if
+              return
+
+            end if
 
           class default
             call fatalError(here, 'Object: '//numToChar(ptr % getIdx())//' is not an element.')
 
         end select
 
-      end if
+      end do
 
-      if (leaf % getIsIntersecting()) then
-        nPotentialElements = size(objects)
-        do i = 1, nPotentialElements
-          ! Downcast current object to correct type.
-          select type(ptr => objects(i) % ptr)
-            type is(element)
-              ! Perform inclusion test for the current element.
-              elementIdx = ptr % getIdx()
-              testResult = ptr % isPointInside(coords % getPositionToNudge())
-
-              if (testResult % status == INSIDE_ELEMENT) then
-                ! If coordinates are fully inside, we have found our element.
-                call coords % setElementIdx(elementIdx)
-                call coords % setParentElementIdx(ptr % getParentIdx())
-                call coords % setLocalId(ptr % getLocalId())
-                return
-
-              elseif (testResult % status == ON_BOUNDARY_ELEMENT) then
-                ! If coordinates are on the element boundary (very rare), we need to push them off.
-                do while (testResult % status == ON_BOUNDARY_ELEMENT)
-                  call ptr % pushFromBoundary(coords)
-
-                  ! Perform containment test again.
-                  testResult = ptr % isPointInside(coords % getPositionToNudge())
-
-                end do
-
-                ! Now the coordinates are not on the boundary of the element anymore.
-                if (testResult % status == INSIDE_ELEMENT) then
-                  ! If coordinates are now well inside the element, we have found our element.
-                  call coords % setElementIdx(elementIdx)
-                  call coords % setParentElementIdx(ptr % getParentIdx())
-                  call coords % setLocalId(ptr % getLocalId())
-                  return
-
-                elseif (testResult % status == OUTSIDE_ELEMENT) then
-                  ! If the nudge has resulted in an overshoot, we cycle searchLoop and begin the entire process again.
-                  cycle searchLoop
-
-                end if
-
-              end if
-
-            class default
-              call fatalError(here, 'Object: '//numToChar(ptr % getIdx())//' is not an element.')
-
-          end select
-
-        end do
-        ! If reached here, the coordinates are not inside any elements so they are outside the mesh. Simply return here.
-        call coords % setElementIdx(0)
-        call coords % setParentElementIdx(0)
-        call coords % setLocalId(1)
-        return
-
-      end if
-
-    end do searchLoop
+    end if
 
   end subroutine findHostElement
 
@@ -173,7 +166,6 @@ contains
     type(topologicalObjectShelf), target, intent(in) :: edges, elements, faces, vertices
     type(kdTree), target                             :: tree
     type(buildKDTreeNodePayload)                     :: kdTreePayload
-    integer(shortInt)                                :: i
     type(buildOctreeNodePayload)                     :: octreePayload
 
     ! Initialise kd-tree using the faceShelf.

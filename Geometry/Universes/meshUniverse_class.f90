@@ -152,7 +152,7 @@ contains
     
     ! Set cellIdx to the index of the CSG cell, then find elementIdx and localId within mesh.
     call coords % setCellIdx(self % cell % idx)
-    call self % mesh % ptr % findOccupiedElementIdx(coords)
+    call self % mesh % ptr % findHostElement(coords)
 
   end subroutine findCell
   
@@ -246,7 +246,7 @@ contains
     class(cell), pointer                         :: cellPtr
     class(surface), pointer                      :: surfPtr
     integer(shortInt), dimension(:), allocatable :: surfIdxs
-    type(axisAlignedBoundingBox)                 :: boundingBox
+    type(axisAlignedBoundingBox), pointer        :: boundingBoxPtr
     real(defReal), dimension(3, 2)               :: bounds
     character(*), parameter                      :: Here = 'checkForCropping (meshUniverse_class.f90)'
     
@@ -267,9 +267,9 @@ contains
     
     ! Get pointer to the surface of the CSG cell and check that the surface of the CSG cell does not crop it.
     surfPtr => surfs % getPtr(abs(surfIdxs(1)))
-    boundingBox = self % mesh % ptr % getBoundingBox()
-    if (surfPtr % cropsBoundingBox(boundingBox % getBounds())) then
-      bounds = boundingBox % getBounds()
+    boundingBoxPtr => self % mesh % ptr % getBoundingBoxPtr()
+    if (surfPtr % cropsBoundingBox(boundingBoxPtr % getBounds())) then
+      bounds = boundingBoxPtr % getBounds()
       print *, 'Minimum x-coordinate: '//numToChar(bounds(1, 1))//'.'
       print *, 'Minimum y-coordinate: '//numToChar(bounds(2, 1))//'.'
       print *, 'Minimum z-coordinate: '//numToChar(bounds(3, 1))//'.'

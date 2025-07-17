@@ -2,6 +2,7 @@ module accelerationStructure_inter
 
   use coord_class,                  only : coord
   use dictionary_class,             only : dictionary
+  use element_class,                only : elementBox
   use face_class,                   only : faceBox
   use numPrecision
   use topologicalObjectShelf_class, only : topologicalObjectShelf
@@ -37,11 +38,12 @@ module accelerationStructure_inter
     !!
     !!
     !!
-    subroutine findHostElement(self, elements, coords)
-      import :: accelerationStructure, coord, topologicalObjectShelf
+    subroutine findHostElement(self, elements, coords, stopSearch)
+      import :: accelerationStructure, coord, defBool, topologicalObjectShelf
       class(accelerationStructure), intent(in) :: self
       type(topologicalObjectShelf), intent(in) :: elements
       type(coord), intent(inout)               :: coords
+      logical(defBool), intent(out)            :: stopSearch
     end subroutine findHostElement
 
     !!

@@ -45,10 +45,15 @@ contains
   !!
   !!
   !!
-  subroutine findHostElement(self, elements, coords)
+  subroutine findHostElement(self, elements, coords, stopSearch)
     class(patchSearchAcceleration), intent(in) :: self
     type(topologicalObjectShelf), intent(in)   :: elements
     type(coord), intent(inout)                 :: coords
+    logical(defBool), intent(out)              :: stopSearch
+    character(*), parameter                    :: here = 'findHostElement (patchSearchAcceleration_class.f90)'
+
+    stopSearch = .true.
+    call fatalError(here, 'Unsupported procedure.')
 
   end subroutine findHostElement
 

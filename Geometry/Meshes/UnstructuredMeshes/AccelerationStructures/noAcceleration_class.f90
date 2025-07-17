@@ -60,62 +60,55 @@ contains
   !!
   !!
   !!
-  subroutine findHostElement(self, elements, coords)
+  subroutine findHostElement(self, elements, coords, stopSearch)
     class(noAcceleration), intent(in)        :: self
     type(topologicalObjectShelf), intent(in) :: elements
     type(coord), intent(inout)               :: coords
+    logical(defBool), intent(out)            :: stopSearch
     integer(shortInt)                        :: i
     type(elementBox)                         :: element
     type(inclusionTestResult)                :: testResult
 
     ! Perform brute-force search.
-    searchLoop: do
-      do i = 1, elements % getObjectsNumber()
-        element = elements % getElementBox(i)
-        ! Cycle to the next element if the current element is not active.
-        if (.not. element % ptr % getIsActive()) cycle
-        
-        testResult = element % ptr % isPointInside(coords % getPositionToNudge())
+    stopSearch = .true.
+    do i = 1, elements % getObjectsNumber()
+      element = elements % getElementBox(i)
+      ! Cycle to the next element if the current element is not active.
+      if (.not. element % ptr % getIsActive()) cycle
+      
+      testResult = element % ptr % isPointInside(coords % getPositionToNudge())
+      if (testResult % status == INSIDE_ELEMENT) then
+        call coords % setElementIdx(element % ptr % getIdx())
+        call coords % setParentElementIdx(element % ptr % getParentIdx())
+        call coords % setLocalId(element % ptr % getLocalId())
+        return 
+
+      elseif (testResult % status == ON_BOUNDARY_ELEMENT) then
+        ! If coordinates are on the element boundary (very rare), we need to push them off.
+        do while (testResult % status == ON_BOUNDARY_ELEMENT)
+          call element % ptr % pushFromBoundary(coords)
+
+          ! Perform containment test again.
+          testResult = element % ptr % isPointInside(coords % getPositionToNudge())
+
+        end do
+
+        ! Now the coordinates are not on the boundary of the element anymore.
         if (testResult % status == INSIDE_ELEMENT) then
+          ! If coordinates are now well inside the element, we have found our element.
           call coords % setElementIdx(element % ptr % getIdx())
           call coords % setParentElementIdx(element % ptr % getParentIdx())
           call coords % setLocalId(element % ptr % getLocalId())
-          return
 
-        elseif (testResult % status == ON_BOUNDARY_ELEMENT) then
-          ! If coordinates are on the element boundary (very rare), we need to push them off.
-          do while (testResult % status == ON_BOUNDARY_ELEMENT)
-            call element % ptr % pushFromBoundary(coords)
-
-            ! Perform containment test again.
-            testResult = element % ptr % isPointInside(coords % getPositionToNudge())
-
-          end do
-
-          ! Now the coordinates are not on the boundary of the element anymore.
-          if (testResult % status == INSIDE_ELEMENT) then
-            ! If coordinates are now well inside the element, we have found our element.
-            call coords % setElementIdx(element % ptr % getIdx())
-            call coords % setParentElementIdx(element % ptr % getParentIdx())
-            call coords % setLocalId(element % ptr % getLocalId())
-            return
-
-          elseif (testResult % status == OUTSIDE_ELEMENT) then
-            ! If the nudge has resulted in an overshoot, we cycle searchLoop and begin the entire process again.
-            cycle searchLoop
-
-          end if
+        elseif (testResult % status == OUTSIDE_ELEMENT) then
+          stopSearch = .false.
 
         end if
+        return
 
-      end do
-      ! If reached here, the particle is not inside any element.
-      call coords % setElementIdx(0)
-      call coords % setParentElementIdx(0)
-      call coords % setLocalId(1)
-      return
+      end if
 
-    end do searchLoop
+    end do
 
   end subroutine findHostElement
 

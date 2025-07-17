@@ -1,19 +1,13 @@
 module OpenFOAMMesh_class
 
-  use axisAlignedBoundingBox_class, only : axisAlignedBoundingBox
-  use coord_class,                  only : coord
-  use genericProcedures,            only : append, fatalError, numToChar, openToRead, quickSort
+  use genericProcedures,            only : append, fatalError, numToChar, openToRead
   use iso_fortran_env,              only : int64
   use longIntMap_class,             only : longIntMap
   use numPrecision
   use publicObjects,                only : basicEdgeInfo, basicElementInfo, basicFaceInfo, basicVertexInfo, &
                                            meshLocalIdInfo
-  use universalVariables,           only : INF, NOT_PRESENT
-  use unstructuredMesh_inter,       only : unstructuredMesh, &
-                                           distanceToBoundaryFace_super => distanceToBoundaryFace, &
-                                           distanceToNextFace_super => distanceToNextFace, &
-                                           findHostElement_super => findHostElement, &
-                                           kill_super => kill
+  use universalVariables,           only : NOT_PRESENT
+  use unstructuredMesh_inter,       only : unstructuredMesh
 
   implicit none
   private
@@ -21,10 +15,6 @@ module OpenFOAMMesh_class
   type, public, extends(unstructuredMesh) :: OpenFOAMMesh
     private
   contains
-    ! Superclass procedures.
-    procedure :: distanceToBoundaryFace
-    procedure :: distanceToNextFace
-    procedure :: findHostElement
     ! Local procedures.
     procedure :: checkFiles
     procedure :: getMeshInfo
@@ -33,7 +23,6 @@ module OpenFOAMMesh_class
     procedure :: importFacesAndEdges
     procedure :: importMesh
     procedure :: importVertices
-    procedure :: kill
   end type OpenFOAMMesh
 
 contains
@@ -84,55 +73,6 @@ contains
     inquire(file = folderPath//'cellZones', exist = cellZonesFile)
 
   end subroutine checkFiles
-
-  !! Subroutine 'distanceToBoundaryFace'
-  !!
-  !! Basic description:
-  !!   Returns the distance to the mesh boundary face intersected by a particle's path. Also returns the index
-  !!   of the parent element containing the intersected boundary face.
-  !!
-  !! See unstructuredMesh_inter for details.
-  !!
-  subroutine distanceToBoundaryFace(self, d, coords)
-    class(OpenFOAMMesh), intent(in) :: self
-    real(defReal), intent(inout)    :: d
-    type(coord), intent(inout)      :: coords
-
-    call distanceToBoundaryFace_super(self, d, coords)
-
-  end subroutine distanceToBoundaryFace
-
-  !! Subroutine 'distanceToNextFace'
-  !!
-  !! Basic description:
-  !!   Returns the distance to the next face intersected by the particle's path.
-  !!
-  !! See unstructuredMesh_inter for details.
-  !!
-  subroutine distanceToNextFace(self, d, coords)
-    class(OpenFOAMMesh), intent(in) :: self
-    real(defReal), intent(out)      :: d
-    type(coord), intent(inout)      :: coords
-
-    call distanceToNextFace_super(self, d, coords)
-
-  end subroutine distanceToNextFace
-
-  !! Subroutine 'findElementAndParentIdxs'
-  !!
-  !! Basic description:
-  !!   Returns the index of the mesh element occupied by a particle. Also returns the index of the parent mesh
-  !!   element containing the occupied element.
-  !!
-  !! See unstructuredMesh_inter for details.
-  !!
-  subroutine findHostElement(self, coords)
-    class(OpenFOAMMesh), intent(in)        :: self
-    type(coord), intent(inout)             :: coords
-
-    call findHostElement_super(self, coords)
-
-  end subroutine findHostElement
 
   !! Subroutine 'getMeshInfo'
   !!
@@ -707,18 +647,5 @@ contains
     call self % initVertexShelf(vertexInfos)
 
   end subroutine importVertices
-
-  !! Subroutine 'kill'
-  !!
-  !! Basic description:
-  !!   Returns to an unitialised state.
-  !!
-  subroutine kill(self)
-    class(OpenFOAMMesh), intent(inout) :: self
-
-    ! Call unstructuredMesh procedure.
-    call kill_super(self)
-
-  end subroutine kill
 
 end module OpenFOAMMesh_class

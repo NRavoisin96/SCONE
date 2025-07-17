@@ -2,6 +2,7 @@ module unstructuredMesh_inter
 
   use accelerationStructure_inter,       only : accelerationStructure
   use accelerationStructureFactory_func, only : newAccelerationStructurePtr
+  use axisAlignedBoundingBox_class,      only : axisAlignedBoundingBox
   use coord_class,                       only : coord
   use dictionary_class,                  only : dictionary
   use edge_class,                        only : edgeBox
@@ -10,10 +11,11 @@ module unstructuredMesh_inter
   use extentTopologicalObject_inter,     only : buildExtentTopologicalObjectPayload
   use face_class,                        only : buildFacePayload, face, faceBox
   use genericProcedures,                 only : append, fatalError, numToChar
-  use mesh_inter,                        only : mesh, kill_super => kill
+  use mesh_inter,                        only : mesh, distanceToBoundary_super => distanceToBoundary, &
+                                                findHostElement_super => findHostElement, kill_super => kill
   use numPrecision
   use publicObjects,                     only : basicEdgeInfo, basicElementInfo, basicFaceInfo, basicVertexInfo, &
-                                                meshLocalIdInfo
+                                                intersectionTestResult, meshLocalIdInfo
   use topologicalObject_inter,           only : topologicalObjectBox
   use topologicalObjectShelf_class,      only : topologicalObjectShelf
   use triangulationFactory_func,         only : newTriangulationPtr
@@ -25,7 +27,7 @@ module unstructuredMesh_inter
   private
 
   ! Extendable procedures.
-  public :: distanceToBoundaryFace, distanceToNextFace, findHostElement, kill
+  public :: distanceToBoundary, distanceToNextFace, findHostElement, kill
   
   !! Abstract interface to group all unstructured meshes. An unstructured mesh uses a vertex -> face 
   !! -> element representation of space. Each element is composed by a set of faces which are themselves 
@@ -79,7 +81,7 @@ module unstructuredMesh_inter
     procedure                       :: setInternalFacesNumber
     procedure                       :: setVerticesNumber
     ! Runtime procedures.
-    procedure                       :: distanceToBoundaryFace
+    procedure                       :: distanceToBoundary
     procedure                       :: distanceToNextFace
     procedure                       :: findHostElement
     procedure                       :: getEdgesNumber
@@ -139,56 +141,61 @@ contains
   !!
   !! See mesh_inter for details.
   !!
-  subroutine distanceToBoundaryFace(self, d, coords)
+  subroutine distanceToBoundary(self, d, coords)
     class(unstructuredMesh), intent(in)                   :: self
-    real(defReal), intent(inout)                          :: d
+    real(defReal), intent(out)                            :: d
     type(coord), intent(inout)                            :: coords
+    type(axisAlignedBoundingBox), pointer                 :: boundingBoxPtr
+    type(intersectionTestResult)                          :: boundingBoxIntersectionResult
     type(faceBox)                                         :: boundaryFace
     type(topologicalObjectBox), dimension(:), allocatable :: faceElements
     type(inclusionTestResult)                             :: testResult
-    character(*), parameter                               :: here = 'distanceToBoundaryFace (unstructuredMesh_inter.f90)'
+    character(*), parameter                               :: here = 'distanceToBoundary (unstructuredMesh_inter.f90)'
     
     ! Initialise parentIdx = 0, edgeIdx = 0 and vertexIdx = 0 then search the tree for the intersected boundary face.
+    call distanceToBoundary_super(self, d, coords)
+    boundingBoxPtr => self % getBoundingBoxPtr()
+    boundingBoxIntersectionResult = boundingBoxPtr % intersects(coords % getPosition(), coords % getDirection())
+    if (.not. boundingBoxIntersectionResult % intersects) return
+
     call self % acceleration % findEntranceBoundaryFace(self % faces, coords, d, boundaryFace)
+    if (.not. associated(boundaryFace % ptr)) return
 
     ! Retrieve the element associated with the boundary face.
-    if (associated(boundaryFace % ptr)) then
-      faceElements = boundaryFace % ptr % getSharingElements()
-      ! Downcast elements to correct type.
-      select type(ptr => faceElements(1) % ptr)
-        type is(element)
-          call coords % setElementIdx(ptr % getIdx())
-          call coords % setParentElementIdx(ptr % getParentIdx())
-          call coords % setLocalId(ptr % getLocalId())
+    faceElements = boundaryFace % ptr % getSharingElements()
+    ! Downcast elements to correct type.
+    select type(ptr => faceElements(1) % ptr)
+      type is(element)
+        call coords % setElementIdx(ptr % getIdx())
+        call coords % setParentElementIdx(ptr % getParentIdx())
+        call coords % setLocalId(ptr % getLocalId())
 
-          ! Set coords % endPosition to the minimum computed distance plus a slight forward nudge.
-          call coords % setEndPosition(coords % getPosition() + (d + NUDGE) * coords % getDirection())
+        ! Set coords % endPosition to the minimum computed distance plus a slight forward nudge.
+        call coords % setEndPosition(coords % getPosition() + (d + NUDGE) * coords % getDirection())
 
-          ! If the element associated with the intersected face does not contain the end position, begin rescue.
-          testResult = ptr % isPointInside(coords % getEndPosition())
-          if (.not. testResult % status == INSIDE_ELEMENT) then
-            call coords % setNudgeEndPosition(.true.)
-            call self % findOccupiedElementIdx(coords)
-            ! Update distance.
-            if (coords % getElementIdx() == 0) then
-              d = INF
+        ! If the element associated with the intersected face does not contain the end position, begin rescue.
+        testResult = ptr % isPointInside(coords % getEndPosition())
+        if (.not. testResult % status == INSIDE_ELEMENT) then
+          call coords % setNudgeEndPosition(.true.)
+          call self % findHostElement(coords)
+          ! Update distance.
+          if (coords % getElementIdx() == 0) then
+            d = INF
 
-            else
-              d = norm2(coords % getEndPosition() - coords % getPosition())
-
-            end if
-            call coords % setNudgeEndPosition(.false.)
+          else
+            d = norm2(coords % getEndPosition() - coords % getPosition())
 
           end if
+          call coords % setNudgeEndPosition(.false.)
 
-        class default
-          call fatalError(here, 'Element with index: '//numToChar(ptr % getIdx())//' is not an element.')
+        end if
 
-      end select
+      class default
+        call fatalError(here, 'Element with index: '//numToChar(ptr % getIdx())//' is not an element.')
 
-    end if
+    end select
 
-  end subroutine distanceToBoundaryFace
+  end subroutine distanceToBoundary
 
   !! Subroutine 'distanceToNextFace'
   !!
@@ -265,11 +272,21 @@ contains
   !! See mesh_inter for details.
   !!
   subroutine findHostElement(self, coords)
-    class(unstructuredMesh), intent(in) :: self
-    type(coord), intent(inout)          :: coords
+    class(unstructuredMesh), intent(in)   :: self
+    type(coord), intent(inout)            :: coords
+    type(axisAlignedBoundingBox), pointer :: boundingBoxPtr
+    logical(defBool)                      :: stopSearch
     
-    ! Initialise parentIdx = 0. Retrieve the mesh's bounding box. If the particle is outside the bounding box we can return early.
-    call self % acceleration % findHostElement(self % elements, coords)
+    ! Set elementIdx = 0, parentElementIdx = 0 and localId = 1.
+    call findHostElement_super(self, coords)
+    boundingBoxPtr => self % getBoundingBoxPtr()
+    
+    searchLoop: do
+      if (.not. boundingBoxPtr % contains(coords % getPositionToNudge())) return
+      call self % acceleration % findHostElement(self % elements, coords, stopSearch)
+      if (stopSearch) return
+
+    end do searchLoop
 
   end subroutine findHostElement
 
