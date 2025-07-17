@@ -95,7 +95,7 @@ contains
   !!
   subroutine distanceToBoundaryFace(self, d, coords)
     class(OpenFOAMMesh), intent(in) :: self
-    real(defReal), intent(out)      :: d
+    real(defReal), intent(inout)    :: d
     type(coord), intent(inout)      :: coords
 
     call distanceToBoundaryFace_super(self, d, coords)

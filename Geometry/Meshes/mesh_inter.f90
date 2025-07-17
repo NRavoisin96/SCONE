@@ -81,7 +81,6 @@ module mesh_inter
       class(mesh), intent(in)    :: self
       real(defReal), intent(out) :: d
       type(coord), intent(inout) :: coords
-
     end subroutine distanceToNextFace
 
     !! Subroutine 'distanceToBoundaryFace'
@@ -96,11 +95,10 @@ module mesh_inter
     !!   parentIdx [out] -> Index of the parent element containing the boundary face.
     !!
     subroutine distanceToBoundaryFace(self, d, coords)
-      import                         :: mesh, defReal, coord
-      class(mesh), intent(in)        :: self
-      real(defReal), intent(out)     :: d
-      type(coord), intent(inout)     :: coords
-
+      import                       :: mesh, defReal, coord
+      class(mesh), intent(in)      :: self
+      real(defReal), intent(inout) :: d
+      type(coord), intent(inout)   :: coords
     end subroutine distanceToBoundaryFace
 
     !! Subroutine 'findElementAndParentIdxs'
@@ -119,7 +117,6 @@ module mesh_inter
       import                                 :: coord, mesh 
       class(mesh), intent(in)                :: self
       type(coord), intent(inout)             :: coords
-
     end subroutine findHostElement
 
     !! Subroutine 'init'
@@ -137,7 +134,6 @@ module mesh_inter
       class(mesh), intent(inout)    :: self
       character(*), intent(in)      :: folderPath
       class(dictionary), intent(in) :: dict
-
     end subroutine init
 
   end interface
@@ -163,7 +159,7 @@ contains
     ! Initialise isInside = .true.
     isInside = .true.
     
-    ! If particle is already inside a tetrahedron, simply compute the distance to the next mesh face and return.
+    ! If particle is already inside an element, simply compute the distance to the next mesh face and return.
     if (coords % getElementIdx() > 0) then
       call self % distanceToNextFace(d, coords)
       return
@@ -190,20 +186,13 @@ contains
   !!   parentIdx [out] -> Index of the parent element containing the intersected mesh boundary face.
   !!
   subroutine distanceToBoundary(self, d, coords)
-    class(mesh), intent(in)        :: self
-    real(defReal), intent(out)     :: d
-    type(coord), intent(inout)     :: coords
-    real(defReal), dimension(3)    :: r, rEnd
-    real(defReal), dimension(3, 2) :: bounds
-
-    ! Initialise d = INF and check that the particle's path intersects the mesh's bounding box.
-    d = INF
-    r = coords % getPosition()
-    rEnd = coords % getEndPosition()
-    bounds = self % boundingBox % getBounds()
-    if (all(r < bounds(:, 1) .and. rEnd < bounds(:, 1)) .or. all(r > bounds(:, 2) .and. rEnd > bounds(:, 2))) return
+    class(mesh), intent(in)      :: self
+    real(defReal), intent(out) :: d
+    type(coord), intent(inout) :: coords
 
     ! If particle intersects the bounding box, compute the distance to the next intersected boundary face.
+    d = INF
+    call coords % setParentElementIdx(0)
     call self % distanceToBoundaryFace(d, coords)
 
   end subroutine distanceToBoundary

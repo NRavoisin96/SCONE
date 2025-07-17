@@ -9,7 +9,7 @@ module element_class
   use numPrecision
   use publicObjects,                 only : basicElementInfo
   use topologicalObject_inter,       only : buildTopologicalObjectPayload, kill_super => kill, topologicalObjectBox
-  use universalVariables,            only : FOURTH, INSIDE_ELEMENT, INF, ON_BOUNDARY_ELEMENT, OUTSIDE_ELEMENT, &
+  use universalVariables,            only : FOURTH, INSIDE_ELEMENT, INF, ON_BOUNDARY_ELEMENT, ONE, OUTSIDE_ELEMENT, &
                                             SIXTH, SURF_TOL, ZERO
   use vertex_class,                  only : vertexBox
   
@@ -68,8 +68,6 @@ module element_class
     procedure          :: connectComponents
     procedure          :: setLocalId
     ! Runtime procedures.
-    procedure          :: computeIntersectedFace
-    procedure          :: computePotentialFaces
     procedure          :: distanceSquared
     procedure          :: getEdges
     procedure          :: getSharingElements
@@ -81,6 +79,7 @@ module element_class
     procedure          :: getVertices
     procedure          :: getVolume
     procedure          :: intersects_BoundingBox
+    procedure          :: intersects_Ray
     procedure          :: isPointInside
     procedure          :: kill
     procedure          :: pushFromBoundary
@@ -92,6 +91,15 @@ module element_class
   type, public        :: inclusionTestResult
     integer(shortInt) :: status = INSIDE_ELEMENT, failedFaceIdx = 0
   end type inclusionTestResult
+
+  !!
+  !!
+  !!
+  type, public :: rayIntersectionTestResult
+    logical(defBool) :: intersects = .false.
+    type(faceBox)    :: intersectedFace
+    real(defReal)    :: d = INF
+  end type rayIntersectionTestResult
 
 contains
 
@@ -379,98 +387,6 @@ contains
 
   end subroutine connectComponents
 
-  !! Subroutine 'computeIntersectedFace'
-  !!
-  !! Basic description:
-  !!   Computes the element's face which is intersected by a line segment.
-  !!
-  !! Detailed description:
-  !!   See Macpherson, et al. (2009). DOI: 10.1002/cnm.1128.
-  !!
-  !! Arguments:
-  !!   startPos [in]            -> Beginning of the line segment.
-  !!   endPos [in]              -> End of the line segment.
-  !!   potentialFaceIdxs [in]   -> Array of potential faces intersected by the line segment.
-  !!   intersectedFaceIdx [out] -> Index of the face intersected by the line segment.
-  !!   lambda [out]             -> Fraction of the line segment to be traversed before reaching the
-  !!                               intersection point.
-  !!   faces [in]               -> A faceShelf.
-  !!
-  subroutine computeIntersectedFace(self, r, rEnd, potentialFaceIdxs, intersectedFaceIdx, lambda)
-    class(element), intent(in)                  :: self
-    real(defReal), dimension(3), intent(in)     :: r, rEnd
-    integer(shortInt), dimension(:), intent(in) :: potentialFaceIdxs
-    integer(shortInt), intent(out)              :: intersectedFaceIdx
-    real(defReal), intent(out)                  :: lambda
-    integer(shortInt)                           :: i
-    real(defReal), dimension(3)                 :: normal
-    real(defReal)                               :: faceLambda
-    
-    ! Initialise lambda = INF.
-    lambda = INF
-    
-    ! Loop over all potentially intersected triangles.
-    do i = 1, size(potentialFaceIdxs)
-      ! Retrieve the current face's signed normal vector and flip it if necessary.
-      normal = self % orientatedFaces(potentialFaceIdxs(i)) % outwardNormal
-      
-      ! Compute lambda.
-      faceLambda = dot_product(self % orientatedFaces(potentialFaceIdxs(i)) % face % ptr % getCentroid() - r, normal) / &
-                   dot_product(rEnd - r, normal)
-      
-      ! If triangleLambda < lambda, update lambda and intersectedTriangleIdx.
-      if (faceLambda < lambda) then
-        lambda = faceLambda
-        intersectedFaceIdx = i
-
-      end if
-
-    end do
-
-  end subroutine computeIntersectedFace
-
-  !! Function 'computePotentialFaces'
-  !!
-  !! Basic description:
-  !!   Computes a list of indices of the potentially intersected faces using the element's 
-  !!   centroid and the end of a line segment.
-  !!
-  !! Detailed description:
-  !!   See Macpherson, et al. (2009). DOI: 10.1002/cnm.1128.
-  !!
-  !! Arguments:
-  !!   endPos [in]       -> End of the line segment.
-  !!   faces [in]        -> A faceShelf.
-  !!
-  !! Result:
-  !!   potentialFaceIdxs -> Array of indices of the potential faces intersected by the line segment.
-  !!
-  function computePotentialFaces(self, rEnd) result(potentialFaceIdxs)
-    class(element), intent(in)                   :: self
-    real(defReal), dimension(3), intent(in)      :: rEnd
-    integer(shortInt), dimension(:), allocatable :: potentialFaceIdxs
-    integer(shortInt)                            :: i
-    real(defReal)                                :: lambda
-    real(defReal), dimension(3)                  :: centroid, faceCentroid, outwardNormal
-    
-    ! Retrieve element's centroid then loop over all faces in the tetrahedron.
-    allocate(potentialFaceIdxs(0))
-    centroid = self % getCentroid()
-    do i = 1, size(self % orientatedFaces)
-      ! Retrieve the signed normal vector of the current face.
-      outwardNormal = self % orientatedFaces(i) % outwardNormal
-      faceCentroid = self % orientatedFaces(i) % face % ptr % getCentroid()
-      
-      ! Retrieve the centre of the current face and compute lambda.
-      lambda = dot_product(faceCentroid - centroid, outwardNormal) / dot_product(rEnd - centroid, outwardNormal)
-      
-      ! If ZERO <= lambda <= ONE, append the current face to the list of potentially intersected faces.
-      if (ZERO <= lambda .and. lambda <= ONE) call append(potentialFaceIdxs, i)
-
-    end do
-
-  end function computePotentialFaces
-
   !!
   !!
   !!
@@ -643,6 +559,54 @@ contains
     end do
 
   end function intersects_BoundingBox
+
+  !!
+  !!
+  !!
+  function intersects_Ray(self, r, rEnd) result(testResult)
+    class(element), intent(in)                         :: self
+    real(defReal), dimension(3), intent(in)            :: r, rEnd
+    type(rayIntersectionTestResult)                    :: testResult
+    real(defReal), dimension(3)                        :: centroid, faceCentroid, outwardNormal
+    integer(shortInt)                                  :: i
+    real(defReal)                                      :: centroidLambda, dotProduct, faceLambda, minLambda
+
+    ! Retrieve element's centroid then loop over all faces in the tetrahedron.
+    centroid = self % getCentroid()
+    minLambda = INF
+    do i = 1, size(self % orientatedFaces)
+      ! Retrieve the signed normal vector of the current face.
+      faceCentroid = self % orientatedFaces(i) % face % ptr % getCentroid()
+      outwardNormal = self % orientatedFaces(i) % outwardNormal
+      
+      ! Retrieve the centre of the current face and compute lambda.
+      dotProduct = dot_product(rEnd - centroid, outwardNormal)
+      if (areEqual(dotProduct, ZERO)) cycle
+      centroidLambda = dot_product(faceCentroid - centroid, outwardNormal) / dotProduct
+      
+      ! If ZERO <= lambda <= ONE, append the current face to the list of potentially intersected faces.
+      if (ZERO <= centroidLambda .and. centroidLambda <= ONE) then
+        ! Compute lambda for the face using the actual particle coordinates.
+        dotProduct = dot_product(rEnd - r, outwardNormal)
+        if (areEqual(dotProduct, ZERO)) cycle
+        faceLambda = dot_product(faceCentroid - r, outwardNormal) / dotProduct
+        if (faceLambda < minLambda) then
+          minLambda = faceLambda
+          testResult % intersectedFace = self % orientatedFaces(i) % face
+
+        end if
+
+      end if
+
+    end do
+
+    if (associated(testResult % intersectedFace % ptr)) then
+      testResult % intersects = .true.
+      testResult % d = norm2(min(ONE, max(ZERO, minLambda)) * (rEnd - r))
+
+    end if
+
+  end function intersects_Ray
 
   !! Subroutine 'testForInclusion'
   !!

@@ -1,9 +1,10 @@
 module axisAlignedBoundingBox_class
 
   use coord_class,        only : coord
-  use genericProcedures,  only : anyAreEqual, areEqual
+  use genericProcedures,  only : anyAreEqual, areEqual, swap
   use numPrecision
-  use universalVariables, only : INF, ZERO
+  use publicObjects,      only : intersectionTestResult
+  use universalVariables, only : INF, ONE, ZERO
 
   implicit none
   private
@@ -31,9 +32,9 @@ module axisAlignedBoundingBox_class
     procedure          :: getBounds
     procedure          :: getCentre
     procedure          :: getHalfwidths
-    generic            :: intersects => intersectsRay, intersectsBoundingBox
-    procedure, private :: intersectsBoundingBox
-    procedure, private :: intersectsRay
+    generic            :: intersects => intersects_BoundingBox, intersects_Ray
+    procedure, private :: intersects_BoundingBox
+    procedure, private :: intersects_Ray
     procedure          :: pushFromBoundary
   end type axisAlignedBoundingBox
 
@@ -189,26 +190,59 @@ contains
   !!
   !!
   !!
-  elemental function intersectsBoundingBox(self, boundingBox) result(doesIt)
+  elemental function intersects_BoundingBox(self, boundingBox) result(doesIt)
     class(axisAlignedBoundingBox), intent(in) :: self
     type(axisAlignedBoundingBox), intent(in)  :: boundingBox
     logical(defBool)                          :: doesIt
 
     doesIt = all(self % bounds(:, 1) <= boundingBox % bounds(:, 2)) .and. all(boundingBox % bounds(:, 1) <= self % bounds(:, 2))
 
-  end function intersectsBoundingBox
+  end function intersects_BoundingBox
 
   !!
   !!
   !!
-  pure function intersectsRay(self, startCoords, endCoords) result(doesIt)
+  pure function intersects_Ray(self, r, u) result(result)
     class(axisAlignedBoundingBox), intent(in) :: self
-    real(defReal), dimension(3), intent(in)   :: startCoords, endCoords
-    logical(defBool)                          :: doesIt
+    real(defReal), dimension(3), intent(in)   :: r, u
+    type(intersectionTestResult)              :: result
+    real(defReal)                             :: inverseU, tFar, tNear, t1, t2
+    real(defReal), dimension(3)               :: offsetCoords
+    integer(shortInt)                         :: i
 
-    doesIt = .true.
+    ! Initialise d = INF then loop over all halfwidths.
+    tNear = -INF
+    tFar = INF
 
-  end function intersectsRay
+    do i = 1, 3
+      if (areEqual(u(i), ZERO)) then
+        if (r(i) < self % bounds(i, 1) .or. self % bounds(i, 2) < r(i)) return
+
+      else
+        inverseU = ONE / u(i)
+        t1 = (self % bounds(i, 1) - r(i)) * inverseU
+        t2 = (self % bounds(i, 2) - r(i)) * inverseU
+        if (t2 < t1) call swap(t1, t2)
+
+        tNear = max(tNear, t1)
+        tFar = min(tFar, t2)
+        if (tFar < tNear) return
+
+      end if
+
+    end do
+
+    if (tFar < ZERO) return
+    result % intersects = .true.
+    if (tNear < ZERO) then
+      result % d = tFar
+
+    else
+      result % d = tNear
+
+    end if
+
+  end function intersects_Ray
 
   !!
   !!

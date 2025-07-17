@@ -2,6 +2,8 @@ module accelerationStructure_inter
 
   use coord_class,                  only : coord
   use dictionary_class,             only : dictionary
+  use face_class,                   only : faceBox
+  use numPrecision
   use topologicalObjectShelf_class, only : topologicalObjectShelf
 
   implicit none
@@ -13,15 +15,25 @@ module accelerationStructure_inter
   type, public, abstract :: accelerationStructure
     private
   contains
-    procedure(findHostElement), deferred :: findHostElement
-    procedure(init), deferred            :: init
-    procedure(kill), deferred            :: kill
+    procedure(findEntranceBoundaryFace), deferred :: findEntranceBoundaryFace
+    procedure(findHostElement), deferred          :: findHostElement
+    procedure(init), deferred                     :: init
+    procedure(kill), deferred                     :: kill
   end type accelerationStructure
 
-  !!
-  !!
-  !!
   abstract interface
+    !!
+    !!
+    !!
+    subroutine findEntranceBoundaryFace(self, faces, coords, d, boundaryFace)
+      import :: accelerationStructure, coord, defReal, faceBox, topologicalObjectShelf
+      class(accelerationStructure), intent(in) :: self
+      type(topologicalObjectShelf), intent(in) :: faces
+      type(coord), intent(in)                  :: coords
+      real(defReal), intent(inout)             :: d
+      type(faceBox), intent(out)               :: boundaryFace
+    end subroutine findEntranceBoundaryFace
+
     !!
     !!
     !!

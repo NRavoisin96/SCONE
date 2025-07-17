@@ -3,6 +3,7 @@ module octreeAcceleration_class
   use accelerationStructure_inter,  only : accelerationStructure
   use coord_class,                  only : coord
   use dictionary_class,             only : dictionary
+  use face_class,                   only : faceBox
   use element_class,                only : element, inclusionTestResult
   use genericProcedures,            only : fatalError, numToChar
   use kdTree_class,                 only : kdTree
@@ -25,12 +26,29 @@ module octreeAcceleration_class
     private
     type(octree) :: tree
   contains
+    procedure :: findEntranceBoundaryFace
     procedure :: findHostElement
     procedure :: init
     procedure :: kill
   end type octreeAcceleration
 
 contains
+  !!
+  !!
+  !!
+  subroutine findEntranceBoundaryFace(self, faces, coords, d, boundaryFace)
+    class(octreeAcceleration), intent(in)    :: self
+    type(topologicalObjectShelf), intent(in) :: faces
+    type(coord), intent(in)                  :: coords
+    real(defReal), intent(inout)             :: d
+    type(faceBox), intent(out)               :: boundaryFace
+    character(*), parameter                  :: here = 'distanceToBoundaryFace (octreeAcceleration_class.f90)'
+
+    ! Call fatalError for now.
+    call fatalError(here, 'Unsupported procedure.')
+
+  end subroutine findEntranceBoundaryFace
+
   !!
   !!
   !!
@@ -135,6 +153,9 @@ contains
 
         end do
         ! If reached here, the coordinates are not inside any elements so they are outside the mesh. Simply return here.
+        call coords % setElementIdx(0)
+        call coords % setParentElementIdx(0)
+        call coords % setLocalId(1)
         return
 
       end if

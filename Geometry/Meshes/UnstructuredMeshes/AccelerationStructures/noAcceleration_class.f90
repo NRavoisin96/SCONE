@@ -3,10 +3,13 @@ module noAcceleration_class
   use accelerationStructure_inter,  only : accelerationStructure
   use coord_class,                  only : coord
   use dictionary_class,             only : dictionary
-  use element_class,                only : elementBox, inclusionTestResult
+  use face_class,                   only : face, faceBox
+  use genericProcedures,            only : fatalError, numToChar
+  use element_class,                only : element, elementBox, inclusionTestResult
   use numPrecision
+  use topologicalObject_inter,      only : topologicalObjectBox
   use topologicalObjectShelf_class, only : topologicalObjectShelf
-  use universalVariables,           only : INSIDE_ELEMENT, ON_BOUNDARY_ELEMENT, OUTSIDE_ELEMENT
+  use universalVariables,           only : INF, INSIDE_ELEMENT, NUDGE, ON_BOUNDARY_ELEMENT, OUTSIDE_ELEMENT
 
   implicit none
   private
@@ -17,12 +20,43 @@ module noAcceleration_class
   type, public, extends(accelerationStructure) :: noAcceleration
     private
   contains
+    procedure :: findEntranceBoundaryFace
     procedure :: findHostElement
     procedure :: init
     procedure :: kill
   end type noAcceleration
 
 contains
+  !!
+  !!
+  !!
+  subroutine findEntranceBoundaryFace(self, faces, coords, d, boundaryFace)
+    class(noAcceleration), intent(in)        :: self
+    type(topologicalObjectShelf), intent(in) :: faces
+    type(coord), intent(in)                  :: coords
+    real(defReal), intent(inout)             :: d
+    type(faceBox), intent(out)               :: boundaryFace
+    type(faceBox)                            :: testFace
+    integer(shortInt)                        :: i
+    real(defReal)                            :: update
+
+    do i = 1, faces % getObjectsNumber()
+      testFace = faces % getFaceBox(i)
+      ! Cycle to next face if current face is not active or not a boundary face.
+      if (.not. (testFace % ptr % getIsActive() .and. testFace % ptr % getIsBoundary())) cycle
+
+      ! Compute distance to boundary face.
+      call testFace % ptr % computeIntersection(coords, update)
+      if (update < d) then
+        d = update
+        boundaryFace = testFace
+
+      end if
+
+    end do
+
+  end subroutine findEntranceBoundaryFace
+
   !!
   !!
   !!
@@ -76,6 +110,9 @@ contains
 
       end do
       ! If reached here, the particle is not inside any element.
+      call coords % setElementIdx(0)
+      call coords % setParentElementIdx(0)
+      call coords % setLocalId(1)
       return
 
     end do searchLoop

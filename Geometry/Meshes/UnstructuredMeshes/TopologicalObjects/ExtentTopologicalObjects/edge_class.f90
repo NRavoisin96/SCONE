@@ -4,6 +4,7 @@ module edge_class
   use extentTopologicalObject_inter, only : buildExtentTopologicalObjectPayload, extentTopologicalObject, kill_super => kill
   use genericProcedures,             only : append, areEqual, fatalError, numToChar
   use numPrecision
+  use publicObjects,                 only : intersectionTestResult
   use topologicalObject_inter,       only : buildTopologicalObjectPayload, topologicalObjectBox
   use vertex_class,                  only : vertexBox
   
@@ -272,9 +273,11 @@ contains
     class(edge), intent(in)                  :: self
     type(axisAlignedBoundingBox), intent(in) :: boundingBox
     logical(defBool)                         :: doesIt
+    type(intersectionTestResult)             :: result
 
     ! First check if bounding boxes overlap.
-    doesIt = boundingBox % intersects(self % vertices(1) % ptr % getCoordinates(), self % vertices(2) % ptr % getCoordinates())
+    result = boundingBox % intersects(self % vertices(1) % ptr % getCoordinates(), self % unitEdgeVector)
+    doesIt = result % intersects
 
   end function intersects_BoundingBox
 

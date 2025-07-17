@@ -4,6 +4,9 @@ module patchSearchAcceleration_class
   use cartesianGrid_class,          only : cartesianGrid
   use coord_class,                  only : coord
   use dictionary_class,             only : dictionary
+  use face_class,                   only : faceBox
+  use genericProcedures,            only : fatalError
+  use numPrecision
   use topologicalObjectShelf_class, only : topologicalObjectShelf
 
   implicit none
@@ -16,12 +19,29 @@ module patchSearchAcceleration_class
     private
     type(cartesianGrid)                        :: grid
   contains
+    procedure :: findEntranceBoundaryFace
     procedure :: findHostElement
     procedure :: init
     procedure :: kill
   end type patchSearchAcceleration
 
 contains
+  !!
+  !!
+  !!
+  subroutine findEntranceBoundaryFace(self, faces, coords, d, boundaryFace)
+    class(patchSearchAcceleration), intent(in) :: self
+    type(topologicalObjectShelf), intent(in)   :: faces
+    type(coord), intent(in)                    :: coords
+    real(defReal), intent(inout)               :: d
+    type(faceBox), intent(out)                 :: boundaryFace
+    character(*), parameter                    :: here = 'distanceToBoundaryFace (patchSearchAcceleration_class.f90)'
+
+    ! Call fatalError for now.
+    call fatalError(here, 'Unsupported procedure.')
+
+  end subroutine findEntranceBoundaryFace
+
   !!
   !!
   !!

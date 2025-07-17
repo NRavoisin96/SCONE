@@ -2,7 +2,7 @@ module publicObjects
 
   use numPrecision
   use RNG_class,               only : RNG
-  use universalVariables,      only : ZERO
+  use universalVariables,      only : INF, ZERO
 
   implicit none
   public
@@ -39,6 +39,14 @@ module publicObjects
     integer(shortInt)           :: idx = 0
     real(defReal), dimension(3) :: coordinates = ZERO
   end type basicVertexInfo
+
+  !!
+  !!
+  !!
+  type :: intersectionTestResult
+    logical(defBool) :: intersects = .false.
+    real(defReal)    :: d = INF
+  end type intersectionTestResult
 
   !!
   !!
