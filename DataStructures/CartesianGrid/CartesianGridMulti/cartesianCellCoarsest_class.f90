@@ -1,0 +1,175 @@
+module cartesianCellCoarsest_class
+  
+  use numPrecision
+  use universalVariables,              only : ZERO
+  use vertexShelf_class,               only : vertexShelf
+  use edgeShelf_class,                 only : edgeShelf
+  use faceShelf_class,                 only : faceShelf
+  use cartesianInitProcedures
+  use cartesianGridSubLayer_inter,     only : cartesianGridSubLayer
+  use cartesianGridFinest_class,       only : cartesianGridFinest
+  use cartesianGridIntermediate_class, only : cartesianGridIntermediate
+  use genericProcedures,               only : append, fatalError
+
+  implicit none
+  private
+  
+  !!
+  !!
+  type, public                                          :: cartesianCellCoarsest
+    private
+    class(cartesianGridSubLayer), pointer               :: subGrid => null()
+    integer(shortInt)                                   :: chi = 0
+    integer(shortInt), dimension(:), allocatable        :: candidateElementIdxs
+    ! (needs to be changed) (cell centre should be a property to avoid repetative calc.)
+    ! (due to limited memory, this is calculated each time needed)
+    ! (try to avoid adding properties tho due to memory)
+
+  contains
+
+    ! Build procedures.
+    procedure                                    :: cellTestPolyhedronInclusion
+    procedure                                    :: setIsOutsideMesh
+    procedure                                    :: refineCell
+    ! Runtime procedures.
+    procedure                                    :: getChi
+    procedure                                    :: getPhi
+    procedure                                    :: getPhiCapital
+    !procedure                                    :: getElementIdxs
+
+  end type cartesianCellCoarsest
+
+contains
+
+  !!
+  !!
+  !!
+  pure subroutine cellTestPolyhedronInclusion(self, faces, currElementFaceIdxs, centroid, &
+                                              faceNormalSigns, elementIdx)
+    class(cartesianCellCoarsest), intent(inout)         :: self
+    class(faceShelf), intent(in)                        :: faces
+    integer(shortInt), dimension(:), intent(in)         :: currElementFaceIdxs
+    real(defReal), dimension(3), intent(in)             :: centroid
+    real(defReal), dimension(:,:), intent(in)           :: faceNormalSigns
+    integer(shortInt), intent(in)                       :: elementIdx
+
+    ! if current cell is found to be entirely contained within a polyhedron, there cannot not be other polyhedra
+    if (self % chi /= 0) return
+
+    ! Otherwise, continue testing and appending the array of candidate element indices 
+    call testPolyhedronInclusion(faces, currElementFaceIdxs, centroid, faceNormalSigns, elementIdx, self % chi)
+    call append(self % candidateElementIdxs, elementIdx)
+
+  end subroutine cellTestPolyhedronInclusion
+
+
+  !!
+  !!
+  !!
+  pure subroutine setIsOutsideMesh(self)
+    class(cartesianCellCoarsest), intent(inout)         :: self
+
+    ! if candidateElementIdxs is not allocated, this cell does not intersect AABB of any polyhedron.
+    ! Hence, this cell lies outside of mesh
+    if (.NOT. allocated(self % candidateElementIdxs)) self % chi = -1
+
+  end subroutine setIsOutsideMesh
+
+  !!
+  !!
+  !!
+  pure subroutine refineCell(self, vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
+                             newGridBoundsMin, alpha, wStar)
+    class(cartesianCellCoarsest), intent(inout)         :: self
+    class(vertexShelf), intent(in)                      :: vertices
+    class(edgeShelf), intent(inout)                     :: edges
+    class(faceShelf), intent(inout)                     :: faces
+    class(elementShelf), intent(in)                     :: elements
+    real(defReal), dimension(:), intent(in)             :: spacing, spacingInv
+    integer(shortInt), dimension(:,:), intent(in)       :: n_xyz
+    integer(shortInt), intent(in)                       :: n_layers
+    real(defReal), dimension(3), intent(in)             :: newGridBoundsMin
+    real(defReal), intent(in)                           :: alpha, wStar
+
+    !if the current cell is not entirely contained within a polyhedron, then refine the grid
+    if (self % chi == 0) then
+
+      if (n_layers > 2) then 
+        allocate(cartesianGridIntermediate:: self % subGrid)
+      else
+        allocate(cartesianGridFinest:: self % subGrid)
+      end if
+
+      call self % subgrid % init(vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
+                                 2, self % candidateElementIdxs, newGridBoundsMin, alpha, wStar)
+
+    end if 
+
+    ! deallocate candidateElementIdxs to save memory. Otherwise, memory could explode
+    if (allocated(self % candidateElementIdxs)) deallocate(self % candidateElementIdxs)
+
+  end subroutine refineCell
+
+  !!
+  !!
+  !!
+  pure function getChi(self, baseIntegerCoord, shift, mask) result(chi)
+    class(cartesianCellCoarsest), intent(in)            :: self
+    integer(shortInt), dimension(3), intent(in)         :: baseIntegerCoord
+    integer(shortInt), dimension(:,:), intent(in)       :: shift, mask
+    integer(shortInt)                                   :: chi
+
+    if (self % chi /= 0) then
+      chi = self % chi
+    else
+      chi = self % subGrid % getGridChi(baseIntegerCoord, shift, mask, 2)
+    end if
+
+  end function getChi
+
+  !!
+  !!
+  !!
+  pure function getPhi(self, baseIntegerCoord, shift, mask) result(phi)
+    class(cartesianCellCoarsest), intent(in)            :: self
+    integer(shortInt), dimension(3), intent(in)         :: baseIntegerCoord
+    integer(shortInt), dimension(:,:), intent(in)       :: shift, mask
+    integer(shortInt)                                   :: phi
+
+    phi = self % subGrid % getGridphi(baseIntegerCoord, shift, mask, 2)
+
+  end function getPhi
+
+  !!
+  !!
+  !!
+  pure function getPhiCapital(self, baseIntegerCoord, shift, mask) result(phiCapital)
+    class(cartesianCellCoarsest), intent(in)            :: self
+    integer(shortInt), dimension(3), intent(in)         :: baseIntegerCoord
+    integer(shortInt), dimension(:,:), intent(in)       :: shift, mask
+    integer(shortInt)                                   :: phiCapital
+
+    phiCapital = self % subGrid % getGridphiCapital(baseIntegerCoord, shift, mask, 2)
+
+  end function getPhiCapital
+
+!   !!
+!   !!
+!   !!
+!   function getElementIdxs(self) result(Idxs)
+!     class(cartesianCellCoarsest), intent(in)                       :: self
+!     integer(shortInt), dimension(:), allocatable                   :: Idxs
+
+!     if (allocated(self % candidateElementIdxs)) then
+!       Idxs = self % candidateElementIdxs
+!     else
+!       if (self % chi /= -1) then 
+!         call fatalError("here", "here")
+!       end if
+!         allocate(Idxs(3))
+!       Idxs(:) = 999
+!     end if 
+! end function getElementIdxs
+
+
+end module cartesianCellCoarsest_class

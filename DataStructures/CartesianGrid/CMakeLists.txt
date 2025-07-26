@@ -1,5 +1,8 @@
-# Add Source Files to the global list
-add_sources(
-            ./cartesianGrid_class.f90
-            ./cartesianCell_class.f90
+# Add Source Files to a global List
+add_subdirectory(CartesianGridSingle)
+add_subdirectory(CartesianGridMulti)
+
+add_sources( 
+            ./cartesianGenericProcedures.f90
+            ./cartesianInitProcedures.f90
            )

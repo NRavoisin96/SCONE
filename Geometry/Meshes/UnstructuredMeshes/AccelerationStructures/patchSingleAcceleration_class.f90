@@ -1,4 +1,4 @@
-module patchSearchAcceleration_class
+module patchSingleAcceleration_class
 
   use accelerationStructure_inter, only : accelerationStructure
   use coord_class,                 only : coord
@@ -7,31 +7,31 @@ module patchSearchAcceleration_class
   use numPrecision
   use vertexShelf_class,           only : vertexShelf
   use edgeShelf_class,             only : edgeShelf
-  use cartesianGrid_class,         only : cartesianGrid
-  use cartesianCell_class,         only : cartesianCell
-
+  use cartesianGridSingle_class,   only : cartesianGridSingle
+  use cartesianGenericProcedures,  only : binarySearchAngle
+  
   implicit none
   private
 
   !!
   !!
   !!
-  type, public, extends(accelerationStructure) :: patchSearchAcceleration
+  type, public, extends(accelerationStructure) :: patchSingleAcceleration
     private
-    type(cartesianGrid) :: grid
+    type(cartesianGridSingle)                  :: grid
   contains
-    procedure :: findHostElement
-    procedure :: init
-    procedure :: kill
-  end type patchSearchAcceleration
+    procedure                                  :: findHostElement
+    procedure                                  :: init
+    procedure                                  :: kill
+  end type patchSingleAcceleration
 
 contains
 
   !!
   !!
   !!
-  subroutine findHostElement(self, vertices, edges, faces, elements, coords)
-    class(patchSearchAcceleration), intent(in)   :: self
+  pure subroutine findHostElement(self, vertices, edges, faces, elements, coords)
+    class(patchSingleAcceleration), intent(in)   :: self
     class(vertexShelf), intent(in)               :: vertices
     class(edgeShelf), intent(in)                 :: edges
     type(faceShelf), intent(in)                  :: faces
@@ -49,13 +49,13 @@ contains
     r = coords % getPositionToNudge()
 
     ! !!!
-    ! if (.NOT. self % grid % getIsOutside(r)) then
+    ! if (.NOT. self % grid % getGridIsOutsideBounds(r)) then
     !   print*, r
     ! end if
     ! !!!
 
     ! check if the position of neutron is inside the catesian grid bounds
-    if (self % grid % getIsOutside(r)) return
+    if (self % grid % getGridIsOutsideBounds(r)) return
 
     !print*, "here"
     ! retrieve grid properties
@@ -124,7 +124,9 @@ contains
         ! (needs checking) (is pushed position has direct mapping for element idx, is it guaranteed to lie inside. OW, ">=" not "/=")
         if (potentialElementIdx /= 0) then
           call coords % setElementIdx(potentialElementIdx)
-          call coords % setParentElementIdx(elements % getElementParentIdx(potentialElementIdx))
+          ! (needs to be changed) (temp:there is no internal subdivision)
+          !call coords % setParentElementIdx(elements % getElementParentIdx(potentialElementIdx))
+          call coords % setParentElementIdx(potentialElementIdx)
           return
         end if
 
@@ -147,7 +149,7 @@ contains
       ! perform binary search and return index pointer
       ! (needs checking) (index order and mechanics)
       !isBoundary = edges % getEdgeIsBoundary(edgeIdx) !!! not needed anymore
-      pointerIdx = self % grid % binarySearchAngle(edges % getEdgeAnglesArray(edgeIdx), thetaHat)
+      pointerIdx = binarySearchAngle(edges % getEdgeAnglesArray(edgeIdx), thetaHat)
       elementIdxsArray = edges % getEdgeElementIdxsArray(edgeIdx)
       potentialElementIdx = elementIdxsArray(pointerIdx)
 
@@ -177,13 +179,13 @@ contains
   !!
   !!
   subroutine init(self, vertices, edges, faces, elements)
-    class(patchSearchAcceleration), intent(inout)    :: self
+    class(patchSingleAcceleration), intent(inout)    :: self
     type(vertexShelf), intent(in)                    :: vertices
     type(faceShelf), intent(inout)                   :: faces
     type(elementShelf), intent(in)                   :: elements
     type(edgeShelf), intent(inout)                   :: edges
 
-    ! Simply initialise the octree.
+    ! Simply initialise the cartesian single-layered grid
     call self % grid % init(vertices, edges, faces, elements)
 
   end subroutine init
@@ -192,11 +194,11 @@ contains
   !!
   !!
   elemental subroutine kill(self)
-    class(patchSearchAcceleration), intent(inout) :: self
+    class(patchSingleAcceleration), intent(inout) :: self
 
     ! Local.
     !call self % tree % kill()
 
   end subroutine kill
 
-end module patchSearchAcceleration_class
+end module patchSingleAcceleration_class

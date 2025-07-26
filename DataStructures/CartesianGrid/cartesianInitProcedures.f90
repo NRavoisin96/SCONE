@@ -1,59 +1,36 @@
-module cartesianCell_class
-  
-  use numPrecision
-  use universalVariables,           only : ZERO
+module cartesianInitProcedures
+
+  use universalVariables,           only : ZERO, INF
   use vertexShelf_class,            only : vertexShelf
   use edgeShelf_class,              only : edgeShelf
   use faceShelf_class,              only : faceShelf
-  
+  use elementShelf_class,           only : elementShelf
+  use genericProcedures,            only : findCommon
+  use numPrecision   
+  use cartesianGenericProcedures,   only : testIntervalIntersection
+
   implicit none
-  private
-  
-  !!
-  !!
-  type, public                                          :: cartesianCell
-    private
-    integer(shortInt)                                   :: phi = 0, phiCapital = 0, chi = 0
-    integer(shortInt), dimension(2)                     :: faceIdxs = 0
-    ! (needs to be changed) (cell centre should be a property to avoid repetative calc.)
-    ! (due to limited memory, this is calculated each time needed)
-    ! (try to avoid adding properties tho due to memory)
-
-  contains
-    ! Build procedures.
-    procedure                                    :: testEdgeIntersection
-    procedure                                    :: testPolyhedronInclusion
-    procedure                                    :: testFaceIntersection
-    procedure                                    :: testIntervalIntersection
-    procedure                                    :: testTwoIntersectedFaces
-    procedure                                    :: constructMapSingleFace
-    procedure                                    :: setIsOutside
-    ! Runtime procedures.
-    procedure                                    :: getPhiCapital
-    procedure                                    :: getPhi
-    procedure                                    :: getChi
-
-  end type cartesianCell
 
 contains
 
   !!
   !!
   !!
-  subroutine testEdgeIntersection(self, vertices, edges, edgeIdx, circumscribedBallRadius, &
-                                  targetDistance, centroid, currEdgeVector, currVertexIdxs, a)
-    class(cartesianCell), intent(inout)           :: self
-    class(vertexShelf), intent(in)                :: vertices
-    class(edgeShelf), intent(in)                  :: edges
-    integer(shortInt), intent(in)                 :: edgeIdx
-    real(defReal), intent(in)                     :: circumscribedBallRadius, targetDistance, a
-    real(defReal), dimension(3), intent(in)       :: centroid, currEdgeVector
-    integer(shortInt), dimension(2), intent(in)   :: currVertexIdxs
-    real(defReal), dimension(3)                   :: dummyVector
-    real(defReal)                                 :: b, c, discriminant, edgeLength, &
-                                                     sqrtDiscriminant
-    real(defReal), dimension(2)                   :: t, targetDistanceRatio
-    integer(shortInt)                             :: i
+  pure subroutine testEdgeIntersection(vertices, edges, edgeIdx, circumscribedBallRadius, &
+                                  targetDistance, centroid, currEdgeVector, currVertexIdxs, a, &
+                                  phi, phiCapital)
+    class(vertexShelf), intent(in)                      :: vertices
+    class(edgeShelf), intent(in)                        :: edges
+    integer(shortInt), intent(in)                       :: edgeIdx
+    integer(shortInt), intent(inout)                    :: phi, phiCapital
+    real(defReal), intent(in)                           :: circumscribedBallRadius, targetDistance, a
+    real(defReal), dimension(3), intent(in)             :: centroid, currEdgeVector
+    integer(shortInt), dimension(2), intent(in)         :: currVertexIdxs
+    real(defReal), dimension(3)                         :: dummyVector
+    real(defReal)                                       :: b, c, discriminant, edgeLength, &
+                                                           sqrtDiscriminant
+    real(defReal), dimension(2)                         :: t, targetDistanceRatio
+    integer(shortInt)                                   :: i
 
     ! calculate constants
     edgeLength = edges % getEdgeLength(edgeIdx)
@@ -84,16 +61,11 @@ contains
       if (t(2) < 0) return
     end if
 
-    ! if (edgeIdx == 200) then
-    !   print*, "-------------------------------------------------------------------"
-    !   print*, "centroid", centroid
-    ! end if
-
     ! If passed to this point, t is valid. Hence, construct phi mapping
     if (t(2) < 0.5) then
-      self % phi = currVertexIdxs(1)
+      phi = currVertexIdxs(1)
     else
-      self % phi = currVertexIdxs(2)
+      phi = currVertexIdxs(2)
     end if
 
     ! test and constuct phiCapital mapping
@@ -101,28 +73,26 @@ contains
     targetDistanceRatio(2) = (edgeLength - targetDistance)/edgeLength
     do i = 1, 2
       if (targetDistanceRatio(1) < t(i) .AND. targetDistanceRatio(2) > t(i)) then
-            self % phiCapital = edgeIdx
+            phiCapital = edgeIdx
       end if
 
     end do
 
-    
   end subroutine testEdgeIntersection
 
   !!
   !!
   !!
-  subroutine testPolyhedronInclusion(self, faces, currElementFaceIdxs, centroid, &
-                                     faceNormalSigns, elementIdx)
-    class(cartesianCell), intent(inout)           :: self
-    class(faceShelf), intent(in)                  :: faces
-    integer(shortInt), dimension(:), intent(in)   :: currElementFaceIdxs
-    real(defReal), dimension(3), intent(in)       :: centroid
-    real(defReal), dimension(:,:), intent(in)     :: faceNormalSigns
-    integer(shortInt), intent(in)                 :: elementIdx
-    integer(shortInt)                             :: i, j
-    real(defReal), dimension(3)                   :: furthestVertexCoord
-
+  pure subroutine testPolyhedronInclusion(faces, currElementFaceIdxs, centroid, &
+                                     faceNormalSigns, elementIdx, chi)
+    class(faceShelf), intent(in)                        :: faces
+    integer(shortInt), dimension(:), intent(in)         :: currElementFaceIdxs
+    real(defReal), dimension(3), intent(in)             :: centroid
+    real(defReal), dimension(:,:), intent(in)           :: faceNormalSigns
+    integer(shortInt), intent(in)                       :: elementIdx
+    integer(shortInt), intent(inout)                    :: chi
+    integer(shortInt)                                   :: i, j
+    real(defReal), dimension(3)                         :: furthestVertexCoord
 
     do i = 1, size(currElementFaceIdxs)
       
@@ -140,35 +110,35 @@ contains
 
     ! if survived to this point, then the cell is entired enclosed by the polyhedron. 
     ! Hence, set chi mapping to the current element index.
-    self % chi = elementIdx
+    chi = elementIdx
 
   end subroutine testPolyhedronInclusion
 
   !!
   !!
   !!
-  subroutine testFaceIntersection(self, vertices, edges, faces, currVertexIdxs, extraDistance, &
-                                  currFaceNormal, centroid, cellSpacing, faceIdx, &
-                                  currFaceEdgeIdxs, targetDistance)
-    class(cartesianCell), intent(inout)           :: self
-    class(vertexShelf), intent(in)                :: vertices
-    class(edgeShelf), intent(in)                  :: edges
-    class(faceShelf), intent(in)                  :: faces
-    integer(shortInt), dimension(:), intent(in)   :: currVertexIdxs, currFaceEdgeIdxs
-    real(defReal), dimension(3), intent(in)       :: currFaceNormal, centroid
-    real(defReal), intent(in)                     :: extraDistance, cellSpacing, targetDistance
-    integer(shortInt), intent(in)                 :: faceIdx
-    integer(shortInt)                             :: i, j
-    real(defReal), dimension(3)                   :: currVertexCoords, min1, max1, currEdgeUnitVector
-    real(defReal)                                 :: faceConst, currValue, vectorDotCentroid, extraDistance2 
+  pure subroutine testFaceIntersection(vertices, edges, faces, currVertexIdxs, extraDistance, currFaceNormal, centroid, &
+                                  cellSpacing, faceIdx, currFaceEdgeIdxs, targetDistance, chi, phi, phiCapital, faceIdxs)
+    class(vertexShelf), intent(in)                      :: vertices
+    class(edgeShelf), intent(in)                        :: edges
+    class(faceShelf), intent(in)                        :: faces
+    integer(shortInt), dimension(:), intent(in)         :: currVertexIdxs, currFaceEdgeIdxs
+    real(defReal), dimension(3), intent(in)             :: currFaceNormal, centroid
+    real(defReal), intent(in)                           :: extraDistance, cellSpacing, targetDistance
+    integer(shortInt), intent(in)                       :: faceIdx, chi
+    integer(shortInt), intent(inout)                    :: phi, phiCapital
+    integer(shortInt), dimension(2), intent(inout)      :: faceIdxs
+    integer(shortInt)                                   :: i, j
+    real(defReal), dimension(3)                         :: currVertexCoords, min1, max1, currEdgeUnitVector
+    real(defReal)                                       :: faceConst, currValue, vectorDotCentroid, extraDistance2 
 
     !------------------------------------------------------------------------------------------------
     !if cell is contained within a polyhedron, the cell cannot intersect with the polyhedron's faces
     !Or, if phi and phiCapital mapping informations are assigned already from edge interesetion, no need to find new one.
     !------------------------------------------------------------------------------------------------
-    if (self % chi /= 0) then
+    if (chi /= 0) then
       return
-    elseif (self % phi /= 0 .AND. self % phiCapital /= 0) then
+    elseif (phi /= 0 .AND. phiCapital /= 0) then
       return
     end if
 
@@ -178,7 +148,7 @@ contains
     vectorDotCentroid = dot_product(currFaceNormal, centroid)
     faceConst = faces % getFaceConst(faceIdx)
 
-    if (.NOT. self % testIntervalIntersection(vectorDotCentroid - extraDistance, vectorDotCentroid + extraDistance, &
+    if (.NOT. testIntervalIntersection(vectorDotCentroid - extraDistance, vectorDotCentroid + extraDistance, &
         -faceConst, -faceConst)) then
       return
     end if
@@ -238,21 +208,21 @@ contains
       ! test intersections of interval
       vectorDotCentroid = currEdgeUnitVector(3)*centroid(2)-currEdgeUnitVector(2)*centroid(3)
       extraDistance2 = (abs(currEdgeUnitVector(3)) + abs(currEdgeUnitVector(2)))*cellSpacing*0.5
-      if (.NOT. self % testIntervalIntersection(vectorDotCentroid - extraDistance2, vectorDotCentroid + extraDistance2, &
+      if (.NOT. testIntervalIntersection(vectorDotCentroid - extraDistance2, vectorDotCentroid + extraDistance2, &
                                                 min1(1), max1(1))) then
           return
       end if
 
       vectorDotCentroid = currEdgeUnitVector(1)*centroid(3)-currEdgeUnitVector(3)*centroid(1)
       extraDistance2 = (abs(currEdgeUnitVector(3)) + abs(currEdgeUnitVector(1)))*cellSpacing*0.5
-      if (.NOT. self % testIntervalIntersection(vectorDotCentroid - extraDistance2, vectorDotCentroid + extraDistance2, &
+      if (.NOT. testIntervalIntersection(vectorDotCentroid - extraDistance2, vectorDotCentroid + extraDistance2, &
                                                 min1(2), max1(2))) then
           return
       end if
 
       vectorDotCentroid = currEdgeUnitVector(2)*centroid(1)-currEdgeUnitVector(1)*centroid(2)
       extraDistance2 = (abs(currEdgeUnitVector(2)) + abs(currEdgeUnitVector(1)))*cellSpacing*0.5
-      if (.NOT. self % testIntervalIntersection(vectorDotCentroid - extraDistance2, vectorDotCentroid + extraDistance2, &
+      if (.NOT. testIntervalIntersection(vectorDotCentroid - extraDistance2, vectorDotCentroid + extraDistance2, &
                                                 min1(3), max1(3))) then
           return
       end if
@@ -265,51 +235,39 @@ contains
 
     ! (needs to be changed) (due to memory, taking shortCut)
     ! (originally, we just have to add faceIdx to an array of intersected faces)
-    if (self % faceIdxs(1) == 0) then
-      self % faceIdxs(1) = faceIdx
+    if (faceIdxs(1) == 0) then
+      faceIdxs(1) = faceIdx
     else
-      self % faceIdxs(2) = faceIdx
+      faceIdxs(2) = faceIdx
       ! tests if the two faces have a common edge. If yes, assign phi and phiCapital mappings.
       ! if there are more than two faces intersected with the cell, and phi and phicaptial have been assigned already,
       ! then, this cell is complete in terms of mapping construction, and this subroutine is terminated at the beginning
       ! of this subroutine.
-      call self % testTwoIntersectedFaces(vertices, edges, faces, centroid, targetDistance)
+      call testTwoIntersectedFaces(vertices, edges, faces, centroid, targetDistance, phi, phiCapital, faceIdxs)
     end if
 
   end subroutine testFaceIntersection
 
   !!
   !!
-  !!
-  ! (needs to be changed) (move to genericProcedures.f90)
-  function testIntervalIntersection(self, min1, max1, min2, max2) result(intersect)
-    class(cartesianCell), intent(inout)           :: self
-    real(defReal), intent(in)                     :: min1, max1, min2, max2
-    logical                                       :: intersect
-
-    intersect = ((min1 <= max2) .AND. (min2 <= max1))
-
-  end function testIntervalIntersection
-
-  !!
-  !!
   !! 
-  subroutine testTwoIntersectedFaces(self, vertices, edges, faces, centroid, targetDistance)
-    class(cartesianCell), intent(inout)           :: self
-    class(vertexShelf), intent(in)                :: vertices
-    class(edgeShelf), intent(in)                  :: edges
-    class(faceShelf), intent(in)                  :: faces
-    real(defReal), dimension(3), intent(in)       :: centroid
-    real(defReal), intent(in)                     :: targetDistance
-    integer(shortInt)                             :: commonEdgeIdx
-    integer(shortInt), dimension(:), allocatable  :: commonEdgeVertexIdxs
-    real(defReal)                                 :: dummyConstant, dotProduct1, dotProduct2
-    real(defReal), dimension(3)                   :: targetFaceNormal, edgeVertexCoord, c_1, &
-                                                     edgeUnitVector, edgeVertex2Coord, &
-                                                     tempVector1, tempVector2, chiCoord
+  pure subroutine testTwoIntersectedFaces(vertices, edges, faces, centroid, targetDistance, phi, phiCapital, faceIdxs)
+    class(vertexShelf), intent(in)                      :: vertices
+    class(edgeShelf), intent(in)                        :: edges
+    class(faceShelf), intent(in)                        :: faces
+    real(defReal), dimension(3), intent(in)             :: centroid
+    real(defReal), intent(in)                           :: targetDistance
+    integer(shortInt), intent(inout)                    :: phi, phiCapital
+    integer(shortInt), dimension(2), intent(in)         :: faceIdxs
+    integer(shortInt)                                   :: commonEdgeIdx
+    integer(shortInt), dimension(:), allocatable        :: commonEdgeVertexIdxs
+    real(defReal)                                       :: dummyConstant, dotProduct1, dotProduct2
+    real(defReal), dimension(3)                         :: targetFaceNormal, edgeVertexCoord, c_1, &
+                                                           edgeUnitVector, edgeVertex2Coord, &
+                                                           tempVector1, tempVector2, chiCoord
 
     ! find the common edge index of the given two faces intersected by the cell 
-    commonEdgeIdx = faces % findCommonedgeIdx(self % faceIdxs(1), self % faceIdxs(2))
+    commonEdgeIdx = faces % findCommonedgeIdx(faceIdxs(1), faceIdxs(2))
 
     ! if there is no common edge, exit the subroutine early (other combinations of faces to be tried later)
     if (commonEdgeIdx == 0) then
@@ -318,7 +276,7 @@ contains
 
     ! calculate centre of intersection between the circumscribed ball and the plane parallel to the polygon
     commonEdgeVertexIdxs = edges % getEdgeVertexIdxs(commonEdgeIdx)
-    targetFaceNormal = faces % getFaceNormal(self % faceIdxs(1))
+    targetFaceNormal = faces % getFaceNormal(faceIdxs(1))
     edgeVertexCoord = vertices % getVertexCoordinates(commonEdgeVertexIdxs(1))
     dummyConstant = dot_product(centroid - edgeVertexCoord, targetFaceNormal)
     c_1 = centroid - dummyConstant*targetFaceNormal
@@ -337,13 +295,13 @@ contains
 
     ! make comparison between the two distances (dotProduct1/2)
     if (dotProduct1 < dotProduct2) then
-      self % phi = commonEdgeVertexIdxs(1)
+      phi = commonEdgeVertexIdxs(1)
     else
-      self % phi = commonEdgeVertexIdxs(2)
+      phi = commonEdgeVertexIdxs(2)
     end if
 
     if (dotProduct1 > targetDistance .AND. dotProduct2 > targetDistance) then
-      self % phiCapital = commonEdgeIdx
+      phiCapital = commonEdgeIdx
     end if
     
   end subroutine testTwoIntersectedFaces
@@ -351,80 +309,30 @@ contains
   !!
   !!
   !!
-  subroutine constructMapSingleFace(self, faces)
-    class(cartesianCell), intent(inout)           :: self
-    class(faceShelf), intent(in)                  :: faces
-    integer(shortInt), dimension(:), allocatable  :: currFaceEdgeIdxs!, currFaceVertexIdxs
-    integer(shortInt)     :: temp
+  pure subroutine constructMapSingleFace(faces, faceIdxs, phiCapital)
+    class(faceShelf), intent(in)                        :: faces
+    integer(shortInt), dimension(2), intent(in)         :: faceIdxs
+    integer(shortInt), intent(inout)                    :: phiCapital
+    integer(shortInt), dimension(:), allocatable        :: currFaceEdgeIdxs
 
     ! testing if the cell intersects with a single face
     ! (necessary to test this because this subroutine is called for all cells)
     ! no need to test if chi or both (phi and phiCapital) have been assigned from edge intersection or 
     ! polyhedron inclusion because these cells are not tested against face intersection (self % faceIdxs(1) = 0)
-    if (self % faceIdxs(1) /= 0 .AND. self % faceIdxs(2) == 0) then 
+    if (faceIdxs(1) /= 0 .AND. faceIdxs(2) == 0) then 
 
       ! (needs to be changed) (rather than saving candidate indices, write a subroutine that directly returns the first index of the array)
       ! (Does this subroutine has to save the array locally anyways?)
-      !currFaceVertexIdxs = faces % getFaceVertexIdxs(self % faceIdxs(1))
-      currFaceEdgeIdxs = faces % getFaceEdgeIdxs(self % faceIdxs(1))
+      currFaceEdgeIdxs = faces % getFaceEdgeIdxs(faceIdxs(1))
 
       ! (needs to be changed) (can find one in currFaceEdgeIdxs that are already been assigned to other cells)
       ! (Hence, we reduce the number of edges about which angles are calculated as well as memory if virtual grid is used)
-      !self % phi = currFaceVertexIdxs(1)
-      self % phiCapital = currFaceEdgeIdxs(1)
+      phiCapital = currFaceEdgeIdxs(1)
 
     end if
 
   end subroutine constructMapSingleFace
 
-  !!
-  !!
-  !!
-  subroutine setIsOutside(self)
-    class(cartesianCell), intent(inout)           :: self
-
-    ! if a cell intersects with neither any edge nor face, and it is not contained in a single polyhedron,
-    ! then, this cell lies outside the computational domain for the unstructured mesh
-    if (self % chi == 0 .AND. self % phi == 0 .AND. self % phiCapital == 0) then
-      ! if lies outside, set the chi value of the cell equal to -1. There are subroutines that test 
-      ! if (chi != 0), but since this subroutine is called after all of those, they are unafftected.
-      self % chi = -1
-    end if
-
-  end subroutine setIsOutside
-
-  !!
-  !!
-  !!
-  elemental function getPhiCapital(self) result(phiCapital)
-    class(cartesianCell), intent(in)              :: self
-    integer(shortInt)                             :: phiCapital
-
-    phiCapital = self % phiCapital
-
-  end function getPhiCapital
-
-  !!
-  !!
-  !!
-  elemental function getPhi(self) result(phi)
-    class(cartesianCell), intent(in)              :: self
-    integer(shortInt)                             :: phi
-
-    phi = self % phi
-
-  end function getPhi
-
-  !!
-  !!
-  !!
-  elemental function getChi(self) result(chi)
-    class(cartesianCell), intent(in)              :: self
-    integer(shortInt)                             :: chi
-
-    chi = self % chi
-
-  end function getChi
 
 
-end module CartesianCell_class
+end module cartesianInitProcedures

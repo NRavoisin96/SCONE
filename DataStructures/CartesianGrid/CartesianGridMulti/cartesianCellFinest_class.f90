@@ -1,0 +1,160 @@
+module cartesianCellFinest_class
+  
+  use numPrecision
+  use universalVariables,           only : ZERO
+  use vertexShelf_class,            only : vertexShelf
+  use edgeShelf_class,              only : edgeShelf
+  use faceShelf_class,              only : faceShelf
+  use cartesianInitProcedures
+
+  implicit none
+  private
+  
+  !!
+  !!
+  type, public                                          :: cartesianCellFinest
+    private
+    integer(shortInt)                                   :: phi = 0, phiCapital = 0, chi = 0
+    integer(shortInt), dimension(2)                     :: faceIdxs = 0
+    ! (needs to be changed) (cell centre should be a property to avoid repetative calc.)
+    ! (due to limited memory, this is calculated each time needed)
+    ! (try to avoid adding properties tho due to memory)
+
+  contains
+    ! Build procedures.
+    procedure                                    :: cellTestEdgeIntersection
+    procedure                                    :: cellTestPolyhedronInclusion
+    procedure                                    :: cellTestFaceIntersection
+    procedure                                    :: cellConstructMapSingleFace
+    procedure                                    :: setIsOutsideMesh
+    ! Runtime procedures.
+    procedure                                    :: getPhiCapital
+    procedure                                    :: getPhi
+    procedure                                    :: getChi
+
+  end type cartesianCellFinest
+
+contains
+
+  !!
+  !!
+  !! (needs to be changed) (Inefficiency due to refactoring original code) (mapping matrices in cartesianCell_class)
+  !! (can be moved and stored as a attribute in cartesianGrid. Then call testEdgeIntersection directly from cartesianGrid_class)
+  !! (For now this is fine becase only 4% of initialisation time is increased by this - in face no increase in init time observed later.)
+  !! (Tried this before and after specifying "elemental" and "pure". Keeping the original architecture (with separte class for cells))
+  !! (is faster than without for initialisation, and negligible difference for in-cycle)
+  pure subroutine cellTestEdgeIntersection(self, vertices, edges, edgeIdx, circumscribedBallRadius, &
+                                      targetDistance, centroid, currEdgeVector, currVertexIdxs, a)
+    class(cartesianCellFinest), intent(inout)           :: self
+    class(vertexShelf), intent(in)                      :: vertices
+    class(edgeShelf), intent(in)                        :: edges
+    integer(shortInt), intent(in)                       :: edgeIdx
+    real(defReal), intent(in)                           :: circumscribedBallRadius, targetDistance, a
+    real(defReal), dimension(3), intent(in)             :: centroid, currEdgeVector
+    integer(shortInt), dimension(2), intent(in)         :: currVertexIdxs
+
+    call testEdgeIntersection(vertices, edges, edgeIdx, circumscribedBallRadius, targetDistance, centroid, &
+                              currEdgeVector, currVertexIdxs, a, self % phi, self % phiCapital)
+
+  end subroutine cellTestEdgeIntersection
+
+  !!
+  !!
+  !!
+  pure subroutine cellTestPolyhedronInclusion(self, faces, currElementFaceIdxs, centroid, &
+                                         faceNormalSigns, elementIdx)
+    class(cartesianCellFinest), intent(inout)           :: self
+    class(faceShelf), intent(in)                        :: faces
+    integer(shortInt), dimension(:), intent(in)         :: currElementFaceIdxs
+    real(defReal), dimension(3), intent(in)             :: centroid
+    real(defReal), dimension(:,:), intent(in)           :: faceNormalSigns
+    integer(shortInt), intent(in)                       :: elementIdx
+
+    call testPolyhedronInclusion(faces, currElementFaceIdxs, centroid, faceNormalSigns, elementIdx, self % chi)
+
+  end subroutine cellTestPolyhedronInclusion
+
+  !!
+  !!
+  !!
+  pure subroutine cellTestFaceIntersection(self, vertices, edges, faces, currVertexIdxs, extraDistance, currFaceNormal, &
+                                      centroid, cellSpacing, faceIdx, currFaceEdgeIdxs, targetDistance)
+    class(cartesianCellFinest), intent(inout)           :: self
+    class(vertexShelf), intent(in)                      :: vertices
+    class(edgeShelf), intent(in)                        :: edges
+    class(faceShelf), intent(in)                        :: faces
+    integer(shortInt), dimension(:), intent(in)         :: currVertexIdxs, currFaceEdgeIdxs
+    real(defReal), dimension(3), intent(in)             :: currFaceNormal, centroid
+    real(defReal), intent(in)                           :: extraDistance, cellSpacing, targetDistance
+    integer(shortInt), intent(in)                       :: faceIdx
+
+    call testFaceIntersection(vertices, edges, faces, currVertexIdxs, extraDistance, currFaceNormal, &
+                                  centroid, cellSpacing, faceIdx, currFaceEdgeIdxs, targetDistance, self % chi, &
+                                  self % phi, self % phiCapital, self % faceIdxs)
+
+  end subroutine cellTestFaceIntersection
+
+  !!
+  !!
+  !!
+  pure subroutine cellconstructMapSingleFace(self, faces)
+    class(cartesianCellFinest), intent(inout)           :: self
+    class(faceShelf), intent(in)                        :: faces
+    integer(shortInt), dimension(:), allocatable        :: currFaceEdgeIdxs!, currFaceVertexIdxs
+    integer(shortInt)     :: temp
+
+    call constructMapSingleFace(faces, self % faceIdxs, self % phiCapital)
+
+  end subroutine cellConstructMapSingleFace
+
+  !!
+  !!
+  !!
+  pure subroutine setIsOutsideMesh(self)
+    class(cartesianCellFinest), intent(inout)           :: self
+
+    ! if a cell intersects with neither any edge nor face, and it is not contained in a single polyhedron,
+    ! then, this cell lies outside the computational domain for the unstructured mesh
+    if (self % chi == 0 .AND. self % phi == 0 .AND. self % phiCapital == 0) then
+      ! if lies outside, set the chi value of the cell equal to -1. There are subroutines that test 
+      ! if (chi != 0), but since this subroutine is called after all of those, they are unafftected.
+      self % chi = -1
+    end if
+
+  end subroutine setIsOutsideMesh
+
+  !!
+  !!
+  !!
+  elemental function getPhiCapital(self) result(phiCapital)
+    class(cartesianCellFinest), intent(in)              :: self
+    integer(shortInt)                                   :: phiCapital
+
+    phiCapital = self % phiCapital
+
+  end function getPhiCapital
+
+  !!
+  !!
+  !!
+  elemental function getPhi(self) result(phi)
+    class(cartesianCellFinest), intent(in)              :: self
+    integer(shortInt)                                   :: phi
+
+    phi = self % phi
+
+  end function getPhi
+
+  !!
+  !!
+  !!
+  elemental function getChi(self) result(chi)
+    class(cartesianCellFinest), intent(in)              :: self
+    integer(shortInt)                                   :: chi
+
+    chi = self % chi
+
+  end function getChi
+
+
+end module cartesianCellFinest_class

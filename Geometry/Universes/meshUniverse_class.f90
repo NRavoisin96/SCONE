@@ -126,6 +126,8 @@ contains
     ! Retrieve fills in the dict and get local pointer to the mesh. Call fatalError if the number 
     ! of fills does not match the number of element zones in the mesh.
     call dict % get(fillNames, 'fills')
+    ! (needs to be changed)
+    !fillNames = ["fuel ", "water"]
     nFills = size(fillNames)
     if (self % mesh % ptr % getElementZonesNumber() /= nFills) call fatalError(Here, &
     'The number of fills does not match the number of element zones in mesh geometry with id: '//numToChar(meshId)//'.')

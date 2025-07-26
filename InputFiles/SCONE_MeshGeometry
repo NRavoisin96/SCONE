@@ -33,7 +33,7 @@ geometry {
   	}
 
 	meshes { 
-		testMesh {id 1; type OpenFOAMMesh; path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/StanfordBunny_LowPoly/; accelerationMethod octree;}
+		testMesh {id 1; type OpenFOAMMesh; fills(fuel water water fuel); path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/StanfordBunny_LowPoly/; accelerationMethod octree;}
 	}
 
 	universes {

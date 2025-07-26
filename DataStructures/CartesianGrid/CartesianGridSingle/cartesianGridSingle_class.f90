@@ -1,48 +1,52 @@
-module cartesianGrid_class
+module cartesianGridSingle_class
   
   use universalVariables,           only : ZERO, INF
   use vertexShelf_class,            only : vertexShelf
   use edgeShelf_class,              only : edgeShelf
   use faceShelf_class,              only : faceShelf
   use elementShelf_class,           only : elementShelf
-  use genericProcedures,            only : findCommon, crossProduct
+  use genericProcedures,            only : crossProduct
   use numPrecision                  
-  use cartesianCell_class,          only : cartesianCell
+  !!!!
+  use cartesianCellSingle_class,    only : cartesianCellSingle
+  !use cartesianInitProcedures
+  !!!!
+  use cartesianGenericProcedures
   
   implicit none
   private
   
   !!
   !!
-  type, public                                          :: cartesianGrid
+  type, public                                                :: cartesianGridSingle
     private
-    real(defReal)                                       :: spacing = ZERO, alpha = ZERO, l_min = ZERO, &
-                                                           wStar = ZERO, spacingReciprocal = ZERO
-    real(defReal), dimension(3)                         :: gridBounds_max = ZERO, gridBounds_min = ZERO
-    integer(shortInt), dimension(3)                     :: n_xyz = 0
-    type(cartesianCell), dimension(:,:,:), allocatable  :: grid
+    real(defReal)                                             :: wStar = ZERO, alpha = ZERO, l_min = ZERO, &
+                                                                 spacingReciprocal = ZERO, spacing = ZERO
+    real(defReal), dimension(3)                               :: gridBounds_max = ZERO, gridBounds_min = ZERO
+    integer(shortInt), dimension(3)                           :: n_xyz = 0
+    !!!!
+    type(cartesianCellSingle), dimension(:,:,:), allocatable  :: grid
+    !integer(shortInt), dimension(:,:,:), allocatable          :: phi, phiCapital, chi
+    !integer(shortInt), dimension(:,:,:,:), allocatable        :: faceIdxs
+    !!!!
+
 
   contains
 
     ! Build procedures.
     procedure                                    :: init
-    procedure                                    :: findMinFaceAngle
-    procedure                                    :: findMinDihedralAngle
     procedure                                    :: constructMapping
     procedure                                    :: sortAngles
-    procedure                                    :: constructAABB
-    procedure                                    :: sortPairs
-    procedure                                    :: setGridIsOutside
+    procedure                                    :: setGridIsOutsideMesh
     ! Runtime procedures.
-    procedure                                    :: binarySearchAngle
     procedure                                    :: getGridBounds_min
     procedure                                    :: getSpacingReciprocal
     procedure                                    :: getGridWStar
     procedure                                    :: getGridPhiCapital
     procedure                                    :: getGridPhi
     procedure                                    :: getGridChi
-    procedure                                    :: getIsOutside
-  end type cartesianGrid
+    procedure                                    :: getGridIsOutsideBounds
+  end type cartesianGridSingle
 
 contains
 
@@ -50,16 +54,17 @@ contains
   !!
   !!
   subroutine init(self, vertices, edges, faces, elements)
-    class(cartesianGrid), intent(inout)           :: self
-    class(vertexShelf), intent(in)                :: vertices
-    class(edgeShelf), intent(inout)               :: edges
-    class(faceShelf), intent(inout)               :: faces
-    class(elementShelf), intent(in)               :: elements
-    real(defReal), dimension(6)                   :: extremalCoordinates
-    integer(shortInt)                             :: i!!!, temp, j, k
-    integer(shortInt), dimension(:), allocatable  :: currEdgeVertexIdxs
-    real(defReal), dimension(3)                   :: currEdgeVector, extraRoom, xyz_max, xyz_min
-    real(defReal)                                 :: maxCosValue, tempMaxCosValue, currEdgeLength
+    class(cartesianGridSingle), intent(inout)           :: self
+    class(vertexShelf), intent(in)                      :: vertices
+    class(edgeShelf), intent(inout)                     :: edges
+    class(faceShelf), intent(inout)                     :: faces
+    class(elementShelf), intent(in)                     :: elements
+    real(defReal), dimension(6)                         :: extremalCoordinates
+    integer(shortInt)                                   :: i
+    integer(shortInt), dimension(:), allocatable        :: currEdgeVertexIdxs
+    real(defReal), dimension(3)                         :: currEdgeVector, extraRoom, xyz_max, xyz_min
+    real(defReal)                                       :: maxCosValue, tempMaxCosValue, currEdgeLength
+    !integer(shortInt)                                   :: temp, j, k, temp2
 
     !-----------------------------------------------------------------------------------------
     ! calculate constants for each face and assign them.
@@ -88,12 +93,17 @@ contains
       if (currEdgeLength < self % l_min) self % l_min = currEdgeLength
 
     end do
+
+    ! (needs to be changed) (written for temp operation; can be optimised further; calculate it during l_min calc.?)
+    ! (can probably be a separte subroutine on its own, and the return value can be assigned as a grid attribute?)
+    !print*, "Average edge length", calculateAvgEdgeLength(edges) 
+
     !-----------------------------------------------------------------------------------------
     ! set alpha
     !-----------------------------------------------------------------------------------------
-    maxCosValue = self % findMinFaceAngle(edges, faces)
+    maxCosValue = findMinFaceAngle(edges, faces)
 
-    tempMaxCosValue = self % findMinDihedralAngle(edges, faces, elements)
+    tempMaxCosValue = findMinDihedralAngle(edges, faces, elements)
     if (maxCosValue < tempMaxCosValue) maxCosValue = tempMaxCosValue
 
     self % alpha = ACOS(maxCosValue)
@@ -123,6 +133,7 @@ contains
         
     end do
 
+    ! print cartesian grid parameters and mesh quality
     print*, "----------------------------------------------------"
     print*, "/\/\ Cartesian grid parameters and mesh quality /\/\"
     print*, "Minimum angle            : ", self % alpha
@@ -139,159 +150,61 @@ contains
     print*, "Grid upper bounds in xyz : ", self % gridBounds_max
     print*, "----------------------------------------------------"
 
+    !!!!
     ! allocate grid matrix
     allocate(self % grid(self % n_xyz(1), self % n_xyz(2), self % n_xyz(3)))
+    ! allocate(self % phi(self % n_xyz(1), self % n_xyz(2), self % n_xyz(3)))
+    ! allocate(self % phiCapital(self % n_xyz(1), self % n_xyz(2), self % n_xyz(3)))
+    ! allocate(self % chi(self % n_xyz(1), self % n_xyz(2), self % n_xyz(3)))
+    ! allocate(self % faceIdxs(self % n_xyz(1), self % n_xyz(2), self % n_xyz(3), 2))
+
+    ! ! initialise grid marix
+    ! self % phi = 0
+    ! self % phiCapital = 0
+    ! self % chi = 0
+    ! self % faceIdxs = 0
+    !!!!
 
     !-----------------------------------------------------------------------------------------
     !initialise for patch search
     !-----------------------------------------------------------------------------------------
     call self % constructMapping(vertices, edges, faces, elements)
-    call self % sortAngles(edges, faces, vertices) !!! vertices
-    call self % setGridIsOutside()
+    call self % sortAngles(edges, faces)!, vertices) !!! vertices
+    call self % setGridIsOutsideMesh()
 
-    ! !!!
+    !!!
+    ! temp2 = 0
     ! do i = 1, self % n_xyz(1)
     !   do j = 1, self % n_xyz(2)
     !     do k = 1, self % n_xyz(3)
     !       temp = self % grid(i,j,k) % getChi()
-    !       temp =  self % grid(i,j,k) % getPhi()
-    !       temp =  self % grid(i,j,k) % getPhiCapital()
+    !       if (temp == -1) then
+    !         temp2 = temp2 + 1
+    !       end if
     !     end do
     !   end do 
     ! end do
-    ! !!!
+    ! print*, temp2
+    !!!
 
   end subroutine init
 
   !!
   !!
   !!
-  function findMinFaceAngle(self, edges, faces) result(maxCosValue)
-    class(cartesianGrid), intent(inout)           :: self
-    class(edgeShelf), intent(in)                  :: edges
-    class(faceShelf), intent(in)                  :: faces
-    integer(shortInt)                             :: i, j, k, l ,m, sign1, sign2
-    real(defReal)                                 :: currCosValue, maxCosValue
-    integer(shortInt), dimension(:), allocatable  :: currFaceEdgeIdxs
-    integer(shortInt), dimension(2)               :: currEdge1VertexIdxs, currEdge2VertexIdxs
-    !integer(shortInt) :: temp
-
-    !temp = 0
-    maxCosValue = -1.0d0
-
-    do i = 1, faces % getSize()
-      currFaceEdgeIdxs = faces % getFaceEdgeIdxs(i)
-
-      do j = 1, size(currFaceEdgeIdxs) - 1
-        currEdge1VertexIdxs = edges % getEdgeVertexIdxs(currFaceEdgeIdxs(j))
-
-        do k = j + 1, size(currFaceEdgeIdxs)
-          currEdge2VertexIdxs = edges % getEdgeVertexIdxs(currFaceEdgeIdxs(k))
-
-          do l = 1, 2
-
-            do m = 1, 2
-              if (currEdge1VertexIdxs(l) == currEdge2VertexIdxs(m)) then
-
-                ! correct the direction of unit vector of each edge
-                if (l == 1) then
-                  sign1 = 1
-                else 
-                  sign1 = -1
-                end if
-
-                if (m == 1) then
-                  sign2 = 1
-                else 
-                  sign2 = -1
-                end if
-
-                ! calculate cosine value
-                currCosValue = dot_product(edges % getEdgeUnitvector(currFaceEdgeIdxs(j)), &
-                                           edges % getEdgeUnitvector(currFaceEdgeIdxs(k)))*sign1*sign2
-
-                !if (maxCosValue < currCosValue) temp = i
-                ! update maxCosValue
-                if (maxCosValue < currCosValue) maxCosValue = currCosValue
-
-              end if
-
-            end do
-
-          end do
-
-        end do
-
-      end do
-
-    end do
-
-    !print*, temp
-
-  end function findMinFaceAngle
-
-  !!
-  !!
-  !!
-  function findMinDihedralAngle(self, edges, faces, elements) result(maxCosValue)
-    class(cartesianGrid), intent(inout)           :: self
-    class(edgeShelf), intent(in)                  :: edges
-    class(faceShelf), intent(in)                  :: faces
-    class(elementShelf), intent(in)               :: elements
-    integer(shortInt)                             :: i, j, k
-    real(defReal)                                 :: currCosValue, maxCosValue
-    integer(shortInt), dimension(:), allocatable  :: currElementFaceIdxs, currElementEdgeIdxs
-    integer(shortInt), dimension(2)               :: candidateFaceIdxs, candidateElementIdxs, signArray
-
-    maxCosValue = -1.0d0
-
-    do i = 1, elements % getSize()
-      currElementFaceIdxs = abs(elements % getElementFaceIdxs(i))
-      currElementEdgeIdxs = elements % getElementEdgeIdxs(i)
-
-      do j = 1, size(currElementEdgeIdxs)
-        candidateFaceIdxs = findCommon(currElementFaceIdxs, edges % getEdgeFaceIdxs(currElementEdgeIdxs(j)))
-
-        do k = 1, 2
-          candidateElementIdxs = faces % getFaceElementIdxs(candidateFaceIdxs(k))
-
-          if (i < candidateElementIdxs(1) .OR. i < candidateElementIdxs(2)) then
-            signArray(k) = 1
-          else
-            signArray(k) = -1
-          end if
-
-        end do
-
-        currCosValue = dot_product(faces % getFaceNormal(candidateFaceIdxs(1)), &
-                                   faces % getFaceNormal(candidateFaceIdxs(2)))*signArray(1)*signArray(2)*(-1)
-
-        ! update maxCosValue
-        if (maxCosValue < currCosValue) maxCosValue = currCosValue
-        
-      end do
-
-    end do
-
-
-  end function findMinDihedralAngle
-
-  !!
-  !!
-  !!
-  subroutine constructMapping(self, vertices, edges, faces, elements)
-    class(cartesianGrid), intent(inout)             :: self
-    class(vertexShelf), intent(in)                  :: vertices
-    class(edgeShelf), intent(inout)                 :: edges
-    class(faceShelf), intent(in)                    :: faces
-    class(elementShelf), intent(in)                 :: elements
-    integer(shortInt)                               :: i, j, k, l
-    integer(shortInt), dimension(:), allocatable    :: currVertexIdxs, currElementFaceIdxs, currFaceEdgeIdxs
-    integer(shortInt), dimension(6)                 :: AABBIndices
-    real(defReal)                                   :: circumscribedBallRadius, targetDistance, a, &
-                                                       extraDistance, cellSpacing
-    real(defReal), dimension(3)                     :: centroid, currEdgeVector, currFaceNormal
-    real(defReal), dimension(:,:), allocatable      :: faceNormalSigns
+  pure subroutine constructMapping(self, vertices, edges, faces, elements)
+    class(cartesianGridSingle), intent(inout)             :: self
+    class(vertexShelf), intent(in)                        :: vertices
+    class(edgeShelf), intent(inout)                       :: edges
+    class(faceShelf), intent(in)                          :: faces
+    class(elementShelf), intent(in)                       :: elements
+    integer(shortInt)                                     :: i, j, k, l
+    integer(shortInt), dimension(:), allocatable          :: currVertexIdxs, currElementFaceIdxs, currFaceEdgeIdxs
+    integer(shortInt), dimension(6)                       :: AABBIndices
+    real(defReal)                                         :: circumscribedBallRadius, targetDistance, a, &
+                                                             extraDistance, cellSpacing
+    real(defReal), dimension(3)                           :: centroid, currEdgeVector, currFaceNormal
+    real(defReal), dimension(:,:), allocatable            :: faceNormalSigns
     
     cellSpacing = self % spacing
 
@@ -306,7 +219,7 @@ contains
 
         ! construct box for candidate cells
         currVertexIdxs = edges % getEdgeVertexIdxs(i)
-        AABBIndices = self % constructAABB(vertices, currVertexIdxs)
+        AABBIndices = constructAABB(vertices, currVertexIdxs, self % gridBounds_min, self % spacing)
 
         ! calculate edge-only-dependent properties
         currEdgeVector = (edges % getEdgeUnitvector(i))*(edges % getEdgeLength(i))
@@ -323,9 +236,13 @@ contains
                     centroid(2) = (self % gridBounds_min(2)) + (self % spacing) * (k-0.5)
                     centroid(3) = (self % gridBounds_min(3)) + (self % spacing) * (l-0.5)
 
-                    call self % grid(j,k,l) % testEdgeIntersection(vertices, edges, i, circumscribedBallRadius, &
+                    !!!!
+                    call self % grid(j,k,l) % cellTestEdgeIntersection(vertices, edges, i, circumscribedBallRadius, &
                                                     targetDistance, centroid, currEdgeVector, currVertexIdxs, a)
-                  
+                    !call testEdgeIntersection(vertices, edges, i, circumscribedBallRadius, targetDistance, centroid, &
+                    !                         currEdgeVector, currVertexIdxs, a, self % phi(j,k,l), self % phiCapital(j,k,l))
+                    !!!!
+                    
                 end do 
             end do    
         end do
@@ -340,7 +257,7 @@ contains
 
         ! construct box for candidate cells
         currVertexIdxs = elements % getElementVertexIdxs(i)
-        AABBIndices = self % constructAABB(vertices, currVertexIdxs)
+        AABBIndices = constructAABB(vertices, currVertexIdxs, self % gridBounds_min, self % spacing)
 
         ! calculate element-only-dependent properties
         currElementFaceIdxs = elements % getElementFaceIdxs(i)
@@ -371,9 +288,13 @@ contains
                     centroid(2) = (self % gridBounds_min(2)) + (self % spacing) * (k-0.5)
                     centroid(3) = (self % gridBounds_min(3)) + (self % spacing) * (l-0.5)
 
-                    call self % grid(j,k,l) % testPolyhedronInclusion(faces, currElementFaceIdxs, centroid, &
+                    !!!!
+                    call self % grid(j,k,l) % cellTestPolyhedronInclusion(faces, currElementFaceIdxs, centroid, &
                                                                       faceNormalSigns, i)
-                  
+                    !call testPolyhedronInclusion(faces, currElementFaceIdxs, centroid, faceNormalSigns, i, &
+                    !                             self % chi(j,k,l))
+                    !!!!
+
                 end do 
             end do    
         end do
@@ -388,7 +309,7 @@ contains
 
       ! construct box for candidate cells
       currVertexIdxs = faces % getFaceVertexIdxs(i)
-      AABBIndices = self % constructAABB(vertices, currVertexIdxs)
+      AABBIndices = constructAABB(vertices, currVertexIdxs, self % gridBounds_min, self % spacing)
 
       ! calculate face-only-dependent properties
       currFaceEdgeIdxs = faces % getFaceEdgeIdxs(i)
@@ -407,10 +328,16 @@ contains
                   centroid(2) = (self % gridBounds_min(2)) + (self % spacing) * (k-0.5)
                   centroid(3) = (self % gridBounds_min(3)) + (self % spacing) * (l-0.5)
 
-                  call self % grid(j,k,l) % testFaceIntersection(vertices, edges, faces, &
+                  !!!!
+                  call self % grid(j,k,l) % cellTestFaceIntersection(vertices, edges, faces, &
                                             currVertexIdxs, extraDistance, currFaceNormal, &
                                             centroid, cellSpacing, i, currFaceEdgeIdxs, targetDistance)
-                
+                  !call testFaceIntersection(vertices, edges, faces, currVertexIdxs, extraDistance, &
+                  !                          currFaceNormal, centroid, cellSpacing, i, currFaceEdgeIdxs, &
+                  !                          targetDistance, self % chi(j,k,l), self % phi(j,k,l), &
+                  !                          self % phiCapital(j,k,l), self % faceIdxs(j,k,l,:))
+                  !!!!
+
               end do 
           end do    
       end do
@@ -421,20 +348,23 @@ contains
     ! for those that intersect exactly one face, mappings constructions are performed here.
 
     !!!
-    print*, "beginning single Face case"
+    !print*, "beginning single Face case"
     !!!
 
     ! loop over all cartesian cells and call relevant subroutine
     do i = 1, self % n_xyz(1)
       do j = 1, self % n_xyz(2)
         do k = 1, self % n_xyz(3)
-          call self % grid(i,j,k) % constructMapSingleFace(faces)
+          !!!!
+          call self % grid(i,j,k) % cellConstructMapSingleFace(faces)
+          !call constructMapSingleFace(faces, self % faceIdxs(i,j,k,:), self % phiCapital(i,j,k))
+          !!!!
         end do
       end do 
     end do
 
     !!!
-    print*, "ending single Face case"
+    !print*, "ending single Face case"
     !!!
 
   end subroutine constructMapping
@@ -442,20 +372,20 @@ contains
   !!
   !!
   !!
-  subroutine sortAngles(self, edges, faces, vertices) !!! vertices
-    class(cartesianGrid), intent(inout)           :: self
-    class(vertexShelf), intent(in)                  :: vertices !!!
-    class(edgeShelf), intent(inout)               :: edges
-    class(faceShelf), intent(in)                  :: faces
-    integer(shortInt)                             :: i, j, k, l, m, n, currPhiCapital, v_e, pointerIdx, &
-                                                     outer2LoopSize, currEdgeVertex1Idx
-    real(defReal), dimension(3)                   :: currEdgeUnitVector, localBasis1, localBasis2, currUnitVector
-    integer(shortInt), dimension(:), allocatable  :: currEdgeFaceIdxs, currFaceEdgeIdxs, faceIdxsArray, &
-                                                     elementIdxsArray
-    integer(shortInt), dimension(2)               :: currEdgeVertexIdxs, currVertexIdxs, face1ElementIdxs, &
-                                                     face2ElementIdxs
-    real(defReal)                                 :: x, y, thetaHat
-    real(defReal), dimension(:), allocatable      :: anglesArray
+  pure subroutine sortAngles(self, edges, faces)!, vertices) !!! vertices
+    class(cartesianGridSingle), intent(inout)           :: self
+    !class(vertexShelf), intent(in)                      :: vertices !!!
+    class(edgeShelf), intent(inout)                     :: edges
+    class(faceShelf), intent(in)                        :: faces
+    integer(shortInt)                                   :: i, j, k, l, m, n, currPhiCapital, v_e, pointerIdx, &
+                                                           outer2LoopSize, currEdgeVertex1Idx
+    real(defReal), dimension(3)                         :: currEdgeUnitVector, localBasis1, localBasis2, currUnitVector
+    integer(shortInt), dimension(:), allocatable        :: currEdgeFaceIdxs, currFaceEdgeIdxs, faceIdxsArray, &
+                                                           elementIdxsArray
+    integer(shortInt), dimension(2)                     :: currEdgeVertexIdxs, currVertexIdxs, face1ElementIdxs, &
+                                                           face2ElementIdxs
+    real(defReal)                                       :: x, y, thetaHat
+    real(defReal), dimension(:), allocatable            :: anglesArray
 
     !!!
     !logical                                       :: flagBoundaryFace
@@ -474,7 +404,10 @@ contains
       do j = 1, self % n_xyz(2)
         do k = 1, self % n_xyz(3)
 
+          !!!!
           currPhiCapital = self % grid(i,j,k) % getPhiCapital()
+          !currPhiCapital = self % phiCapital(i,j,k)
+          !!!!
 
           ! continue only if the current cell contains valid edge index mapping of phiCapital
           if (currPhiCapital /= 0) then
@@ -570,7 +503,7 @@ contains
               end do outer1
 
               ! perform index sorting on anglesArray and faceIdxsArray
-              call self % sortPairs(anglesArray, faceIdxsArray)
+              call sortPairs(anglesArray, faceIdxsArray)
 
               ! construct a sorted array for element index
               ! pointer of index for sorted array assignment
@@ -691,7 +624,7 @@ contains
     end do
 
     !!!
-    print*, "ending sorting angles"
+    !print*, "ending sorting angles"
     ! print*, temp
     ! print*, SIGN(1 - (COS(0.0) / (abs(COS(0.0)) + abs(SIN(0.0)))), SIN(0.0))
     ! print*, SIGN(1 - (COS(3.14/4) / (abs(COS(3.14/4)) + abs(SIN(3.14/4)))), SIN(3.14/4))
@@ -709,137 +642,41 @@ contains
 
   !!
   !!
-  !! AABBIndices = [xmin, ymin, zmin, xmax, ymax, zmax]
-  function constructAABB(self, vertices, currVertexIdxs) result(AABBIndices)
-    class(cartesianGrid), intent(inout)              :: self
-    class(vertexShelf), intent(in)                   :: vertices
-    integer(shortInt), dimension(:), intent(in)      :: currVertexIdxs
-    integer(shortInt), dimension(6)                  :: AABBIndices
-    real(defreal), dimension(3)                      :: xyz_min, xyz_max, currVertexCoords
-    integer(shortInt)                                :: i, j
-
-    ! initialise xyz_min and xyz_max using the first vertex
-    currVertexCoords = vertices % getVertexCoordinates(currVertexIdxs(1))
-    xyz_max = currVertexCoords
-    xyz_min = currVertexCoords
-
-    ! find xyz_min and xyz_max 
-    do i = 2, size(currVertexIdxs)
-        currVertexCoords = vertices % getVertexCoordinates(currVertexIdxs(i))
-
-        do j = 1, 3
-            if (xyz_min(j) > currVertexCoords(j)) then
-                 xyz_min(j) = currVertexCoords(j)
-            elseif (xyz_max(j) < currVertexCoords(j)) then
-                xyz_max(j) = currVertexCoords(j)
-            end if
-        end do
-
-    end do
-
-    ! find AABBIndices
-    do i = 1, 3
-        AABBIndices(i) = ceiling((xyz_min(i) - self % gridBounds_min(i))/(self % spacing)) 
-        AABBIndices(3+i) = ceiling((xyz_max(i) - self % gridBounds_min(i))/(self % spacing)) 
-    end do
-
-  end function constructAABB
-
-  !! insertion sort O(N^2). There exists cheaper sorting algorithm (quickSort O(N logN)) 
-  !! but for N < 8 (which is mostly the case in FEM), insertion sort is better because quicksort
-  !! needs extra procedures such as selecting pivots, ....
-  !!
-  !! sorts arraysReal so that its values are increasing with index. Array Int are 
-  !! sorted using the exactly the same swaps made during arrayReal sorting process.
-  ! (needs to be changed) (move to genericProcedures)
-  subroutine sortPairs(self, arrayReal, arrayInt)
-    class(cartesianGrid), intent(inout)              :: self
-    real(defReal), dimension(:), intent(inout)       :: arrayReal
-    integer(shortInt), dimension(:), intent(inout)   :: arrayInt
-    integer(shortInt)                                :: i, j
-    real(defReal)                                    :: key_real
-    integer(shortInt)                                :: key_Int
-
-    do i = 2, size(arrayReal)
-       key_real = arrayReal(i);  key_Int = arrayInt(i)
-       j = i - 1
-       do while (j >= 1 .and. arrayReal(j) > key_real)
-          arrayReal(j+1) = arrayReal(j)
-          arrayInt(j+1) = arrayInt(j)
-          j      = j - 1
-       end do
-       arrayReal(j+1) = key_real
-       arrayInt(j+1) = key_Int
-    end do
-
-  end subroutine sortPairs
-
-  !!
-  !!
   !! 
-  subroutine setGridIsOutside(self)
-    class(cartesianGrid), intent(inout)              :: self
-    integer(shortInt)                                :: i, j, k
+  pure subroutine setGridIsOutsideMesh(self)
+    class(cartesianGridSingle), intent(inout)              :: self
+    integer(shortInt)                                      :: i, j, k
 
     ! loop over all cartesian cells and call relevant subroutine
     do i = 1, self % n_xyz(1)
       do j = 1, self % n_xyz(2)
         do k = 1, self % n_xyz(3)
-          call self % grid(i,j,k) % setIsOutside()
+          
+          !!!!
+          call self % grid(i,j,k) % setIsOutsideMesh()
+
+          ! ! if a cell intersects with neither any edge nor face, and it is not contained in a single polyhedron,
+          ! ! then, this cell lies outside the computational domain for the unstructured mesh
+          ! if (self % chi(i,j,k) == 0 .AND. self % phi(i,j,k) == 0 .AND. self % phiCapital(i,j,k) == 0) then
+          !   ! if lies outside, set the chi value of the cell equal to -1. There are subroutines that test 
+          !   ! if (chi != 0), but since this subroutine is called after all of those, they are unafftected.
+          !   self % chi(i,j,k) = -1
+          ! end if
+
+          !!!!
+
         end do
       end do 
     end do
 
-  end subroutine setGridIsOutside
-
-  !!
-  !!
-  !! (needs to be changed) (the binarySearch subroutine in generic procedure does not allow)
-  !! ("value" to be outside the bounds of "array". So rewritten. Can be moved to genericProcedure Later)
-  !! (needs to be changed) (for boundary edges, value > array(size(array)) or value < array(1) cases might not)
-  !! (work using this subroutine)
-  pure function binarySearchAngle(self, array, value) result(idx)
-    class(cartesianGrid), intent(in)              :: self
-    real(defReal), dimension(:), intent(in)       :: array
-    real(defReal), intent(in)                     :: value
-    integer(shortInt)                             :: idx, bottom, top, i
-
-    ! in case of value being outside the ranges of "array", manually assign idx = size(array).
-    if (value > array(size(array))) then
-      idx = size(array)
-      return
-    elseif (value < array(1)) then
-      idx = size(array)
-      return
-    end if
-
-    ! Find Top and Bottom Index Array
-    bottom = 1
-    top = size(array)
-
-    do i = 1,100
-      !Calculate mid point
-      idx = (top + bottom)*0.5
-
-      ! Termination condition
-      if (bottom == idx) return
-
-      ! Binary Step
-      if (array(idx) <= value) then
-        bottom = idx
-      else
-        top = idx
-      end if
-    end do
-
-  end function binarySearchAngle
+  end subroutine setGridIsOutsideMesh
 
   !!
   !!
   !!
   pure function getGridBounds_min(self) result(gridBounds_min)
-    class(cartesianGrid), intent(in)              :: self
-    real(defReal), dimension(3)                   :: gridBounds_min
+    class(cartesianGridSingle), intent(in)              :: self
+    real(defReal), dimension(3)                         :: gridBounds_min
 
     gridBounds_min = self % gridBounds_min
 
@@ -849,8 +686,8 @@ contains
   !!
   !!
   elemental function getSpacingReciprocal(self) result(spacingReciprocal)
-    class(cartesianGrid), intent(in)              :: self
-    real(defReal)                                 :: spacingReciprocal
+    class(cartesianGridSingle), intent(in)              :: self
+    real(defReal)                                       :: spacingReciprocal
 
     spacingReciprocal = self % spacingReciprocal
 
@@ -860,8 +697,8 @@ contains
   !!
   !!
   elemental function getGridWStar(self) result(wStar)
-    class(cartesianGrid), intent(in)              :: self
-    real(defReal)                                 :: wStar
+    class(cartesianGridSingle), intent(in)              :: self
+    real(defReal)                                       :: wStar
 
     wStar = self % wStar
 
@@ -871,11 +708,14 @@ contains
   !!
   !! 
   pure function getGridPhiCapital(self, cellIdxs) result(phiCapital)
-    class(cartesianGrid), intent(in)              :: self
-    integer(shortInt), dimension(3), intent(in)   :: cellIdxs
-    integer(shortInt)                             :: phiCapital
+    class(cartesianGridSingle), intent(in)              :: self
+    integer(shortInt), dimension(3), intent(in)         :: cellIdxs
+    integer(shortInt)                                   :: phiCapital
 
+    !!!!
     phiCapital = self % grid(cellIdxs(1), cellIdxs(2), cellIdxs(3)) % getPhiCapital()
+    !phiCapital = self % phiCapital(cellIdxs(1), cellIdxs(2), cellIdxs(3))
+    !!!!
 
   end function getGridPhiCapital
 
@@ -883,11 +723,14 @@ contains
   !!
   !! 
   pure function getGridPhi(self, cellIdxs) result(phi)
-    class(cartesianGrid), intent(in)              :: self
-    integer(shortInt), dimension(3), intent(in)   :: cellIdxs
-    integer(shortInt)                             :: phi
+    class(cartesianGridSingle), intent(in)              :: self
+    integer(shortInt), dimension(3), intent(in)         :: cellIdxs
+    integer(shortInt)                                   :: phi
 
+    !!!!
     phi = self % grid(cellIdxs(1), cellIdxs(2), cellIdxs(3)) % getPhi()
+    !phi = self % phi(cellIdxs(1), cellIdxs(2), cellIdxs(3))
+    !!!!
 
   end function getGridPhi
 
@@ -895,22 +738,25 @@ contains
   !!
   !! 
   pure function getGridChi(self, cellIdxs) result(chi)
-    class(cartesianGrid), intent(in)              :: self
-    integer(shortInt), dimension(3), intent(in)   :: cellIdxs
-    integer(shortInt)                             :: chi
+    class(cartesianGridSingle), intent(in)              :: self
+    integer(shortInt), dimension(3), intent(in)         :: cellIdxs
+    integer(shortInt)                                   :: chi
 
+    !!!!
     chi = self % grid(cellIdxs(1), cellIdxs(2), cellIdxs(3)) % getChi()
+    !chi = self % chi(cellIdxs(1), cellIdxs(2), cellIdxs(3))
+    !!!!
 
   end function getGridChi
 
   !!
   !!
   !! (needs to be changed) (possible acceleration?)
-  pure function getIsOutside(self, r) result(isOutside)
-    class(cartesianGrid), intent(in)              :: self
-    real(defReal), dimension(3), intent(in)       :: r
-    logical                                       :: isOutside
-    integer(shortInt)                             :: i
+  pure function getGridIsOutsideBounds(self, r) result(isOutside)
+    class(cartesianGridSingle), intent(in)              :: self
+    real(defReal), dimension(3), intent(in)             :: r
+    logical                                             :: isOutside
+    integer(shortInt)                                   :: i
 
     isOutside = .FALSE.
 
@@ -921,6 +767,6 @@ contains
       end if
     end do
 
-  end function getIsOutside
+  end function getGridIsOutsideBounds
 
-end module CartesianGrid_class
+end module CartesianGridSingle_class

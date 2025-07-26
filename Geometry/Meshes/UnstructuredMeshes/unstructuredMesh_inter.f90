@@ -13,10 +13,11 @@ module unstructuredMesh_inter
   use mesh_inter,                    only : mesh, kill_super => kill
   use numPrecision
   use octreeAcceleration_class,      only : octreeAcceleration
-  use patchSearchAcceleration_class, only : patchSearchAcceleration
+  use patchSingleAcceleration_class, only : patchSingleAcceleration
+  use patchMultiAcceleration_class,  only : patchMultiAcceleration
   use universalVariables
   use vertexShelf_class,             only : vertexShelf
-  use errors_mod,  only : fatalError !!!
+  use errors_mod,                    only : fatalError !!!
 
   implicit none
   private
@@ -348,7 +349,7 @@ contains
     integer(shortInt)                            :: i, nPotentialElements, potentialElementIdx
     real(defReal), dimension(3)                  :: r
     type(inclusionTestResult)                    :: testResult
-    ! integer(shortInt)           :: coordPatch, coordBrute, coordOctree !!!
+    integer(shortInt)           :: coordPatch, coordBrute, coordOctree !!!
     
     ! Initialise parentIdx = 0. Retrieve the mesh's bounding box. If the particle is outside the bounding box we can return early.
     call coords % setElementIdx(0)
@@ -358,6 +359,7 @@ contains
       
     !!!
     ! coordPatch = coords % getElementIdx()
+    ! coordPatch = coords % getParentElementIdx()
     ! end if
     !!!
 
@@ -369,6 +371,20 @@ contains
           if (testResult % status == INSIDE_ELEMENT) then
             call coords % setElementIdx(i)
             call coords % setParentElementIdx(self % elements % getElementParentIdx(i))
+
+            !!!
+            ! coordBrute = coords % getElementIdx()
+            ! coordBrute = coords % getParentElementIdx()
+            ! ! if (coordBrute /= 0) then
+            ! ! print*, coordBrute
+            ! ! end if
+            ! ! print*, "INSIDE"
+            ! ! print*, coordBrute, coordPatch
+            ! if (coordBrute /= coordPatch) then
+            !   call fatalError("here", "Element indices not matching between the two methods")
+            ! end if
+            !!!
+
             return
 
           elseif (testResult % status == ON_BOUNDARY_ELEMENT) then
@@ -386,6 +402,23 @@ contains
               ! If coordinates are now well inside the element, we have found our element.
               call coords % setElementIdx(i)
               call coords % setParentElementIdx(self % elements % getElementParentIdx(i))
+              
+              !!!
+              ! coordBrute = coords % getElementIdx()
+              ! coordBrute = coords % getParentElementIdx()
+              ! ! if (coordBrute /= 0) then
+              ! ! print*, coordBrute
+              ! ! end if
+              ! ! print*, "INSIDE Element"
+              ! ! print*, coordBrute, coordPatch
+              ! if (coordBrute /= coordPatch) then
+              !   call fatalError("here", "Element indices not matching between the two methods")
+              ! end if
+              !!!
+              
+              
+              
+              
               return
 
             elseif (testResult % status == OUTSIDE_ELEMENT) then
@@ -398,10 +431,17 @@ contains
 
         end do
 
+
         !!!
         ! coordBrute = coords % getElementIdx()
+        ! coordBrute = coords % getParentElementIdx()
+        ! ! if (coordBrute /= 0) then
+        ! ! print*, coordBrute
+        ! ! end if
+        ! ! print*, "OUTSIDE Element"
+        ! ! print*, coordBrute, coordPatch
         ! if (coordBrute /= coordPatch) then
-        !   call fatalError("here", "patch")
+        !   call fatalError("here", "Element indices not matching between the two methods")
         ! end if
         !!!
 
@@ -475,7 +515,8 @@ contains
     call dict % getOrDefault(acceleration, 'accelerationMethod', 'none')
     if (acceleration /= 'none') then
       if (acceleration == 'octree') allocate(octreeAcceleration :: self % acceleration)
-      if (acceleration == 'patch') allocate(patchSearchAcceleration :: self % acceleration)
+      if (acceleration == 'patchSingle') allocate(patchSingleAcceleration :: self % acceleration)
+      if (acceleration == 'patchMulti') allocate(patchMultiAcceleration :: self % acceleration)
       call self % acceleration % init(self % vertices, self % edges, self % faces, self % elements)
     end if
 
