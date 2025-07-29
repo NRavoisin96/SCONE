@@ -292,13 +292,13 @@ contains
   !!
   !!
   !!
-  elemental function intersects_BoundingBox(self, boundingBox) result(doesIt)
+  function intersects_BoundingBox(self, boundingBox) result(doesIt)
     class(vertex), intent(in)                :: self
     type(axisAlignedBoundingBox), intent(in) :: boundingBox
     logical(defBool)                         :: doesIt
+    character(*), parameter                  :: here = 'intersects_BoundingBox (vertex_class.f90)'
 
-    ! Return .true. if vertex is inside the bounds of the bounding box.
-    doesIt = boundingBox % contains(self % coordinates)
+    call fatalError(here, 'Unsupported procedure.')
 
   end function intersects_BoundingBox
   

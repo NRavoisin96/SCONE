@@ -3,7 +3,7 @@ module axisAlignedBoundingBox_class
   use genericProcedures,  only : anyAreEqual, areEqual, swap
   use numPrecision
   use publicObjects,      only : intersectionTestResult
-  use universalVariables, only : INF, NUDGE, ONE, ZERO
+  use universalVariables, only : INF, NUDGE, ONE, SURF_TOL, ZERO
 
   implicit none
   private
@@ -105,12 +105,26 @@ contains
   !!
   !!
   !!
-  pure function containsCoords(self, r) result(doesIt)
+  pure function containsCoords(self, r, u) result(doesIt)
     class(axisAlignedBoundingBox), intent(in) :: self
-    real(defReal), dimension(3), intent(in)   :: r
+    real(defReal), dimension(3), intent(in)   :: r, u
+    integer(shortInt)                         :: i
     logical(defBool)                          :: doesIt
 
-    doesIt = all(self % bounds(:, 1) <= r) .and. all(r <= self % bounds(:, 2))
+    do i = 1, 3
+      if (areEqual(self % bounds(i, 1), r(i))) then
+        doesIt = ZERO < u(i)
+
+      elseif (areEqual(self % bounds(i, 2), r(i))) then
+        doesIt = u(i) < ZERO
+
+      else
+        doesIt = self % bounds(i, 1) < r(i) .and. r(i) < self % bounds(i, 2)
+
+      end if
+      if (.not. doesIt) return
+
+    end do
 
   end function containsCoords
 
@@ -230,9 +244,9 @@ contains
 
     end do
 
-    if (tFar < ZERO) return
+    if (tFar < SURF_TOL) return
     result % intersects = .true.
-    result % d = merge(tFar, tNear, tNear < ZERO)
+    result % d = merge(tFar, tNear, tNear < SURF_TOL)
 
   end function intersects_Ray
 
@@ -295,7 +309,7 @@ contains
 
     end do
 
-    inside = self % contains(r)
+    inside = self % contains(r, u)
 
   end subroutine pushFromBoundary
 

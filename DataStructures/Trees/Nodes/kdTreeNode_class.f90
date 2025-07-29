@@ -1,7 +1,7 @@
 module kdTreeNode_class
 
   use axisAlignedBoundingBox_class, only : axisAlignedBoundingBox
-  use genericProcedures,            only : fatalError, numToChar, quickSort
+  use genericProcedures,            only : areEqual, fatalError, numToChar, quickSort
   use node_inter,                   only : buildNodePayload, kill_super => kill, node, nodeBox
   use numPrecision,
   use publicObjects,                only : coordData
@@ -338,13 +338,18 @@ contains
   !!
   !!
   !!
-  pure function getDescentChildIdx(self, r) result(childIdx)
+  pure function getDescentChildIdx(self, r, u) result(childIdx)
     class(kdTreeNode), intent(in)           :: self
-    real(defReal), dimension(3), intent(in) :: r
+    real(defReal), dimension(3), intent(in) :: r, u
     integer(shortInt)                       :: childIdx
 
-    childIdx = 1
-    if (self % cutValue <= r(self % cutDimension)) childIdx = 2
+    if (areEqual(r(self % cutDimension), self % cutValue)) then
+      childIdx = merge(1, 2, u(self % cutDimension) <= ZERO)
+
+    else
+      childIdx = merge(1, 2, r(self % cutDimension) < self % cutValue)
+
+    end if
 
   end function getDescentChildIdx
 

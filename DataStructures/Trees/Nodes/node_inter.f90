@@ -154,10 +154,10 @@ module node_inter
     !!
     !!
     !!
-    function getDescentChildIdx(self, r) result(childIdx)
+    function getDescentChildIdx(self, r, u) result(childIdx)
       import                                  :: defReal, node, shortInt
       class(node), intent(in)                 :: self
-      real(defReal), dimension(3), intent(in) :: r
+      real(defReal), dimension(3), intent(in) :: r, u
       integer(shortInt)                       :: childIdx
     end function getDescentChildIdx
 
@@ -346,12 +346,12 @@ contains
   !!
   !!
   recursive subroutine findLeaf(self, r, u, leaf, checkContainment, skipFirstNode)
-    class(node), intent(in), target            :: self
-    real(defReal), dimension(3), intent(inout) :: r, u
-    class(node), intent(out), pointer          :: leaf
-    logical(defBool), intent(in), optional     :: checkContainment, skipFirstNode
-    logical(defBool)                           :: check, inside, skip
-    integer(shortInt)                          :: childIdx
+    class(node), intent(in), target         :: self
+    real(defReal), dimension(3), intent(in) :: r, u
+    class(node), intent(out), pointer       :: leaf
+    logical(defBool), intent(in), optional  :: checkContainment, skipFirstNode
+    logical(defBool)                        :: check, skip
+    integer(shortInt)                       :: childIdx
 
     ! If skipFirstNode immediately call the parent.
     skip = .false.
@@ -374,7 +374,7 @@ contains
     if (present(checkContainment)) check = checkContainment
 
     if (check) then
-      if (.not. self % boundingBox % contains(r)) then
+      if (.not. self % boundingBox % contains(r, u)) then
         if (associated(self % parent)) then
           call self % parent % findLeaf(r, u, leaf, checkContainment = .true.)
 
@@ -388,23 +388,6 @@ contains
 
     end if
 
-    ! Push coordinates from boundary of bounding box if applicable.
-    call self % boundingBox % pushFromBoundary(u, r, inside)
-
-    ! Check for overshoot.
-    if (.not. inside) then
-      if (associated(self % parent)) then
-        call self % parent % findLeaf(r, u, leaf, checkContainment = .true.)
-
-      else
-        ! We are at the root and overshot. Particle is outside the domain.
-        leaf => null()
-
-      end if
-      return
-
-    end if
-
     ! If cell is a leaf, simply associate the leaf pointer and return.
     if (self % getIsLeaf()) then
       leaf => self
@@ -413,7 +396,7 @@ contains
     end if
 
     ! Descend into correct child node.
-    childIdx = self % getDescentChildIdx(r)
+    childIdx = self % getDescentChildIdx(r, u)
     call self % children(childIdx) % ptr % findLeaf(r, u, leaf)
 
   end subroutine findLeaf

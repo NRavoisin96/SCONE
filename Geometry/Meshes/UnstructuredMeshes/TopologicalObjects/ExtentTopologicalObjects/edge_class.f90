@@ -269,7 +269,7 @@ contains
   !!
   !!
   !!
-  elemental function intersects_BoundingBox(self, boundingBox) result(doesIt)
+  pure function intersects_BoundingBox(self, boundingBox) result(doesIt)
     class(edge), intent(in)                  :: self
     type(axisAlignedBoundingBox), intent(in) :: boundingBox
     logical(defBool)                         :: doesIt

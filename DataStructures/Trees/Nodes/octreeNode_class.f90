@@ -10,7 +10,7 @@ module octreeNode_class
   use publicObjects,                only : coordData, intersectionTestResult
   use topologicalObject_inter,      only : getUniqueSharingElements, topologicalObjectBox
   use topologicalObjectShelf_class, only : topologicalObjectShelf
-  use universalVariables,           only : HALF, INF, INSIDE_ELEMENT, NUDGE, ON_BOUNDARY_ELEMENT, OUTSIDE_ELEMENT
+  use universalVariables,           only : HALF, INF, INSIDE_ELEMENT, ON_BOUNDARY_ELEMENT, OUTSIDE_ELEMENT
 
   implicit none
   private
@@ -351,7 +351,7 @@ contains
 
       ! At this point, the ray intersects the bounding box. Nudge intersection coordinates slightly
       ! then find leaf node containing them.
-      dTravelled = boundingBoxIntersectionResult % d + NUDGE
+      dTravelled = boundingBoxIntersectionResult % d
 
       ! If distance to bounding box intersection is already greater than maximum allowed distance return early,
       ! else find the leaf node containing the intersection point.
@@ -387,7 +387,7 @@ contains
       boundingBoxIntersectionResult = boundingBoxPtr % intersects(rCurrent, data % u)
 
       ! Retrieve all contained objects within the leaf and test them all for an intersection.
-      dTravelled = dTravelled + boundingBoxIntersectionResult % d + NUDGE
+      dTravelled = dTravelled + boundingBoxIntersectionResult % d
       dMin = dTravelled
 
       if (leafPtr % isIntersecting) then
@@ -453,17 +453,20 @@ contains
   !!
   !!
   !!
-  function getDescentChildIdx(self, r) result(childIdx)
+  function getDescentChildIdx(self, r, u) result(childIdx)
     class(octreeNode), intent(in)           :: self
-    real(defReal), dimension(3), intent(in) :: r
+    real(defReal), dimension(3), intent(in) :: r, u
     integer(shortInt)                       :: childIdx
     real(defReal), dimension(3)             :: boundingBoxCentre
     integer(shortInt)                       :: i
+    logical(defBool)                        :: incrementIdx
 
     boundingBoxCentre = self % getBoundingBoxCentre()
     childIdx = 1
     do i = 1, 3
-      if (boundingBoxCentre(i) < r(i)) childIdx = childIdx + 2 ** (i - 1)
+      incrementIdx = (areEqual(r(i), boundingBoxCentre(i)) .and. ZERO < u(i)) .or. &
+                     ((.not. areEqual(r(i), boundingBoxCentre(i))) .and. boundingBoxCentre(i) < r(i))
+      childIdx = merge(childIdx + 2 ** (i - 1), childIdx, incrementIdx)
 
     end do
 

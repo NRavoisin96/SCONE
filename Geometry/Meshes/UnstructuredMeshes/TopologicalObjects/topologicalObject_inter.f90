@@ -101,7 +101,7 @@ module topologicalObject_inter
     !!
     !!
     !!
-    elemental function intersects_BoundingBox(self, boundingBox) result(doesIt)
+    function intersects_BoundingBox(self, boundingBox) result(doesIt)
       import                                   :: axisAlignedBoundingBox, defBool, topologicalObject
       class(topologicalObject), intent(in)     :: self
       type(axisAlignedBoundingBox), intent(in) :: boundingBox

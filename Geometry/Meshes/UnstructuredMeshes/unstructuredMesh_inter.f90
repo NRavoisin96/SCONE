@@ -271,7 +271,7 @@ contains
     
     boundingBoxPtr => self % getBoundingBoxPtr()
     searchLoop: do
-      if (.not. boundingBoxPtr % contains(data % r)) return
+      if (.not. boundingBoxPtr % contains(data % r, data % u)) return
       call self % acceleration % findHostElement(self % elements, data, stopSearch)
       if (stopSearch) return
 

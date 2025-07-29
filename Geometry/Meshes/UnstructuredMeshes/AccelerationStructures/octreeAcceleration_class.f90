@@ -81,7 +81,7 @@ contains
       end select
 
     end if
-    if (abs(distanceBruteForce - data % d) > 1.0E-4_defReal) then
+    if (distanceBruteForce /= data % d) then
       print *, 'Original coordinates:', originalCoords
       print *, 'Current coordinates:', data % r
       print *, 'Direction:', data % u
