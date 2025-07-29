@@ -15,7 +15,6 @@ module OpenFOAMMesh_tetrahedral_iTest
   "id 15; type OpenFOAMMesh; path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/StanfordBunny_LowPoly/;"
   ! Variables.
   type(OpenFOAMMesh) :: mesh
-  type(coord)        :: coords
 
 contains
   

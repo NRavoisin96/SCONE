@@ -1,12 +1,12 @@
 module patchSearchAcceleration_class
 
-  use accelerationStructure_inter,  only : accelerationStructure
+  use accelerationStructure_inter,  only : accelerationStructure, initAccelerationStructurePayload
   use cartesianGrid_class,          only : cartesianGrid
-  use coord_class,                  only : coord
   use dictionary_class,             only : dictionary
   use face_class,                   only : faceBox
   use genericProcedures,            only : fatalError
   use numPrecision
+  use publicObjects,                only : coordData
   use topologicalObjectShelf_class, only : topologicalObjectShelf
 
   implicit none
@@ -29,11 +29,10 @@ contains
   !!
   !!
   !!
-  subroutine findEntranceBoundaryFace(self, faces, coords, d, boundaryFace)
+  subroutine findEntranceBoundaryFace(self, faces, data, boundaryFace)
     class(patchSearchAcceleration), intent(in) :: self
     type(topologicalObjectShelf), intent(in)   :: faces
-    type(coord), intent(in)                    :: coords
-    real(defReal), intent(inout)               :: d
+    type(coordData), intent(inout)             :: data
     type(faceBox), intent(out)                 :: boundaryFace
     character(*), parameter                    :: here = 'distanceToBoundaryFace (patchSearchAcceleration_class.f90)'
 
@@ -45,10 +44,10 @@ contains
   !!
   !!
   !!
-  subroutine findHostElement(self, elements, coords, stopSearch)
+  subroutine findHostElement(self, elements, data, stopSearch)
     class(patchSearchAcceleration), intent(in) :: self
     type(topologicalObjectShelf), intent(in)   :: elements
-    type(coord), intent(inout)                 :: coords
+    type(coordData), intent(inout)             :: data
     logical(defBool), intent(out)              :: stopSearch
     character(*), parameter                    :: here = 'findHostElement (patchSearchAcceleration_class.f90)'
 
@@ -60,10 +59,9 @@ contains
   !!
   !!
   !!
-  subroutine init(self, dict, edges, elements, faces, vertices)
-    class(patchSearchAcceleration), intent(inout)    :: self
-    class(dictionary), intent(in)                    :: dict
-    type(topologicalObjectShelf), target, intent(in) :: edges, elements, faces, vertices
+  subroutine init(self, payload)
+    class(patchSearchAcceleration), intent(inout)      :: self
+    type(initAccelerationStructurePayload), intent(in) :: payload
 
     ! Initialise grid.
     call self % grid % init()

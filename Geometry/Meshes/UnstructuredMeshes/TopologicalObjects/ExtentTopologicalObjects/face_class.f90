@@ -2,7 +2,6 @@ module face_class
   
   use axisAlignedBoundingBox_class,  only : axisAlignedBoundingBox
   use extentTopologicalObject_inter, only : buildExtentTopologicalObjectPayload, extentTopologicalObject
-  use coord_class,                   only : coord
   use edge_class,                    only : edgeBox
   use genericProcedures,             only : append, areEqual, crossProduct, fatalError, numToChar
   use topologicalObject_inter,       only : buildTopologicalObjectPayload, kill_super => kill, topologicalObjectBox
@@ -354,42 +353,28 @@ contains
   !!   isIntersecting [out]   -> .true. if the line segment intersects the triangle.
   !!   d [out]                -> Distance from the line segment's origin to the point of intersection.
   !!
-  subroutine computeIntersection(self, coords, d)
-    class(face), intent(in)     :: self
-    type(coord), intent(in)     :: coords
-    real(defReal), intent(out)  :: d
-    real(defReal), dimension(3) :: diff, normal, r, rIntersection, u
-    real(defReal)               :: denominator, s
+  subroutine computeIntersection(self, r, u, maxDist, d)
+    class(face), intent(in)                 :: self
+    real(defReal), dimension(3), intent(in) :: r, u
+    real(defReal), intent(in)               :: maxDist
+    real(defReal), intent(out)              :: d
+    real(defReal)                           :: denominator, t
 
-    ! Initialise d = INF.
+    ! Initialise d = INF and compute denominator.
     d = INF
-    
-    ! Retrieve the face's normal vector and pre-compute the difference between the line segment's end
-    ! and beginning positions.
-    normal = self % normal
-    r = coords % getPosition()
-    u = coords % getDirection()
-    diff = coords % getEndPosition() - r
-    denominator = dot_product(normal, diff)
-
-    ! If the denominator is ZERO, return early since the line segment is parallel to the face's plane.
-    ! Else, compute the fraction of the line segment required to intersect the face's plane, s.
+    denominator = dot_product(self % normal, u)
     if (areEqual(denominator, ZERO)) return
-    s = dot_product(normal, self % getCentroid() - r) / denominator
     
-    ! If s is ZERO, the line segment's origin is on the face. In this case return early if the segment
-    ! points in the same direction as the face's normal.
-    if (areEqual(s, ZERO) .and. dot_product(normal, u) >= ZERO) return
-    
-    ! If s < ZERO or s > ONE, return early since the intersection is outside the line segment.
-    if (s < ZERO .or. s > ONE) return
+    ! Compute distance along the ray to intersection.
+    t = dot_product(self % getCentroid() - r, self % normal) / denominator
 
-    ! Compute the coordinates of the intersection point.
-    diff = s * diff
-    rIntersection = r + diff
+    ! If t is ZERO, the line segment's origin is on the face. In this case return early if the segment
+    ! points in the same direction as the face's normal.
+    if (areEqual(t, ZERO) .and. ZERO <= denominator) return
+    if (t < ZERO .or. maxDist < t) return
 
     ! Check if the intersection point coordinates are inside the face.
-    if (self % isPointInside(rIntersection)) d = norm2(diff)
+    if (self % isPointInside(r + t * u)) d = t
 
   end subroutine computeIntersection
 

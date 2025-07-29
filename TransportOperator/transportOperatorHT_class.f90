@@ -2,28 +2,21 @@
 !! Transport operator for hybrid tracking
 !!
 module transportOperatorHT_class
+
+  use dictionary_class,          only : dictionary
+  use errors_mod,                only : fatalError
+  use genericProcedures,         only : numToChar
+  use geometry_inter,            only : geometry
+  use nuclearDatabase_inter,     only : nuclearDatabase
+  use nuclearDataReg_mod,        only : ndReg_get => get
   use numPrecision
-  use universalVariables
-
-  use errors_mod,                 only : fatalError
-  use genericProcedures,          only : numToChar
-  use particle_class,             only : particle
-  use particleDungeon_class,      only : particleDungeon
-  use dictionary_class,           only : dictionary
-
-  ! Tally interface
+  use particle_class,            only : particle
   use tallyCodes
-  use tallyAdmin_class,           only : tallyAdmin
-
-  ! Superclass
-  use transportOperator_inter,    only : transportOperator, init_super => init
-
-  ! Geometry interfaces
-  use geometry_inter,             only : geometry
-
-  ! Nuclear data interfaces
-  use nuclearDataReg_mod,         only : ndReg_get => get
-  use nuclearDatabase_inter,      only : nuclearDatabase
+  use tallyAdmin_class,          only : tallyAdmin
+  use transportOperatorDT_class, only : transportOperatorDT
+  use transportOperatorST_class, only : transportOperatorST
+  use transportOperator_inter,   only : transportOperator, init_super => init, kill_super => kill
+  use universalVariables
 
   implicit none
   private
@@ -32,28 +25,26 @@ module transportOperatorHT_class
   !! Transport operator that moves a particle with hybrid tracking
   !!
   type, public, extends(transportOperator) :: transportOperatorHT
-    real(defReal) :: cutoff   ! Cutoff threshold between ST and DT
-
+    private
+    type(transportOperatorDT)              :: deltaTracking
+    type(transportOperatorST)              :: surfaceTracking
+    real(defReal)                          :: cutoff = ZERO  ! Cutoff threshold between ST and DT
   contains
     procedure :: transit => tracking_selection
-    procedure, private :: deltaTracking
-    procedure, private :: surfaceTracking
     ! Override procedure
     procedure :: init
+    procedure :: kill
 
   end type transportOperatorHT
 
 contains
 
-  subroutine tracking_selection(self, p, tally, thisCycle, nextCycle)
+  subroutine tracking_selection(self, p, tally)
     class(transportOperatorHT), intent(inout)              :: self
     class(particle), intent(inout)                         :: p
     type(tallyAdmin), intent(inout)                        :: tally
-    class(particleDungeon), intent(inout)                  :: thisCycle
-    class(particleDungeon), intent(inout)                  :: nextCycle
-    real(defReal)                                          :: majorant_inv, sigmaT, ratio
+    real(defReal)                                          :: majorant_inv, sigmaT
     integer(shortInt)                                      :: matIdx
-    character(*), parameter :: Here = 'hybridTracking (transportOIperatorHT_class.f90)'
 
     ! Get majornat XS inverse: 1/Sigma_majorant
     matIdx = p % getMatIdx()
@@ -62,143 +53,16 @@ contains
     ! Obtain the local cross-section
     sigmaT = self % xsData % getTrackMatXS(p, matIdx)
 
-    ! Calculate ratio between local cross-section and majorant
-    ratio = sigmaT*majorant_inv
-
     ! Cut-off criterion to decide on tracking method
-    if (ratio > (ONE - self % cutoff)) then
-      call deltaTracking(self, p, tally, thisCycle, nextCycle)
+    if (ONE - self % cutoff < sigmaT * majorant_inv) then
+      call self % deltaTracking % transit(p, tally)
+
     else
-      call surfaceTracking(self, p, tally, thisCycle, nextCycle)
+      call self % surfaceTracking % transit(p, tally)
+
     end if
 
   end subroutine tracking_selection
-
-  !!
-  !! Performs delta tracking until a real collision point is found
-  !!
-  subroutine deltaTracking(self, p, tally, thisCycle, nextCycle)
-    class(transportOperatorHT), intent(inout) :: self
-    class(particle), intent(inout)            :: p
-    type(tallyAdmin), intent(inout)           :: tally
-    class(particleDungeon), intent(inout)     :: thisCycle
-    class(particleDungeon), intent(inout)     :: nextCycle
-    real(defReal)                             :: majorant_inv, sigmaT, distance, randomNumber
-    character(*), parameter :: Here = 'deltaTracking (transportOperatorHT_class.f90)'
-
-    ! Get majorant XS inverse: 1/Sigma_majorant
-    majorant_inv = ONE / self % xsData % getTrackingXS(p, p % getMatIdx(), MAJORANT_XS)
-
-   ! Should never happen! Prevents Inf distances
-    if (abs(majorant_inv) > huge(majorant_inv)) call fatalError(Here, "Majorant is 0")
-
-    DTLoop: do
-      call p % pRNG % generateDistance(majorant_inv, distance)
-
-      ! Move particle in the geometry
-      call self % geom % teleport(p % coords, distance)
-
-      ! If particle has leaked exit
-      if (p % getMatIdx() == OUTSIDE_FILL) then
-        p % fate = LEAK_FATE
-        p % isDead = .true.
-        return
-
-      end if
-
-      ! Check for void
-      if (p % getMatIdx() == VOID_MAT) then
-        call tally % reportInColl(p, .true.)
-        cycle DTLoop
-
-      end if
-
-      ! Give error if the particle somehow ended in an undefined material
-      if (p % getMatIdx() == UNDEF_MAT) then
-        print *, p % rGlobal()
-        call fatalError(Here, "Particle is in undefined material")
-
-      end if
-
-      ! Obtain the local cross-section
-      sigmaT = self % xsData % getTrackMatXS(p, p % getMatIdx())
-
-      ! Roll RNG to determine if the collision is real or virtual
-      ! Exit the loop if the collision is real, report collision if virtual
-      call p % pRNG % generate(randomNumber)
-      if (randomNumber < sigmaT * majorant_inv) then
-        exit DTLoop
-
-      else
-        call tally % reportInColl(p, .true.)
-
-      end if
-
-    end do DTLoop
-
-    call tally % reportTrans(p)
-
-  end subroutine deltaTracking
-
-  !!
-  !! Performs surface tracking until a collision point is found
-  !!
-  subroutine surfaceTracking(self, p, tally, thisCycle, nextCycle)
-    class(transportOperatorHT), intent(inout) :: self
-    class(particle), intent(inout)            :: p
-    type(tallyAdmin), intent(inout)           :: tally
-    class(particleDungeon), intent(inout)      :: thisCycle
-    class(particleDungeon), intent(inout)      :: nextCycle
-    integer(shortInt)                         :: event
-    real(defReal)                             :: inverseSigmaT, distance
-    character(*), parameter :: Here = 'surfaceTracking (transportOperatorHT_class.f90)'
-  
-    STLoop: do
-
-      ! Obtain the local cross-section
-      if (p % getMatIdx() == VOID_MAT) then
-        distance = INF
-
-      else
-        inverseSigmaT = ONE / self % xsData % getTrackingXS(p, p % getMatIdx(), MATERIAL_XS)
-        call p % pRNG % generateDistance(inverseSigmaT, distance)
-
-        ! Should never happen! Catches NaN distances
-        if (distance /= distance) call fatalError(Here, "Distance is NaN")
-
-      end if
-
-      ! Save state before movement
-      call p % savePrePath()
-
-      ! Move to the next stop. NOTE: "move" resets dist to distanced moved!
-      call self % geom % move(p % coords, distance, event)
-
-      ! Send tally report for a path moved
-      call tally % reportPath(p, distance)
-
-      ! Kill particle if it has leaked
-      if (p % getMatIdx() == OUTSIDE_FILL) then
-        p % isDead = .true.
-        p % fate = LEAK_FATE
-
-      end if
-
-      ! Give error if the particle somehow ended in an undefined material
-      if (p % getMatIdx() == UNDEF_MAT) then
-        print *, p % rGlobal()
-        call fatalError(Here, "Particle is in undefined material")
-
-      end if
-
-      ! Return if particle stoped at collision (not cell boundary)
-      if (event == COLL_EV .or. p % isDead) exit STLoop
-
-    end do STLoop
-
-    call tally % reportTrans(p)
-
-  end subroutine surfaceTracking
 
   !!
   !! Initialise HT operator from a dictionary
@@ -213,9 +77,22 @@ contains
     call init_super(self, dict)
 
     ! Retrieve DT-ST probability cutoff
-    call dict % getOrDefault(self % cutoff,'cutoff',0.9_defReal)
+    call dict % getOrDefault(self % cutoff, 'cutoff', 0.9_defReal)
 
   end subroutine init
 
+  !!
+  !!
+  !!
+  elemental subroutine kill(self)
+    class(transportOperatorHT), intent(inout) :: self
+
+    ! Superclass.
+    call kill_super(self)
+
+    ! Local.
+    self % cutoff = ZERO
+
+  end subroutine kill
 
 end module transportOperatorHT_class

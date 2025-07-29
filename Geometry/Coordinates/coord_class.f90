@@ -1,8 +1,9 @@
 module coord_class
 
-  use numPrecision
-  use universalVariables, only : HARDCODED_MAX_NEST, NUDGE
   use genericProcedures,  only : areEqual, numToChar
+  use numPrecision
+  use publicObjects,      only : coordData
+  use universalVariables, only : HARDCODED_MAX_NEST, NUDGE
 
   implicit none
   private
@@ -19,7 +20,6 @@ module coord_class
   !!   rEnd       -> Pre-computed end position (reserved for mesh tracking)
   !!   dir        -> Direction
   !!   isRotated  -> Is rotated wrt previous (higher by 1) level
-  !!   isLeaving  -> Is leaving 
   !!   rotMat     -> Rotation matrix wrt previous level
   !!   uniIdx     -> Index of the occupied universe
   !!   uniRootId  -> Location of the occupied universe in geometry graph
@@ -34,42 +34,37 @@ module coord_class
   !!
   type, public                    :: coord
     private
-    real(defReal), dimension(3)   :: r = ZERO, rEnd = ZERO, dir = ZERO
-    logical(defBool)              :: isRotated = .false., isLeaving = .false., nudgeEndPosition = .false.
+    real(defReal), dimension(3)   :: r = ZERO, dir = ZERO
+    logical(defBool)              :: isRotated = .false.
     real(defReal), dimension(3,3) :: rotMat = ZERO
-    integer(shortInt)             :: uniIdx = 0, uniRootId = 0, localId = 0, cellIdx = 0, elementIdx = 0, &
-                                     parentElementIdx = 0
+    integer(shortInt)             :: cellIdx = 0, elementIdx = 0, localId = 0, uniIdx = 0, uniRootId = 0
   contains
     procedure :: display
     procedure :: getCellIdx
+    procedure :: getData
     procedure :: getDirection
     procedure :: getElementIdx
-    procedure :: getEndPosition
     procedure :: getIsRotated
     procedure :: getLocalId
-    procedure :: getParentElementIdx
     procedure :: getPosition
-    procedure :: getPositionToNudge
     procedure :: getRotationMatrix
     procedure :: getUniIdx
     procedure :: getUniRootId
     procedure :: isValid
     procedure :: kill
-    procedure :: nudgePosition
     procedure :: offsetPosition
     procedure :: rotateComponents
     procedure :: setCellIdx
     procedure :: setDirection
     procedure :: setElementIdx
-    procedure :: setEndPosition
     procedure :: setIsRotated
     procedure :: setLocalId
-    procedure :: setNudgeEndPosition
-    procedure :: setParentElementIdx
     procedure :: setPosition
+    procedure :: setPositionAndDirection
     procedure :: setRotationMatrix
     procedure :: setUniIdx
     procedure :: setUniRootId
+    procedure :: updateFromData
   end type coord
 
 contains
@@ -96,6 +91,23 @@ contains
     cellIdx = self % cellIdx
 
   end function getCellIdx
+
+  !!
+  !!
+  !!
+  elemental function getData(self) result(data)
+    class(coord), intent(in) :: self
+    type(coordData)          :: data
+
+    data % r = self % r
+    data % u = self % dir
+    data % cellIdx = self % cellIdx
+    data % localId = self % localId
+    data % elementIdx = self % elementIdx
+    data % universeIdx = self % uniIdx
+    data % universeRootId = self % uniRootId
+
+  end function getData
 
   !! Function 'getDirection'
   !!
@@ -127,17 +139,6 @@ contains
   !!
   !!
   !!
-  pure function getEndPosition(self) result(rEnd)
-    class(coord), intent(in)    :: self
-    real(defReal), dimension(3) :: rEnd
-
-    rEnd = self % rEnd
-
-  end function getEndPosition
-
-  !!
-  !!
-  !!
   elemental function getIsRotated(self) result(isRotated)
     class(coord), intent(in) :: self
     logical(defBool)         :: isRotated
@@ -157,17 +158,6 @@ contains
 
   end function getLocalId
 
-  !!
-  !!
-  !!
-  elemental function getParentElementIdx(self) result(parentElementIdx)
-    class(coord), intent(in) :: self
-    integer(shortInt)        :: parentElementIdx
-
-    parentElementIdx = self % parentElementIdx
-
-  end function getParentElementIdx
-
   !! Function 'getPosition'
   !!
   !! Basic description:
@@ -183,23 +173,6 @@ contains
     r = self % r
 
   end function getPosition
-
-  !!
-  !!
-  !!
-  pure function getPositionToNudge(self) result(r)
-    class(coord), intent(in)    :: self
-    real(defReal), dimension(3) :: r
-
-    if (self % nudgeEndPosition) then
-      r = self % rEnd
-
-    else
-      r = self % r
-
-    end if
-
-  end function getPositionToNudge
 
   !!
   !!
@@ -263,46 +236,16 @@ contains
     class(coord), intent(inout) :: self
 
     self % r = ZERO
-    self % rEnd = ZERO
     self % dir = ZERO
-    self % isLeaving = .false.
     self % isRotated = .false.
-    self % nudgeEndPosition = .false.
     self % rotMat = ZERO
     self % uniIdx = 0
     self % uniRootId = 0
     self % localId = 0
     self % cellIdx = 0
     self % elementIdx = 0
-    self % parentElementIdx = 0
 
   end subroutine kill
-
-  !!
-  !!
-  !!
-  pure subroutine nudgePosition(self, u)
-    class(coord), intent(inout)                       :: self
-    real(defReal), dimension(3), intent(in), optional :: u
-    real(defReal), dimension(3)                       :: dir
-
-    if (present(u)) then 
-      dir = u
-
-    else
-      dir = self % dir
-
-    end if
-
-    if (self % nudgeEndPosition) then
-      self % rEnd = self % rEnd + dir * NUDGE
-
-    else
-      self % r = self % r + dir * NUDGE
-
-    end if
-
-  end subroutine nudgePosition
 
   !!
   !!
@@ -362,17 +305,6 @@ contains
   !!
   !!
   !!
-  pure subroutine setEndPosition(self, rEnd)
-    class(coord), intent(inout)             :: self
-    real(defReal), dimension(3), intent(in) :: rEnd
-
-    self % rEnd = rEnd
-
-  end subroutine setEndPosition
-
-  !!
-  !!
-  !!
   elemental subroutine setIsRotated(self, isRotated)
     class(coord), intent(inout)  :: self
     logical(defBool), intent(in) :: isRotated
@@ -395,28 +327,6 @@ contains
   !!
   !!
   !!
-  elemental subroutine setNudgeEndPosition(self, nudgeEndPosition)
-    class(coord), intent(inout)  :: self
-    logical(defBool), intent(in) :: nudgeEndPosition
-
-    self % nudgeEndPosition = nudgeEndPosition
-
-  end subroutine setNudgeEndPosition
-
-  !!
-  !!
-  !!
-  elemental subroutine setParentElementIdx(self, parentElementIdx)
-    class(coord), intent(inout)   :: self
-    integer(shortInt), intent(in) :: parentElementIdx
-
-    self % parentElementIdx = parentElementIdx
-
-  end subroutine setParentElementIdx
-
-  !!
-  !!
-  !!
   pure subroutine setPosition(self, r)
     class(coord), intent(inout)             :: self
     real(defReal), dimension(3), intent(in) :: r
@@ -424,6 +334,18 @@ contains
     self % r = r
 
   end subroutine setPosition
+
+  !!
+  !!
+  !!
+  pure subroutine setPositionAndDirection(self, r, u)
+    class(coord), intent(inout)             :: self
+    real(defReal), dimension(3), intent(in) :: r, u
+
+    self % r = r
+    self % dir = u
+
+  end subroutine setPositionAndDirection
 
   !!
   !!
@@ -457,5 +379,24 @@ contains
     self % uniRootId = uniRootId
 
   end subroutine setUniRootId
+
+  !!
+  !!
+  !!
+  elemental subroutine updateFromData(self, data)
+    class(coord), intent(inout) :: self
+    type(coordData), intent(in) :: data
+
+    self % r = data % r
+    self % dir = data % u
+    self % uniIdx = data % universeIdx
+    self % uniRootId = data % universeRootId
+    self % localId = data % localId
+    self % cellIdx = data % cellIdx
+    self % elementIdx = data % elementIdx
+    self % isRotated = data % isRotated
+    self % rotMat = data % rotationMatrix
+
+  end subroutine updateFromData
 
 end module coord_class

@@ -1,17 +1,18 @@
 module pinUniverse_class
 
-  use numPrecision
-  use universalVariables, only : INF, targetNotFound
-  use genericProcedures,  only : fatalError, numToChar, swap
-  use dictionary_class,   only : dictionary
-  use coord_class,        only : coord
-  use charMap_class,      only : charMap
-  use surfaceShelf_class, only : surfaceShelf
-  use cylinder_class,     only : cylinder
   use cell_inter,         only : cell
   use cellShelf_class,    only : cellShelf
+  use charMap_class,      only : charMap
+  use cylinder_class,     only : cylinder
+  use dictionary_class,   only : dictionary
+  use genericProcedures,  only : fatalError, numToChar, swap
   use meshShelf_class,    only : meshShelf
+  use numPrecision
+  use publicObjects,      only : coordData
+  use surfaceShelf_class, only : surfaceShelf
+  use universalVariables, only : INF, targetNotFound
   use universe_inter,     only : universe, kill_super => kill, charToFill
+
   implicit none
   private
 
@@ -58,7 +59,6 @@ module pinUniverse_class
     procedure :: findCell
     procedure :: distance
     procedure :: cross
-    procedure :: cellOffset
   end type pinUniverse
 
 contains
@@ -136,10 +136,9 @@ contains
   !!
   !! See universe_inter for details.
   !!
-  pure subroutine findCell(self, coords)
+  pure subroutine findCell(self, data)
     class(pinUniverse), intent(inout) :: self
-    type(coord), intent(inout)        :: coords
-    real(defReal), dimension(3)       :: r, u
+    type(coordData), intent(inout)    :: data
     real(defReal), dimension(2)       :: rPlanes, uPlanes
     real(defReal)                     :: rPlanesSquared, mul, surfTol
     integer(shortInt)                 :: i, nRadiiSquared
@@ -147,10 +146,8 @@ contains
     ! Set cellIdx = 0, retrieve the particle's position and direction components in the
     ! cylinders' planes (all cylinders are zCylinders so these components are 1 and 2) and
     ! compute rPlanesSquared.
-    r = coords % getPosition()
-    u = coords % getDirection()
-    rPlanes = r(1:2)
-    uPlanes = u(1:2)
+    rPlanes = data % r(1:2)
+    uPlanes = data % u(1:2)
     rPlanesSquared = dot_product(rPlanes, rPlanes)
 
     ! Find local cell. Pre-compute multiplier based on particle direction.
@@ -160,14 +157,14 @@ contains
       ! Retrieve surface tolerance of current cylinder and check if particle is inside it.
       surfTol = mul * self % annuli(i) % getSurfTol()
       if (rPlanesSquared < self % radiiSquared(i) + surfTol) then
-        call coords % setLocalId(i)
+        data % localId = i
         return
 
       end if
 
     end do
     ! If reached here localID = size(self % r_sq) + 1
-    call coords % setLocalId(nRadiiSquared + 1)
+    data % localId = nRadiiSquared + 1
 
   end subroutine findCell
 
@@ -179,47 +176,39 @@ contains
   !! Errors:
   !!   fatalError is localID is invalid
   !!
-  subroutine distance(self, coords, d, surfIdx)
-    class(pinUniverse), intent(inout)  :: self
-    type(coord), intent(inout)         :: coords
-    real(defReal), intent(out)         :: d
-    integer(shortInt), intent(out)     :: surfIdx
-    real(defReal), dimension(3)        :: r, u
-    real(defReal)                      :: d_out, d_in
-    integer(shortInt)                  :: localId, nAnnuli
-    character(100), parameter          :: Here = 'distance (pinUniverse_class.f90)'
+  subroutine distance(self, data)
+    class(pinUniverse), intent(inout) :: self
+    type(coordData), intent(inout)    :: data
+    real(defReal)                     :: d_out, d_in
+    integer(shortInt)                 :: nAnnuli
+    character(*), parameter           :: Here = 'distance (pinUniverse_class.f90)'
 
     ! Retrieve localId and number of annuli. Call fatalError if localId is out of bounds.
-    localId = coords % getLocalId()
     nAnnuli = size(self % annuli)
-    if (localId < 1 .or. localId > nAnnuli + 1) call fatalError(Here, 'Invalid local id: '//numToChar(localId)//'.')
-
-    ! Retrieve particle's location and direction components and compute outer and inner distances.
-    r = coords % getPosition()
-    u = coords % getDirection()
+    if (data % localId < 1 .or. nAnnuli + 1 < data % localId) &
+    call fatalError(Here, 'Invalid local id: '//numToChar(data % localId)//'.')
 
     ! Outer distance.
-    if (localId > nAnnuli) then
+    if (nAnnuli < data % localId) then
       d_out = INF
 
     else
-      d_out = self % annuli(localId) % distance(r, u)
+      d_out = self % annuli(data % localId) % distance(data % r, data % u)
 
     end if
 
     ! Inner distance.
-    if (localId == 1) then
+    if (data % localId == 1) then
       d_in = INF
 
     else
-      d_in = self % annuli(localId - 1) % distance(r, u)
+      d_in = self % annuli(data % localId - 1) % distance(data % r, data % u)
 
     end if
 
     ! Select distance and surface.
-    d = min(d_in, d_out)
-    surfIdx = MOVING_IN
-    if (d_out <= d_in) surfIdx = MOVING_OUT
+    data % d = min(d_in, d_out)
+    data % surfaceIdx = merge(MOVING_OUT, MOVING_IN, d_out <= d_in)
 
   end subroutine distance
 
@@ -231,39 +220,24 @@ contains
   !! Errors:
   !!   fatalError if surface from distance is not MOVING_IN or MOVING_OUT
   !!
-  subroutine cross(self, coords, surfIdx)
-    class(pinUniverse), intent(inout)  :: self
-    type(coord), intent(inout)         :: coords
-    integer(shortInt), intent(in)      :: surfIdx
-    character(100), parameter          :: Here = 'cross (pinUniverse_class.f90)'
+  subroutine cross(self, data)
+    class(pinUniverse), intent(inout) :: self
+    type(coordData), intent(inout)    :: data
+    character(*), parameter           :: Here = 'cross (pinUniverse_class.f90)'
 
-    if (surfIdx == MOVING_IN) then
-      call coords % setLocalId(coords % getLocalId() - 1)
+    select case(data % surfaceIdx)
+      case(MOVING_IN)
+        data % localId = data % localId - 1
 
-    else if (surfIdx == MOVING_OUT) then
-      call coords % setLocalId(coords % getLocalId() + 1)
+      case(MOVING_OUT)
+        data % localId = data % localId + 1
 
-    else
-      call fatalError(Here, 'Unknown surface memento: '//numToChar(surfIdx)//'.')
+      case default
+        call fatalError(Here, 'Unknown surface memento: '//numToChar(data % surfaceIdx)//'.')
 
-    end if
+    end select
 
   end subroutine cross
-
-  !!
-  !! Return offset for the current cell
-  !!
-  !! See universe_inter for details.
-  !!
-  function cellOffset(self, coords) result (offset)
-    class(pinUniverse), intent(in) :: self
-    type(coord), intent(in)         :: coords
-    real(defReal), dimension(3)     :: offset
-
-    ! There is no cell offset
-    offset = ZERO
-
-  end function cellOffset
 
   !!
   !! Return to uninitialised state

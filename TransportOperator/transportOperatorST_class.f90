@@ -7,7 +7,6 @@ module transportOperatorST_class
 
   use errors_mod,                 only : fatalError
   use particle_class,             only : particle
-  use particleDungeon_class,      only : particleDungeon
   use dictionary_class,           only : dictionary
 
   ! Superclass
@@ -45,16 +44,14 @@ contains
   !!
   !! Performs surface tracking until a collision point is found
   !!
-  subroutine surfaceTracking(self, p, tally, thisCycle, nextCycle)
+  subroutine surfaceTracking(self, p, tally)
     class(transportOperatorST), intent(inout) :: self
     class(particle), intent(inout)            :: p
     type(tallyAdmin), intent(inout)           :: tally
-    class(particleDungeon), intent(inout)      :: thisCycle
-    class(particleDungeon), intent(inout)      :: nextCycle
     integer(shortInt)                         :: event
     real(defReal)                             :: inverseSigmaT, distance
     type(distCache)                           :: cache
-    character(*), parameter :: Here = 'surfaceTracking (transportOperatorST_class.f90)'
+    character(*), parameter                   :: Here = 'surfaceTracking (transportOperatorST_class.f90)'
 
     STLoop: do
       ! Obtain the local cross-section
@@ -75,7 +72,7 @@ contains
 
       ! Move to the next stop.
       if (self % cache) then
-        call self % geom % move_withCache(p % coords, distance, event, cache)
+        call self % geom % move(p % coords, distance, event, cache)
 
       else
         call self % geom % move(p % coords, distance, event)
@@ -119,10 +116,7 @@ contains
 
     ! Initialise superclass
     call init_super(self, dict)
-
-    if (dict % isPresent('cache')) then
-      call dict % get(self % cache, 'cache')
-    end if
+    if (dict % isPresent('cache')) call dict % get(self % cache, 'cache')
 
   end subroutine init
 

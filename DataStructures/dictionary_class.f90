@@ -735,10 +735,10 @@ contains
   !!
   function getDictPtr(self, keyword) result(ptr)
     class(dictionary), intent(in) :: self
-    character(*), intent(in)       :: keyword
+    character(*), intent(in)      :: keyword
     integer(shortInt)             :: idx
-    class(dictionary), pointer     :: ptr
-    character(100), parameter      :: Here='getDictPtr (dictionary_class.f90)'
+    class(dictionary), pointer    :: ptr
+    character(*), parameter       :: Here = 'getDictPtr (dictionary_class.f90)'
 
     idx = self % search(keyword, Here, fatal =.true.)
 

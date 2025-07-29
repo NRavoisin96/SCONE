@@ -1,13 +1,13 @@
 module universe_inter
 
-  use numPrecision
-  use genericProcedures,  only : fatalError, numToChar, rotationMatrix, charToInt
-  use dictionary_class,   only : dictionary
-  use coord_class,        only : coord
-  use charMap_class,      only : charMap
-  use surfaceShelf_class, only : surfaceShelf
   use cellShelf_class,    only : cellShelf
+  use charMap_class,      only : charMap
+  use dictionary_class,   only : dictionary
+  use genericProcedures,  only : fatalError, numToChar, rotationMatrix, charToInt
   use meshShelf_class,    only : meshShelf
+  use numPrecision
+  use publicObjects,      only : coordData
+  use surfaceShelf_class, only : surfaceShelf
 
   implicit none
   private
@@ -66,20 +66,20 @@ module universe_inter
     logical(defBool)              :: rot = .false.
   contains
     ! Build procedures
-    procedure, non_overridable :: id
-    procedure, non_overridable :: setId
-    procedure, non_overridable :: setIdx
-    procedure, non_overridable :: setTransform
-    procedure(init), deferred  :: init
-    procedure                  :: setupBase
-    procedure                  :: kill
+    procedure, non_overridable    :: id
+    procedure, non_overridable    :: setId
+    procedure, non_overridable    :: setIdx
+    procedure, non_overridable    :: setTransform
+    procedure(init), deferred     :: init
+    procedure                     :: setupBase
+    procedure                     :: kill
 
     ! Runtime procedures
-    procedure, non_overridable      :: enter
-    procedure(findCell), deferred   :: findCell
-    procedure(distance), deferred   :: distance
-    procedure(cross), deferred      :: cross
-    procedure(cellOffset), deferred :: cellOffset
+    procedure                     :: cellOffset
+    procedure, non_overridable    :: enter
+    procedure(findCell), deferred :: findCell
+    procedure(distance), deferred :: distance
+    procedure(cross), deferred    :: cross
   end type universe
 
   abstract interface
@@ -133,10 +133,10 @@ module universe_inter
     !!   it is necessary to consider issues related to parallel calculations with shared
     !!   memory.
     !!
-    subroutine findCell(self, coords)
-      import :: coord, universe
+    subroutine findCell(self, data)
+      import :: coordData, universe
       class(universe), intent(inout) :: self
-      type(coord), intent(inout)     :: coords  
+      type(coordData), intent(inout) :: data  
     end subroutine findCell
 
     !!
@@ -162,12 +162,10 @@ module universe_inter
     !!   it is necessary to consider issues related to parallel calculations with shared
     !!   memory.
     !!
-    subroutine distance(self, coords, d, surfIdx)
-      import :: universe, coord, defReal, shortInt
+    subroutine distance(self, data)
+      import :: coordData, shortInt, universe
       class(universe), intent(inout) :: self
-      type(coord), intent(inout)     :: coords
-      real(defReal), intent(out)     :: d
-      integer(shortInt), intent(out) :: surfIdx
+      type(coordData), intent(inout) :: data
     end subroutine distance
 
     !!
@@ -186,30 +184,11 @@ module universe_inter
     !!   it is necessary to consider issues related to parallel calculations with shared
     !!   memory.
     !!
-    subroutine cross(self, coords, surfIdx)
-      import :: universe, coord, shortInt
+    subroutine cross(self, data)
+      import :: coordData, shortInt, universe
       class(universe), intent(inout) :: self
-      type(coord), intent(inout)     :: coords
-      integer(shortInt), intent(in)  :: surfIdx
+      type(coordData), intent(inout) :: data
     end subroutine cross
-
-    !!
-    !! Return offset for the current cell
-    !!
-    !! Args:
-    !!   coords [in] -> Coordinates placed in the universe (after transformations and with
-    !!                  local Id set).
-    !!
-    !! Result:
-    !!   Cell offset (3D position vector). Offset is applied before entering a nested universe
-    !!   inside a local cell.
-    !!
-    function cellOffset(self, coords) result (offset)
-      import :: universe, coord, defReal
-      class(universe), intent(in) :: self
-      type(coord), intent(in)     :: coords
-      real(defReal), dimension(3) :: offset
-    end function cellOffset
 
   end interface
 
@@ -336,6 +315,18 @@ contains
   end subroutine setTransform
 
   !!
+  !!
+  !!
+  pure function cellOffset(self, localId) result(offset)
+    class(universe), intent(in)   :: self
+    integer(shortInt), intent(in) :: localId
+    real(defReal), dimension(3)   :: offset
+
+    offset = ZERO
+
+  end function cellOffset
+
+  !!
   !! Enter from higher universe
   !!
   !! Sets:
@@ -358,28 +349,26 @@ contains
   !!   it is necessary to consider issues related to parallel calculations with shared
   !!   memory.
   !!
-  subroutine enter(self, r, u, new)
-    class(universe), intent(inout)          :: self
-    real(defReal), dimension(3), intent(in) :: r, u
-    type(coord), intent(out)                :: new
+  subroutine enter(self, data)
+    class(universe), intent(inout) :: self
+    type(coordData), intent(inout) :: data
 
     ! Set new % uniIdx and new % isRotated.
-    call new % setPosition(r)
-    call new % setDirection(u)
-    call new % setUniIdx(self % uniIdx)
-    call new % setIsRotated(self % rot)
+    data % universeIdx = self % uniIdx
+    data % isRotated = self % rot
 
     if (self % rot) then
-      call new % setRotationMatrix(self % rotMat)
-      call new % rotateComponents()
+      data % rotationMatrix = self % rotMat
+      data % r = matmul(self % rotMat, data % r)
+      data % u = matmul(self % rotMat, data % u)
 
     end if
 
     ! Translate.
-    call new % offsetPosition(self % origin)
+    data % r = data % r - self % origin
 
     ! Find cell.
-    call self % findCell(new)
+    call self % findCell(data)
 
   end subroutine enter
 

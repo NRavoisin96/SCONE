@@ -1,20 +1,23 @@
 module csg_class
-  use numPrecision
-  use universalVariables,  only : MAX_COL, HARDCODED_MAX_NEST
-  use genericProcedures,   only : fatalError, numToChar
-  use dictionary_class,    only : dictionary
-  use charMap_class,       only : charMap
-  use surfaceShelf_class,  only : surfaceShelf
-  use surface_inter,       only : surface
+
   use cellShelf_class,     only : cellShelf
-  use universeShelf_class, only : universeShelf
-  use meshShelf_class,     only : meshShelf
-  use universe_inter,      only : universe
-  use rootUniverse_class,  only : rootUniverse
-  use uniFills_class,      only : uniFills
+  use charMap_class,       only : charMap
+  use dictionary_class,    only : dictionary
+  use genericProcedures,   only : fatalError, numToChar
   use geomGraph_class,     only : geomGraph
+  use meshShelf_class,     only : meshShelf
+  use numPrecision
+  use publicObjects,       only : coordData
+  use universalVariables,  only : MAX_COL, HARDCODED_MAX_NEST
+  use rootUniverse_class,  only : rootUniverse
+  use surface_inter,       only : surface
+  use surfaceShelf_class,  only : surfaceShelf
+  use uniFills_class,      only : uniFills
+  use universe_inter,      only : universe
+  use universeShelf_class, only : universeShelf
 
   implicit none
+  private
 
   !!
   !! Representation of geometry spatial information
@@ -46,20 +49,188 @@ module csg_class
   !!   init    -> Loads geometry
   !!   kill -> Returns to uninitialised state
   !!
-  type, public :: csg
-    type(surfaceShelf)  :: surfs
+  type, public          :: csg
+    private
+    type(surfaceShelf)  :: surfaces
     type(cellShelf)     :: cells
-    type(universeShelf) :: unis
+    type(universeShelf) :: universes
     type(meshShelf)     :: meshes
     type(geomGraph)     :: graph
     integer(shortInt)   :: borderIdx = 0
     integer(shortInt)   :: rootIdx   = 0
   contains
+    procedure :: crossUniverse
+    procedure :: distanceSurface
+    procedure :: distanceUniverse
+    procedure :: enterUniverse
+    procedure :: explicitSurfaceBoundaryConditions
+    procedure :: getActiveMaterialIdxs
+    procedure :: getBorderIdx
+    procedure :: getCellIdx
+    procedure :: getFill
+    procedure :: getRootIdx
+    procedure :: getSurfaceBounds
+    procedure :: getUniverseCellOffset
     procedure :: init
     procedure :: kill
+    procedure :: transformSurfaceBoundaryConditions
   end type csg
 
 contains
+  !!
+  !!
+  !!
+  subroutine crossUniverse(self, idx, data)
+    class(csg), intent(in)         :: self
+    integer(shortInt), intent(in)  :: idx
+    type(coordData), intent(inout) :: data
+    class(universe), pointer       :: universePtr
+
+    universePtr => self % universes % getPtr_fast(idx)
+    call universePtr % cross(data)
+
+  end subroutine crossUniverse
+
+  !!
+  !!
+  !!
+  function distanceSurface(self, idx, r, u) result(d)
+    class(csg), intent(in)                  :: self
+    integer(shortInt), intent(in)           :: idx
+    real(defReal), dimension(3), intent(in) :: r, u
+    real(defReal)                           :: d
+    class(surface), pointer                 :: surfacePtr
+
+    surfacePtr => self % surfaces % getPtr(idx)
+    d = surfacePtr % distance(r, u)
+
+  end function distanceSurface
+
+  !!
+  !!
+  !!
+  subroutine distanceUniverse(self, data)
+    class(csg), intent(in)         :: self
+    type(coordData), intent(inout) :: data
+    class(universe), pointer       :: universePtr
+
+    universePtr => self % universes % getPtr_fast(data % universeIdx)
+    call universePtr % distance(data)
+
+  end subroutine distanceUniverse
+
+  !!
+  !!
+  !!
+  subroutine enterUniverse(self, idx, data)
+    class(csg), intent(in)         :: self
+    integer(shortInt), intent(in)  :: idx
+    type(coordData), intent(inout) :: data
+    class(universe), pointer       :: universePtr
+
+    universePtr => self % universes % getPtr_fast(idx)
+    call universePtr % enter(data)
+
+  end subroutine enterUniverse
+
+  !!
+  !!
+  !!
+  subroutine explicitSurfaceBoundaryConditions(self, idx, r, u)
+    class(csg), intent(in)                     :: self
+    integer(shortInt), intent(in)              :: idx
+    real(defReal), dimension(3), intent(inout) :: r, u
+    class(surface), pointer                    :: surfacePtr
+
+    surfacePtr => self % surfaces % getPtr(idx)
+    call surfacePtr % explicitBC(r, u)
+
+  end subroutine explicitSurfaceBoundaryConditions
+
+  !!
+  !!
+  !!
+  pure function getActiveMaterialIdxs(self) result(activeMaterialIdxs)
+    class(csg), intent(in)                       :: self
+    integer(shortInt), dimension(:), allocatable :: activeMaterialIdxs
+
+    activeMaterialIdxs = self % graph % getActiveMaterialIdxs()
+
+  end function getActiveMaterialIdxs
+
+  !!
+  !!
+  !!
+  elemental function getBorderIdx(self) result(borderIdx)
+    class(csg), intent(in) :: self
+    integer(shortInt)      :: borderIdx
+
+    borderIdx = self % borderIdx
+
+  end function getBorderIdx
+
+  !!
+  !!
+  !!
+  function getCellIdx(self, cellId) result(cellIdx)
+    class(csg), intent(in)        :: self
+    integer(shortInt), intent(in) :: cellId
+    integer(shortInt)             :: cellIdx
+
+    cellIdx = self % cells % getIdx(cellId)
+
+  end function getCellIdx
+
+  !!
+  !!
+  !!
+  elemental subroutine getFill(self, universeRootId, localId, idx, id)
+    class(csg), intent(in)         :: self
+    integer(shortInt), intent(in)  :: universeRootId, localId
+    integer(shortInt), intent(out) :: idx, id
+
+    call self % graph % getFill(universeRootId, localId, idx, id)
+
+  end subroutine getFill
+
+  !!
+  !!
+  !!
+  elemental function getRootIdx(self) result(rootIdx)
+    class(csg), intent(in) :: self
+    integer(shortInt)      :: rootIdx
+
+    rootIdx = self % rootIdx
+
+  end function getRootIdx
+
+  !!
+  !!
+  !!
+  function getSurfaceBounds(self, idx) result(bounds)
+    class(csg), intent(in)        :: self
+    integer(shortInt), intent(in) :: idx
+    real(defReal), dimension(6)   :: bounds
+    class(surface), pointer       :: surfacePtr
+
+    surfacePtr => self % surfaces % getPtr(idx)
+    bounds = surfacePtr % getBoundingBox()
+
+  end function getSurfaceBounds
+
+  !!
+  !!
+  !!
+  function getUniverseCellOffset(self, universeIdx, localId) result(offset)
+    class(csg), intent(in)        :: self
+    integer(shortInt), intent(in) :: universeIdx, localId
+    real(defReal), dimension(3)   :: offset
+    class(universe), pointer      :: universePtr
+
+    universePtr => self % universes % getPtr_fast(universeIdx)
+    offset = universePtr % cellOffset(localId)
+
+  end function getUniverseCellOffset
 
   !!
   !! Initialise geometry representation
@@ -98,12 +269,12 @@ contains
     end if
 
     ! Build Surfaces
-    call self % surfs % init(dict % getDictPtr('surfaces'))
+    call self % surfaces % init(dict % getDictPtr('surfaces'))
     if (loud) print *, "DONE!"
 
     ! Build Cells
     if (loud) print *, "Building Cells"
-    call self % cells % init(dict % getDictPtr('cells'), self % surfs, mats)
+    call self % cells % init(dict % getDictPtr('cells'), self % surfaces, mats)
     if (loud) print *, "DONE!"
 
     ! Build Meshes if present.
@@ -116,10 +287,10 @@ contains
 
     ! Build Universes
     if (loud) print *, "Building Universes"
-    call self % unis % init(dict % getDictPtr('universes'), mats, fills, &
-                            self % cells, &
-                            self % surfs, &
-                            self % meshes)
+    call self % universes % init(dict % getDictPtr('universes'), mats, fills, &
+                                 self % cells, &
+                                 self % surfaces, &
+                                 self % meshes)
     if (loud) print *, "DONE!"
 
     ! Select Root universe
@@ -134,12 +305,12 @@ contains
     end if
 
     ! Set Root universe idx
-    self % rootIdx = self % unis % getIdx(rootID)
+    self % rootIdx = self % universes % getIdx(rootID)
     call fills % setRoot(self % rootIdx)
 
     ! Check that root universe is `rootUniverse`
     ! If it is set borderIdx
-    uni_ptr => self % unis % getPtr(self % rootIdx)
+    uni_ptr => self % universes % getPtr(self % rootIdx)
 
     select type(uni_ptr)
       class is (rootUniverse)
@@ -153,7 +324,7 @@ contains
 
     ! Set boundary conditions
     call dict % get(BC, 'boundary')
-    surf_ptr => self % surfs % getPtr(self % borderIdx)
+    surf_ptr => self % surfaces % getPtr(self % borderIdx)
     call surf_ptr % setBCs(BC)
 
     ! Check validity of geometry structure
@@ -181,11 +352,11 @@ contains
     ! Print geometry information and end
     if (loud) then
       print *, "GEOMETRY INFORMATION "
-      print '(2X, 2A)', "Number of Surfaces: ", numToChar(self % surfs % getSize())
+      print '(2X, 2A)', "Number of Surfaces: ", numToChar(self % surfaces % getSize())
       print '(2X, 2A)', "Number of Cells: ", numToChar(self % cells % getSize())
-      print '(2X, 2A)', "Number of Universes: ", numToChar(self % unis % getSize())
+      print '(2X, 2A)', "Number of Universes: ", numToChar(self % universes % getSize())
       print '(2X, 2A)', "Nesting Levels: ", numToChar(nesting)
-      print '(2X, 2A)', "Unique Cells: ", numToChar(self % graph % uniqueCells)
+      print '(2X, 2A)', "Unique Cells: ", numToChar(self % graph % getUniqueCellsNumber())
       print '(2X, 2A)', "Unused universes (ID): ", numToChar(fills % unusedUniverses())
       print '(2X, 2A)', "Boundary Surface ID: ", numToChar(surf_ptr % getId())
       print '(2X, 2A)', "Boundary Surface Type: ", surf_ptr % getType()
@@ -203,14 +374,28 @@ contains
     class(csg), intent(inout) :: self
 
     ! Clean content
-    call self % surfs % kill()
+    call self % surfaces % kill()
     call self % cells % kill()
     call self % meshes % kill()
-    call self % unis % kill()
+    call self % universes % kill()
     call self % graph % kill()
     self % borderIdx = 0
     self % rootIdx = 0
 
   end subroutine kill
+
+  !!
+  !!
+  !!
+  subroutine transformSurfaceBoundaryConditions(self, idx, r, u)
+    class(csg), intent(in)                     :: self
+    integer(shortInt), intent(in)              :: idx
+    real(defReal), dimension(3), intent(inout) :: r, u
+    class(surface), pointer                    :: surfacePtr
+
+    surfacePtr => self % surfaces % getPtr(idx)
+    call surfacePtr % transformBC(r, u)
+
+  end subroutine transformSurfaceBoundaryConditions
 
 end module csg_class

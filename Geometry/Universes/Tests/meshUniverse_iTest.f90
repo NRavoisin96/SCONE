@@ -1,17 +1,17 @@
 module meshUniverse_iTest
   
-  use numPrecision
-  use universalVariables
-  use genericProcedures
+  use cellShelf_class,    only : cellShelf
+  use charMap_class,      only : charMap
   use dictionary_class,   only : dictionary
   use dictParser_func,    only : charToDict
-  use charMap_class,      only : charMap
-  use coord_class,        only : coord
-  use surfaceShelf_class, only : surfaceShelf
-  use meshShelf_class,    only : meshShelf
-  use cellShelf_class,    only : cellShelf
-  use meshUniverse_class, only : meshUniverse
   use funit
+  use genericProcedures
+  use meshShelf_class,    only : meshShelf
+  use meshUniverse_class, only : meshUniverse
+  use numPrecision
+  use publicObjects,      only : coordData, newCoordData
+  use surfaceShelf_class, only : surfaceShelf
+  use universalVariables
   
   implicit none
   
@@ -31,8 +31,8 @@ module meshUniverse_iTest
   !   z -> x
   ! 
   character(*), parameter :: UNI_DEF = &
-  "id 1; type meshUniverse; origin (2.0 0.0 0.0); rotation (90.0 90.0 90.0); cell 1; mesh 8; &
-   fills (fuel water fuel water);"
+  "id 1; type meshUniverse; origin (2.0 0.0 0.0); rotation (90.0 90.0 90.0); cell 1; mesh 8;&
+   & fills (fuel water fuel water);"
   ! Variables.
   type(surfaceShelf) :: surfs
   type(meshShelf)    :: meshes
@@ -110,42 +110,46 @@ contains
   !!
 @Test
   subroutine test_enter()
-    type(coord)                    :: new
-    real(defReal), dimension(3)    :: r_ref, u_ref, r, u
-    real(defReal), dimension(3, 3) :: rotationMatrix
-    real(defReal), parameter       :: TOL = 1.0E-7_defReal
+    type(coordData)             :: data
+    real(defReal), dimension(3) :: r_ref, u_ref, r, u
+    real(defReal), parameter    :: TOL = 1.0E-7_defReal
 
     ! ** Enter into local cell 1.
     r = [ZERO, ZERO, 3.0_defReal]
     u = [ZERO, ZERO, ONE]
-    call uni % enter(r, u, new)
+    data = newCoordData(r, u)
+    call uni % enter(data)
+    
     ! Verify location. Note that particle is at the mesh boundary and is going out due to its 
     ! direction.
     r_ref = [ONE, ZERO, ZERO]
     u_ref = [ONE, ZERO, ZERO]
-    @assertEqual(r_ref, new % getPosition(), TOL)
-    @assertEqual(u_ref, new % getDirection(), TOL)
-    @assertEqual(18, new % getUniIdx())
-    @assertEqual(1, new % getLocalId())
-    @assertEqual(cells % getIdx(1), new % getCellIdx())
+    @assertEqual(r_ref, data % r, TOL)
+    @assertEqual(u_ref, data % u, TOL)
+    @assertEqual(18, data % universeIdx)
+    @assertEqual(1, data % localId)
+    @assertEqual(cells % getIdx(1), data % cellIdx)
     
     ! Change direction and check that the particle is in the mesh.
     r = [ZERO, ZERO, 3.0_defReal]
     u = [ZERO, ZERO, -ONE]
-    call uni % enter(r, u, new)
+    data = newCoordData(r, u)
+    call uni % enter(data)
+    
+    r_ref = [ONE, ZERO, ZERO]
     u_ref = [-ONE, ZERO, ZERO]
-    @assertEqual(r_ref, new % getPosition(), TOL)
-    @assertEqual(u_ref, new % getDirection(), TOL)
-    @assertEqual(18, new % getUniIdx())
-    @assertEqual(4, new % getLocalId())
-    @assertEqual(cells % getIdx(1), new % getCellIdx())
+    @assertEqual(r_ref, data % r, TOL)
+    @assertEqual(u_ref, data % u, TOL)
+    @assertEqual(18, data % universeIdx)
+    @assertEqual(4, data % localId)
+    @assertEqual(cells % getIdx(1), data % cellIdx)
+    
     ! Verify rotation settings in coord.
     ! * Do it only once.
-    @assertTrue(new % getIsRotated())
-    rotationMatrix = new % getRotationMatrix()
-    @assertEqual([ZERO, ZERO,  ONE], rotationMatrix(1, :), TOL)
-    @assertEqual([ZERO, -ONE, ZERO], rotationMatrix(2, :), TOL)
-    @assertEqual([ONE , ZERO, ZERO], rotationMatrix(3, :), TOL)
+    @assertTrue(data % isRotated)
+    @assertEqual([ZERO, ZERO,  ONE], data % rotationMatrix(1, :), TOL)
+    @assertEqual([ZERO, -ONE, ZERO], data % rotationMatrix(2, :), TOL)
+    @assertEqual([ONE , ZERO, ZERO], data % rotationMatrix(3, :), TOL)
 
   end subroutine test_enter
   !!
@@ -153,50 +157,32 @@ contains
   !!
 @Test
   subroutine test_distance()
-    real(defReal)            :: d, ref, maxDist
-    integer(shortInt)        :: surfIdx
-    type(coord)              :: pos
+    type(coordData)          :: data
+    real(defReal)            :: ref
     real(defReal), parameter :: TOL = 1.0E-7_defReal
     
-    ! Initialise maxDist.
-    maxDist = ONE
-    
     ! ** In local cell 1 distance to cell boundary.
-    call pos % setPosition([-1.2_defReal, ZERO, ZERO])
-    call pos % setDirection([-ONE, ZERO, ZERO])
-    call pos % setEndPosition(pos % getPosition() + pos % getDirection() * maxDist)
-    call pos % setUniIdx(18)
-    call pos % setCellIdx(cells % getIdx(1))
-    call pos % setLocalId(1)
-    call uni % distance(pos, d, surfIdx)
+    data = newCoordData([-1.2_defReal, ZERO, ZERO], [-ONE, ZERO, ZERO], &
+                        cellIdx = cells % getIdx(1), localId = 1, universeIdx = 18, dMax = ONE)
+    call uni % distance(data)
     ref = 0.8_defReal
-    @assertEqual(ref, d, TOL * ref)
-    @assertEqual(surfs % getIdx(1), surfIdx)
+    @assertEqual(ref, data % d, TOL * ref)
+    @assertEqual(surfs % getIdx(1), data % surfaceIdx)
     
     ! ** In local cell 1 distance to mesh boundary.
-    call pos % setPosition([-1.2_defReal, ZERO, ZERO])
-    call pos % setDirection([ONE, ZERO, ZERO])
-    call pos % setEndPosition(pos % getPosition() + pos % getDirection() * maxDist)
-    call pos % setUniIdx(18)
-    call pos % setCellIdx(cells % getIdx(1))
-    call pos % setLocalId(1)
-    call pos % setElementIdx(0)
-    call uni % distance(pos, d, surfIdx)
+    data = newCoordData([-1.2_defReal, ZERO, ZERO], [ONE, ZERO, ZERO], &
+                        cellIdx = cells % getIdx(1), localId = 1, universeIdx = 18, dMax = ONE)
+    call uni % distance(data)
     ref = 0.2_defReal
-    @assertEqual(ref, d, TOL * ref)
-    @assertEqual(0, surfIdx)
+    @assertEqual(ref, data % d, TOL * ref)
+    @assertEqual(0, data % surfaceIdx)
     
     ! ** In local cell 1. Leaving mesh and on mesh boundary.
-    call pos % setPosition([ZERO, ONE, ZERO])
-    call pos % setDirection([ZERO, ONE, ZERO])
-    call pos % setEndPosition(pos % getPosition() + pos % getDirection() * maxDist)
-    call pos % setUniIdx(18)
-    call pos % setCellIdx(cells % getIdx(1))
-    call pos % setLocalId(1)
-    call pos % setElementIdx(0)
-    call uni % distance(pos, d, surfIdx)
+    data = newCoordData([ZERO, ONE, ZERO], [ZERO, ONE, ZERO], &
+                        cellIdx = cells % getIdx(1), localId = 1, universeIdx = 18, dMax = ONE)
+    call uni % distance(data)
     ref = ONE
-    @assertEqual(ref, d, TOL * d)
+    @assertEqual(ref, data % d, TOL * ref)
     
   end subroutine test_distance
   

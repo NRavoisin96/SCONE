@@ -205,7 +205,7 @@ contains
     integer(shortInt), intent(in) :: id
     integer(shortInt)             :: idx
     integer(shortInt), parameter  :: NOT_PRESENT = -7
-    character(100), parameter     :: Here = 'getIdx (cellShelf_class.f90)'
+    character(*), parameter       :: Here = 'getIdx (cellShelf_class.f90)'
 
     idx = self % idMap % getOrDefault(id, NOT_PRESENT)
 

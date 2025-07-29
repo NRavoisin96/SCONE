@@ -768,8 +768,7 @@ contains
     type(aceSabCard)                                 :: ACE_Sab1, ACE_Sab2
     character(pathLen)                               :: aceLibPath
     character(nameLen)                               :: name, name_file1, name_file2, nucDBRC_temp
-    integer(shortInt)                                :: i, j, envFlag, nucIdx, idx, idx1, idx2
-    integer(shortInt)                                :: maxNuc
+    integer(shortInt)                                :: i, idx, idx1, idx2, j, envFlag, maxNuc, nucIdx
     logical(defBool)                                 :: isFissileMat
     integer(shortInt), dimension(:), allocatable       :: nucIdxs, zaidDBRC
     character(nameLen), dimension(:), allocatable      :: nucDBRC
@@ -798,6 +797,7 @@ contains
 
     ! Create list of all nuclides. Loop over materials
     ! Find maximum number of nuclides: maxNuc
+    maxNuc = 0
     do i = 1, mm_nMat()
       mat => mm_getMatPtr(i)
       maxNuc = max(maxNuc, size(mat % nuclides))
@@ -924,6 +924,7 @@ contains
       self % eBounds(1) = max(self % eBounds(1), self % nuclides(i) % eGrid(1))
       j = size(self % nuclides(i) % eGrid)
       self % eBounds(2) = min(self % eBounds(2), self % nuclides(i) % eGrid(j))
+
     end do
 
     ! Build Material definitions

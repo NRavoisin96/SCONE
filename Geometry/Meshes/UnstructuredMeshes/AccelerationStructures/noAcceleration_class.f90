@@ -1,12 +1,12 @@
 module noAcceleration_class
 
-  use accelerationStructure_inter,  only : accelerationStructure
-  use coord_class,                  only : coord
+  use accelerationStructure_inter,  only : accelerationStructure, initAccelerationStructurePayload
   use dictionary_class,             only : dictionary
   use face_class,                   only : face, faceBox
   use genericProcedures,            only : fatalError, numToChar
   use element_class,                only : element, elementBox, inclusionTestResult
   use numPrecision
+  use publicObjects,                only : coordData
   use topologicalObject_inter,      only : topologicalObjectBox
   use topologicalObjectShelf_class, only : topologicalObjectShelf
   use universalVariables,           only : INF, INSIDE_ELEMENT, NUDGE, ON_BOUNDARY_ELEMENT, OUTSIDE_ELEMENT
@@ -30,15 +30,14 @@ contains
   !!
   !!
   !!
-  subroutine findEntranceBoundaryFace(self, faces, coords, d, boundaryFace)
+  subroutine findEntranceBoundaryFace(self, faces, data, boundaryFace)
     class(noAcceleration), intent(in)        :: self
     type(topologicalObjectShelf), intent(in) :: faces
-    type(coord), intent(in)                  :: coords
-    real(defReal), intent(inout)             :: d
+    type(coordData), intent(inout)           :: data
     type(faceBox), intent(out)               :: boundaryFace
     type(faceBox)                            :: testFace
     integer(shortInt)                        :: i
-    real(defReal)                            :: update
+    real(defReal)                            :: distanceToFace
 
     do i = 1, faces % getObjectsNumber()
       testFace = faces % getFaceBox(i)
@@ -46,9 +45,9 @@ contains
       if (.not. (testFace % ptr % getIsActive() .and. testFace % ptr % getIsBoundary())) cycle
 
       ! Compute distance to boundary face.
-      call testFace % ptr % computeIntersection(coords, update)
-      if (update < d) then
-        d = update
+      call testFace % ptr % computeIntersection(data % r, data % u, data % dMax, distanceToFace)
+      if (distanceToFace < data % d) then
+        data % d = distanceToFace
         boundaryFace = testFace
 
       end if
@@ -60,10 +59,10 @@ contains
   !!
   !!
   !!
-  subroutine findHostElement(self, elements, coords, stopSearch)
+  subroutine findHostElement(self, elements, data, stopSearch)
     class(noAcceleration), intent(in)        :: self
     type(topologicalObjectShelf), intent(in) :: elements
-    type(coord), intent(inout)               :: coords
+    type(coordData), intent(inout)           :: data
     logical(defBool), intent(out)            :: stopSearch
     integer(shortInt)                        :: i
     type(elementBox)                         :: element
@@ -76,29 +75,27 @@ contains
       ! Cycle to the next element if the current element is not active.
       if (.not. element % ptr % getIsActive()) cycle
       
-      testResult = element % ptr % isPointInside(coords % getPositionToNudge())
+      testResult = element % ptr % isPointInside(data % r)
       if (testResult % status == INSIDE_ELEMENT) then
-        call coords % setElementIdx(element % ptr % getIdx())
-        call coords % setParentElementIdx(element % ptr % getParentIdx())
-        call coords % setLocalId(element % ptr % getLocalId())
+        data % elementIdx = element % ptr % getIdx()
+        data % localId = element % ptr % getLocalId()
         return 
 
       elseif (testResult % status == ON_BOUNDARY_ELEMENT) then
         ! If coordinates are on the element boundary (very rare), we need to push them off.
         do while (testResult % status == ON_BOUNDARY_ELEMENT)
-          call element % ptr % pushFromBoundary(coords)
+          call element % ptr % pushFromBoundary(data % u, data % r)
 
           ! Perform containment test again.
-          testResult = element % ptr % isPointInside(coords % getPositionToNudge())
+          testResult = element % ptr % isPointInside(data % r)
 
         end do
 
         ! Now the coordinates are not on the boundary of the element anymore.
         if (testResult % status == INSIDE_ELEMENT) then
           ! If coordinates are now well inside the element, we have found our element.
-          call coords % setElementIdx(element % ptr % getIdx())
-          call coords % setParentElementIdx(element % ptr % getParentIdx())
-          call coords % setLocalId(element % ptr % getLocalId())
+          data % elementIdx = element % ptr % getIdx()
+          data % localId = element % ptr % getLocalId()
 
         elseif (testResult % status == OUTSIDE_ELEMENT) then
           stopSearch = .false.
@@ -115,10 +112,9 @@ contains
   !!
   !!
   !!
-  subroutine init(self, dict, edges, elements, faces, vertices)
-    class(noAcceleration), intent(inout)             :: self
-    class(dictionary), intent(in)                    :: dict
-    type(topologicalObjectShelf), target, intent(in) :: edges, elements, faces, vertices
+  subroutine init(self, payload)
+    class(noAcceleration), intent(inout)               :: self
+    type(initAccelerationStructurePayload), intent(in) :: payload
 
     ! Do nothing.
 

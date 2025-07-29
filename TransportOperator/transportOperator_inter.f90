@@ -5,7 +5,6 @@ module transportOperator_inter
   use errors_mod,                 only : fatalError
 
   use particle_class,             only : particle
-  use particleDungeon_class,      only : particleDungeon
   use dictionary_class,           only : dictionary
 
 
@@ -20,11 +19,8 @@ module transportOperator_inter
   use nuclearDataReg_mod,         only : ndReg_get => get
   use nuclearDatabase_inter,      only : nuclearDatabase
 
-
-
   implicit none
   private
-
 
   !!
   !! This is an abstract interface for all types of transport processing
@@ -47,7 +43,7 @@ module transportOperator_inter
     class(nuclearDatabase), pointer :: xsData => null()
 
     !! Geometry pointer -> public so it can be used by subclasses (protected member)
-    class(geometry), pointer         :: geom        => null()
+    class(geometry), pointer :: geom => null()
 
   contains
     ! Public interface
@@ -72,16 +68,11 @@ module transportOperator_inter
     !! Move particle from collision to collision
     !!  Kill particle if needed
     !!
-    subroutine transit(self, p, tally, thisCycle, nextCycle)
-      import :: transportOperator, &
-                particle, &
-                tallyAdmin, &
-                particleDungeon
+    subroutine transit(self, p, tally)
+      import                                  :: particle, tallyAdmin, transportOperator
       class(transportOperator), intent(inout) :: self
       class(particle), intent(inout)          :: p
       type(tallyAdmin), intent(inout)         :: tally
-      class(particleDungeon), intent(inout)   :: thisCycle
-      class(particleDungeon), intent(inout)   :: nextCycle
     end subroutine transit
   end interface
 
@@ -91,13 +82,11 @@ contains
   !! Master non-overridable subroutine to perform transport
   !!  Performs everything common to all types of transport
   !!
-  subroutine transport(self, p, tally, thisCycle, nextCycle)
+  subroutine transport(self, p, tally)
     class(transportOperator), intent(inout) :: self
     class(particle), intent(inout)          :: p
     type(tallyAdmin), intent(inout)         :: tally
-    class(particleDungeon), intent(inout)   :: thisCycle
-    class(particleDungeon), intent(inout)   :: nextCycle
-    character(100), parameter :: Here ='transport (transportOperator_inter.f90)'
+    character(*), parameter                 :: Here = 'transport (transportOperator_inter.f90)'
 
     ! Get nuclear data pointer form the particle
     self % xsData => ndReg_get(p % getType())
@@ -109,12 +98,10 @@ contains
     call p % savePreTransition()
 
     ! Perform transit
-    call self % transit(p, tally, thisCycle, nextCycle)
+    call self % transit(p, tally)
 
     ! Send history reports if particle died
-    if (p  % isDead) then
-      call tally % reportHist(p)
-    end if
+    if (p  % isDead) call tally % reportHist(p)
 
   end subroutine transport
 
@@ -139,6 +126,5 @@ contains
     self % xsData => null()
 
   end subroutine kill
-
 
 end module transportOperator_inter

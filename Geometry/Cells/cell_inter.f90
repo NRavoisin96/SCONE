@@ -1,8 +1,8 @@
 module cell_inter
 
-  use numPrecision
-  use genericProcedures,  only : fatalError, numToChar
   use dictionary_class,   only : dictionary
+  use genericProcedures,  only : fatalError, numToChar
+  use numPrecision
   use surfaceShelf_class, only : surfaceShelf
 
   implicit none

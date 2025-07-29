@@ -46,7 +46,7 @@ contains
     end do
 
     ! Build geometry
-    call geom % init(dict, mats, silent=.true.)
+    call geom % init(dict, mats, silent = .true.)
 
     ! Get material at few locations
     name = 'water'

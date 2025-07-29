@@ -8,7 +8,6 @@ module transportOperatorDT_class
   use errors_mod,                 only : fatalError
   use genericProcedures,          only : numToChar
   use particle_class,             only : particle
-  use particleDungeon_class,      only : particleDungeon
   use dictionary_class,           only : dictionary
 
   ! Superclass
@@ -32,11 +31,9 @@ module transportOperatorDT_class
   !! Transport operator that moves a particle with delta tracking
   !!
   type, public, extends(transportOperator) :: transportOperatorDT
+    private
   contains
     procedure :: transit => deltaTracking
-    ! Override procedure
-    procedure :: init
-
   end type transportOperatorDT
 
 contains
@@ -44,14 +41,12 @@ contains
   !!
   !! Performs delta tracking until a real collision point is found
   !!
-  subroutine deltaTracking(self, p, tally, thisCycle, nextCycle)
+  subroutine deltaTracking(self, p, tally)
     class(transportOperatorDT), intent(inout) :: self
     class(particle), intent(inout)            :: p
     type(tallyAdmin), intent(inout)           :: tally
-    class(particleDungeon), intent(inout)     :: thisCycle
-    class(particleDungeon), intent(inout)     :: nextCycle
     real(defReal)                             :: majorant_inv, sigmaT, distance, randomNumber
-    character(*), parameter :: Here = 'deltaTracking (transportOperatorDT_class.f90)'
+    character(*), parameter                   :: Here = 'deltaTracking (transportOperatorDT_class.f90)'
 
     ! Get majorant XS inverse: 1/Sigma_majorant
     majorant_inv = ONE / self % xsData % getTrackingXS(p, p % getMatIdx(), MAJORANT_XS)
@@ -106,20 +101,6 @@ contains
     call tally % reportTrans(p)
 
   end subroutine deltaTracking
-
-  !!
-  !! Initialise DT transport operator
-  !!
-  !! See transportOperator_inter for more details
-  !!
-  subroutine init(self, dict)
-    class(transportOperatorDT), intent(inout) :: self
-    class(dictionary), intent(in)             :: dict
-
-    ! Initialise superclass
-    call init_super(self, dict)
-
-  end subroutine init
 
 
 end module transportOperatorDT_class

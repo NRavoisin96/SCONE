@@ -1,21 +1,21 @@
 module meshUniverse_class
   
   use axisAlignedBoundingBox_class, only : axisAlignedBoundingBox
-  use numPrecision
-  use universalVariables,           only : NUDGE, ZERO, ONE, INF, nameLen
-  use genericProcedures,            only : fatalError, numToChar, countCharacters
-  use dictionary_class,             only : dictionary
   use box_class,                    only : box
-  use coord_class,                  only : coord
   use charMap_class,                only : charMap
+  use cell_inter,                   only : cell
+  use cellShelf_class,              only : cellShelf
+  use dictionary_class,             only : dictionary
+  use genericProcedures,            only : fatalError, numToChar, countCharacters
+  use mesh_inter,                   only : mesh
+  use meshShelf_class,              only : meshShelf
+  use numPrecision
+  use publicObjects,                only : coordData
+  use simpleCell_class,             only : simpleCell
   use sphere_class,                 only : sphere
   use surface_inter,                only : surface
   use surfaceShelf_class,           only : surfaceShelf
-  use cell_inter,                   only : cell
-  use cellShelf_class,              only : cellShelf
-  use simpleCell_class,             only : simpleCell
-  use mesh_inter,                   only : mesh
-  use meshShelf_class,              only : meshShelf
+  use universalVariables,           only : NUDGE, ZERO, ONE, INF, nameLen
   use universe_inter,               only : universe, kill_super => kill, charToFill
   
   implicit none
@@ -74,6 +74,7 @@ module meshUniverse_class
   !!   universe interface
   !!
   type, public, extends(universe) :: meshUniverse
+    private
     type(localCell)               :: cell
     type(localMesh)               :: mesh
   contains
@@ -83,7 +84,6 @@ module meshUniverse_class
     procedure                     :: findCell
     procedure                     :: distance
     procedure                     :: cross
-    procedure                     :: cellOffset
     ! Local procedures
     procedure                     :: checkForCropping
   end type meshUniverse
@@ -146,13 +146,13 @@ contains
   !!
   !! See universe_inter for details.
   !!
-  subroutine findCell(self, coords)
+  subroutine findCell(self, data)
     class(meshUniverse), intent(inout) :: self
-    type(coord), intent(inout)         :: coords
+    type(coordData), intent(inout)     :: data
     
     ! Set cellIdx to the index of the CSG cell, then find elementIdx and localId within mesh.
-    call coords % setCellIdx(self % cell % idx)
-    call self % mesh % ptr % findHostElement(coords)
+    data % cellIdx = self % cell % idx
+    call self % mesh % ptr % findHostElement(data)
 
   end subroutine findCell
   
@@ -161,20 +161,16 @@ contains
   !!
   !! See universe_inter for details.
   !!
-  subroutine distance(self, coords, d, surfIdx)
+  subroutine distance(self, data)
     class(meshUniverse), intent(inout) :: self
-    type(coord), intent(inout)         :: coords
-    real(defReal), intent(out)         :: d
-    integer(shortInt), intent(out)     :: surfIdx
-    logical(defBool)                   :: inside
+    type(coordData), intent(inout)     :: data
     
     ! Initialise surfIdx = 0 and compute distance to next mesh crossing. Also check if particle is
     ! inside the mesh.
-    surfIdx = 0
-    call self % mesh % ptr % distance(d, coords, inside)
+    call self % mesh % ptr % distance(data)
     
     ! If particle is outside the mesh then compute distance to the next CSG surface crossing.
-    if (.not. inside) call self % cell % ptr % distance(d, surfIdx, coords % getPosition(), coords % getDirection())
+    if (.not. data % isInside) call self % cell % ptr % distance(data % d, data % surfaceIdx, data % r, data % u)
 
   end subroutine distance
   
@@ -186,29 +182,13 @@ contains
   !! Note: Introduces extra movement to the particle to push it over boundary
   !!   for more efficent search. Distance is NUGDE.
   !!
-  subroutine cross(self, coords, surfIdx)
+  subroutine cross(self, data)
     class(meshUniverse), intent(inout) :: self
-    type(coord), intent(inout)         :: coords
-    integer(shortInt), intent(in)      :: surfIdx
+    type(coordData), intent(inout)     :: data
 
     ! Do nothing.
 
   end subroutine cross
-  
-  !!
-  !! Returns offset for the current cell
-  !!
-  !! See universe_inter for details.
-  !!
-  function cellOffset(self, coords) result (offset)
-    class(meshUniverse), intent(in) :: self
-    type(coord), intent(in)         :: coords
-    real(defReal), dimension(3)     :: offset
-    
-    ! There is no cell offset.
-    offset = ZERO
-
-  end function cellOffset
   
   !!
   !! Returns to uninitialised state

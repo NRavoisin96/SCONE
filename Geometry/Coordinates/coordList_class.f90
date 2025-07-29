@@ -3,6 +3,7 @@ module coordList_class
   use coord_class,        only : coord
   use genericProcedures,  only : fatalError, numToChar, rotateVector
   use numPrecision
+  use publicObjects,      only : coordData
   use universalVariables, only : HARDCODED_MAX_NEST
 
   !!
@@ -63,7 +64,7 @@ module coordList_class
     procedure :: assignPosition
     procedure :: decreaseLevel
     procedure :: getCellIdx
-    procedure :: getCoordinates
+    procedure :: getCoordinatesData
     procedure :: getDirection
     procedure :: getLocalId
     procedure :: getLowestCellIdx
@@ -84,11 +85,13 @@ module coordList_class
     procedure :: setMatIdx
     procedure :: setNesting
     procedure :: setPosition
+    procedure :: setPositionAndDirection
     procedure :: setRotationMatrix
     procedure :: setUniIdx
     procedure :: setUniqueId
     procedure :: setUniRootId
     procedure :: takeAboveGeom
+    procedure :: updateCoordinatesFromData
   end type coordList
 
 contains
@@ -189,14 +192,14 @@ contains
   !!
   !!
   !!
-  elemental function getCoordinates(self, lvl) result(coords)
+  elemental function getCoordinatesData(self, lvl) result(data)
     class(coordList), intent(in)  :: self
     integer(shortInt), intent(in) :: lvl
-    type(coord)                   :: coords
+    type(coordData)               :: data
 
-    coords = self % lvl(lvl)
+    data = self % lvl(lvl) % getData()
 
-  end function getCoordinates
+  end function getCoordinatesData
 
   !!
   !!
@@ -585,6 +588,18 @@ contains
   !!
   !!
   !!
+  pure subroutine setPositionAndDirection(self, r, u, lvl)
+    class(coordList), intent(inout)         :: self
+    real(defReal), dimension(3), intent(in) :: r, u
+    integer(shortInt), intent(in)           :: lvl
+
+    call self % lvl(lvl) % setPositionAndDirection(r, u)
+
+  end subroutine setPositionAndDirection
+
+  !!
+  !!
+  !!
   pure subroutine setRotationMatrix(self, rotationMatrix, lvl)
     class(coordList), intent(inout)            :: self
     real(defReal), dimension(3, 3), intent(in) :: rotationMatrix
@@ -643,5 +658,17 @@ contains
     self % uniqueId = -3
 
   end subroutine takeAboveGeom
+
+  !!
+  !!
+  !!
+  elemental subroutine updateCoordinatesFromData(self, lvl, data)
+    class(coordList), intent(inout) :: self
+    integer(shortInt), intent(in)   :: lvl
+    type(coordData), intent(in)     :: data
+
+    call self % lvl(lvl) % updateFromData(data)
+
+  end subroutine updateCoordinatesFromData
 
 end module coordList_class

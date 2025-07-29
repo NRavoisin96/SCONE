@@ -3,7 +3,6 @@ module unstructuredMesh_inter
   use accelerationStructure_inter,       only : accelerationStructure
   use accelerationStructureFactory_func, only : newAccelerationStructurePtr
   use axisAlignedBoundingBox_class,      only : axisAlignedBoundingBox
-  use coord_class,                       only : coord
   use dictionary_class,                  only : dictionary
   use edge_class,                        only : edgeBox
   use element_class,                     only : buildElementPayload, element, elementBox, inclusionTestResult, &
@@ -11,11 +10,10 @@ module unstructuredMesh_inter
   use extentTopologicalObject_inter,     only : buildExtentTopologicalObjectPayload
   use face_class,                        only : buildFacePayload, face, faceBox
   use genericProcedures,                 only : append, fatalError, numToChar
-  use mesh_inter,                        only : mesh, distanceToBoundary_super => distanceToBoundary, &
-                                                findHostElement_super => findHostElement, kill_super => kill
+  use mesh_inter,                        only : mesh, kill_super => kill
   use numPrecision
   use publicObjects,                     only : basicEdgeInfo, basicElementInfo, basicFaceInfo, basicVertexInfo, &
-                                                intersectionTestResult, meshLocalIdInfo
+                                                coordData, intersectionTestResult, meshLocalIdInfo, newCoordData
   use topologicalObject_inter,           only : topologicalObjectBox
   use topologicalObjectShelf_class,      only : topologicalObjectShelf
   use triangulationFactory_func,         only : newTriangulationPtr
@@ -141,24 +139,25 @@ contains
   !!
   !! See mesh_inter for details.
   !!
-  subroutine distanceToBoundary(self, d, coords)
+  subroutine distanceToBoundary(self, data)
     class(unstructuredMesh), intent(in)                   :: self
-    real(defReal), intent(out)                            :: d
-    type(coord), intent(inout)                            :: coords
+    type(coordData), intent(inout)                        :: data
     type(axisAlignedBoundingBox), pointer                 :: boundingBoxPtr
     type(intersectionTestResult)                          :: boundingBoxIntersectionResult
     type(faceBox)                                         :: boundaryFace
     type(topologicalObjectBox), dimension(:), allocatable :: faceElements
+    type(coordData)                                       :: endData
     type(inclusionTestResult)                             :: testResult
+    logical(defBool)                                      :: overshoot
+    real(defReal)                                         :: d
     character(*), parameter                               :: here = 'distanceToBoundary (unstructuredMesh_inter.f90)'
     
     ! Initialise parentIdx = 0, edgeIdx = 0 and vertexIdx = 0 then search the tree for the intersected boundary face.
-    call distanceToBoundary_super(self, d, coords)
     boundingBoxPtr => self % getBoundingBoxPtr()
-    boundingBoxIntersectionResult = boundingBoxPtr % intersects(coords % getPosition(), coords % getDirection())
+    boundingBoxIntersectionResult = boundingBoxPtr % intersects(data % r, data % u)
     if (.not. boundingBoxIntersectionResult % intersects) return
 
-    call self % acceleration % findEntranceBoundaryFace(self % faces, coords, d, boundaryFace)
+    call self % acceleration % findEntranceBoundaryFace(self % faces, data, boundaryFace)
     if (.not. associated(boundaryFace % ptr)) return
 
     ! Retrieve the element associated with the boundary face.
@@ -166,27 +165,25 @@ contains
     ! Downcast elements to correct type.
     select type(ptr => faceElements(1) % ptr)
       type is(element)
-        call coords % setElementIdx(ptr % getIdx())
-        call coords % setParentElementIdx(ptr % getParentIdx())
-        call coords % setLocalId(ptr % getLocalId())
-
         ! Set coords % endPosition to the minimum computed distance plus a slight forward nudge.
-        call coords % setEndPosition(coords % getPosition() + (d + NUDGE) * coords % getDirection())
+        endData = newCoordData(data % r + (data % d + NUDGE) * data % u, data % u)
 
         ! If the element associated with the intersected face does not contain the end position, begin rescue.
-        testResult = ptr % isPointInside(coords % getEndPosition())
-        if (.not. testResult % status == INSIDE_ELEMENT) then
-          call coords % setNudgeEndPosition(.true.)
-          call self % findHostElement(coords)
+        testResult = ptr % isPointInside(endData % r)
+        if (testResult % status == INSIDE_ELEMENT) then
+          data % elementIdx = ptr % getIdx()
+          data % localId = ptr % getLocalId()
+
+        else
+          call self % findHostElement(endData)
           ! Update distance.
-          if (coords % getElementIdx() == 0) then
-            d = INF
-
-          else
-            d = norm2(coords % getEndPosition() - coords % getPosition())
-
-          end if
-          call coords % setNudgeEndPosition(.false.)
+          data % elementIdx = endData % elementIdx
+          data % localId = endData % localId
+          
+          overshoot = data % elementIdx == 0
+          d = norm2(endData % r - data % r)
+          data % d = merge(INF, d, overshoot)
+          data % u = merge(data % u, (endData % r - data % r) / d, overshoot)
 
         end if
 
@@ -206,10 +203,9 @@ contains
   !!
   !! See mesh_inter for details.
   !!
-  subroutine distanceToNextFace(self, d, coords)
+  subroutine distanceToNextFace(self, data)
     class(unstructuredMesh), intent(in)                   :: self
-    real(defReal), intent(out)                            :: d
-    type(coord), intent(inout)                            :: coords
+    type(coordData), intent(inout)                        :: data
     type(elementBox)                                      :: currentElement
     type(rayIntersectionTestResult)                       :: intersectionResults
     integer(shortInt)                                     :: i, nElements
@@ -218,18 +214,15 @@ contains
     
     ! Retrieve the element currently occupied by the particle and compute potential 
     ! face intersections.
-    d = INF
-    currentElement = self % elements % getElementBox(coords % getElementIdx())
-    intersectionResults = currentElement % ptr % intersects_Ray(coords % getPosition(), coords % getEndPosition())
-
+    currentElement = self % elements % getElementBox(data % elementIdx)
+    intersectionResults = currentElement % ptr % intersects_Ray(data % r, data % r + data % dMax * data % u)
     if (.not. intersectionResults % intersects) return
-    d = intersectionResults % d
+    data % d = intersectionResults % d
     
     ! If the intersected face is a boundary face then the particle is leaving the mesh.
     if (intersectionResults % intersectedFace % ptr % getIsBoundary()) then
-      call coords % setElementIdx(0)
-      call coords % setParentElementIdx(0)
-      call coords % setLocalId(1)
+      data % elementIdx = 0
+      data % localId = 1
 
     else
       ! Else, retrieve the elements sharing the intersected face from mesh connectivity then
@@ -246,9 +239,8 @@ contains
           type is(element)
             if (.not. associated(currentElement % ptr, ptr)) then
               ! We have found our new element.
-              call coords % setElementIdx(ptr % getIdx())
-              call coords % setParentElementIdx(ptr % getParentIdx())
-              call coords % setLocalId(ptr % getLocalId())
+              data % elementIdx = ptr % getIdx()
+              data % localId = ptr % getLocalId()
 
             end if
 
@@ -271,19 +263,16 @@ contains
   !!
   !! See mesh_inter for details.
   !!
-  subroutine findHostElement(self, coords)
+  subroutine findHostElement(self, data)
     class(unstructuredMesh), intent(in)   :: self
-    type(coord), intent(inout)            :: coords
+    type(coordData), intent(inout)        :: data
     type(axisAlignedBoundingBox), pointer :: boundingBoxPtr
     logical(defBool)                      :: stopSearch
     
-    ! Set elementIdx = 0, parentElementIdx = 0 and localId = 1.
-    call findHostElement_super(self, coords)
     boundingBoxPtr => self % getBoundingBoxPtr()
-    
     searchLoop: do
-      if (.not. boundingBoxPtr % contains(coords % getPositionToNudge())) return
-      call self % acceleration % findHostElement(self % elements, coords, stopSearch)
+      if (.not. boundingBoxPtr % contains(data % r)) return
+      call self % acceleration % findHostElement(self % elements, data, stopSearch)
       if (stopSearch) return
 
     end do searchLoop

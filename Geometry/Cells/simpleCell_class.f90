@@ -1,11 +1,12 @@
 module simpleCell_class
-  use numPrecision
-  use universalVariables, only : INF
-  use genericProcedures,  only : fatalError, hasDuplicates, numToChar
-  use dictionary_class,   only : dictionary
-  use surfaceShelf_class, only : surfaceShelf
-  use surface_inter,      only : surface
+  
   use cell_inter,         only : cell, kill_super => kill
+  use dictionary_class,   only : dictionary
+  use genericProcedures,  only : fatalError, hasDuplicates, numToChar
+  use numPrecision
+  use surface_inter,      only : surface
+  use surfaceShelf_class, only : surfaceShelf
+  use universalVariables, only : INF
 
   implicit none
   private

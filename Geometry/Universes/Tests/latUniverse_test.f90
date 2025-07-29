@@ -1,17 +1,17 @@
 module latUniverse_test
 
-  use numPrecision
-  use genericProcedures
-  use universalVariables, only : HALF, ONE, UNDEF_MAT, ZERO
+  use cellShelf_class,    only : cellShelf
+  use charMap_class,      only : charMap
   use dictionary_class,   only : dictionary
   use dictParser_func,    only : charToDict
-  use charMap_class,      only : charMap
-  use coord_class,        only : coord
-  use surfaceShelf_class, only : surfaceShelf
-  use cellShelf_class,    only : cellShelf
-  use meshShelf_class,    only : meshShelf
-  use latUniverse_class,  only : latUniverse
   use funit
+  use genericProcedures
+  use latUniverse_class,  only : latUniverse
+  use meshShelf_class,    only : meshShelf
+  use numPrecision
+  use publicObjects,      only : coordData, newCoordData
+  use surfaceShelf_class, only : surfaceShelf
+  use universalVariables, only : HALF, ONE, UNDEF_MAT, ZERO
 
   implicit none
 
@@ -109,97 +109,89 @@ contains
   !!
 @Test
   subroutine test_enter()
-    type(coord) :: new
+    type(coordData)             :: data
     real(defReal), dimension(3) :: r_ref, u_ref, r, u
-    real(defReal), parameter :: TOL = 1.0E-7_defReal
+    real(defReal), parameter    :: TOL = 1.0E-7_defReal
 
     ! ** 3D universe
     ! Enter inside -> Away from surface
     r = [ONE, ONE, HALF]
     u = [ZERO, ZERO, ONE]
-
-    call uni1 % enter(r, u, new)
-
+    data = newCoordData(r, u)
+    call uni1 % enter(data)
     r_ref = r
     u_ref = u
-    @assertEqual(r_ref, new % getPosition(), TOL)
-    @assertEqual(u_ref, new % getDirection(), TOL)
-    @assertEqual(8, new % getUniIdx())
-    @assertEqual(12, new % getLocalId())
-    @assertEqual(0, new % getCellIdx())
+    @assertEqual(r_ref, data % r, TOL)
+    @assertEqual(u_ref, data % u, TOL)
+    @assertEqual(8, data % universeIdx)
+    @assertEqual(12, data % localId)
+    @assertEqual(0, data % cellIdx)
 
     ! Enter outside
     r = [1.6_defReal, HALF, HALF]
     u = [ZERO, ZERO, ONE]
-
-    call uni1 % enter(r, u, new)
-
+    data = newCoordData(r, u)
+    call uni1 % enter(data)
     r_ref = r
     u_ref = u
-    @assertEqual(r_ref, new % getPosition(), TOL)
-    @assertEqual(u_ref, new % getDirection(), TOL)
-    @assertEqual(8, new % getUniIdx())
-    @assertEqual(13, new % getLocalId())
-    @assertEqual(0, new % getCellIdx())
+    @assertEqual(r_ref, data % r, TOL)
+    @assertEqual(u_ref, data % u, TOL)
+    @assertEqual(8, data % universeIdx)
+    @assertEqual(13, data % localId)
+    @assertEqual(0, data % cellIdx)
 
     ! Enter in a corner.
     r = [-HALF, ZERO, ZERO]
     u = [-ONE, ONE, -ONE]
-    u = u / norm2(u)
-
-    call uni1 % enter(r, u, new)
-
+    data = newCoordData(r, u)
+    call uni1 % enter(data)
     r_ref = r
-    u_ref = u
-    @assertEqual(r_ref, new % getPosition(), TOL)
-    @assertEqual(u_ref, new % getDirection(), TOL)
-    @assertEqual(8, new % getUniIdx())
-    @assertEqual(4, new % getLocalId())
-    @assertEqual(0, new % getCellIdx())
+    u_ref = u / norm2(u)
+    @assertEqual(r_ref, data % r, TOL)
+    @assertEqual(u_ref, data % u, TOL)
+    @assertEqual(8, data % universeIdx)
+    @assertEqual(4, data % localId)
+    @assertEqual(0, data % cellIdx)
 
     ! ** 2D Universe
     ! Enter inside -> Away from surface
     r = [HALF, HALF, 13.5_defReal]
     u = [ZERO, ZERO, ONE]
-
-    call uni2 % enter(r, u, new)
-
+    data = newCoordData(r, u)
+    call uni2 % enter(data)
     r_ref = r
     u_ref = u
-    @assertEqual(r_ref, new % getPosition(), TOL)
-    @assertEqual(u_ref, new % getDirection(), TOL)
-    @assertEqual(3, new % getUniIdx())
-    @assertEqual(2, new % getLocalId())
-    @assertEqual(0, new % getCellIdx())
+    @assertEqual(r_ref, data % r, TOL)
+    @assertEqual(u_ref, data % u, TOL)
+    @assertEqual(3, data % universeIdx)
+    @assertEqual(2, data % localId)
+    @assertEqual(0, data % cellIdx)
 
     ! Enter outside
     r = [1.6_defReal, HALF, HALF]
     u = [ZERO, ZERO, ONE]
-
-    call uni2 % enter(r, u, new)
-
+    data = newCoordData(r, u)
+    call uni2 % enter(data)
     r_ref = r
     u_ref = u
-    @assertEqual(r_ref, new % getPosition(), TOL)
-    @assertEqual(u_ref, new % getDirection(), TOL)
-    @assertEqual(3, new % getUniIdx())
-    @assertEqual(3, new % getLocalId())
-    @assertEqual(0, new % getCellIdx())
+    @assertEqual(r_ref, data % r, TOL)
+    @assertEqual(u_ref, data % u, TOL)
+    @assertEqual(3, data % universeIdx)
+    @assertEqual(3, data % localId)
+    @assertEqual(0, data % cellIdx)
 
     ! Enter on a face
     r = [ZERO, ZERO, ZERO]
     u = [-ONE, ONE, -ONE]
-    u = u / norm2(u)
-
-    call uni2 % enter(r, u, new)
-
+    data = newCoordData(r, u)
+    call uni2 % enter(data)
     r_ref = r
-    u_ref = u
-    @assertEqual(r_ref, new % getPosition(), TOL )
-    @assertEqual(u_ref, new % getDirection(), TOL)
-    @assertEqual(3, new % getUniIdx())
-    @assertEqual(1, new % getLocalId())
-    @assertEqual(0, new % getCellIdx())
+    u_ref = u / norm2(u)
+    @assertEqual(r_ref, data % r, TOL )
+    @assertEqual(u_ref, data % u, TOL)
+    @assertEqual(3, data % universeIdx)
+    @assertEqual(1, data % localId)
+    @assertEqual(0, data % cellIdx)
 
 
   end subroutine test_enter
@@ -209,101 +201,64 @@ contains
   !!
 @Test
   subroutine test_distance()
-    real(defReal)            :: d, ref, eps
-    integer(shortInt)        :: surfIdx
-    type(coord)              :: pos
-    real(defReal), parameter :: TOL = 1.0E-7_defReal
+    type(coordData)             :: data
+    real(defReal)               :: ref, eps
+    real(defReal), parameter    :: TOL = 1.0E-7_defReal
 
     ! ** 3D universe
     ! Well inside a cell
-    call pos % setPosition([ZERO, 0.1_defReal, HALF])
-    call pos % setDirection([ZERO, -ZERO, ONE])
-    call pos % setUniIdx(8)
-    call pos % setCellIdx(0)
-    call pos % setLocalId(11)
-
-    call uni1 % distance(pos, d, surfIdx)
-
+    data = newCoordData([ZERO, 0.1_defReal, HALF], [ZERO, -ZERO, ONE], &
+                        cellIdx = 0, localId = 11, universeIdx = 8)
+    call uni1 % distance(data)
     ref = 2.5_defReal
-    @assertEqual(ref, d, TOL * ref)
-    @assertEqual(-6, surfIdx)
+    @assertEqual(ref, data % d, TOL * ref)
+    @assertEqual(-6, data % surfaceIdx)
 
     ! From outside -> miss
-    call pos % setPosition([-4.0_defReal, 0.1_defReal, HALF])
-    call pos % setDirection([ONE, ONE, ZERO])
-    call pos % setDirection(pos % getDirection() / norm2(pos % getDirection()))
-    call pos % setUniIdx(8)
-    call pos % setCellIdx(0)
-    call pos % setLocalId(13)
-
-    call uni1 % distance(pos, d, surfIdx)
-
-    @assertEqual(INF, d)
-    @assertEqual(-7, surfIdx)
+    data = newCoordData([-4.0_defReal, 0.1_defReal, HALF], [ONE, ONE, ZERO], &
+                        cellIdx = 0, localId = 13, universeIdx = 8)
+    call uni1 % distance(data)
+    @assertEqual(INF, data % d)
+    @assertEqual(-7, data % surfaceIdx)
 
     ! After a surface undershoot
     eps = HALF * SURF_TOL
-    call pos % setPosition([-ONE, ZERO - eps, -HALF])
-    call pos % setDirection([ONE, ONE, ZERO])
-    call pos % setDirection(pos % getDirection() / norm2(pos % getDirection()))
-    call pos % setUniIdx(8)
-    call pos % setCellIdx(0)
-    call pos % setLocalId(4)
-
-    call uni1 % distance(pos, d, surfIdx)
-
+    data = newCoordData([-ONE, ZERO - eps, -HALF], [ONE, ONE, ZERO], &
+                        cellIdx = 0, localId = 4, universeIdx = 8)
+    call uni1 % distance(data)
     ref = SQRT2 * HALF
-    @assertEqual(ref, d, ref * TOL)
-    @assertEqual(-2, surfIdx)
+    @assertEqual(ref, data % d, ref * TOL)
+    @assertEqual(-2, data % surfaceIdx)
 
     ! After overshoot via a corner
-    call pos % setPosition([-HALF + eps, ZERO + eps, -HALF])
-    call pos % setDirection([ONE, ONE, ZERO])
-    call pos % setDirection(pos % getDirection() / norm2(pos % getDirection()))
-    call pos % setUniIdx(8)
-    call pos % setCellIdx(0)
-    call pos % setLocalId(4)
-
-    call uni1 % distance(pos, d, surfIdx)
-    @assertEqual(ZERO, d,  TOL)
-    @assertEqual(-2, surfIdx)
+    data = newCoordData([-HALF + eps, ZERO + eps, -HALF], [ONE, ONE, ZERO], &
+                        cellIdx = 0, localId = 4, universeIdx = 8)
+    call uni1 % distance(data)
+    @assertEqual(ZERO, data % d,  TOL)
+    @assertEqual(-2, data % surfaceIdx)
 
     !** 2D universe
     ! Well inside a cell -> Vertical
-    call pos % setPosition([HALF, 0.6_defReal, HALF])
-    call pos % setDirection([ZERO, ZERO, ONE])
-    call pos % setUniIdx(3)
-    call pos % setCellIdx(0)
-    call pos % setLocalId(2)
-
-    call uni2 % distance(pos, d, surfIdx)
-
-    @assertEqual(INF, d)
+    data = newCoordData([HALF, 0.6_defReal, HALF], [ZERO, ZERO, ONE], &
+                        cellIdx = 0, localId = 2, universeIdx = 3)
+    call uni2 % distance(data)
+    @assertEqual(INF, data % d)
 
     ! Well inside a cell -> Shallow hit
-    call pos % setPosition([HALF, 0.6_defReal, HALF])
-    call pos % setDirection([ZERO, 0.01_defReal, ONE])
-    call pos % setDirection(pos % getDirection() / norm2(pos % getDirection()))
-
-    call uni2 % distance(pos, d, surfIdx)
-
-    ref = sqrt(40.0_defReal**2 + 0.4_defReal**2)
-    @assertEqual(ref, d, TOL * ref)
-    @assertEqual(-4, surfIdx)
+    data = newCoordData([HALF, 0.6_defReal, HALF], [ZERO, 0.01_defReal, ONE], &
+                        cellIdx = 0, localId = 2, universeIdx = 3)
+    call uni2 % distance(data)
+    ref = sqrt(40.0_defReal ** 2 + 0.4_defReal ** 2)
+    @assertEqual(ref, data % d, TOL * ref)
+    @assertEqual(-4, data % surfaceIdx)
 
     ! From outside -> Hit
-    call pos % setPosition([-1.5_defReal, 0.6_defReal, HALF])
-    call pos % setDirection([ONE, ZERO, ONE])
-    call pos % setDirection(pos % getDirection() / norm2(pos % getDirection()))
-    call pos % setUniIdx(3)
-    call pos % setCellIdx(0)
-    call pos % setLocalId(3)
-
-    call uni2 % distance(pos, d, surfIdx)
-
+    data = newCoordData([-1.5_defReal, 0.6_defReal, HALF], [ONE, ZERO, ONE], &
+                        cellIdx = 0, localId = 3, universeIdx = 3)
+    call uni2 % distance(data)
     ref = HALF * SQRT2
-    @assertEqual(ref, d, TOL * ref)
-    @assertEqual(-7, surfIdx)
+    @assertEqual(ref, data % d, TOL * ref)
+    @assertEqual(-7, data % surfaceIdx)
 
   end subroutine test_distance
 
@@ -312,61 +267,33 @@ contains
   !!
 @Test
   subroutine test_cross()
-    type(coord)       :: pos
+    type(coordData) :: data
 
     ! *** 3D Lattice
     ! Cross inside
-    call pos % setPosition([-ONE, ZERO, -HALF])
-    call pos % setDirection([-ONE, ONE, -ONE])
-    call pos % setDirection(pos % getDirection() / norm2(pos % getDirection()))
-    call pos % setUniIdx(8)
-    call pos % setCellIdx(0)
-    call pos % setLocalId(1)
-
-    call uni1 % cross(pos, -4)
-
-    @assertEqual(4, pos % getLocalId())
+    data = newCoordData([-ONE, ZERO, -HALF], [-ONE, ONE, -ONE], 0, 1, -4, 8)
+    call uni1 % cross(data)
+    @assertEqual(4, data % localId)
 
     ! Cross from outside
-    call pos % setPosition([ONE, 2.0_defReal, -HALF])
-    call pos % setDirection([ONE, -ONE, -ONE])
-    call pos % setDirection(pos % getDirection() / norm2(pos % getDirection()))
-    call pos % setLocalId(13)
-
-    call uni1 % cross(pos, -7)
-
-    @assertEqual(6, pos % getLocalId())
+    data = newCoordData([ONE, 2.0_defReal, -HALF], [ONE, -ONE, -ONE], 0, 13, -7, 8)
+    call uni1 % cross(data)
+    @assertEqual(6, data % localId)
 
     ! Cross to outside
-    call pos % setPosition([1.5_defReal, ONE, -ONE])
-    call pos % setDirection([ONE, ZERO, ZERO])
-    call pos % setLocalId(6)
-
-    call uni1 % cross(pos, -2)
-
-    @assertEqual(13, pos % getLocalId())
+    data = newCoordData([1.5_defReal, ONE, -ONE], [ONE, ZERO, ZERO], 0, 6, -2, 8)
+    call uni1 % cross(data)
+    @assertEqual(13, data % localId)
 
     ! *** 2D Lattice
-    call pos % setPosition([ZERO, ZERO, 16.5_defReal])
-    call pos % setDirection([ONE, ONE, -ONE])
-    call pos % setDirection(pos % getDirection() / norm2(pos % getDirection()))
-    call pos % setUniIdx(3)
-    call pos % setCellIdx(0)
-    call pos % setLocalId(1)
-
-    call uni2 % cross(pos, -2)
-
-    @assertEqual(2, pos % getLocalId())
+    data = newCoordData([ZERO, ZERO, 16.5_defReal], [ONE, ONE, -ONE], 0, 1, -2, 3)
+    call uni2 % cross(data)
+    @assertEqual(2, data % localId)
 
     ! Cross from outside
-    call pos % setPosition([-ONE, -HALF, -78.5_defReal])
-    call pos % setDirection([ONE, ONE, ZERO])
-    call pos % setDirection(pos % getDirection() / norm2(pos % getDirection()))
-    call pos % setLocalId(3)
-
-    call uni2 % cross(pos, -7)
-
-    @assertEqual(1, pos % getLocalId())
+    data = newCoordData([-ONE, -HALF, -78.5_defReal], [ONE, ONE, ZERO], 0, 3, -7, 3)
+    call uni2 % cross(data)
+    @assertEqual(1, data % localId)
 
   end subroutine test_cross
 
@@ -375,52 +302,31 @@ contains
   !!
 @Test
   subroutine test_cellOffset()
-    type(coord)                 :: pos
+    type(coordData)             :: data
     real(defReal), dimension(3) :: ref
-    real(defReal), parameter :: TOL = 1.0E-7_defReal
+    real(defReal), parameter    :: TOL = 1.0E-7_defReal
 
     ! ** 3D lattice
     ! Inside
-    call pos % setPosition([ZERO, ZERO, HALF])
-    call pos % setDirection([-ONE, ONE, -ONE])
-    call pos % setDirection(pos % getDirection() / norm2(pos % getDirection()))
-    call pos % setUniIdx(8)
-    call pos % setCellIdx(0)
-    call pos % setLocalId(11)
-
+    data = newCoordData([ZERO, ZERO, HALF], [-ONE, ONE, -ONE], 0, 11, 8)
     ref = [0.0_defReal, 1.0_defReal, 1.5_defReal]
-    @assertEqual(ref, uni1 % cellOffset(pos), TOL)
+    @assertEqual(ref, uni1 % cellOffset(data % localId), TOL)
 
     ! Outside
-    call pos % setPosition([-7.0_defReal, ZERO, HALF])
-    call pos % setDirection([-ONE, ONE, -ONE])
-    call pos % setDirection(pos % getDirection() / norm2(pos % getDirection()))
-    call pos % setLocalId(13)
-
+    data = newCoordData([-7.0_defReal, ZERO, HALF], [-ONE, ONE, -ONE], 0, 13, 8)
     ref = ZERO
-    @assertEqual(ref, uni1 % cellOffset(pos), TOL)
+    @assertEqual(ref, uni1 % cellOffset(data % localId), TOL)
 
     ! ** 2D Lattice
-    call pos % setPosition([HALF, ZERO, HALF])
-    call pos % setDirection([-ONE, ONE, -ONE])
-    call pos % setDirection(pos % getDirection() / norm2(pos % getDirection()))
-    call pos % setUniIdx(3)
-    call pos % setCellIdx(0)
-    call pos % setLocalId(2)
-
+    data = newCoordData([HALF, ZERO, HALF], [-ONE, ONE, -ONE], 0, 2, 3)
     ref = [HALF, ZERO, ZERO]
-    @assertEqual(ref, uni2 % cellOffset(pos), TOL)
+    @assertEqual(ref, uni2 % cellOffset(data % localId), TOL)
 
     ! Outside
-    call pos % setPosition([-7.0_defReal, ZERO, HALF])
-    call pos % setDirection([-ONE, ONE, -ONE])
-    call pos % setDirection(pos % getDirection() / norm2(pos % getDirection()))
-    call pos % setLocalId(3)
-
+    data = newCoordData([-7.0_defReal, ZERO, HALF], [-ONE, ONE, -ONE], 0, 3, 3)
     ref = ZERO
-    @assertEqual(ref, uni2 % cellOffset(pos), TOL)
+    @assertEqual(ref, uni2 % cellOffset(data % localId), TOL)
 
   end subroutine test_cellOffset
-
 
 end module latUniverse_test

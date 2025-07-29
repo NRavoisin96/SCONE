@@ -1,15 +1,15 @@
 module cellUniverse_class
 
-  use numPrecision
-  use universalVariables, only : UNDEF_MAT, NUDGE
-  use genericProcedures,  only : fatalError, numToChar
-  use dictionary_class,   only : dictionary
-  use coord_class,        only : coord
-  use charMap_class,      only : charMap
-  use surfaceShelf_class, only : surfaceShelf
   use cell_inter,         only : cell
   use cellShelf_class,    only : cellShelf
+  use charMap_class,      only : charMap
+  use dictionary_class,   only : dictionary
+  use genericProcedures,  only : fatalError, numToChar
   use meshShelf_class,    only : meshShelf
+  use numPrecision
+  use publicObjects,      only : coordData
+  use surfaceShelf_class, only : surfaceShelf
+  use universalVariables, only : UNDEF_MAT, NUDGE
   use universe_inter,     only : universe, kill_super => kill
 
   implicit none
@@ -64,7 +64,6 @@ module cellUniverse_class
     procedure :: findCell
     procedure :: distance
     procedure :: cross
-    procedure :: cellOffset
   end type cellUniverse
 
 contains
@@ -114,30 +113,24 @@ contains
   !!
   !! See universe_inter for details.
   !!
-  pure subroutine findCell(self, coords)
+  pure subroutine findCell(self, data)
     class(cellUniverse), intent(inout) :: self
-    type(coord), intent(inout)         :: coords
-    real(defReal), dimension(3)        :: r, u
+    type(coordData), intent(inout)     :: data
     integer(shortInt)                  :: i, nCells
 
     ! Search all cells.
     nCells = size(self % cells)
-    r = coords % getPosition()
-    u = coords % getDirection()
     do i = 1, nCells
-      if (self % cells(i) % ptr % inside(r, u)) then
-        call coords % setCellIdx(self % cells(i) % idx)
-        call coords % setLocalId(i)
+      if (self % cells(i) % ptr % inside(data % r, data % u)) then
+        data % cellIdx = self % cells(i) % idx
+        data % localId = i
         return
 
       end if
 
     end do
 
-    ! If not found return undefined cell.
-    ! Already set to localId (== size(self % cells) + 1) by the do loop
-    call coords % setCellIdx(0)
-    call coords % setLocalId(nCells + 1)
+    data % localId = nCells + 1
 
   end subroutine findCell
 
@@ -149,21 +142,16 @@ contains
   !! Errors:
   !!   fatalError if in UNDEFINED cell
   !!
-  subroutine distance(self, coords, d, surfIdx)
+  subroutine distance(self, data)
     class(cellUniverse), intent(inout) :: self
-    type(coord), intent(inout)         :: coords
-    real(defReal), intent(out)         :: d
-    integer(shortInt), intent(out)     :: surfIdx
-    integer(shortInt)                  :: localId
-    character(100), parameter          :: Here = 'distance (cellUniverse_class.f90)'
+    type(coordData), intent(inout)     :: data
+    character(*), parameter            :: Here = 'distance (cellUniverse_class.f90)'
 
-    localId = coords % getLocalId()
-
-    if (localId > size(self % cells)) call fatalError(Here, &
-    'Particle is in undefined cell with local id: '//numToChar(localId)//'.')
+    if (data % localId > size(self % cells)) call fatalError(Here, &
+    'Particle is in undefined cell with local id: '//numToChar(data % localId)//'.')
 
     ! Calculate distance
-    call self % cells(localId) % ptr % distance(d, surfIdx, coords % getPosition(), coords % getDirection())
+    call self % cells(data % localId) % ptr % distance(data % d, data % surfaceIdx, data % r, data % u)
 
   end subroutine distance
 
@@ -175,35 +163,19 @@ contains
   !! Note: Introduces extra movement to the particle to push it over boundary
   !!   for more efficient search. Distance is NUGDE.
   !!
-  pure subroutine cross(self, coords, surfIdx)
+  pure subroutine cross(self, data)
     class(cellUniverse), intent(inout) :: self
-    type(coord), intent(inout)         :: coords
-    integer(shortInt), intent(in)      :: surfIdx
+    type(coordData), intent(inout)     :: data
 
     ! NUDGE position slightly forward to escape surface tolerance
     ! and avoid calculating normal and extra dot-products
-    call coords % nudgePosition()
+    data % r = data % r + NUDGE * data % u
 
     ! Find cell
     ! TODO: Some cell neighbour list
-    call self % findCell(coords)
+    call self % findCell(data)
 
   end subroutine cross
-
-  !!
-  !! Return offset for the current cell
-  !!
-  !! See universe_inter for details.
-  !!
-  pure function cellOffset(self, coords) result (offset)
-    class(cellUniverse), intent(in) :: self
-    type(coord), intent(in)         :: coords
-    real(defReal), dimension(3)     :: offset
-
-    ! There is no cell offset
-    offset = ZERO
-
-  end function cellOffset
 
   !!
   !! Return to uninitialised state

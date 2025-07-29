@@ -1,17 +1,17 @@
 module rootUniverse_class
 
-  use numPrecision
-  use universalVariables, only : OUTSIDE_MAT
-  use genericProcedures,  only : fatalError, numToChar
-  use dictionary_class,   only : dictionary
-  use coord_class,        only : coord
-  use charMap_class,      only : charMap
-  use surface_inter,      only : surface
-  use surfaceShelf_class, only : surfaceShelf
-  use cylinder_class,     only : cylinder
   use cell_inter,         only : cell
   use cellShelf_class,    only : cellShelf
+  use charMap_class,      only : charMap
+  use cylinder_class,     only : cylinder
+  use dictionary_class,   only : dictionary
+  use genericProcedures,  only : fatalError, numToChar
   use meshShelf_class,    only : meshShelf
+  use numPrecision
+  use publicObjects,      only : coordData
+  use surface_inter,      only : surface
+  use surfaceShelf_class, only : surfaceShelf
+  use universalVariables, only : OUTSIDE_MAT
   use universe_inter,     only : universe, kill_super => kill, charToFill
 
   implicit none
@@ -47,8 +47,8 @@ module rootUniverse_class
   !!   border -> Return surfIdx of the boundary surface
   !!
   type, public, extends(universe) :: rootUniverse
-    class(surface), pointer :: surf => null()
-    integer(shortInt)       :: surfIdx = 0
+    class(surface), pointer       :: surf => null()
+    integer(shortInt)             :: surfIdx = 0
   contains
     ! Superclass procedures
     procedure :: init
@@ -56,7 +56,6 @@ module rootUniverse_class
     procedure :: findCell
     procedure :: distance
     procedure :: cross
-    procedure :: cellOffset
 
     ! Subclass procedures
     procedure :: border
@@ -116,15 +115,12 @@ contains
   !!
   !! See universe_inter for details.
   !!
-  pure subroutine findCell(self, coords)
+  pure subroutine findCell(self, data)
     class(rootUniverse), intent(inout) :: self
-    type(coord), intent(inout)         :: coords
-    integer(shortInt)                  :: localId
+    type(coordData), intent(inout)     :: data
 
     ! Initialise localId = INSIDE_ID then check halfspace.
-    localId = INSIDE_ID
-    if (self % surf % halfspace(coords % getPosition(), coords % getDirection())) localId = OUTSIDE_ID
-    call coords % setLocalId(localId)
+    data % localId = merge(OUTSIDE_ID, INSIDE_ID, self % surf % halfspace(data % r, data % u))
 
   end subroutine findCell
 
@@ -133,14 +129,12 @@ contains
   !!
   !! See universe_inter for details.
   !!
-  pure subroutine distance(self, coords, d, surfIdx)
+  pure subroutine distance(self, data)
     class(rootUniverse), intent(inout) :: self
-    type(coord), intent(inout)         :: coords
-    real(defReal), intent(out)         :: d
-    integer(shortInt), intent(out)     :: surfIdx
+    type(coordData), intent(inout)     :: data
 
-    surfIdx = self % surfIdx
-    d = self % surf % distance(coords % getPosition(), coords % getDirection())
+    data % surfaceIdx = self % surfIdx
+    data % d = self % surf % distance(data % r, data % u)
 
   end subroutine distance
 
@@ -152,31 +146,14 @@ contains
   !! Errors:
   !!   fatalError if surface from distance is not MOVING_IN or MOVING_OUT
   !!
-  subroutine cross(self, coords, surfIdx)
+  subroutine cross(self, data)
     class(rootUniverse), intent(inout) :: self
-    type(coord), intent(inout)         :: coords
-    integer(shortInt), intent(in)      :: surfIdx
-    character(100), parameter          :: Here = 'cross (rootUniverse_class.f90)'
+    type(coordData), intent(inout)     :: data
 
     ! Cross by cell finding in case of significant undershoots
-    call self % findCell(coords)
+    call self % findCell(data)
 
   end subroutine cross
-
-  !!
-  !! Return offset for the current cell
-  !!
-  !! See universe_inter for details.
-  !!
-  function cellOffset(self, coords) result (offset)
-    class(rootUniverse), intent(in) :: self
-    type(coord), intent(in)         :: coords
-    real(defReal), dimension(3)     :: offset
-
-    ! There is no cell offset.
-    offset = ZERO
-
-  end function cellOffset
 
   !!
   !! Return to uninitialised state

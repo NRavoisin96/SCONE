@@ -1,10 +1,10 @@
 module mesh_inter
   
   use axisAlignedBoundingBox_class, only : axisAlignedBoundingBox
-  use coord_class,                  only : coord
   use dictionary_class,             only : dictionary
   use genericProcedures,            only : fatalError, numToChar, openToRead
   use numPrecision
+  use publicObjects,                only : coordData
   use universalVariables,           only : INF, NUDGE
   
   implicit none
@@ -55,15 +55,30 @@ module mesh_inter
     procedure, non_overridable              :: setupBase
     ! Runtime procedures.
     procedure                               :: distance
-    procedure                               :: distanceToBoundary
+    procedure(distanceToBoundary), deferred :: distanceToBoundary
     procedure(distanceToNextFace), deferred :: distanceToNextFace
-    procedure                               :: findHostElement
+    procedure(findHostElement), deferred    :: findHostElement
     procedure, non_overridable              :: getBoundingBoxPtr
     procedure, non_overridable              :: getId
     procedure, non_overridable              :: getLocalIdsNumber
   end type mesh
   
   abstract interface
+    !! Subroutine 'distanceToBoundary'
+    !!
+    !! Basic description:
+    !!   Returns the distance to the next intersected mesh boundary face.
+    !!
+    !! Arguments:
+    !!   d [out]         -> Distance to the intersected mesh boundary face.
+    !!   coords [inout]  -> Particle's coordinates.
+    !!   parentIdx [out] -> Index of the parent element containing the intersected mesh boundary face.
+    !!
+    subroutine distanceToBoundary(self, data)
+      import                         :: coordData, mesh
+      class(mesh), intent(in)        :: self
+      type(coordData), intent(inout) :: data
+    end subroutine distanceToBoundary
 
     !! Subroutine 'distanceToNextFace'
     !!
@@ -74,12 +89,28 @@ module mesh_inter
     !!   d [out]        -> Distance to the next intersected face.
     !!   coords [inout] -> Particle's coordinates.
     !!
-    subroutine distanceToNextFace(self, d, coords)
-      import                     :: mesh, defReal, coord
-      class(mesh), intent(in)    :: self
-      real(defReal), intent(out) :: d
-      type(coord), intent(inout) :: coords
+    subroutine distanceToNextFace(self, data)
+      import                         :: coordData, mesh
+      class(mesh), intent(in)        :: self
+      type(coordData), intent(inout) :: data
     end subroutine distanceToNextFace
+
+    !! Subroutine 'findOccupiedElementIdx'
+    !!
+    !! Basic description:
+    !!   Returns the index of the element occupied by the particle as well as the localId to which the element belongs.
+    !!
+    !! Arguments:
+    !!   r [in]           -> Position of the particle.
+    !!   u [in]           -> Direction of the particle.
+    !!   elementIdx [out] -> Index of the element in which the particle is.
+    !!   localId [out]    -> Local Id for the given particle.
+    !!
+    subroutine findHostElement(self, data)
+      import                         :: coordData, mesh
+      class(mesh), intent(in)        :: self
+      type(coordData), intent(inout) :: data
+    end subroutine findHostElement
 
     !! Subroutine 'init'
     !!
@@ -111,74 +142,25 @@ contains
   !!   coords [inout] -> Coordinates of the particle within the universe (after transformations and with elementIdx already set).
   !!   isInside [out] -> .true. if the particle is inside or entering the mesh. If .false. then CSG tracking resumes.
   !!
-  subroutine distance(self, d, coords, isInside)
-    class(mesh), intent(in)       :: self
-    real(defReal), intent(out)    :: d
-    type(coord), intent(inout)    :: coords
-    logical(defBool), intent(out) :: isInside
+  subroutine distance(self, data)
+    class(mesh), intent(in)        :: self
+    type(coordData), intent(inout) :: data
 
     ! Initialise isInside = .true.
-    isInside = .true.
+    data % isInside = .true.
     
     ! If particle is already inside an element, simply compute the distance to the next mesh face and return.
-    if (coords % getElementIdx() > 0) then
-      call self % distanceToNextFace(d, coords)
-      return
+    if (data % elementIdx > 0) then
+      call self % distanceToNextFace(data)
+
+    else
+      ! If not, we need to check if the particle enters the mesh. If yes, update localId from index of the parent element and return.
+      call self % distanceToBoundary(data)
+      if (data % elementIdx == 0) data % isInside = .false.
 
     end if
 
-    ! If not, we need to check if the particle enters the mesh. If yes, update localId from index of the parent element and return.
-    call self % distanceToBoundary(d, coords)
-    if (coords % getElementIdx() > 0) return
-      
-    ! If reached here, the particle does not enter the mesh and CSG tracking resumes.
-    isInside = .false.
-
   end subroutine distance
-
-  !! Subroutine 'distanceToBoundary'
-  !!
-  !! Basic description:
-  !!   Returns the distance to the next intersected mesh boundary face.
-  !!
-  !! Arguments:
-  !!   d [out]         -> Distance to the intersected mesh boundary face.
-  !!   coords [inout]  -> Particle's coordinates.
-  !!   parentIdx [out] -> Index of the parent element containing the intersected mesh boundary face.
-  !!
-  subroutine distanceToBoundary(self, d, coords)
-    class(mesh), intent(in)    :: self
-    real(defReal), intent(out) :: d
-    type(coord), intent(inout) :: coords
-
-    ! If particle intersects the bounding box, compute the distance to the next intersected boundary face.
-    d = INF
-    call coords % setParentElementIdx(0)
-    call coords % setLocalId(1)
-
-  end subroutine distanceToBoundary
-
-  !! Subroutine 'findOccupiedElementIdx'
-  !!
-  !! Basic description:
-  !!   Returns the index of the element occupied by the particle as well as the localId to which the element belongs.
-  !!
-  !! Arguments:
-  !!   r [in]           -> Position of the particle.
-  !!   u [in]           -> Direction of the particle.
-  !!   elementIdx [out] -> Index of the element in which the particle is.
-  !!   localId [out]    -> Local Id for the given particle.
-  !!
-  subroutine findHostElement(self, coords)
-    class(mesh), intent(in)    :: self
-    type(coord), intent(inout) :: coords
-
-    ! Initialise localId = 1 (corresponds to the particle being in the CSG cell).
-    call coords % setElementIdx(0)
-    call coords % setParentElementIdx(0)
-    call coords % setLocalId(1)
-
-  end subroutine findHostElement
 
   !! Function 'getBoundingBox'
   !!
@@ -270,10 +252,10 @@ contains
   subroutine setId(self, id)
     class(mesh), intent(inout)    :: self
     integer(shortInt), intent(in) :: id
-    character(100), parameter     :: Here = 'setId (mesh_inter.f90)'
+    character(*), parameter       :: Here = 'setId (mesh_inter.f90)'
     
     ! Catch invalid id and set id.
-    if (id < 1) call fatalError(Here, 'Id must be +ve. Is: '//numToChar(id)//'.')
+    if (id < 1) call fatalError(Here, 'Id must be positive. Is: '//numToChar(id)//'.')
     self % id = id
 
   end subroutine setId
@@ -308,7 +290,7 @@ contains
 
     ! Load id from the dictionary. Call fatal error if id is unvalid.
     call dict % get(id, 'id')
-    if (id < 1) call fatalError(Here, 'Mesh Id must be +ve. Is: '//numToChar(id)//'.')
+    if (id < 1) call fatalError(Here, 'Mesh Id must be positive. Is: '//numToChar(id)//'.')
     self % id = id
 
   end subroutine setupBase

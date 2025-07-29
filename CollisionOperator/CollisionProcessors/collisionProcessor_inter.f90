@@ -68,13 +68,13 @@ module collisionProcessor_inter
     procedure :: init
 
     ! Customisable deffered procedures
-    procedure(collisionAction),deferred  :: sampleCollision
-    procedure(collisionAction),deferred  :: implicit
-    procedure(collisionAction),deferred  :: elastic
-    procedure(collisionAction),deferred  :: inelastic
-    procedure(collisionAction),deferred  :: capture
-    procedure(collisionAction),deferred  :: fission
-    procedure(collisionAction),deferred  :: cutoffs
+    procedure(collisionAction), deferred  :: sampleCollision
+    procedure(collisionAction), deferred  :: implicit
+    procedure(collisionAction), deferred  :: elastic
+    procedure(collisionAction), deferred  :: inelastic
+    procedure(collisionAction), deferred  :: capture
+    procedure(collisionAction), deferred  :: fission
+    procedure(collisionAction), deferred  :: cutoffs
 
   end type collisionProcessor
 

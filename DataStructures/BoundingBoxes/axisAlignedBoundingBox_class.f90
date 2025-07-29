@@ -1,10 +1,9 @@
 module axisAlignedBoundingBox_class
 
-  use coord_class,        only : coord
   use genericProcedures,  only : anyAreEqual, areEqual, swap
   use numPrecision
   use publicObjects,      only : intersectionTestResult
-  use universalVariables, only : INF, ONE, ZERO
+  use universalVariables, only : INF, NUDGE, ONE, ZERO
 
   implicit none
   private
@@ -207,7 +206,6 @@ contains
     real(defReal), dimension(3), intent(in)   :: r, u
     type(intersectionTestResult)              :: result
     real(defReal)                             :: inverseU, tFar, tNear, t1, t2
-    real(defReal), dimension(3)               :: offsetCoords
     integer(shortInt)                         :: i
 
     ! Initialise d = INF then loop over all halfwidths.
@@ -234,13 +232,7 @@ contains
 
     if (tFar < ZERO) return
     result % intersects = .true.
-    if (tNear < ZERO) then
-      result % d = tFar
-
-    else
-      result % d = tNear
-
-    end if
+    result % d = merge(tFar, tNear, tNear < ZERO)
 
   end function intersects_Ray
 
@@ -261,24 +253,23 @@ contains
   !! Note:
   !!   Assumes that the coordinates are already inside the bounding box to begin with.
   !!
-  subroutine pushFromBoundary(self, coords, inside)
-    class(axisAlignedBoundingBox), intent(in) :: self
-    type(coord), intent(inout)                :: coords
-    logical(defBool), intent(out)             :: inside
-    real(defReal), dimension(3)               :: r, u, nudgeDirection
-    logical(defBool)                          :: isOnBoundary
-    integer(shortInt)                         :: i
+  subroutine pushFromBoundary(self, u, r, inside)
+    class(axisAlignedBoundingBox), intent(in)  :: self
+    real(defReal), dimension(3), intent(in)    :: u
+    real(defReal), dimension(3), intent(inout) :: r
+    logical(defBool), intent(out)              :: inside
+    real(defReal), dimension(3)                :: nudgeDirection
+    logical(defBool)                           :: isOnBoundary
+    integer(shortInt)                          :: i
 
     ! Initialise hasEscaped = .false. and check if coordinates are on the boundary.
     inside = .true.
-    r = coords % getPositionToNudge()
     isOnBoundary = anyAreEqual(self % bounds(:, 1), r) .or. anyAreEqual(self % bounds(:, 2), r)
 
     ! If the coordinates are not on the boundary simply return.
     if (.not. isOnBoundary) return
 
     ! Nudge the coordinates until they are not on any boundaries anymore.
-    u = coords % getDirection()
     do while (isOnBoundary)
       nudgeDirection = ZERO
       do i = 1, 3
@@ -293,19 +284,18 @@ contains
       end do
 
       if (any(nudgeDirection /= ZERO)) then
-        call coords % nudgePosition(nudgeDirection / norm2(nudgeDirection))
+        nudgeDirection = nudgeDirection / norm2(nudgeDirection)
 
       else
-        call coords % nudgePosition()
+        nudgeDirection = u
 
       end if
-
-      r = coords % getPositionToNudge()
+      r = r + nudgeDirection * NUDGE
       isOnBoundary = anyAreEqual(self % bounds(:, 1), r) .or. anyAreEqual(self % bounds(:, 2), r)
 
     end do
 
-    inside = self % contains(coords % getPositionToNudge())
+    inside = self % contains(r)
 
   end subroutine pushFromBoundary
 

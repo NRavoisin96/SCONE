@@ -1,10 +1,10 @@
 module node_inter
   
   use axisAlignedBoundingBox_class, only : axisAlignedBoundingBox
-  use coord_class,                  only : coord
   use element_class,                only : elementBox
   use genericProcedures,            only : append, areEqual, fatalError, numToChar, quickSort, removeDuplicates, swap
   use numPrecision
+  use publicObjects,                only : coordData
   use topologicalObject_inter,      only : topologicalObjectBox
   use topologicalObjectShelf_class, only : topologicalObjectShelf
   use universalVariables,           only : ZERO, HALF, SURF_TOL, INF
@@ -81,9 +81,8 @@ module node_inter
     procedure                                   :: kill
     procedure(preparePayloadForChild), deferred :: preparePayloadForChild
     ! Runtime procedures.
-    generic                                     :: boundingBoxContains => boundingBoxContains_Coords
-    procedure, private                          :: boundingBoxContains_Coords
-    procedure, non_overridable                  :: distanceSquared
+    procedure, non_overridable                      :: distanceSquared
+    procedure(findFirstIntersectedObject), deferred :: findFirstIntersectedObject
     generic                                     :: findIntersectedObjects => findIntersectedObjects_BoundingBox
     procedure, private                          :: findIntersectedObjects_BoundingBox 
     procedure, non_overridable                  :: findLeaf
@@ -99,7 +98,7 @@ module node_inter
     procedure, non_overridable                  :: getIsLeaf
     procedure, non_overridable                  :: getContainedObjects
     procedure, non_overridable                  :: getContainingObjects
-    procedure, non_overridable                  :: pushFromBoundingBoxBoundary
+    procedure, non_overridable                  :: getParentPtr
   end type node
 
   abstract interface
@@ -121,6 +120,16 @@ module node_inter
       class(buildNodePayload), intent(inout) :: payload
       logical(defBool), intent(out)          :: stop
     end subroutine build
+
+    !!
+    !!
+    !!
+    subroutine findFirstIntersectedObject(self, data, firstIntersectedObject)
+      import                                  :: coordData, node, topologicalObjectBox
+      class(node), intent(in)                 :: self
+      type(coordData), intent(inout)          :: data
+      type(topologicalObjectBox), intent(out) :: firstIntersectedObject
+    end subroutine findFirstIntersectedObject
 
     !!
     !!
@@ -279,18 +288,6 @@ contains
   !!
   !!
   !!
-  pure function boundingBoxContains_Coords(self, r) result(doesIt)
-    class(node), intent(in)                 :: self
-    real(defReal), dimension(3), intent(in) :: r
-    logical(defBool)                        :: doesIt
-
-    doesIt = self % boundingBox % contains(r)
-
-  end function boundingBoxContains_Coords
-
-  !!
-  !!
-  !!
   pure function distanceSquared(self, r) result(dSquared)
     class(node), intent(in)                 :: self
     real(defReal), dimension(3), intent(in) :: r
@@ -348,24 +345,38 @@ contains
   !!
   !!
   !!
-  recursive subroutine findLeaf(self, coords, leaf, requiresContainmentCheck)
-    class(node), intent(in), target        :: self
-    type(coord), intent(inout)             :: coords
-    class(node), intent(out), pointer      :: leaf
-    logical(defBool), intent(in), optional :: requiresContainmentCheck
-    logical(defBool)                       :: checkContainment, inside
-    real(defReal), dimension(3)            :: r
-    integer(shortInt)                      :: childIdx
+  recursive subroutine findLeaf(self, r, u, leaf, checkContainment, skipFirstNode)
+    class(node), intent(in), target            :: self
+    real(defReal), dimension(3), intent(inout) :: r, u
+    class(node), intent(out), pointer          :: leaf
+    logical(defBool), intent(in), optional     :: checkContainment, skipFirstNode
+    logical(defBool)                           :: check, inside, skip
+    integer(shortInt)                          :: childIdx
+
+    ! If skipFirstNode immediately call the parent.
+    skip = .false.
+    if (present(skipFirstNode)) skip = skipFirstNode
+
+    if (skip) then
+      if (associated(self % parent)) then
+        call self % parent % findLeaf(r, u, leaf, checkContainment = .true.)
+
+      else
+        leaf => null()
+
+      end if
+      return
+
+    end if
 
     ! Only perform containment check if it has been required.
-    checkContainment = .false.
-    if (present(requiresContainmentCheck)) checkContainment = requiresContainmentCheck
+    check = .false.
+    if (present(checkContainment)) check = checkContainment
 
-    ! Perform containment check if needed.
-    if (checkContainment) then
-      if (.not. self % boundingBoxContains(coords % getPositionToNudge())) then
+    if (check) then
+      if (.not. self % boundingBox % contains(r)) then
         if (associated(self % parent)) then
-          call self % parent % findLeaf(coords, leaf, .true.)
+          call self % parent % findLeaf(r, u, leaf, checkContainment = .true.)
 
         else
           leaf => null()
@@ -378,12 +389,12 @@ contains
     end if
 
     ! Push coordinates from boundary of bounding box if applicable.
-    call self % pushFromBoundingBoxBoundary(coords, inside)
+    call self % boundingBox % pushFromBoundary(u, r, inside)
 
     ! Check for overshoot.
     if (.not. inside) then
       if (associated(self % parent)) then
-        call self % parent % findLeaf(coords, leaf, .true.)
+        call self % parent % findLeaf(r, u, leaf, checkContainment = .true.)
 
       else
         ! We are at the root and overshot. Particle is outside the domain.
@@ -402,9 +413,8 @@ contains
     end if
 
     ! Descend into correct child node.
-    r = coords % getPosition()
     childIdx = self % getDescentChildIdx(r)
-    call self % children(childIdx) % ptr % findLeaf(coords, leaf)
+    call self % children(childIdx) % ptr % findLeaf(r, u, leaf)
 
   end subroutine findLeaf
 
@@ -684,13 +694,12 @@ contains
   !!
   !!
   !!
-  subroutine pushFromBoundingBoxBoundary(self, coords, inside)
-    class(node), intent(in)       :: self
-    type(coord), intent(inout)    :: coords
-    logical(defBool), intent(out) :: inside
+  function getParentPtr(self) result(parentPtr)
+    class(node), intent(in) :: self
+    class(node), pointer    :: parentPtr
 
-    call self % boundingBox % pushFromBoundary(coords, inside)
+    parentPtr => self % parent
 
-  end subroutine pushFromBoundingBoxBoundary
+  end function getParentPtr
   
 end module node_inter

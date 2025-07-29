@@ -4,6 +4,7 @@ module kdTreeNode_class
   use genericProcedures,            only : fatalError, numToChar, quickSort
   use node_inter,                   only : buildNodePayload, kill_super => kill, node, nodeBox
   use numPrecision,
+  use publicObjects,                only : coordData
   use topologicalObject_inter,      only : topologicalObjectBox
   use universalVariables,           only : HALF, INF, ZERO
 
@@ -57,6 +58,7 @@ module kdTreeNode_class
     procedure :: kill
     procedure :: preparePayloadForChild
     ! Runtime procedures.
+    procedure :: findFirstIntersectedObject
     procedure :: findNearestObject
     procedure :: getCutDimension
     procedure :: getCutIdx
@@ -175,6 +177,20 @@ contains
     self % cutIdx = self % lowerBound + middleIdx - 1
 
   end subroutine build
+
+  !!
+  !!
+  !!
+  subroutine findFirstIntersectedObject(self, data, firstIntersectedObject)
+    class(kdTreeNode), intent(in)           :: self
+    type(coordData), intent(inout)          :: data
+    type(topologicalObjectBox), intent(out) :: firstIntersectedObject
+    character(*), parameter                 :: here = 'findFirstIntersectedObject (kdTreeNode_class.f90)'
+
+    ! Call fatalError for now.
+    call fatalError(here, 'Unsupported procedure.')
+
+  end subroutine findFirstIntersectedObject
 
   !!
   !!

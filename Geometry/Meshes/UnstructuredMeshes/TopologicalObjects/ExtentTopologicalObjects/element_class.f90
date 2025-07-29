@@ -2,15 +2,14 @@ module element_class
 
   use axisAlignedBoundingBox_class,  only : axisAlignedBoundingBox
   use extentTopologicalObject_inter, only : buildExtentTopologicalObjectPayload, extentTopologicalObject
-  use coord_class,                   only : coord
   use edge_class,                    only : edgeBox
   use face_class,                    only : faceBox, orientatedFaceBox
   use genericProcedures,             only : append, areEqual, crossProduct, findCommon, fatalError, numToChar
   use numPrecision
   use publicObjects,                 only : basicElementInfo
   use topologicalObject_inter,       only : buildTopologicalObjectPayload, kill_super => kill, topologicalObjectBox
-  use universalVariables,            only : FOURTH, INSIDE_ELEMENT, INF, ON_BOUNDARY_ELEMENT, ONE, OUTSIDE_ELEMENT, &
-                                            SIXTH, SURF_TOL, ZERO
+  use universalVariables,            only : FOURTH, INSIDE_ELEMENT, INF, NUDGE, ON_BOUNDARY_ELEMENT, ONE, OUTSIDE_ELEMENT, &
+                                            SIXTH, ZERO
   use vertex_class,                  only : vertexBox
   
   implicit none
@@ -732,16 +731,15 @@ contains
   !!
   !!
   !!
-  subroutine pushFromBoundary(self, coords)
-    class(element), intent(in)   :: self
-    type(coord), intent(inout)   :: coords
-    real(defReal), dimension(3)  :: nudgeDirection, outwardNormal, r, u
-    integer(shortInt)            :: i
+  subroutine pushFromBoundary(self, u, r)
+    class(element), intent(in)                 :: self
+    real(defReal), dimension(3), intent(in)    :: u
+    real(defReal), dimension(3), intent(inout) :: r
+    real(defReal), dimension(3)                :: nudgeDirection, outwardNormal
+    integer(shortInt)                          :: i
 
     ! Initialise nudgeDirection = ZERO then loop over all the faces in the element.
     nudgeDirection = ZERO
-    r = coords % getPositionToNudge()
-    u = coords % getDirection()
     do i = 1, size(self % orientatedFaces)
       ! Retrieve the normal vector of the current face and test whether the coordinates lie on the face.
       outwardNormal = self % orientatedFaces(i) % outwardNormal
@@ -756,12 +754,13 @@ contains
 
     ! Now nudge coordinates with the appropriate direction.
     if (any(nudgeDirection /= ZERO)) then
-      call coords % nudgePosition(nudgeDirection / norm2(nudgeDirection))
+      nudgeDirection = nudgeDirection / norm2(nudgeDirection)
 
     else
-      call coords % nudgePosition()
+      nudgeDirection = u
 
     end if
+    r = r + nudgeDirection * NUDGE
 
   end subroutine pushFromBoundary
 

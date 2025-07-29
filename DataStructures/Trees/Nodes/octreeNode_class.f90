@@ -1,13 +1,13 @@
 module octreeNode_class
 
   use axisAlignedBoundingBox_class, only : axisAlignedBoundingBox
-  use coord_class,                  only : coord
   use element_class,                only : element, elementBox, inclusionTestResult
   use face_class,                   only : face
   use genericProcedures,            only : append, areEqual, fatalError, numToChar
   use kdTree_class,                 only : kdTree
   use node_inter,                   only : buildNodePayload, kill_super => kill, node, nodeBox
   use numPrecision
+  use publicObjects,                only : coordData, intersectionTestResult
   use topologicalObject_inter,      only : getUniqueSharingElements, topologicalObjectBox
   use topologicalObjectShelf_class, only : topologicalObjectShelf
   use universalVariables,           only : HALF, INF, INSIDE_ELEMENT, NUDGE, ON_BOUNDARY_ELEMENT, OUTSIDE_ELEMENT
@@ -40,6 +40,7 @@ module octreeNode_class
     ! Runtime procedures.
     procedure :: countInside
     procedure :: countOutside
+    procedure :: findFirstIntersectedObject
     procedure :: findNearestObject
     procedure :: getDescentChildIdx
     procedure :: getIsInside
@@ -308,6 +309,121 @@ contains
     if (self % isOutside) nOutside = nOutside + 1
 
   end subroutine countOutside
+
+  !!
+  !!
+  !!
+  subroutine findFirstIntersectedObject(self, data, firstIntersectedObject)
+    class(octreeNode), intent(in)                         :: self
+    type(coordData), intent(inout)                        :: data
+    type(topologicalObjectBox), intent(out)               :: firstIntersectedObject
+    type(axisAlignedBoundingBox), pointer                 :: boundingBoxPtr
+    type(intersectionTestResult)                          :: boundingBoxIntersectionResult
+    real(defReal), dimension(3)                           :: rCurrent
+    class(node), pointer                                  :: genericLeaf
+    type(octreeNode), pointer                             :: leafPtr
+    type(topologicalObjectBox), dimension(:), allocatable :: containedObjects
+    integer(shortInt)                                     :: i
+    type(face), pointer                                   :: facePtr
+    real(defReal)                                         :: dFace, dTravelled, dMin
+    character(*), parameter                               :: here = 'findFirstIntersectedObject (octreeNode_class.f90)'
+
+    ! First check if a leaf node already contains the particle.
+    call self % findLeaf(data % r, data % u, genericLeaf, checkContainment = .true.)
+    if (associated(genericLeaf)) then
+      ! Downcast genericLeaf to correct type then set the initial traversal position as the particle's current location.
+      select type(ptr => genericLeaf)
+        type is(octreeNode)
+          rCurrent = data % r
+          dTravelled = ZERO
+
+        class default
+          ! Call fatalError if the leaf is not an octree node.
+          call fatalError(here, 'Invalid leaf node type.')
+
+      end select
+
+    else
+      ! Compute the intersection between the ray and the root node's bounding box.
+      boundingBoxPtr => self % getBoundingBoxPtr()
+      boundingBoxIntersectionResult = boundingBoxPtr % intersects(data % r, data % u)
+      if (.not. boundingBoxIntersectionResult % intersects) return
+
+      ! At this point, the ray intersects the bounding box. Nudge intersection coordinates slightly
+      ! then find leaf node containing them.
+      dTravelled = boundingBoxIntersectionResult % d + NUDGE
+
+      ! If distance to bounding box intersection is already greater than maximum allowed distance return early,
+      ! else find the leaf node containing the intersection point.
+      if (data % dMax < dTravelled) return
+      rCurrent = data % r + dTravelled * data % u
+      call self % findLeaf(rCurrent, data % u, genericLeaf, checkContainment = .true.)
+
+    end if
+
+    do
+      ! If there is no leaf node containing the intersection point, the intersection has been nudged outside the root bounding box
+      ! and we simply return.
+      if (.not. associated(genericLeaf)) then
+        return
+
+      end if
+
+      ! Downcast genericLeaf to correct type.
+      select type(ptr => genericLeaf)
+        type is(octreeNode)
+          leafPtr => ptr
+
+        class default
+          call fatalError(here, 'Invalid node type.')
+
+      end select
+
+      ! Call fatalError if leaf is unchecked here.
+      if (leafPtr % isUnchecked) call fatalError(here, 'Unchecked leaf.')
+
+      ! Retrieve the leaf's bounding box and compute the distance to exit.
+      boundingBoxPtr => leafPtr % getBoundingBoxPtr()
+      boundingBoxIntersectionResult = boundingBoxPtr % intersects(rCurrent, data % u)
+
+      ! Retrieve all contained objects within the leaf and test them all for an intersection.
+      dTravelled = dTravelled + boundingBoxIntersectionResult % d + NUDGE
+      dMin = dTravelled
+
+      if (leafPtr % isIntersecting) then
+        containedObjects = leafPtr % getContainedObjects()
+        do i = 1, size(containedObjects)
+          select type(ptr => containedObjects(i) % ptr)
+            type is(face)
+              facePtr => ptr
+
+            class default
+              call fatalError(here, 'Object with index: '//numToChar(ptr % getIdx())//' is not a face.')
+
+          end select
+
+          ! Skip test if current face is not a boundary face.
+          if (.not. facePtr % getIsBoundary()) cycle
+          call facePtr % computeIntersection(data % r, data % u, data % dMax, dFace)
+          if (dFace < dMin) then
+            dMin = dFace
+            data % d = dMin
+            firstIntersectedObject % ptr => facePtr
+
+          end if
+
+        end do
+
+      end if
+
+      if (associated(firstIntersectedObject % ptr)) return
+      if (data % dMax < dTravelled) return
+      rCurrent = data % r + dTravelled * data % u
+      call leafPtr % findLeaf(rCurrent, data % u, genericLeaf, .true., .true.)
+
+    end do
+
+  end subroutine findFirstIntersectedObject
 
   !!
   !!

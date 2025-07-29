@@ -1,10 +1,10 @@
 module accelerationStructure_inter
 
-  use coord_class,                  only : coord
   use dictionary_class,             only : dictionary
   use element_class,                only : elementBox
   use face_class,                   only : faceBox
   use numPrecision
+  use publicObjects,                only : coordData
   use topologicalObjectShelf_class, only : topologicalObjectShelf
 
   implicit none
@@ -22,38 +22,44 @@ module accelerationStructure_inter
     procedure(kill), deferred                     :: kill
   end type accelerationStructure
 
+  !!
+  !!
+  !!
+  type, public :: initAccelerationStructurePayload
+    class(dictionary), pointer            :: dict => null()
+    type(topologicalObjectShelf), pointer :: edges => null(), elements => null(), faces => null(), vertices => null()
+  end type initAccelerationStructurePayload
+
   abstract interface
     !!
     !!
     !!
-    subroutine findEntranceBoundaryFace(self, faces, coords, d, boundaryFace)
-      import :: accelerationStructure, coord, defReal, faceBox, topologicalObjectShelf
+    subroutine findEntranceBoundaryFace(self, faces, data, boundaryFace)
+      import :: accelerationStructure, coordData, faceBox, topologicalObjectShelf
       class(accelerationStructure), intent(in) :: self
       type(topologicalObjectShelf), intent(in) :: faces
-      type(coord), intent(in)                  :: coords
-      real(defReal), intent(inout)             :: d
+      type(coordData), intent(inout)           :: data
       type(faceBox), intent(out)               :: boundaryFace
     end subroutine findEntranceBoundaryFace
 
     !!
     !!
     !!
-    subroutine findHostElement(self, elements, coords, stopSearch)
-      import :: accelerationStructure, coord, defBool, topologicalObjectShelf
+    subroutine findHostElement(self, elements, data, stopSearch)
+      import :: accelerationStructure, coordData, defBool, topologicalObjectShelf
       class(accelerationStructure), intent(in) :: self
       type(topologicalObjectShelf), intent(in) :: elements
-      type(coord), intent(inout)               :: coords
+      type(coordData), intent(inout)           :: data
       logical(defBool), intent(out)            :: stopSearch
     end subroutine findHostElement
 
     !!
     !!
     !!
-    subroutine init(self, dict, edges, elements, faces, vertices)
-      import :: accelerationStructure, dictionary, topologicalObjectShelf
-      class(accelerationStructure), intent(inout)      :: self
-      class(dictionary), intent(in)                    :: dict
-      type(topologicalObjectShelf), target, intent(in) :: edges, elements, faces, vertices
+    subroutine init(self, payload)
+      import :: accelerationStructure, initAccelerationStructurePayload
+      class(accelerationStructure), intent(inout)        :: self
+      type(initAccelerationStructurePayload), intent(in) :: payload
     end subroutine init
 
     !!

@@ -359,7 +359,7 @@ contains
 
         ! Move in geometry
         if (self % cache) then
-          call self % geom % move_withCache(coords, distance, event, cache_space)
+          call self % geom % move(coords, distance, event, cache_space)
 
         else
           call self % geom % move(coords, distance, event)

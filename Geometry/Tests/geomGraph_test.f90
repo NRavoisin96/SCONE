@@ -103,14 +103,14 @@ contains
 
     ! Verify location array
     ! Test will fail if traverse order is change (even if structure is correct)!
-    @assertEqual([-2, 0, -3, -3, -5, 1, 4, 1, 2], graph % array % idx)
-    @assertEqual([ 3, 0,  6,  6,  8, 1, 2, 3, 4], graph % array % id)
+    @assertEqual([-2, 0, -3, -3, -5, 1, 4, 1, 2], graph % getLocationIdxs())
+    @assertEqual([ 3, 0,  6,  6,  8, 1, 2, 3, 4], graph % getLocationIds())
 
     ! Verify number of unique cells
-    @assertEqual(4, graph % uniqueCells)
+    @assertEqual(4, graph % getUniqueCellsNumber())
 
     ! Verify used materials
-    @assertEqual([1, 2, 4], graph % usedMats)
+    @assertEqual([1, 2, 4], graph % getMaterialIdxs())
 
     ! Test gtting content
     ! Universe
@@ -150,14 +150,14 @@ contains
 
     ! Verify location array
     ! Test will fail if traverse order is changed (even if structure is correct)!
-    @assertEqual([-2, 0, -3, -3, -5, 1, 4, 1, 4, 1, 2], graph % array % idx)
-    @assertEqual([ 3, 0,  6,  8, 10, 1, 2, 3, 4, 5, 6], graph % array % id)
+    @assertEqual([-2, 0, -3, -3, -5, 1, 4, 1, 4, 1, 2], graph % getLocationIdxs())
+    @assertEqual([ 3, 0,  6,  8, 10, 1, 2, 3, 4, 5, 6], graph % getLocationIds())
 
     ! Verify number of unique cells
-    @assertEqual(6, graph % uniqueCells)
+    @assertEqual(6, graph % getUniqueCellsNumber())
 
     ! Verify used materials
-    @assertEqual([1, 2, 4], graph % usedMats)
+    @assertEqual([1, 2, 4], graph % getMaterialIdxs())
 
     ! Test gtting content
     ! Universe

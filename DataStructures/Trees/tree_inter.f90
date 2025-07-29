@@ -1,11 +1,11 @@
 module tree_inter
 
   use axisAlignedBoundingBox_class, only : axisAlignedBoundingBox
-  use coord_class,                  only : coord
   use dictionary_class,             only : dictionary
   use genericProcedures,            only : fatalError
   use node_inter,                   only : buildNodePayload, node
   use numPrecision
+  use publicObjects,                only : coordData
   use topologicalObject_inter,      only : topologicalObjectBox
   use universalVariables,           only : INF
 
@@ -29,6 +29,7 @@ module tree_inter
     procedure                         :: init
     procedure                         :: kill
     ! Runtime procedures.
+    procedure                         :: findFirstIntersectedObject
     procedure                         :: findLeaf
     generic                           :: findIntersectedObjects => findIntersectedObjects_BoundingBox
     procedure, private                :: findIntersectedObjects_BoundingBox
@@ -66,13 +67,25 @@ contains
   !!
   !!
   !!
-  subroutine findLeaf(self, coords, leaf, requiresContainmentCheck)
-    class(tree), intent(in)                :: self
-    type(coord), intent(inout)             :: coords
-    class(node), pointer, intent(out)      :: leaf
-    logical(defBool), intent(in), optional :: requiresContainmentCheck
+  subroutine findFirstIntersectedObject(self, data, firstIntersectedObject)
+    class(tree), intent(in)                 :: self
+    type(coordData), intent(inout)          :: data
+    type(topologicalObjectBox), intent(out) :: firstIntersectedObject
 
-    call self % root % findLeaf(coords, leaf, requiresContainmentCheck)
+    call self % root % findFirstIntersectedObject(data, firstIntersectedObject)
+
+  end subroutine findFirstIntersectedObject
+
+  !!
+  !!
+  !!
+  subroutine findLeaf(self, r, u, leaf, checkContainment)
+    class(tree), intent(in)                    :: self
+    real(defReal), dimension(3), intent(inout) :: r, u
+    class(node), pointer, intent(out)          :: leaf
+    logical(defBool), intent(in), optional     :: checkContainment
+
+    call self % root % findLeaf(r, u, leaf, checkContainment)
 
   end subroutine findLeaf
 

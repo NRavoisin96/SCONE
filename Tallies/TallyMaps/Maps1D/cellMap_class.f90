@@ -1,17 +1,15 @@
 module cellMap_class
 
-  use numPrecision
-  use genericProcedures,       only : fatalError, numToChar
   use dictionary_class,        only : dictionary
-  use intMap_class,            only : intMap
-  use particle_class,          only : particleState
-  use outputFile_class,        only : outputFile
-  use tallyMap1D_inter,        only : tallyMap1D, kill_super => kill
-
-  ! Geometry
-  use geometryStd_class,       only : geometryStd, geometryStd_CptrCast
+  use genericProcedures,       only : fatalError, numToChar
   use geometry_inter,          only : geometry
   use geometryReg_mod,         only : geomPtr, geomNum
+  use geometryStd_class,       only : geometryStd, geometryStd_CptrCast
+  use intMap_class,            only : intMap
+  use numPrecision
+  use outputFile_class,        only : outputFile
+  use particle_class,          only : particleState
+  use tallyMap1D_inter,        only : tallyMap1D, kill_super => kill
 
   implicit none
   private
@@ -88,7 +86,7 @@ contains
     class(cellMap), intent(inout)               :: self
     integer(shortInt), dimension(:), intent(in) :: cells
     logical(defBool), intent(in)                :: trackRest
-    integer(shortInt)                           :: N, i, ID, geomNumber
+    integer(shortInt)                           :: N, i, id, geomNumber
     class(geometry), pointer                    :: geom
     class(geometryStd), pointer                 :: geomStd
     character(*), parameter :: Here = 'build (cellMap_class.f90)'
@@ -120,9 +118,10 @@ contains
     ! Load cell indices and bins
     do i = 1, N
       ! Get unique cell IDs
-      ID = geomStd % geom % cells % getIdx(cells(i))
-      call self % binMap % add(ID, i)
+      id = geomStd % getCellIdx(cells(i))
+      call self % binMap % add(id, i)
       self % cellIdx(i) = cells(i)
+      
     end do
 
     ! Set default and number of bins

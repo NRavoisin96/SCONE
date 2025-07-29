@@ -1,16 +1,16 @@
 module rootUniverse_test
 
-  use numPrecision
-  use universalVariables, only : ONE, OUTSIDE_MAT, ZERO
+  use cellShelf_class,    only : cellShelf
+  use charMap_class,      only : charMap
   use dictionary_class,   only : dictionary
   use dictParser_func,    only : charToDict
-  use charMap_class,      only : charMap
-  use coord_class,        only : coord
-  use surfaceShelf_class, only : surfaceShelf
-  use cellShelf_class,    only : cellShelf
-  use meshShelf_class,    only : meshShelf
-  use rootUniverse_class, only : rootUniverse
   use funit
+  use meshShelf_class,    only : meshShelf
+  use numPrecision
+  use publicObjects,      only : coordData, newCoordData
+  use rootUniverse_class, only : rootUniverse
+  use surfaceShelf_class, only : surfaceShelf
+  use universalVariables, only : ONE, OUTSIDE_MAT, ZERO
 
   implicit none
 
@@ -94,31 +94,37 @@ contains
   !!
 @Test
   subroutine test_enter()
-    type(coord) :: new
-    real(defReal), dimension(3) :: r, u
-    real(defReal), parameter :: TOL = 1.0E-7_defReal
+    type(coordData)             :: data
+    real(defReal), dimension(3) :: r, r_ref, u, u_ref
+    real(defReal), parameter    :: TOL = 1.0E-7_defReal
 
     ! Enter inside
     r = [ONE, -ONE, ONE]
     u = [ONE, ZERO, ZERO]
-    call uni % enter(r, u, new)
+    data = newCoordData(r, u)
+    call uni % enter(data)
 
-    @assertEqual(r, new % getPosition(), TOL)
-    @assertEqual(u, new % getDirection(), TOL)
-    @assertEqual(8, new % getUniIdx())
-    @assertEqual(0, new % getCellIdx())
-    @assertEqual(1, new % getLocalId())
+    r_ref = r
+    u_ref = u
+    @assertEqual(r_ref, data % r, TOL)
+    @assertEqual(u_ref, data % u, TOL)
+    @assertEqual(8, data % universeIdx)
+    @assertEqual(0, data % cellIdx)
+    @assertEqual(1, data % localId)
 
     ! Enter outside
     r = [2.0_defReal, -2.0_defReal, ONE]
     u = [ONE, ZERO, ZERO]
-    call uni % enter(r, u, new)
+    data = newCoordData(r, u)
+    call uni % enter(data)
 
-    @assertEqual(r, new % getPosition(), TOL)
-    @assertEqual(u, new % getDirection(), TOL)
-    @assertEqual(8, new % getUniIdx())
-    @assertEqual(0, new % getCellIdx())
-    @assertEqual(2, new % getLocalId())
+    r_ref = r
+    u_ref = u
+    @assertEqual(r_ref, data % r, TOL)
+    @assertEqual(u_ref, data % u, TOL)
+    @assertEqual(8, data % universeIdx)
+    @assertEqual(0, data % cellIdx)
+    @assertEqual(2, data % localId)
 
   end subroutine test_enter
 
@@ -127,22 +133,16 @@ contains
   !!
 @Test
   subroutine test_distance()
-    real(defReal)            :: d, ref
-    integer(shortInt)        :: surfIdx
-    type(coord)              :: pos
+    type(coordData)          :: data
+    real(defReal)            :: ref
     real(defReal), parameter :: TOL = 1.0E-7_defReal
 
     ! Distance from inside -> only relevant
-    call pos % setPosition([ONE, ZERO, ZERO])
-    call pos % setDirection([ONE, ZERO, ZERO])
-    call pos % setUniIdx(8)
-    call pos % setLocalId(1)
-
-    call uni % distance(pos, d, surfIdx)
-
+    data = newCoordData([ONE, ZERO, ZERO], [ONE, ZERO, ZERO], localId = 1, universeIdx = 8)
+    call uni % distance(data)
     ref = ONE
-    @assertEqual(ref, d, ref * TOL)
-    @assertEqual(surfs % getIdx(1), surfIdx)
+    @assertEqual(ref, data % d, ref * TOL)
+    @assertEqual(surfs % getIdx(1), data % surfaceIdx)
 
   end subroutine test_distance
 
@@ -151,45 +151,13 @@ contains
   !!
 @Test
   subroutine test_cross()
-    type(coord)       :: pos
-    integer(shortInt) :: idx
+    type(coordData) :: data
 
     ! Cross into outside
-    call pos % setPosition([2.0_defReal, ZERO, ZERO])
-    call pos % setDirection([ONE, ZERO, ZERO])
-    call pos % setUniIdx(8)
-    call pos % setLocalId(1)
-
-    idx = surfs % getIdx(1)
-    call uni % cross(pos, idx)
-
-    @assertEqual(2, pos % getLocalId())
+    data = newCoordData([2.0_defReal, ZERO, ZERO], [ONE, ZERO, ZERO], localId = 1, surfaceIdx = surfs % getIdx(1), universeIdx = 8)
+    call uni % cross(data)
+    @assertEqual(2, data % localId)
 
   end subroutine test_cross
-
-  !!
-  !! Test cell offset
-  !!
-@Test
-  subroutine test_cellOffset()
-    type(coord)       :: pos
-
-    ! Inside
-    call pos % setPosition([1.5_defReal, ZERO, ZERO])
-    call pos % setDirection([ONE, ZERO, ZERO])
-    call pos % setUniIdx(8)
-    call pos % setLocalId(1)
-
-    @assertEqual([ZERO, ZERO, ZERO], uni % cellOffset(pos))
-
-    ! Outside
-    call pos % setPosition([2.5_defReal, ZERO, ZERO])
-    call pos % setDirection([ONE, ZERO, ZERO])
-    call pos % setUniIdx(8)
-    call pos % setLocalId(2)
-
-    @assertEqual([ZERO, ZERO, ZERO], uni % cellOffset(pos))
-
-  end subroutine test_cellOffset
 
 end module rootUniverse_test

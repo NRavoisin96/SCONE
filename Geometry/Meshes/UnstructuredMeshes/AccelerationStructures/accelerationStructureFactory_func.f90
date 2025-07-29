@@ -1,6 +1,6 @@
 module accelerationStructureFactory_func
 
-  use accelerationStructure_inter,   only : accelerationStructure
+  use accelerationStructure_inter,   only : accelerationStructure, initAccelerationStructurePayload
   use dictionary_class,              only : dictionary
   use genericProcedures,             only : fatalError
   use noAcceleration_class,          only : noAcceleration
@@ -27,32 +27,42 @@ contains
   !!
   subroutine newAccelerationStructurePtr(dict, edges, elements, faces, vertices, ptr)
     class(dictionary), intent(in)                      :: dict
-    type(topologicalObjectShelf), intent(in)           :: edges, elements, faces, vertices
+    type(topologicalObjectShelf), target, intent(in)   :: edges, elements, faces, vertices
     class(accelerationStructure), pointer, intent(out) :: ptr
+    type(initAccelerationStructurePayload)             :: payload
     character(nameLen)                                 :: type
     character(*), parameter :: here = 'newAccelerationStructurePtr (accelerationStructureFactory_func.f90)'
 
     ! Get type of acceleration structure from dictionary. Default to 'none' if user has not specified one.
-    call dict % getOrDefault(type, 'accelerationMethod', 'none')
+    type = 'none'
+    if (dict % isPresent('accelerationMethod')) then
+      payload % dict => dict % getDictPtr('accelerationMethod')
+      call payload % dict % getOrDefault(type, 'type', 'none')
+      payload % edges => edges
+      payload % elements => elements
+      payload % faces => faces
+      payload % vertices => vertices
+
+    end if
     select case(type)
-        case('none')
-            allocate(noAcceleration :: ptr)
+      case('none')
+          allocate(noAcceleration :: ptr)
 
-        case('octree')
-            allocate(octreeAcceleration :: ptr)
+      case('octree')
+          allocate(octreeAcceleration :: ptr)
 
-        case('patchSearch')
-            allocate(patchSearchAcceleration :: ptr)
+      case('patchSearch')
+          allocate(patchSearchAcceleration :: ptr)
 
-        case default
-            print '(A)', 'AVAILABLE ACCELERATION STRUCTURES: '
-            print '(A)', AVAILABLE_ACCELERATIONS
-            call fatalError(here, 'Unrecognised type of acceleration structure: '//trim(type)//'.')
+      case default
+          print '(A)', 'AVAILABLE ACCELERATION STRUCTURES: '
+          print '(A)', AVAILABLE_ACCELERATIONS
+          call fatalError(here, 'Unrecognised type of acceleration structure: '//trim(type)//'.')
 
     end select
 
     ! Initialise acceleration structure.
-    call ptr % init(dict, edges, elements, faces, vertices)
+    call ptr % init(payload)
 
   end subroutine newAccelerationStructurePtr
 

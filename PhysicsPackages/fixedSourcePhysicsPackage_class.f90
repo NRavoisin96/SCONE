@@ -191,7 +191,7 @@ contains
 
           ! Transport particle until its death
           history: do
-            call transOp % transport(p, tally, buffer, buffer)
+            call transOp % transport(p, tally)
             if (p % isDead) exit history
 
             call collOp % collide(p, tally, buffer, buffer)

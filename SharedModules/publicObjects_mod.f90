@@ -43,6 +43,18 @@ module publicObjects
   !!
   !!
   !!
+  type :: coordData
+    real(defReal)                  :: d = INF, dMax = ZERO
+    real(defReal), dimension(3)    :: r = ZERO, u = ZERO
+    real(defReal), dimension(3, 3) :: rotationMatrix = ZERO
+    integer(shortInt)              :: cellIdx = 0, elementIdx = 0, localId = 1, surfaceIdx = 0, &
+                                      universeIdx = 0, universeRootId = 0
+    logical(defBool)               :: isInside = .false., isRotated = .false.
+  end type coordData
+
+  !!
+  !!
+  !!
   type :: intersectionTestResult
     logical(defBool) :: intersects = .false.
     real(defReal)    :: d = INF
@@ -64,5 +76,26 @@ module publicObjects
     real(defReal)       :: E = ZERO
     class(RNG), pointer :: rand => null()
   end type particleData
+
+contains
+  !!
+  !!
+  !!
+  pure function newCoordData(r, u, cellIdx, localId, surfaceIdx, universeIdx, universeRootId, dMax) result(data)
+    real(defReal), dimension(3), intent(in) :: r, u
+    integer(shortInt), intent(in), optional :: cellIdx, localId, surfaceIdx, universeIdx, universeRootId
+    real(defReal), intent(in), optional     :: dMax
+    type(coordData)                         :: data
+
+    data % r = r
+    data % u = u / norm2(u)
+    if (present(cellIdx)) data % cellIdx = cellIdx
+    if (present(localId)) data % localId = localId
+    if (present(surfaceIdx)) data % surfaceIdx = surfaceIdx
+    if (present(universeIdx)) data % universeIdx = universeIdx
+    if (present(universeRootId)) data % universeRootId = universeRootId
+    if (present(dMax)) data % dMax = dMax
+
+  end function newCoordData
 
 end module publicObjects

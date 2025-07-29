@@ -1,10 +1,11 @@
 module geomGraph_class
 
+  use dictionary_class,   only : dictionary
+  use genericProcedures,  only : fatalError, numToChar, isIn, quickSort
+  use intMap_class,       only : intMap
   use numPrecision
-  use genericProcedures, only : fatalError, numToChar, isIn, quickSort
-  use dictionary_class,  only : dictionary
-  use intMap_class,      only : intMap
-  use uniFills_class,    only : uniFills
+  use uniFills_class,     only : uniFills
+  use universalVariables, only : UNDEF_MAT, VOID_MAT
 
   implicit none
   private
@@ -18,7 +19,7 @@ module geomGraph_class
   !!
   !! uniRootID is the location of the data for the given universe in array
   !!
-  type, private :: location
+  type                :: location
     integer(shortInt) :: id = 0, idx = 0
   end type location
 
@@ -57,13 +58,19 @@ module geomGraph_class
   !!   kill        -> Return to uninitialised state
   !!
   type, public :: geomGraph
+    private
     type(location), dimension(:), allocatable    :: array
     integer(shortInt)                            :: uniqueCells = 0
     integer(shortInt), dimension(:), allocatable :: usedMats
 
   contains
-    procedure :: init
+    procedure :: getActiveMaterialIdxs
+    procedure :: getMaterialIdxs
     procedure :: getFill
+    procedure :: getLocationIds
+    procedure :: getLocationIdxs
+    procedure :: getUniqueCellsNumber
+    procedure :: init
     procedure :: kill
 
     ! Private procedures
@@ -73,6 +80,110 @@ module geomGraph_class
   end type geomGraph
 
 contains
+  !!
+  !!
+  !!
+  pure function getActiveMaterialIdxs(self) result(activeMaterialIdxs)
+    class(geomGraph), intent(in)                 :: self
+    integer(shortInt), dimension(:), allocatable :: activeMaterialIdxs
+    integer(shortInt)                            :: nUsedMaterials, lastIdx
+
+    ! Takes the list of materials present in the geometry from geomGraph
+    nUsedMaterials = size(self % usedMats)
+    lastIdx = self % usedMats(nUsedMaterials)
+
+    ! Check if the last entry of the list is an actual material or void
+    if (lastIdx == VOID_MAT) then
+      nUsedMaterials = nUsedMaterials - 1
+      lastIdx = self % usedMats(nUsedMaterials)
+
+    end if
+  
+    ! Check if the last entry of the list is an undefined material and if so update N
+    if (lastIdx == UNDEF_MAT) nUsedMaterials = nUsedMaterials - 1
+    activeMaterialIdxs = self % usedMats(1:nUsedMaterials)
+
+  end function getActiveMaterialIdxs
+
+  !!
+  !!
+  !!
+  pure function getMaterialIdxs(self) result(materialIdxs)
+    class(geomGraph), intent(in)                 :: self
+    integer(shortInt), dimension(:), allocatable :: materialIdxs
+
+    if (allocated(self % usedMats)) then
+      materialIdxs = self % usedMats
+
+    else
+      allocate(materialIdxs(0))
+
+    end if
+
+  end function getMaterialIdxs
+
+  !!
+  !! Return fill information for a local cell in a universe
+  !!
+  !! Meaning of output variables depend on the sign of `idx`.
+  !! If it is -ve fill is a nested universe with uniIdx = -idx and uniRootId = id
+  !! If it is +ve fill is material cell with matIdx = idx and uniqueId = id
+  !!
+  !! Args:
+  !!   uniRootId [in] -> Location in array of the universe
+  !!   localId [in]   -> Id of the local cell in the universe
+  !!   idx [out]      -> matIdx or -uniIdx of the content
+  !!   id [out]       -> UniqueId or uniRootId
+  !!
+  !! Errors:
+  !!   If localId is too large or too small, content from a different universe will be read
+  !!   For invalid uniRootId any content may be returned
+  !!
+  elemental subroutine getFill(self, uniRootId, localId, idx, id)
+    class(geomGraph), intent(in)   :: self
+    integer(shortInt), intent(in)  :: uniRootId, localId
+    integer(shortInt), intent(out) :: idx, id
+    integer(shortInt)              :: idToUse
+
+    ! Set values
+    idToUse = uniRootId + localId - 1
+    idx = self % array(idToUse) % idx
+    id = self % array(idToUse) % id
+
+  end subroutine getFill
+
+  !!
+  !!
+  !!
+  pure function getLocationIds(self) result(locationIds)
+    class(geomGraph), intent(in)                     :: self
+    integer(shortInt), dimension(size(self % array)) :: locationIds
+
+    locationIds = self % array % id
+
+  end function getLocationIds
+
+  !!
+  !!
+  !!
+  pure function getLocationIdxs(self) result(locationIdxs)
+    class(geomGraph), intent(in)                     :: self
+    integer(shortInt), dimension(size(self % array)) :: locationIdxs
+
+    locationIdxs = self % array % idx
+
+  end function getLocationIdxs
+
+  !!
+  !!
+  !!
+  elemental function getUniqueCellsNumber(self) result(nUniqueCells)
+    class(geomGraph), intent(in) :: self
+    integer(shortInt)            :: nUniqueCells
+
+    nUniqueCells = self % uniqueCells
+
+  end function getUniqueCellsNumber
 
   !!
   !! Initialise graph representation of the geometry structure
@@ -114,36 +225,6 @@ contains
     end select
 
   end subroutine init
-
-  !!
-  !! Return fill information for a local cell in a universe
-  !!
-  !! Meaning of output variables depend on the sign of `idx`.
-  !! If it is -ve fill is a nested universe with uniIdx = -idx and uniRootId = id
-  !! If it is +ve fill is material cell with matIdx = idx and uniqueId = id
-  !!
-  !! Args:
-  !!   uniRootId [in] -> Location in array of the universe
-  !!   localId [in]   -> Id of the local cell in the universe
-  !!   idx [out]      -> matIdx or -uniIdx of the content
-  !!   id [out]       -> UniqueId or uniRootId
-  !!
-  !! Errors:
-  !!   If localId is too large or too small, content from a different universe will be read
-  !!   For invalid uniRootId any content may be returned
-  !!
-  elemental subroutine getFill(self, uniRootId, localId, idx, id)
-    class(geomGraph), intent(in)   :: self
-    integer(shortInt), intent(in)  :: uniRootId, localId
-    integer(shortInt), intent(out) :: idx, id
-    integer(shortInt)              :: idToUse
-
-    ! Set values
-    idToUse = uniRootId + localId - 1
-    idx = self % array(idToUse) % idx
-    id = self % array(idToUse) % id
-
-  end subroutine getFill
 
   !!
   !! Return to uninitialised state

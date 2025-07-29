@@ -1,10 +1,11 @@
 module geometry_inter
-  use numPrecision
-  use universalVariables, only : X_AXIS, Y_AXIS, Z_AXIS, HARDCODED_MAX_NEST
-  use genericProcedures,  only : fatalError
-  use dictionary_class,   only : dictionary
+
   use charMap_class,      only : charMap
   use coordList_class,    only : coordList
+  use dictionary_class,   only : dictionary
+  use genericProcedures,  only : fatalError
+  use numPrecision
+  use universalVariables, only : X_AXIS, Y_AXIS, Z_AXIS, HARDCODED_MAX_NEST
 
   implicit none
   private
@@ -27,21 +28,18 @@ module geometry_inter
   !! Abstract interface for all geometry implementation
   !!
   type, public, abstract :: geometry
+    private
   contains
-    ! Generic procedures
-    generic :: move  => move_noCache, move_withCache
-
     ! Deferred procedures
-    procedure(init), deferred           :: init
-    procedure(kill), deferred           :: kill
-    procedure(placeCoord), deferred     :: placeCoord
-    procedure(whatIsAt), deferred       :: whatIsAt
-    procedure(bounds), deferred         :: bounds
-    procedure(move_noCache), deferred   :: move_noCache
-    procedure(move_withCache), deferred :: move_withCache
-    procedure(moveGlobal), deferred     :: moveGlobal
-    procedure(teleport), deferred       :: teleport
-    procedure(activeMats), deferred     :: activeMats
+    procedure(init), deferred       :: init
+    procedure(kill), deferred       :: kill
+    procedure(placeCoord), deferred :: placeCoord
+    procedure(whatIsAt), deferred   :: whatIsAt
+    procedure(bounds), deferred     :: bounds
+    procedure(move), deferred       :: move
+    procedure(moveGlobal), deferred :: moveGlobal
+    procedure(teleport), deferred   :: teleport
+    procedure(activeMats), deferred :: activeMats
 
     ! Common procedures
     procedure :: slicePlot
@@ -135,37 +133,6 @@ module geometry_inter
     !! Move by up to maxDist stopping at domain boundary or untill matIdx or uniqueID changes
     !! When particle hits boundary, boundary conditions are applied before returning.
     !!
-    !! Following events can be returned:
-    !!   COLL_EV      -> Particle moved by entire maxDist. Collision happens
-    !!   BOUNDARY_EV  -> Particle hit domain boundary
-    !!   CROSS_EV     -> Partilce crossed to a region with different matIdx or uniqueID
-    !!   LOST_EV      -> Something gone wrong in tracking and particle is lost
-    !!
-    !! Args:
-    !!   coords [inout]  -> Coordinate list of the particle to be moved through the geometry
-    !!   maxDist [inout] -> Maximum distance to move the position. If movment is stopped
-    !!     prematurely (e.g. hitting boundary), maxDist is set to the distance the particle has
-    !!     moved by.
-    !!   event [out] -> Event flag that specifies what finished the movement.
-    !!
-    !! Errors:
-    !!   If coords is not placed in the geometry behaviour is unspecified
-    !!   If maxDist < 0.0 behaviour is unspecified
-    !!
-    subroutine move_noCache(self, coords, maxDist, event)
-      import :: geometry, coordList, defReal, shortInt
-      class(geometry), intent(in)    :: self
-      type(coordList), intent(inout) :: coords
-      real(defReal), intent(inout)   :: maxDist
-      integer(shortInt), intent(out) :: event
-    end subroutine move_noCache
-
-    !!
-    !! Given coordinates placed in the geometry move point through the geometry
-    !!
-    !! Move by up to maxDist stopping at domain boundary or untill matIdx or uniqueID changes
-    !! When particle hits boundary, boundary conditions are applied before returning.
-    !!
     !! Use distance cache to avoid needless recalculation of the next crossing at
     !! higher levels.
     !!
@@ -186,14 +153,14 @@ module geometry_inter
     !!   If coords is not placed in the geometry behaviour is unspecified
     !!   If maxDist < 0.0 behaviour is unspecified
     !!
-    subroutine move_withCache(self, coords, maxDist, event, cache)
-      import :: geometry, coordList, defReal, shortInt, distCache
-      class(geometry), intent(in)    :: self
-      type(coordList), intent(inout) :: coords
-      real(defReal), intent(inout)   :: maxDist
-      integer(shortInt), intent(out) :: event
-      type(distCache), intent(inout) :: cache
-    end subroutine move_withCache
+    subroutine move(self, coords, maxDist, event, cache)
+      import                                   :: coordList, defReal, distCache, geometry, shortInt
+      class(geometry), intent(in)              :: self
+      type(coordList), intent(inout)           :: coords
+      real(defReal), intent(inout)             :: maxDist
+      integer(shortInt), intent(out)           :: event
+      type(distCache), intent(inout), optional :: cache
+    end subroutine move
 
     !!
     !! Move a particle in the top (global) level in the geometry

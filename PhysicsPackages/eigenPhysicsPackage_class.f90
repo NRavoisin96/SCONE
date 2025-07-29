@@ -206,7 +206,7 @@ contains
 
           ! Transport particle until its death
           history: do
-            call transOp % transport(neutron, tally, buffer, self % nextCycle)
+            call transOp % transport(neutron, tally)
             if (neutron % isDead) exit history
 
             call collOp % collide(neutron, tally, buffer, self % nextCycle)
