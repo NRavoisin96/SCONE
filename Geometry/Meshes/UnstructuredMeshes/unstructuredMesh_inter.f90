@@ -358,12 +358,12 @@ contains
       call self % acceleration % findHostElement(self % vertices, self % edges, self % faces, self % elements, coords)
       
     !!!
-    ! coordPatch = coords % getElementIdx()
-    ! coordPatch = coords % getParentElementIdx()
-    ! end if
+    coordPatch = coords % getElementIdx()
+    coordPatch = coords % getParentElementIdx()
+    end if
     !!!
 
-    else !!!
+    !else !!!
       ! Perform brute-force search.
       searchLoop: do
         do i = 1, self % nElements
@@ -373,16 +373,16 @@ contains
             call coords % setParentElementIdx(self % elements % getElementParentIdx(i))
 
             !!!
-            ! coordBrute = coords % getElementIdx()
-            ! coordBrute = coords % getParentElementIdx()
-            ! ! if (coordBrute /= 0) then
-            ! ! print*, coordBrute
-            ! ! end if
-            ! ! print*, "INSIDE"
-            ! ! print*, coordBrute, coordPatch
-            ! if (coordBrute /= coordPatch) then
-            !   call fatalError("here", "Element indices not matching between the two methods")
+            coordBrute = coords % getElementIdx()
+            !coordBrute = coords % getParentElementIdx()
+            ! if (coordBrute /= 0) then
+            ! print*, coordBrute
             ! end if
+            ! print*, "INSIDE"
+            ! print*, coordBrute, coordPatch
+            if (coordBrute /= coordPatch) then
+              call fatalError("INSIDE_ELEMENT", "Element indices not matching between the two methods")
+            end if
             !!!
 
             return
@@ -404,16 +404,16 @@ contains
               call coords % setParentElementIdx(self % elements % getElementParentIdx(i))
               
               !!!
-              ! coordBrute = coords % getElementIdx()
-              ! coordBrute = coords % getParentElementIdx()
-              ! ! if (coordBrute /= 0) then
-              ! ! print*, coordBrute
-              ! ! end if
-              ! ! print*, "INSIDE Element"
-              ! ! print*, coordBrute, coordPatch
-              ! if (coordBrute /= coordPatch) then
-              !   call fatalError("here", "Element indices not matching between the two methods")
+              coordBrute = coords % getElementIdx()
+              !coordBrute = coords % getParentElementIdx()
+              ! if (coordBrute /= 0) then
+              ! print*, coordBrute
               ! end if
+              ! print*, "INSIDE Element"
+              ! print*, coordBrute, coordPatch
+              if (coordBrute /= coordPatch) then
+                call fatalError("ON_BOUNDARY_ELEMENT", "Element indices not matching between the two methods")
+              end if
               !!!
               
               
@@ -433,16 +433,16 @@ contains
 
 
         !!!
-        ! coordBrute = coords % getElementIdx()
-        ! coordBrute = coords % getParentElementIdx()
-        ! ! if (coordBrute /= 0) then
-        ! ! print*, coordBrute
-        ! ! end if
-        ! ! print*, "OUTSIDE Element"
-        ! ! print*, coordBrute, coordPatch
-        ! if (coordBrute /= coordPatch) then
-        !   call fatalError("here", "Element indices not matching between the two methods")
+        coordBrute = coords % getElementIdx()
+        !coordBrute = coords % getParentElementIdx()
+        ! if (coordBrute /= 0) then
+        ! print*, coordBrute
         ! end if
+        ! print*, "OUTSIDE Element"
+        ! print*, coordBrute, coordPatch
+        if (coordBrute /= coordPatch) then
+          call fatalError("OUTSIDE_ELEMENT", "Element indices not matching between the two methods")
+        end if
         !!!
 
         return
@@ -450,7 +450,7 @@ contains
       end do searchLoop
 
 
-    end if !!!
+    !end if !!!
 
   end subroutine findHostElement
 

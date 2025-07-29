@@ -629,13 +629,13 @@ contains
 
       end if
 
-      print*, nElementZones
-      print*, "---------------------------------------"
-      print*, name
-      print*, "--------------------"
-      print*, elementIndices
-      print*, "--------------------"
-      print*, nElements
+      ! print*, nElementZones
+      ! print*, "---------------------------------------"
+      ! print*, name
+      ! print*, "--------------------"
+      ! print*, elementIndices
+      ! print*, "--------------------"
+      ! print*, nElements
 
       ! Set the start and end elements in the cell zone (note that we encrement by one since Fortran
       ! starts indexing at one instead of zero) and reset elementIndices array.

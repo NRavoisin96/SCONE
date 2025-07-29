@@ -1,6 +1,6 @@
 type eigenPhysicsPackage;
 
-pop      13000;
+pop      10000;
 active   50;
 inactive 50;
 XSdata ce;
@@ -25,7 +25,7 @@ geometry {
   	graph {type shrunk;}
 
   	surfaces {
-		boxContainer { id 1; type box; origin (-0.5 -0.5 -0.5); halfwidth (0.316 0.316 0.316); }
+		boxContainer { id 1; type box; origin (-0.5 -0.5 -0.5); halfwidth (0.316 0.316 0.27); }
   	}
 
 	cells {
@@ -33,7 +33,7 @@ geometry {
   	}
 
 	meshes { 
-		testMesh {id 1; type OpenFOAMMesh; path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/tet191/; accelerationMethod patchSingle;}
+		testMesh {id 1; type OpenFOAMMesh; path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/tet112/; accelerationMethod patchSingle;}
 	}
 
 	universes {

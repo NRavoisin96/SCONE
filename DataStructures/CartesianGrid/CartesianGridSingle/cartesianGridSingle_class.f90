@@ -22,7 +22,8 @@ module cartesianGridSingle_class
     private
     real(defReal)                                             :: wStar = ZERO, alpha = ZERO, l_min = ZERO, &
                                                                  spacingReciprocal = ZERO, spacing = ZERO
-    real(defReal), dimension(3)                               :: gridBounds_max = ZERO, gridBounds_min = ZERO
+    real(defReal), dimension(3)                               :: gridBounds_max = ZERO, gridBounds_min = ZERO, &
+                                                                 meshBounds_max = ZERO, meshBounds_min = ZERO
     integer(shortInt), dimension(3)                           :: n_xyz = 0
     !!!!
     type(cartesianCellSingle), dimension(:,:,:), allocatable  :: grid
@@ -120,14 +121,14 @@ contains
     ! set n_xyz
     ! set minimum and max xyz-coordinates of the cartesian grid
     extremalCoordinates = vertices % getExtremalCoordinates()
-    xyz_min = extremalCoordinates(1:3)
-    xyz_max = extremalCoordinates(4:6)
+    self % meshBounds_min = extremalCoordinates(1:3)
+    self % meshBounds_max = extremalCoordinates(4:6)
 
     !(needs to be changed)(change the number of spacing for extra room for diff layers)
     do i = 1, 3
-        extraRoom(i) = mod(xyz_max(i) - xyz_min(i), self % spacing)
-        self % gridBounds_min(i) = xyz_min(i) - (self % spacing - extraRoom(i))/2
-        self % gridBounds_max(i) = xyz_max(i) + (self % spacing - extraRoom(i))/2
+        extraRoom(i) = mod(self % meshBounds_max(i) - self % meshBounds_min(i), self % spacing)
+        self % gridBounds_min(i) = self % meshBounds_min(i) - (self % spacing - extraRoom(i))/2
+        self % gridBounds_max(i) = self % meshBounds_max(i) + (self % spacing - extraRoom(i))/2
 
         self % n_xyz(i) = NINT((self % gridBounds_max(i) - self % gridBounds_min(i))/(self % spacing))
         
@@ -752,7 +753,7 @@ contains
   !!
   !!
   !! (needs to be changed) (possible acceleration?)
-  pure function getGridIsOutsideBounds(self, r) result(isOutside)
+  function getGridIsOutsideBounds(self, r) result(isOutside)
     class(cartesianGridSingle), intent(in)              :: self
     real(defReal), dimension(3), intent(in)             :: r
     logical                                             :: isOutside
@@ -761,11 +762,25 @@ contains
     isOutside = .FALSE.
 
     do i = 1, 3
-      if (r(i) > self % gridBounds_max(i) .OR. r(i) < self % gridBounds_min(i)) then
+      !!!!!
+      ! if (r(3)  + 0.25098474675295712 < 0.001) then
+      !   print*,"///////////////////////////////////////"
+      !   print*, r
+      !   print*, r(3) < self % gridBounds_min(3)
+      !   print*,  -0.25098474675295712 < -0.25031493962876034
+      !   print*,"///////////////////////////////////////"
+      ! end if
+      !!!!!
+      if (r(i) > self % meshBounds_max(i) .OR. r(i) < self % meshBounds_min(i)) then
         isOutside = .TRUE.
         return
       end if
     end do
+
+    !!!!!
+    ! print*, "boundMax", self%gridBounds_max
+    ! print*, "boundMin", self%gridBounds_min
+    !!!!!
 
   end function getGridIsOutsideBounds
 
