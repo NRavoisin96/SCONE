@@ -43,14 +43,22 @@ module thermalScatteringData_iTest
   character(*), parameter :: ACE_INPUT_STR = &
   & "aceLibrary ./IntegrationTestFiles/testLib; "
 
+  ! Variables.
+  type(aceNeutronDatabase), target :: data
+
 contains
+@After
+  subroutine cleanUp()
+
+    call data % kill()
+
+  end subroutine cleanUp
 
   !!
   !! Test the use of thermal scattering libraries
   !!
 @Test
   subroutine test_thermalScatteringData()
-    type(aceNeutronDatabase), target  :: data
     class(nuclearDatabase), pointer   :: ptr
     type(dictionary)                  :: matDict
     type(dictionary)                  :: dataDict
@@ -193,6 +201,5 @@ contains
     @assertEqual(ZERO, microXSs % nuFission, TOL)
 
   end subroutine test_thermalScatteringData
-
 
 end module thermalScatteringData_iTest

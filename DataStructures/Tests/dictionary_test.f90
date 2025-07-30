@@ -200,6 +200,9 @@ contains
     call this % dict % getOrDefault(temp_ptr,'invalid', [7_shortInt])
     @assertEqual([7_shortInt], temp_ptr, 'Get or Default Retrival Failed for Absent Keyword')
 
+    ! Clean up pointer.
+    if (associated(temp_ptr)) deallocate(temp_ptr)
+
   end subroutine testGettingIntArray
 
 !!
@@ -430,7 +433,7 @@ contains
   end subroutine getAndFinalPointer
 
 !!
-!! Test keys retrival
+!! Test keys retrieval
 !!
 @test
   subroutine testKeys(this)

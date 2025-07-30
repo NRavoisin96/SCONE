@@ -6,14 +6,15 @@ module unstructuredMesh_inter
   use dictionary_class,                  only : dictionary
   use edge_class,                        only : edgeBox
   use element_class,                     only : buildElementPayload, element, elementBox, inclusionTestResult, &
-                                                rayIntersectionTestResult
+                                                elementIntersectionTestResult, newElementIntersectionTestPayload
   use extentTopologicalObject_inter,     only : buildExtentTopologicalObjectPayload
   use face_class,                        only : buildFacePayload, face, faceBox
   use genericProcedures,                 only : append, fatalError, numToChar
   use mesh_inter,                        only : mesh, kill_super => kill
   use numPrecision
   use publicObjects,                     only : basicEdgeInfo, basicElementInfo, basicFaceInfo, basicVertexInfo, &
-                                                coordData, intersectionTestResult, meshLocalIdInfo, newCoordData
+                                                coordData, intersectionTestPayload, intersectionTestResult, &
+                                                meshLocalIdInfo, newCoordData, newIntersectionTestPayload
   use topologicalObject_inter,           only : topologicalObjectBox
   use topologicalObjectShelf_class,      only : topologicalObjectShelf
   use triangulationFactory_func,         only : newTriangulationPtr
@@ -154,7 +155,7 @@ contains
     
     ! Initialise parentIdx = 0, edgeIdx = 0 and vertexIdx = 0 then search the tree for the intersected boundary face.
     boundingBoxPtr => self % getBoundingBoxPtr()
-    boundingBoxIntersectionResult = boundingBoxPtr % intersects(data % r, data % u)
+    call boundingBoxPtr % intersects(newIntersectionTestPayload(data % r, data % u, data % dMax), boundingBoxIntersectionResult)
     if (.not. boundingBoxIntersectionResult % intersects) return
 
     call self % acceleration % findEntranceBoundaryFace(self % faces, data, boundaryFace)
@@ -207,7 +208,7 @@ contains
     class(unstructuredMesh), intent(in)                   :: self
     type(coordData), intent(inout)                        :: data
     type(elementBox)                                      :: currentElement
-    type(rayIntersectionTestResult)                       :: intersectionResults
+    type(elementIntersectionTestResult)                   :: intersectionResult
     integer(shortInt)                                     :: i, nElements
     type(topologicalObjectBox), dimension(:), allocatable :: faceElements
     character(*), parameter                               :: here = 'distanceToNextFace (unstructuredMesh_inter.f90)'
@@ -215,22 +216,23 @@ contains
     ! Retrieve the element currently occupied by the particle and compute potential 
     ! face intersections.
     currentElement = self % elements % getElementBox(data % elementIdx)
-    intersectionResults = currentElement % ptr % intersects_Ray(data % r, data % r + data % dMax * data % u)
-    if (.not. intersectionResults % intersects) return
-    data % d = intersectionResults % d
+    call currentElement % ptr % intersects(newElementIntersectionTestPayload(data % r, data % u, data % dMax, .true.), &
+                                           intersectionResult)
+    if (.not. intersectionResult % intersects) return
+    data % d = intersectionResult % d
     
     ! If the intersected face is a boundary face then the particle is leaving the mesh.
-    if (intersectionResults % intersectedFace % ptr % getIsBoundary()) then
+    if (intersectionResult % intersectedFace % ptr % getIsBoundary()) then
       data % elementIdx = 0
       data % localId = 1
 
     else
       ! Else, retrieve the elements sharing the intersected face from mesh connectivity then
       ! update elementIdx and localId.
-      faceElements = intersectionResults % intersectedFace % ptr % getSharingElements()
+      faceElements = intersectionResult % intersectedFace % ptr % getSharingElements()
       nElements = size(faceElements)
       if (nElements /= 2) &
-      call fatalError(here, 'Internal face: '//numToChar(intersectionResults % intersectedFace % ptr % getIdx())// &
+      call fatalError(here, 'Internal face: '//numToChar(intersectionResult % intersectedFace % ptr % getIdx())// &
                             ' is not associated to the correct number of elements.')
 
       do i = 1, 2

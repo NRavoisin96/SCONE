@@ -7,7 +7,7 @@ module octreeNode_class
   use kdTree_class,                 only : kdTree
   use node_inter,                   only : buildNodePayload, kill_super => kill, node, nodeBox
   use numPrecision
-  use publicObjects,                only : coordData, intersectionTestResult
+  use publicObjects,                only : coordData, intersectionTestPayload, intersectionTestResult, newIntersectionTestPayload
   use topologicalObject_inter,      only : getUniqueSharingElements, topologicalObjectBox
   use topologicalObjectShelf_class, only : topologicalObjectShelf
   use universalVariables,           only : HALF, INF, INSIDE_ELEMENT, ON_BOUNDARY_ELEMENT, OUTSIDE_ELEMENT
@@ -318,17 +318,18 @@ contains
     type(coordData), intent(inout)                        :: data
     type(topologicalObjectBox), intent(out)               :: firstIntersectedObject
     type(axisAlignedBoundingBox), pointer                 :: boundingBoxPtr
-    type(intersectionTestResult)                          :: boundingBoxIntersectionResult
+    type(intersectionTestResult)                          :: boundingBoxIntersectionResult, intersectionResult
     real(defReal), dimension(3)                           :: rCurrent
     class(node), pointer                                  :: genericLeaf
     type(octreeNode), pointer                             :: leafPtr
     type(topologicalObjectBox), dimension(:), allocatable :: containedObjects
     integer(shortInt)                                     :: i
     type(face), pointer                                   :: facePtr
-    real(defReal)                                         :: dFace, dTravelled, dMin
+    real(defReal)                                         :: dTravelled, dMax, dMin
     character(*), parameter                               :: here = 'findFirstIntersectedObject (octreeNode_class.f90)'
 
     ! First check if a leaf node already contains the particle.
+    dMax = data % dMax
     call self % findLeaf(data % r, data % u, genericLeaf, checkContainment = .true.)
     if (associated(genericLeaf)) then
       ! Downcast genericLeaf to correct type then set the initial traversal position as the particle's current location.
@@ -346,16 +347,17 @@ contains
     else
       ! Compute the intersection between the ray and the root node's bounding box.
       boundingBoxPtr => self % getBoundingBoxPtr()
-      boundingBoxIntersectionResult = boundingBoxPtr % intersects(data % r, data % u)
+      call boundingBoxPtr % intersects(newIntersectionTestPayload(data % r, data % u, data % dMax), boundingBoxIntersectionResult)
       if (.not. boundingBoxIntersectionResult % intersects) return
 
       ! At this point, the ray intersects the bounding box. Nudge intersection coordinates slightly
       ! then find leaf node containing them.
       dTravelled = boundingBoxIntersectionResult % d
+      dMax = data % dMax - dTravelled
 
       ! If distance to bounding box intersection is already greater than maximum allowed distance return early,
       ! else find the leaf node containing the intersection point.
-      if (data % dMax < dTravelled) return
+      if (dMax <= ZERO) return
       rCurrent = data % r + dTravelled * data % u
       call self % findLeaf(rCurrent, data % u, genericLeaf, checkContainment = .true.)
 
@@ -364,10 +366,7 @@ contains
     do
       ! If there is no leaf node containing the intersection point, the intersection has been nudged outside the root bounding box
       ! and we simply return.
-      if (.not. associated(genericLeaf)) then
-        return
-
-      end if
+      if (.not. associated(genericLeaf)) return
 
       ! Downcast genericLeaf to correct type.
       select type(ptr => genericLeaf)
@@ -384,10 +383,11 @@ contains
 
       ! Retrieve the leaf's bounding box and compute the distance to exit.
       boundingBoxPtr => leafPtr % getBoundingBoxPtr()
-      boundingBoxIntersectionResult = boundingBoxPtr % intersects(rCurrent, data % u)
+      call boundingBoxPtr % intersects(newIntersectionTestPayload(rCurrent, data % u, dMax), boundingBoxIntersectionResult)
 
       ! Retrieve all contained objects within the leaf and test them all for an intersection.
       dTravelled = dTravelled + boundingBoxIntersectionResult % d
+      dMax = data % dMax - dTravelled
       dMin = dTravelled
 
       if (leafPtr % isIntersecting) then
@@ -404,9 +404,9 @@ contains
 
           ! Skip test if current face is not a boundary face.
           if (.not. facePtr % getIsBoundary()) cycle
-          call facePtr % computeIntersection(data % r, data % u, data % dMax, dFace)
-          if (dFace < dMin) then
-            dMin = dFace
+          call facePtr % intersects(newIntersectionTestPayload(data % r, data % u, data % dMax), intersectionResult)
+          if (intersectionResult % intersects .and. intersectionResult % d < dMin) then
+            dMin = intersectionResult % d
             data % d = dMin
             firstIntersectedObject % ptr => facePtr
 
@@ -417,7 +417,7 @@ contains
       end if
 
       if (associated(firstIntersectedObject % ptr)) return
-      if (data % dMax < dTravelled) return
+      if (dMax <= ZERO) return
       rCurrent = data % r + dTravelled * data % u
       call leafPtr % findLeaf(rCurrent, data % u, genericLeaf, .true., .true.)
 

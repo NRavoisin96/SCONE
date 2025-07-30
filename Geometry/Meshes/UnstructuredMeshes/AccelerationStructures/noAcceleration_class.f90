@@ -6,7 +6,7 @@ module noAcceleration_class
   use genericProcedures,            only : fatalError, numToChar
   use element_class,                only : element, elementBox, inclusionTestResult
   use numPrecision
-  use publicObjects,                only : coordData
+  use publicObjects,                only : coordData, intersectionTestPayload, intersectionTestResult, newIntersectionTestPayload
   use topologicalObject_inter,      only : topologicalObjectBox
   use topologicalObjectShelf_class, only : topologicalObjectShelf
   use universalVariables,           only : INF, INSIDE_ELEMENT, NUDGE, ON_BOUNDARY_ELEMENT, OUTSIDE_ELEMENT
@@ -37,17 +37,20 @@ contains
     type(faceBox), intent(out)               :: boundaryFace
     type(faceBox)                            :: testFace
     integer(shortInt)                        :: i
-    real(defReal)                            :: distanceToFace
+    real(defReal)                            :: dMax
+    type(intersectionTestResult)             :: intersectionResult
 
+    ! Assemble intersection test payload then loop through all faces in the geometry.
     do i = 1, faces % getObjectsNumber()
       testFace = faces % getFaceBox(i)
       ! Cycle to next face if current face is not active or not a boundary face.
       if (.not. (testFace % ptr % getIsActive() .and. testFace % ptr % getIsBoundary())) cycle
 
       ! Compute distance to boundary face.
-      call testFace % ptr % computeIntersection(data % r, data % u, data % dMax, distanceToFace)
-      if (distanceToFace < data % d) then
-        data % d = distanceToFace
+      dMax = min(data % dMax, data % d)
+      call testFace % ptr % intersects(newIntersectionTestPayload(data % r, data % u, dMax), intersectionResult)
+      if (intersectionResult % intersects .and. intersectionResult % d < data % d) then
+        data % d = intersectionResult % d
         boundaryFace = testFace
 
       end if

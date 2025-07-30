@@ -114,17 +114,16 @@ module ceNeutronCache_mod
   end type cacheZAID
 
   ! MEMBERS OF THE MODULE ARE GIVEN HERE
-  type(cacheMatDat), dimension(:), allocatable, public   :: materialCache
-  type(cacheNucDat), dimension(:), allocatable, public   :: nuclideCache
-  type(cacheSingleXS), dimension(:), allocatable, public :: majorantCache
-  type(cacheSingleXS), dimension(:), allocatable, public :: trackingCache
-  type(cacheZAID), dimension(:), allocatable, public     :: zaidCache
+  type(cacheMatDat), dimension(:), pointer, public   :: materialCache => null()
+  type(cacheNucDat), dimension(:), pointer, public   :: nuclideCache => null()
+  type(cacheSingleXS), dimension(:), pointer, public :: majorantCache => null()
+  type(cacheSingleXS), dimension(:), pointer, public :: trackingCache => null()
+  type(cacheZAID), dimension(:), pointer, public     :: zaidCache => null()
   !$omp threadprivate(materialCache, nuclideCache, majorantCache, trackingCache, zaidCache)
 
   ! Public procedures
   public :: init
   public :: kill
-
 
 contains
 
@@ -175,9 +174,12 @@ contains
     if (present(nZaid)) then
       if (nZaid > 0) then
         allocate(zaidCache(nZaid))
+
       else
         call fatalError(Here,'Number of zaids must be +ve! Not: '//numToChar(nZaid))
+
       end if
+      
     end if
     !$omp end parallel
 
@@ -190,11 +192,11 @@ contains
 
     ! Need to deallocate on all threads
     !$omp parallel
-    if (allocated(materialCache)) deallocate (materialCache)
-    if (allocated(nuclideCache))  deallocate (nuclideCache)
-    if (allocated(majorantCache)) deallocate (majorantCache)
-    if (allocated(trackingCache)) deallocate (trackingCache)
-    if (allocated(zaidCache))     deallocate (zaidCache)
+    if (associated(materialCache)) deallocate (materialCache)
+    if (associated(nuclideCache))  deallocate (nuclideCache)
+    if (associated(majorantCache)) deallocate (majorantCache)
+    if (associated(trackingCache)) deallocate (trackingCache)
+    if (associated(zaidCache))     deallocate (zaidCache)
     !$omp end parallel
 
   end subroutine kill

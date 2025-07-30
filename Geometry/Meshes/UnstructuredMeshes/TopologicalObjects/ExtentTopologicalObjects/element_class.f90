@@ -1,12 +1,14 @@
 module element_class
 
   use axisAlignedBoundingBox_class,  only : axisAlignedBoundingBox
-  use extentTopologicalObject_inter, only : buildExtentTopologicalObjectPayload, extentTopologicalObject
+  use extentTopologicalObject_inter, only : buildExtentTopologicalObjectPayload, extentTopologicalObject, &
+                                            intersects_Ray_super => intersects_Ray
   use edge_class,                    only : edgeBox
   use face_class,                    only : faceBox, orientatedFaceBox
   use genericProcedures,             only : append, areEqual, crossProduct, findCommon, fatalError, numToChar
   use numPrecision
-  use publicObjects,                 only : basicElementInfo
+  use publicObjects,                 only : basicElementInfo, intersectionTestPayload, intersectionTestResult, &
+                                            resetIntersectionTestResult
   use topologicalObject_inter,       only : buildTopologicalObjectPayload, kill_super => kill, topologicalObjectBox
   use universalVariables,            only : FOURTH, INSIDE_ELEMENT, INF, NUDGE, ON_BOUNDARY_ELEMENT, ONE, OUTSIDE_ELEMENT, &
                                             SIXTH, ZERO
@@ -14,6 +16,9 @@ module element_class
   
   implicit none
   private
+
+  ! Public procedures.
+  public :: newElementIntersectionTestPayload, resetElementIntersectionTestResult
 
   !!
   !!
@@ -94,11 +99,16 @@ module element_class
   !!
   !!
   !!
-  type, public :: rayIntersectionTestResult
-    logical(defBool) :: intersects = .false.
-    type(faceBox)    :: intersectedFace
-    real(defReal)    :: d = INF
-  end type rayIntersectionTestResult
+  type, public, extends(intersectionTestPayload) :: elementIntersectionTestPayload
+    logical(defBool)                             :: skipBoundingBoxIntersectionTest = .false.
+  end type elementIntersectionTestPayload
+
+  !!
+  !!
+  !!
+  type, public, extends(intersectionTestResult) :: elementIntersectionTestResult
+    type(faceBox)                               :: intersectedFace
+  end type elementIntersectionTestResult
 
 contains
 
@@ -537,10 +547,10 @@ contains
   !!
   !!
   !!
-  pure function intersects_BoundingBox(self, boundingBox) result(doesIt)
+  pure subroutine intersects_BoundingBox(self, boundingBox, doesIt)
     class(element), intent(in)               :: self
     type(axisAlignedBoundingBox), intent(in) :: boundingBox
-    logical(defBool)                         :: doesIt
+    logical(defBool), intent(out)            :: doesIt
     integer(shortInt)                        :: i
 
     ! Initialise doesIt = .false.
@@ -549,63 +559,94 @@ contains
 
     ! Loop over all faces in the element and check for intersection with any of them.
     do i = 1, size(self % orientatedFaces)
-      if (self % orientatedFaces(i) % face % ptr % intersects(boundingBox)) then
-        doesIt = .true.
-        return
-
-      end if
+      call self % orientatedFaces(i) % face % ptr % intersects(boundingBox, doesIt)
+      if (doesIt) return
 
     end do
 
-  end function intersects_BoundingBox
+  end subroutine intersects_BoundingBox
 
   !!
   !!
   !!
-  function intersects_Ray(self, r, rEnd) result(testResult)
-    class(element), intent(in)                         :: self
-    real(defReal), dimension(3), intent(in)            :: r, rEnd
-    type(rayIntersectionTestResult)                    :: testResult
-    real(defReal), dimension(3)                        :: centroid, faceCentroid, outwardNormal
-    integer(shortInt)                                  :: i
-    real(defReal)                                      :: centroidLambda, dotProduct, faceLambda, minLambda
+  subroutine intersects_Ray(self, payload, result)
+    class(element), intent(in)                    :: self
+    class(intersectionTestPayload), intent(in)    :: payload
+    class(intersectionTestResult), intent(inout)  :: result
+    type(elementIntersectionTestPayload), pointer :: payloadPtr
+    type(elementIntersectionTestResult), pointer  :: resultPtr
+    real(defReal), dimension(3)                   :: centroid, faceCentroid, outwardNormal, rEnd
+    integer(shortInt)                             :: i
+    real(defReal)                                 :: centroidLambda, dotProduct, faceLambda, minLambda
+    character(*), parameter                       :: here = 'intersects_Ray (element_class.f90)'
 
-    ! Retrieve element's centroid then loop over all faces in the tetrahedron.
-    centroid = self % getCentroid()
-    minLambda = INF
-    do i = 1, size(self % orientatedFaces)
-      ! Retrieve the signed normal vector of the current face.
-      faceCentroid = self % orientatedFaces(i) % face % ptr % getCentroid()
-      outwardNormal = self % orientatedFaces(i) % outwardNormal
-      
-      ! Retrieve the centre of the current face and compute lambda.
-      dotProduct = dot_product(rEnd - centroid, outwardNormal)
-      if (areEqual(dotProduct, ZERO)) cycle
-      centroidLambda = dot_product(faceCentroid - centroid, outwardNormal) / dotProduct
-      
-      ! If ZERO <= lambda <= ONE, append the current face to the list of potentially intersected faces.
-      if (ZERO <= centroidLambda .and. centroidLambda <= ONE) then
-        ! Compute lambda for the face using the actual particle coordinates.
-        dotProduct = dot_product(rEnd - r, outwardNormal)
+    ! Downcast payload to correct type.
+    select type(ptr => payload)
+      type is(elementIntersectionTestPayload)
+        payloadPtr => ptr
+
+      class default
+        call fatalError(here, 'Invalid payload type.')
+
+    end select
+
+    ! Allocate result to correct return type then associate pointer.
+    select type(ptr => result)
+      type is(elementIntersectionTestResult)
+        resultPtr => ptr
+        call resetElementIntersectionTestResult(resultPtr)
+
+      class default
+        ! Should never happen.
+        call fatalError(here, 'Failed to downcast result.')
+
+    end select
+
+    ! Check if ray originates from inside the element (skip bounding box intersection in this case.)
+    if (payloadPtr % skipBoundingBoxIntersectionTest) then
+      ! Retrieve element's centroid then loop over all faces in the element.
+      rEnd = payload % r + payload % u * payload % dMax
+      centroid = self % getCentroid()
+      minLambda = INF
+      do i = 1, size(self % orientatedFaces)
+        ! Retrieve the signed normal vector of the current face.
+        faceCentroid = self % orientatedFaces(i) % face % ptr % getCentroid()
+        outwardNormal = self % orientatedFaces(i) % outwardNormal
+        
+        ! Retrieve the centre of the current face and compute lambda.
+        dotProduct = dot_product(rEnd - centroid, outwardNormal)
         if (areEqual(dotProduct, ZERO)) cycle
-        faceLambda = dot_product(faceCentroid - r, outwardNormal) / dotProduct
-        if (faceLambda < minLambda) then
-          minLambda = faceLambda
-          testResult % intersectedFace = self % orientatedFaces(i) % face
+        centroidLambda = dot_product(faceCentroid - centroid, outwardNormal) / dotProduct
+        
+        ! If ZERO <= lambda <= ONE, append the current face to the list of potentially intersected faces.
+        if (ZERO <= centroidLambda .and. centroidLambda <= ONE) then
+          ! Compute lambda for the face using the actual particle coordinates.
+          dotProduct = dot_product(rEnd - payload % r, outwardNormal)
+          if (areEqual(dotProduct, ZERO)) cycle
+          faceLambda = dot_product(faceCentroid - payload % r, outwardNormal) / dotProduct
+          if (faceLambda < minLambda) then
+            minLambda = faceLambda
+            resultPtr % intersectedFace = self % orientatedFaces(i) % face
+
+          end if
 
         end if
 
+      end do
+
+      if (associated(resultPtr % intersectedFace % ptr)) then
+        resultPtr % intersects = .true.
+        resultPtr % d = norm2(min(ONE, max(ZERO, minLambda)) * (rEnd - payload % r))
+
       end if
 
-    end do
-
-    if (associated(testResult % intersectedFace % ptr)) then
-      testResult % intersects = .true.
-      testResult % d = norm2(min(ONE, max(ZERO, minLambda)) * (rEnd - r))
+    else
+      ! Call fatalError for now.
+      call fatalError(here, 'Unsupported procedure.')
 
     end if
 
-  end function intersects_Ray
+  end subroutine intersects_Ray
 
   !! Subroutine 'testForInclusion'
   !!
@@ -731,6 +772,22 @@ contains
   !!
   !!
   !!
+  pure function newElementIntersectionTestPayload(r, u, dMax, skipBoundingBoxIntersectionTest) result(payload)
+    real(defReal), dimension(3), intent(in) :: r, u
+    real(defReal), intent(in)               :: dMax
+    logical(defBool), intent(in)            :: skipBoundingBoxIntersectionTest
+    type(elementIntersectionTestPayload)    :: payload
+
+    payload % r = r
+    payload % u = u
+    payload % dMax = dMax
+    payload % skipBoundingBoxIntersectionTest = skipBoundingBoxIntersectionTest
+
+  end function newElementIntersectionTestPayload
+
+  !!
+  !!
+  !!
   subroutine pushFromBoundary(self, u, r)
     class(element), intent(in)                 :: self
     real(defReal), dimension(3), intent(in)    :: u
@@ -763,6 +820,17 @@ contains
     r = r + nudgeDirection * NUDGE
 
   end subroutine pushFromBoundary
+
+  !!
+  !!
+  !!
+  subroutine resetElementIntersectionTestResult(result)
+    type(elementIntersectionTestResult), intent(inout) :: result
+
+    call resetIntersectionTestResult(result)
+    result % intersectedFace % ptr => null()
+
+  end subroutine resetElementIntersectionTestResult
 
   !!
   !!

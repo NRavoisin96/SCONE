@@ -1,11 +1,13 @@
 module face_class
   
   use axisAlignedBoundingBox_class,  only : axisAlignedBoundingBox
-  use extentTopologicalObject_inter, only : buildExtentTopologicalObjectPayload, extentTopologicalObject
+  use extentTopologicalObject_inter, only : buildExtentTopologicalObjectPayload, extentTopologicalObject, &
+                                            intersects_Ray_super => intersects_Ray
   use edge_class,                    only : edgeBox
   use genericProcedures,             only : append, areEqual, crossProduct, fatalError, numToChar
-  use topologicalObject_inter,       only : buildTopologicalObjectPayload, kill_super => kill, topologicalObjectBox
   use numPrecision
+  use publicObjects,                 only : intersectionTestPayload, intersectionTestResult, resetIntersectionTestResult
+  use topologicalObject_inter,       only : buildTopologicalObjectPayload, kill_super => kill, topologicalObjectBox
   use universalVariables,            only : HALF, INF, ONE, SURF_TOL, THIRD, ZERO
   use vertex_class,                  only : vertexBox
   
@@ -73,7 +75,6 @@ module face_class
     procedure          :: addVertex
     procedure          :: build
     procedure, private :: buildComponents
-    procedure          :: computeIntersection
     procedure          :: connectComponents
     procedure          :: distanceSquared
     procedure          :: getArea
@@ -86,6 +87,7 @@ module face_class
     procedure          :: getType
     procedure          :: getVertices
     procedure          :: intersects_BoundingBox
+    procedure          :: intersects_Ray
     procedure          :: isPointInside
     procedure          :: kill
     procedure          :: setArea
@@ -338,46 +340,6 @@ contains
 
   end subroutine connectComponents
 
-  !! Subroutine 'computeIntersection'
-  !!
-  !! Basic description:
-  !!   Checks whether a line segment intersects the face and if so, computes the distance from
-  !!   the segment's origin to the point of intersection.
-  !!
-  !! Detailed description:
-  !!
-  !! Arguments:
-  !!   startPos [in]          -> 3-D coordinates of the line segment's origin.
-  !!   endPos [in]            -> 3-D coordinates of the line segment's end.
-  !!   firstVertexCoords [in] -> 3-D coordinates of the face's first vertex.
-  !!   isIntersecting [out]   -> .true. if the line segment intersects the triangle.
-  !!   d [out]                -> Distance from the line segment's origin to the point of intersection.
-  !!
-  subroutine computeIntersection(self, r, u, maxDist, d)
-    class(face), intent(in)                 :: self
-    real(defReal), dimension(3), intent(in) :: r, u
-    real(defReal), intent(in)               :: maxDist
-    real(defReal), intent(out)              :: d
-    real(defReal)                           :: denominator, t
-
-    ! Initialise d = INF and compute denominator.
-    d = INF
-    denominator = dot_product(self % normal, u)
-    if (areEqual(denominator, ZERO)) return
-    
-    ! Compute distance along the ray to intersection.
-    t = dot_product(self % getCentroid() - r, self % normal) / denominator
-
-    ! If t is ZERO, the line segment's origin is on the face. In this case return early if the segment
-    ! points in the same direction as the face's normal.
-    if (areEqual(t, ZERO) .and. ZERO <= denominator) return
-    if (t < ZERO .or. maxDist < t) return
-
-    ! Check if the intersection point coordinates are inside the face.
-    if (self % isPointInside(r + t * u)) d = t
-
-  end subroutine computeIntersection
-
   !!
   !!
   !!
@@ -576,10 +538,10 @@ contains
   !!
   !!
   !!
-  pure function intersects_BoundingBox(self, boundingBox) result(doesIt)
+  pure subroutine intersects_BoundingBox(self, boundingBox, doesIt)
     class(face), intent(in)                            :: self
     type(axisAlignedBoundingBox), intent(in)           :: boundingBox
-    logical(defBool)                                   :: doesIt
+    logical(defBool), intent(out)                      :: doesIt
     real(defReal), dimension(3)                        :: boundingBoxCentre, halfwidths, axis, edgeVector, boxAxis
     real(defReal), dimension(3, size(self % vertices)) :: centredVertexCoords
     integer(shortInt)                                  :: i, j, nVertices
@@ -658,7 +620,42 @@ contains
 
     end function overlaps
 
-  end function intersects_BoundingBox
+  end subroutine intersects_BoundingBox
+
+  !!
+  !!
+  !!
+  subroutine intersects_Ray(self, payload, result)
+    class(face), intent(in)                      :: self
+    class(intersectionTestPayload), intent(in)   :: payload
+    class(intersectionTestResult), intent(inout) :: result
+    real(defReal)                                :: denominator, t
+
+    ! First check if ray intersects the face's bounding box and return early if not.
+    call intersects_Ray_super(self, payload, result)
+    if (.not. result % intersects) return
+
+    ! Reset result then compute denominator.
+    call resetIntersectionTestResult(result)
+    denominator = dot_product(self % normal, payload % u)
+    if (areEqual(denominator, ZERO)) return
+    
+    ! Compute distance along the ray to intersection.
+    t = dot_product(self % getCentroid() - payload % r, self % normal) / denominator
+
+    ! If t is ZERO, the line segment's origin is on the face. In this case return early if the segment
+    ! points in the same direction as the face's normal.
+    if (areEqual(t, ZERO) .and. ZERO <= denominator) return
+    if (t < ZERO .or. payload % dMax < t) return
+
+    ! Check if the intersection point coordinates are inside the face.
+    if (self % isPointInside(payload % r + t * payload % u)) then
+      result % intersects = .true.
+      result % d = t
+
+    end if
+
+  end subroutine intersects_Ray
 
   !!
   !!

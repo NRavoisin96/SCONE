@@ -928,11 +928,11 @@ contains
   !! For further details refer to doc of getOrDefault_real
   !!
   subroutine getOrDefault_intArray_ptr(self, value, keyword, default)
-    class(dictionary), intent(in)                            :: self
-    integer(shortInt), dimension(:), pointer, intent(inout)     :: value
-    character(*), intent(in)                                  :: keyword
-    integer(shortInt), dimension(:), intent(in)                :: default
-    integer(shortInt)                                        :: idx
+    class(dictionary), intent(in)                           :: self
+    integer(shortInt), dimension(:), pointer, intent(inout) :: value
+    character(*), intent(in)                                :: keyword
+    integer(shortInt), dimension(:), intent(in)             :: default
+    integer(shortInt)                                       :: idx
     character(100), parameter             :: Here='getOrDefault_intArray_ptr (dictionary_class.f90)'
 
     idx = self % search(keyword, Here, fatal =.false.)

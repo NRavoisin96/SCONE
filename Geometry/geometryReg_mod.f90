@@ -278,9 +278,13 @@ contains
     call geometryNameMap % kill()
     if (allocated(geometries)) then
       do i = 1, geometryTop
-        call geometries(i) % geom % kill()
-      end do
+        if (allocated(geometries(i) % geom)) then
+          call geometries(i) % geom % kill()
+          deallocate(geometries(i) % geom)
 
+        end if
+
+      end do
       deallocate(geometries)
 
     end if
@@ -290,9 +294,13 @@ contains
     call fieldNameMap % kill()
     if (allocated(fields)) then
       do i = 1, fieldTop
-        call fields(i) % kentta % kill()
-      end do
+        if (allocated(fields(i) % kentta)) then
+          call fields(i) % kentta % kill()
+          deallocate(fields(i) % kentta)
 
+        end if
+
+      end do
       deallocate(fields)
 
     end if

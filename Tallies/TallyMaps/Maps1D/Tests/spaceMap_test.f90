@@ -109,6 +109,15 @@ contains
 
   end function newTest
 
+@After
+  subroutine cleanUp(this)
+    class(test_spaceMap), intent(inout) :: this
+
+    call this % map_struct % kill()
+    call this % map_unstruct % kill()
+
+  end subroutine cleanUp
+
 !!<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 !! PROPER TESTS BEGIN HERE
 !!<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>

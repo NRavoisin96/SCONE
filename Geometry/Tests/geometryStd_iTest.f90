@@ -172,7 +172,6 @@ contains
     call geom % move(coords, maxDist, event)
 
     r_ref = [-0.63_defReal, -1.13_defReal, ZERO]
-    u_ref = u_ref
     name = 'water'
     idx = mats % get(name)
 
@@ -187,7 +186,6 @@ contains
     call geom % move(coords, maxDist, event)
 
     r_ref = [-0.63_defReal, 1.26_defReal, ZERO]
-    u_ref = u_ref
     name = 'water'
     idx = mats % get(name)
 
@@ -202,7 +200,6 @@ contains
     call geom % move(coords, maxDist, event)
 
     r_ref = [-0.63_defReal, 1.18_defReal, ZERO]
-    u_ref = u_ref
     name = 'water'
     idx = mats % get(name)
 

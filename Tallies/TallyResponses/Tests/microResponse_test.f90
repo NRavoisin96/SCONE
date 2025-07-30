@@ -3,7 +3,7 @@ module microResponse_test
   use dictionary_class,          only : dictionary
   use endfConstants
   use funit
-  use materialMenu_mod,          only : init
+  use materialMenu_mod,          only : init, kill
   use microResponse_class,       only : microResponse
   use numPrecision
   use particle_class,            only : particle, P_NEUTRON
@@ -105,6 +105,7 @@ contains
 
     ! Kill and deallocate testTransportNuclearData
     call this % xsData % kill()
+    call kill()
 
   end subroutine tearDown
 

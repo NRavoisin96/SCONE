@@ -269,17 +269,16 @@ contains
   !!
   subroutine closeCycle(self, normFactor)
     class(scoreMemory), intent(inout) :: self
-    real(defReal), intent(in)          :: normFactor
+    real(defReal), intent(in)         :: normFactor
     integer(longInt)                  :: i
-    real(defReal), save               :: res
-    !$omp threadprivate(res)
+    real(defReal)                     :: res
 
     ! Increment Cycle Counter
     self % cycles = self % cycles + 1
 
     if (mod(self % cycles, self % batchSize) == 0) then ! Close Batch
 
-      !$omp parallel do
+      !$omp parallel do private(res)
       do i = 1, self % N
 
         ! Normalise scores
@@ -290,7 +289,10 @@ contains
         self % parallelBins(i,:) = ZERO
 
         ! Increment cumulative sums
+        !$omp atomic update
         self % bins(i,CSUM)  = self % bins(i,CSUM) + res
+
+        !$omp atomic update
         self % bins(i,CSUM2) = self % bins(i,CSUM2) + res * res
 
       end do

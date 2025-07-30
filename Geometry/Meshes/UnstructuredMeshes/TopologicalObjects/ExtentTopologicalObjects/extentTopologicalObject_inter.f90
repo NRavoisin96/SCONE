@@ -3,15 +3,17 @@ module extentTopologicalObject_inter
   use axisAlignedBoundingBox_class, only : axisAlignedBoundingBox
   use genericProcedures,            only : fatalError
   use numPrecision
+  use publicObjects,                only : intersectionTestPayload, intersectionTestResult
   use topologicalObject_inter,      only : buildTopologicalObjectPayload, init_super => init, kill_super => kill, &
                                            topologicalObject
+  use universalVariables,           only : INF
   use vertex_class,                 only : vertexBox
 
   implicit none
   private
 
   ! Extendable procedures.
-  public :: kill
+  public :: intersects_Ray, kill
 
   !!
   !!
@@ -40,6 +42,7 @@ module extentTopologicalObject_inter
     procedure                              :: getCentroid
     generic                                :: intersectsBoundingBox => intersectsBoundingBox_BoundingBox
     procedure, private                     :: intersectsBoundingBox_BoundingBox
+    procedure                              :: intersects_Ray
   end type extentTopologicalObject
 
   abstract interface
@@ -128,9 +131,22 @@ contains
     type(axisAlignedBoundingBox), intent(in)   :: boundingBox
     logical(defBool)                           :: doesIt
 
-    doesIt = self % boundingBox % intersects(boundingBox)
+    call self % boundingBox % intersects(boundingBox, doesIt)
 
   end function intersectsBoundingBox_BoundingBox
+
+  !!
+  !!
+  !!
+  subroutine intersects_Ray(self, payload, result)
+    class(extentTopologicalObject), intent(in)   :: self
+    class(intersectionTestPayload), intent(in)   :: payload
+    class(intersectionTestResult), intent(inout) :: result
+
+    ! Check for intersection between object's bounding box and ray.
+    call self % boundingBox % intersects(payload, result)
+
+  end subroutine intersects_Ray
 
   !!
   !!

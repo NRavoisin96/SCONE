@@ -10,8 +10,10 @@ module kdTree_test
   
   implicit none
   
-  ! Variable.
-  type(kdTree) :: tree
+  ! Variables.
+  type(kdTree)                         :: tree
+  type(topologicalObjectShelf), target :: vertices
+
 contains
   !!
   !! Setup environment.
@@ -19,7 +21,6 @@ contains
 @Before
   subroutine setUp()
     type(buildVertexPayload), dimension(18) :: vertexPayloads
-    type(topologicalObjectShelf), target    :: vertices
     type(buildKDTreeNodePayload)            :: payload
     integer(shortInt)                       :: i
     
@@ -62,7 +63,10 @@ contains
   !!
 @After
   subroutine cleanUp()
+    
     call tree % kill()
+    call vertices % kill()
+
   end subroutine cleanUp
   
   !!

@@ -32,8 +32,9 @@ module timer_mod
   private
 
   !! Public interface
-  public :: secToChar
+  public :: killTimer
   public :: registerTimer
+  public :: secToChar
   public :: timerStart
   public :: timerStop
   public :: timerReset
@@ -71,7 +72,7 @@ module timer_mod
   !! Module members
   character(nameLen), dimension(:), allocatable :: timerNames
   type(stopWatch), dimension(:), allocatable    :: timers
-  integer(shortInt)                           :: idx = 0
+  integer(shortInt)                             :: idx = 0
 
   !! Module parameters
   real(defReal), parameter     :: GROWTH_RATIO = 1.6_defReal
@@ -140,8 +141,51 @@ contains
       ! Move allocation
       call move_alloc(namesTemp, timerNames)
       call move_alloc(timerTemp, timers)
+
     end if
+
   end subroutine growIfNeeded
+
+  !!
+  !!
+  !!
+  subroutine killTimer()
+
+    if (allocated(timerNames)) deallocate(timerNames)
+    if (allocated(timers)) deallocate(timers)
+    idx = 0
+
+  end subroutine killTimer
+
+  !!
+  !! Register timer Function
+  !!
+  !! Creates new bin for the timer.
+  !!
+  !! Args:
+  !!   name [in] -> new timer name. Character of maximum length of nameLen
+  !!
+  !! Returns:
+  !!   Integer with bin index
+  !!
+  !! Errors:
+  !!   None
+  !!
+  function registerTimer(name) result(timer_idx)
+    character(*), intent(in) :: name
+    integer(shortInt)        :: timer_idx
+
+    ! Increment count
+    idx = idx + 1
+    timer_idx = idx
+
+    ! Grow storage space if needed
+    call growIfNeeded()
+
+    ! Load name for the timer
+    timerNames(idx) = name
+
+  end function registerTimer
 
   !!
   !! Return a nameLen string with elapsed time in hhh:mm:ss format
@@ -178,36 +222,6 @@ contains
     write(time,'(I3,A1,I2.2,A1,I2.2 )') hour, ':', minute, ':', second
 
   end function secToChar
-
-  !!
-  !! Register timer Function
-  !!
-  !! Creates new bin for the timer.
-  !!
-  !! Args:
-  !!   name [in] -> new timer name. Character of maximum length of nameLen
-  !!
-  !! Returns:
-  !!   Integer with bin index
-  !!
-  !! Errors:
-  !!   None
-  !!
-  function registerTimer(name) result(timer_idx)
-    character(*), intent(in) :: name
-    integer(shortInt)        :: timer_idx
-
-    ! Increment count
-    idx = idx + 1
-    timer_idx = idx
-
-    ! Grow storage space if needed
-    call growIfNeeded()
-
-    ! Load name for the timer
-    timerNames(idx) = name
-
-  end function registerTimer
 
   !!
   !! timerStart Subroutine

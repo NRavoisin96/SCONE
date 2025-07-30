@@ -2,7 +2,7 @@ module axisAlignedBoundingBox_class
 
   use genericProcedures,  only : anyAreEqual, areEqual, swap
   use numPrecision
-  use publicObjects,      only : intersectionTestResult
+  use publicObjects,      only : intersectionTestPayload, intersectionTestResult, resetIntersectionTestResult
   use universalVariables, only : INF, NUDGE, ONE, SURF_TOL, ZERO
 
   implicit none
@@ -203,52 +203,53 @@ contains
   !!
   !!
   !!
-  elemental function intersects_BoundingBox(self, boundingBox) result(doesIt)
+  elemental subroutine intersects_BoundingBox(self, boundingBox, doesIt)
     class(axisAlignedBoundingBox), intent(in) :: self
     type(axisAlignedBoundingBox), intent(in)  :: boundingBox
-    logical(defBool)                          :: doesIt
+    logical(defBool), intent(out)             :: doesIt
 
     doesIt = all(self % bounds(:, 1) <= boundingBox % bounds(:, 2)) .and. all(boundingBox % bounds(:, 1) <= self % bounds(:, 2))
 
-  end function intersects_BoundingBox
+  end subroutine intersects_BoundingBox
 
   !!
   !!
   !!
-  pure function intersects_Ray(self, r, u) result(result)
-    class(axisAlignedBoundingBox), intent(in) :: self
-    real(defReal), dimension(3), intent(in)   :: r, u
-    type(intersectionTestResult)              :: result
-    real(defReal)                             :: inverseU, tFar, tNear, t1, t2
-    integer(shortInt)                         :: i
+  subroutine intersects_Ray(self, payload, result)
+    class(axisAlignedBoundingBox), intent(in)    :: self
+    class(intersectionTestPayload), intent(in)   :: payload
+    class(intersectionTestResult), intent(inout) :: result
+    real(defReal)                                :: d, inverseU, tFar, tNear, t1, t2
+    integer(shortInt)                            :: i
 
     ! Initialise d = INF then loop over all halfwidths.
     tNear = -INF
     tFar = INF
+    call resetIntersectionTestResult(result)
 
     do i = 1, 3
-      if (areEqual(u(i), ZERO)) then
-        if (r(i) < self % bounds(i, 1) .or. self % bounds(i, 2) < r(i)) return
+      if (areEqual(payload % u(i), ZERO)) then
+        if (payload % r(i) < self % bounds(i, 1) .or. self % bounds(i, 2) < payload % r(i)) return
 
       else
-        inverseU = ONE / u(i)
-        t1 = (self % bounds(i, 1) - r(i)) * inverseU
-        t2 = (self % bounds(i, 2) - r(i)) * inverseU
+        inverseU = ONE / payload % u(i)
+        t1 = (self % bounds(i, 1) - payload % r(i)) * inverseU
+        t2 = (self % bounds(i, 2) - payload % r(i)) * inverseU
         if (t2 < t1) call swap(t1, t2)
 
         tNear = max(tNear, t1)
         tFar = min(tFar, t2)
-        if (tFar < tNear) return
+        if (tFar < tNear .or. tFar < SURF_TOL) return
 
       end if
 
     end do
 
-    if (tFar < SURF_TOL) return
+    d = merge(tFar, tNear, tNear < SURF_TOL)
     result % intersects = .true.
-    result % d = merge(tFar, tNear, tNear < SURF_TOL)
+    result % d = d
 
-  end function intersects_Ray
+  end subroutine intersects_Ray
 
   !!
   !!

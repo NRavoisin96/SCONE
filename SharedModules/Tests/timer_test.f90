@@ -1,12 +1,21 @@
 module timer_test
-  use numPrecision
-  use timer_mod, only : registerTimer, timerStart, timerStop, timerReset, timerTime
+
   use funit
+  use numPrecision
+  use timer_mod, only : killTimer, registerTimer, timerStart, timerStop, timerReset, timerTime
 
   implicit none
 
-
 contains
+  !!
+  !! Clean environment.
+  !!
+@After
+  subroutine cleanUp()
+    
+    call killTimer()
+
+  end subroutine cleanUp
 
   !!
   !! Test logic for dynamic space for timers
@@ -18,6 +27,7 @@ contains
 
     do i = 1,100
       j = registerTimer('myName')
+      
     end do
 
     @assertEqual(100, j)

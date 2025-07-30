@@ -304,6 +304,7 @@ contains
     class(node), intent(in)                                              :: self
     type(axisAlignedBoundingBox), intent(in)                             :: boundingBox
     type(topologicalObjectBox), dimension(:), allocatable, intent(inout) :: intersectedObjects
+    logical(defBool)                                                     :: doesIt
     integer(shortInt)                                                    :: i, nIntersectedObjects
     type(topologicalObjectBox), dimension(:), allocatable                :: tempIntersectedObjects
     character(*), parameter :: here = 'findIntersectedObjects_BoundingBox (node_inter.f90)'
@@ -312,7 +313,8 @@ contains
     if (self % isLeaf) then
       if (.not. allocated(self % containedObjects)) return
       do i = 1, size(self % containedObjects)
-        if (self % containedObjects(i) % ptr % intersects(boundingBox)) then
+        call self % containedObjects(i) % ptr % intersects(boundingBox, doesIt)
+        if (doesIt) then
           if (allocated(intersectedObjects)) then
             nIntersectedObjects = size(intersectedObjects)
             allocate(tempIntersectedObjects(nIntersectedObjects + 1))

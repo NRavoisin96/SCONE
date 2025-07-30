@@ -1,13 +1,13 @@
 module cellMap_test
   use numPrecision
-  use universalVariables, only : VOID_MAT
-  use particle_class,     only : particleState
-  use dictionary_class,   only : dictionary
-  use dictParser_func,    only : charToDict
-  use charMap_class,      only : charMap
-  use outputFile_class,   only : outputFile
-  use cellMap_class,      only : cellMap
-  use geometryReg_mod,    only : gr_kill => kill
+  use universalVariables,   only : VOID_MAT
+  use particle_class,       only : particleState
+  use dictionary_class,     only : dictionary
+  use dictParser_func,      only : charToDict
+  use charMap_class,        only : charMap
+  use outputFile_class,     only : outputFile
+  use cellMap_class,        only : cellMap
+  use geometryReg_mod,      only : gr_kill => kill
   use geometryFactory_func, only : new_geometry
   use materialMenu_mod,     only : mm_nameMap => nameMap
   use funit

@@ -9,7 +9,7 @@ module octreeAcceleration_class
   use kdTreeNode_class,             only : buildKDTreeNodePayload
   use node_inter,                   only : node
   use numPrecision
-  use publicObjects,                only : coordData, intersectionTestResult
+  use publicObjects,                only : coordData, intersectionTestResult, newIntersectionTestPayload
   use octree_class,                 only : octree
   use octreeNode_class,             only : buildOctreeNodePayload, octreeNode
   use topologicalObject_inter,      only : topologicalObjectBox
@@ -43,7 +43,8 @@ contains
     type(faceBox), intent(out)               :: boundaryFace
     integer(shortInt)                        :: i
     type(faceBox)                            :: boundaryFaceBruteForce, testFace
-    real(defReal)                            :: distanceBruteForce, distanceToFace
+    type(intersectionTestResult)             :: intersectionResult
+    real(defReal)                            :: distanceBruteForce, dMax
     type(topologicalObjectBox)               :: firstIntersectedObject
     real(defReal), dimension(3)              :: originalCoords
     character(*), parameter                  :: here = 'distanceToBoundaryFace (octreeAcceleration_class.f90)'
@@ -57,10 +58,11 @@ contains
       if (.not. (testFace % ptr % getIsActive() .and. testFace % ptr % getIsBoundary())) cycle
 
       ! Compute distance to boundary face.
-      call testFace % ptr % computeIntersection(data % r, data % u, data % dMax, distanceToFace)
-      if (distanceToFace < distanceBruteForce) then
+      dMax = min(data % dMax, data % d)
+      call testFace % ptr % intersects(newIntersectionTestPayload(data % r, data % u, dMax), intersectionResult)
+      if (intersectionResult % intersects .and. intersectionResult % d < distanceBruteForce) then
+        distanceBruteForce = intersectionResult % d
         boundaryFaceBruteForce = testFace
-        distanceBruteForce = distanceToFace
 
       end if
 

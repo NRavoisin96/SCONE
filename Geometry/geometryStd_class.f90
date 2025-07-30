@@ -187,18 +187,17 @@ contains
     real(defReal), intent(inout)             :: maxDist
     integer(shortInt), intent(out)           :: event
     type(distCache), intent(inout), optional :: cache
-    integer(shortInt)                        :: borderIdx, surfIdx, level
-    real(defReal)                            :: dist
-    type(coordData)                          :: data
+    integer(shortInt)                        :: borderIdx
+    type(coordData)                          :: updateData
     character(*), parameter                  :: Here = 'move (geometryStd_class.f90)'
 
     if (.not. coords % isPlaced()) call fatalError(Here, 'Coordinate list is not placed in the geometry.')
 
     ! Find distance to the next surface and reset cache level to 0 afterwards
-    call self % closestDist(maxDist, coords, dist, surfIdx, level, cache)
+    call self % closestDist(maxDist, coords, updateData, cache)
     if (present(cache)) cache % lvl = 0
 
-    if (maxDist < dist) then ! Moves within cell
+    if (maxDist < updateData % d) then ! Moves within cell
       ! Move local, register event and return early
       call coords % moveLocal(maxDist, coords % getNesting())
       event = COLL_EV
@@ -206,45 +205,42 @@ contains
 
     end if
 
-    ! Update maxDist if reached this point
-    maxDist = dist
+    ! If reached this point a boundary was hit. Update maxDist.
+    maxDist = updateData % d
 
     borderIdx = self % geom % getBorderIdx()
-    if (surfIdx == borderIdx .and. level == 1) then ! Hits domain boundary
+    if (updateData % surfaceIdx == borderIdx .and. updateData % updateLevel == 1) then ! Hits domain boundary
       ! Move global to the boundary and register event
-      call coords % moveGlobal(dist)
+      call coords % moveGlobal(updateData % d)
       event = BOUNDARY_EV
 
-      ! Get boundary surface and apply BCs
-      data = newCoordData(coords % getPosition(1), coords % getDirection(1))
-      call self % geom % explicitSurfaceBoundaryConditions(borderIdx, data % r, data % u)
-
-      ! Place back in geometry and return early
-      call coords % setPositionAndDirection(data % r, data % u, 1)
+      ! Get boundary surface, apply BCs and place back in geometry.
+      updateData = newCoordData(coords % getPosition(1), coords % getDirection(1))
+      call self % geom % explicitSurfaceBoundaryConditions(borderIdx, updateData % r, updateData % u)
+      call coords % setPositionAndDirection(updateData % r, updateData % u, 1)
       call self % placeCoord(coords)
-      return
+
+    else
+      ! The particle moves locally within its cell. Move to boundary at hit level.
+      call coords % moveLocal(updateData % d, updateData % updateLevel)
+      updateData % r = coords % getPosition(updateData % updateLevel)
+
+      ! Register event and update cache level and distance
+      event = CROSS_EV
+      if (present(cache)) then
+        cache % lvl = updateData % updateLevel - 1
+        cache % dist(1:cache % lvl) = cache % dist(1:cache % lvl) - updateData % d
+
+      end if
+
+      ! Get universe and cross to the next cell
+      call self % geom % crossUniverse(updateData % universeIdx, updateData)
+
+      ! Get material
+      call coords % updateCoordinatesFromData(updateData % updateLevel, updateData)
+      call self % diveToMat(coords, updateData % updateLevel)
 
     end if
-
-    ! If reached here then particle crosses to a different local cell. Move to boundary at hit level
-    call coords % moveLocal(dist, level)
-
-    ! Register event and update cache level and distance
-    event = CROSS_EV
-    if (present(cache)) then
-      cache % lvl = level - 1
-      cache % dist(1:cache % lvl) = cache % dist(1:cache % lvl) - dist
-
-    end if
-
-    ! Get universe and cross to the next cell
-    data = coords % getCoordinatesData(level)
-    data % surfaceIdx = surfIdx
-    call self % geom % crossUniverse(coords % getUniIdx(level), data)
-
-    ! Get material
-    call coords % updateCoordinatesFromData(level, data)
-    call self % diveToMat(coords, level)
 
   end subroutine move
 
@@ -417,23 +413,18 @@ contains
   !!   surfIdx [out]  -> Surface index for the crossing returned from the universe
   !!   lvl     [out]  -> Level at which crossing is closest
   !!
-  subroutine closestDist(self, maxDist, coords, shortestDist, surfIdx, lvl, cache)
+  subroutine closestDist(self, maxDist, coords, updateData, cache)
     class(geometryStd), intent(in)           :: self
     real(defReal), intent(in)                :: maxDist
-    type(coordList), intent(inout)           :: coords
-    real(defReal), intent(out)               :: shortestDist
-    integer(shortInt), intent(out)           :: surfIdx, lvl
+    type(coordList), intent(in)              :: coords
+    type(coordData), intent(out)             :: updateData
     type(distCache), intent(inout), optional :: cache
     integer(shortInt)                        :: l, testIdx
     logical(defBool)                         :: update
     real(defReal)                            :: testDistance
-    type(coordData)                          :: data
+    type(coordData)                          :: levelData
 
-    ! Initialise variables and loop over all geometry levels.
-    shortestDist = INF
-    surfIdx = 0
-    lvl = 0
-
+    ! Loop over all geometry levels.
     do l = 1, coords % getNesting()
       ! Check if cache is present and valid.
       update = .true.
@@ -444,12 +435,11 @@ contains
 
       if (update) then
         ! Get universe and compute distance.
-        data = coords % getCoordinatesData(l)
-        data % dMax = maxDist
-        call self % geom % distanceUniverse(data)
-        call coords % updateCoordinatesFromData(l, data)
-        testDistance = data % d
-        testIdx = data % surfaceIdx
+        levelData = coords % getCoordinatesData(l)
+        levelData % dMax = min(maxDist, testDistance)
+        call self % geom % distanceUniverse(levelData)
+        testDistance = levelData % d
+        testIdx = levelData % surfaceIdx
 
         if (present(cache)) then
           ! Update cache and mark this level as valid.
@@ -467,10 +457,12 @@ contains
 
       ! Save distance, surfIdx & level coresponding to shortest distance
       ! Take FP precision into account
-      if ((shortestDist - testDistance) < shortestDist * FP_REL_TOL) cycle
-      shortestDist = testDistance
-      surfIdx = testIdx
-      lvl = l
+      if (updateData % d * FP_REL_TOL <= updateData % d - testDistance) then
+        updateData = levelData
+        updateData % surfaceIdx = testIdx
+        updateData % updateLevel = l
+
+      end if
 
     end do
 

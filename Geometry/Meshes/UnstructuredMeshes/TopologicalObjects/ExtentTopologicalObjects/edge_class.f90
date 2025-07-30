@@ -4,7 +4,7 @@ module edge_class
   use extentTopologicalObject_inter, only : buildExtentTopologicalObjectPayload, extentTopologicalObject, kill_super => kill
   use genericProcedures,             only : append, areEqual, fatalError, numToChar
   use numPrecision
-  use publicObjects,                 only : intersectionTestResult
+  use publicObjects,                 only : intersectionTestResult, newIntersectionTestPayload
   use topologicalObject_inter,       only : buildTopologicalObjectPayload, topologicalObjectBox
   use vertex_class,                  only : vertexBox
   
@@ -31,7 +31,8 @@ module edge_class
   type, public, extends(extentTopologicalObject)          :: edge
     private
     type(vertexBox), dimension(2)                         :: vertices
-    real(defReal), dimension(3)                           :: edgeVector = ZERO, unitEdgeVector = ZERO
+    real(defReal)                                         :: length
+    real(defReal), dimension(3)                           :: unitEdgeVector = ZERO
     type(topologicalObjectBox), dimension(:), allocatable :: sharingElements, sharingFaces
   contains
     ! Build procedures.
@@ -116,12 +117,13 @@ contains
     class(edge), intent(in)                 :: self
     real(defReal), dimension(3), intent(in) :: r
     real(defReal)                           :: dSquared
-    real(defReal), dimension(3)             :: pointVector
+    real(defReal), dimension(3)             :: edgeVector, pointVector
     real(defReal)                           :: lSquared, t
 
     ! First pointVector and the square of the edge length.
+    edgeVector = self % unitEdgeVector * self % length
     pointVector = r - self % vertices(1) % ptr % getCoordinates()
-    lSquared = dot_product(self % edgeVector, self % edgeVector)
+    lSquared = self % length * self % length
 
     ! Handle the case of a zero-length segment.
     if (areEqual(lSquared, ZERO)) then
@@ -132,10 +134,10 @@ contains
 
     ! Compute the normalisation parameter t by projecting pointVector onto edgeVector and
     ! snap it to the range [0, 1].
-    t = max(ZERO, min(ONE, dot_product(pointVector, self % edgeVector) / lSquared))
+    t = max(ZERO, min(ONE, dot_product(pointVector, edgeVector) / lSquared))
 
     ! Now compute dSquared.
-    pointVector = pointVector - self % edgeVector * t
+    pointVector = pointVector - edgeVector * t
     dSquared = dot_product(pointVector, pointVector)
 
   end function distanceSquared
@@ -147,7 +149,7 @@ contains
     class(edge), intent(in)     :: self
     real(defReal), dimension(3) :: edgeVector
 
-    edgeVector = self % edgeVector
+    edgeVector = self % unitEdgeVector * self % length
 
   end function getEdgeVector
 
@@ -220,6 +222,8 @@ contains
     type(buildExtentTopologicalObjectPayload), pointer  :: payloadPtr
     integer(shortInt), dimension(2)                     :: vertexIdxs
     integer(shortInt)                                   :: i
+    real(defReal), dimension(3)                         :: edgeVector
+    real(defReal)                                       :: length
     character(*), parameter                             :: here = 'build (edge_class.f90)'
 
     ! Downcast payload to correct type.
@@ -244,8 +248,10 @@ contains
     self % vertices(1) = payloadPtr % vertices(minloc(vertexIdxs, 1))
     self % vertices(2) = payloadPtr % vertices(maxloc(vertexIdxs, 1))
     
-    self % edgeVector = self % vertices(2) % ptr % getCoordinates() - self % vertices(1) % ptr % getCoordinates()
-    self % unitEdgeVector = self % edgeVector / norm2(self % edgeVector)
+    edgeVector = self % vertices(2) % ptr % getCoordinates() - self % vertices(1) % ptr % getCoordinates()
+    length = norm2(edgeVector)
+    self % unitEdgeVector = edgeVector / length
+    self % length = length
     payloadPtr % centroid = HALF * sum(payloadPtr % allCoords, 2)
 
   end subroutine build
@@ -269,17 +275,18 @@ contains
   !!
   !!
   !!
-  pure function intersects_BoundingBox(self, boundingBox) result(doesIt)
+  subroutine intersects_BoundingBox(self, boundingBox, doesIt)
     class(edge), intent(in)                  :: self
     type(axisAlignedBoundingBox), intent(in) :: boundingBox
-    logical(defBool)                         :: doesIt
+    logical(defBool), intent(out)            :: doesIt
     type(intersectionTestResult)             :: result
 
     ! First check if bounding boxes overlap.
-    result = boundingBox % intersects(self % vertices(1) % ptr % getCoordinates(), self % unitEdgeVector)
+    call boundingBox % intersects(newIntersectionTestPayload(self % vertices(1) % ptr % getCoordinates(), &
+                                                             self % unitEdgeVector, self % length), result)
     doesIt = result % intersects
 
-  end function intersects_BoundingBox
+  end subroutine intersects_BoundingBox
 
   !! Subroutine 'kill'
   !!
@@ -294,7 +301,7 @@ contains
     call kill_super(self)
     
     ! Local.
-    self % edgeVector = ZERO
+    self % length = ZERO
     self % unitEdgeVector = ZERO
     do i = 1, 2
       nullify(self % vertices(i) % ptr)

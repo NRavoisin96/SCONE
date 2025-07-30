@@ -1,11 +1,12 @@
 module vertex_class
   
   use axisAlignedBoundingBox_class, only : axisAlignedBoundingBox
+  use genericProcedures,            only : append, areEqual, fatalError
   use numPrecision
-  use universalVariables
-  use genericProcedures,            only : append, fatalError
+  use publicObjects,                only : intersectionTestPayload, intersectionTestResult
   use topologicalObject_inter,      only : buildTopologicalObjectPayload, kill_super => kill, topologicalObject, &
                                            topologicalObjectBox
+  use universalVariables
   
   implicit none
   private
@@ -55,6 +56,7 @@ module vertex_class
     procedure :: getSharingElements
     procedure :: getSharingFaces
     procedure :: intersects_BoundingBox
+    procedure :: intersects_Ray
   end type vertex
 
 contains
@@ -292,15 +294,38 @@ contains
   !!
   !!
   !!
-  function intersects_BoundingBox(self, boundingBox) result(doesIt)
+  subroutine intersects_BoundingBox(self, boundingBox, doesIt)
     class(vertex), intent(in)                :: self
     type(axisAlignedBoundingBox), intent(in) :: boundingBox
-    logical(defBool)                         :: doesIt
+    logical(defBool), intent(out)            :: doesIt
     character(*), parameter                  :: here = 'intersects_BoundingBox (vertex_class.f90)'
 
     call fatalError(here, 'Unsupported procedure.')
 
-  end function intersects_BoundingBox
+  end subroutine intersects_BoundingBox
+
+  !!
+  !!
+  !!
+  subroutine intersects_Ray(self, payload, result)
+    class(vertex), intent(in)                    :: self
+    class(intersectionTestPayload), intent(in)   :: payload
+    class(intersectionTestResult), intent(inout) :: result
+    real(defReal), dimension(3)                  :: vector
+    real(defReal)                                :: dProjection
+
+    ! Create vector from origin of the ray to the vertex.
+    vector = self % coordinates - payload % r
+    dProjection = dot_product(vector, payload % u)
+    if (dProjection < ZERO .or. payload % dMax < dProjection) return
+
+    if (areEqual(dot_product(vector, vector) - dProjection * dProjection, ZERO)) then
+      result % intersects = .true.
+      result % d = dProjection
+
+    end if
+
+  end subroutine intersects_Ray
   
   !! Subroutine 'kill'
   !!

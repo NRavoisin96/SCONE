@@ -2,6 +2,7 @@ module topologicalObject_inter
 
   use axisAlignedBoundingBox_class, only : axisAlignedBoundingBox
   use numPrecision
+  use publicObjects,                only : intersectionTestPayload, intersectionTestResult
 
   implicit none
   private
@@ -46,8 +47,9 @@ module topologicalObject_inter
     procedure, non_overridable                  :: getIdx
     procedure, non_overridable                  :: getIsActive
     procedure(getSharingElements), deferred     :: getSharingElements
-    generic                                     :: intersects => intersects_BoundingBox
+    generic                                     :: intersects => intersects_BoundingBox, intersects_Ray
     procedure(intersects_BoundingBox), deferred :: intersects_BoundingBox
+    procedure(intersects_Ray), deferred         :: intersects_Ray
     procedure                                   :: kill
   end type topologicalObject
 
@@ -101,12 +103,22 @@ module topologicalObject_inter
     !!
     !!
     !!
-    function intersects_BoundingBox(self, boundingBox) result(doesIt)
+    subroutine intersects_BoundingBox(self, boundingBox, doesIt)
       import                                   :: axisAlignedBoundingBox, defBool, topologicalObject
       class(topologicalObject), intent(in)     :: self
       type(axisAlignedBoundingBox), intent(in) :: boundingBox
-      logical(defBool)                         :: doesIt
-    end function intersects_BoundingBox
+      logical(defBool), intent(out)            :: doesIt
+    end subroutine intersects_BoundingBox
+
+    !!
+    !!
+    !!
+    subroutine intersects_Ray(self, payload, result)
+      import                                       :: intersectionTestPayload, intersectionTestResult, topologicalObject
+      class(topologicalObject), intent(in)         :: self
+      class(intersectionTestPayload), intent(in)   :: payload
+      class(intersectionTestResult), intent(inout) :: result
+    end subroutine intersects_Ray
 
   end interface
 
