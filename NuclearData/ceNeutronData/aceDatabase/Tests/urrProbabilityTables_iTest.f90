@@ -28,14 +28,22 @@ module urrProbabilityTables_iTest
   character(*), parameter :: ACE_INPUT_STR = &
   & "aceLibrary ./IntegrationTestFiles/testLib; ures 1 ; majorant 1; "
 
+  ! Variables.
+  type(aceNeutronDatabase), target :: data
+
 contains
+@After
+  subroutine cleanUp()
+
+    call data % kill()
+
+  end subroutine cleanUp
 
   !!
   !! Test the use of probability tables
   !!
 @Test
   subroutine test_urrProbabilityTables()
-    type(aceNeutronDatabase), target  :: data
     class(nuclearDatabase), pointer   :: ptr
     type(dictionary)                  :: matDict
     type(dictionary)                  :: dataDict

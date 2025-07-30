@@ -1,38 +1,45 @@
 module geometryStd_iTest
 
+  use charMap_class,     only : charMap
+  use coordList_class,   only : coordList
+  use dictionary_class,  only : dictionary
+  use dictParser_func,   only : fileToDict
+  use funit
+  use geometryStd_class, only : geometryStd
   use numPrecision
   use universalVariables
-  use dictionary_class,  only : dictionary
-  use charMap_class,     only : charMap
-  use dictParser_func,   only : fileToDict
-  use coordList_class,   only : coordList
-  use geometryStd_class, only : geometryStd
-  use funit
 
   implicit none
 
+  ! Variables.
+  type(geometryStd) :: geom
 
 contains
+@After
+  subroutine cleanUp()
+
+    call geom % kill()
+
+  end subroutine cleanUp
 
   !!
   !! Geometry integration test -> Simple 2x2 lattice
   !!
 @Test
   subroutine test_lattice_geom()
-    type(geometryStd)           :: geom
-    character(*), parameter     :: path = './IntegrationTestFiles/Geometry/test_lat'
-    type(charMap)               :: mats
-    integer(shortInt)           :: i, idx, matIdx, uniqueID, event
-    type(dictionary)            :: dict
-    real(defReal), dimension(3) :: r, u, r_ref, u_ref
-    type(dictionary), pointer    :: tempDict
-    character(nameLen)          :: name
-    type(coordList)             :: coords
+    character(*), parameter                       :: path = './IntegrationTestFiles/Geometry/test_lat'
+    type(charMap)                                 :: mats
+    integer(shortInt)                             :: i, idx, matIdx, uniqueID, event
+    type(dictionary)                              :: dict
+    real(defReal), dimension(3)                   :: r, u, r_ref, u_ref
+    type(dictionary), pointer                     :: tempDict
+    character(nameLen)                            :: name
+    type(coordList)                               :: coords
     character(nameLen), dimension(:), allocatable :: keys
     integer(shortInt), dimension(10,10)           :: img
     real(defReal), dimension(6)                   :: aabb
     real(defReal)                                 :: maxDist
-    real(defReal), parameter :: TOL = 1.0E-7_defReal
+    real(defReal), parameter                      :: TOL = 1.0E-7_defReal
 
     ! Load dictionary
     call fileToDict(dict, path)
@@ -219,7 +226,6 @@ contains
   !!
 @Test
   subroutine test_tilted_cylinder()
-    type(geometryStd)           :: geom
     character(*), parameter     :: path = './IntegrationTestFiles/Geometry/test_cyl'
     type(charMap)               :: mats
     integer(shortInt)           :: idxW, idxF, i

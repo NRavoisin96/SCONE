@@ -18,9 +18,9 @@
 !!
 module ceNeutronCache_mod
 
-  use numPrecision
   use genericProcedures,       only : fatalError, numToChar
   use neutronXsPackages_class, only : neutronMicroXSs, neutronMacroXSs
+  use numPrecision
 
   implicit none
   private
@@ -40,18 +40,15 @@ module ceNeutronCache_mod
   !!   xssRel -> Cached effective cross-section values at energy relative to E_rel (for TMS)
   !!
   type, public :: cacheMatDat
-    real(defReal)         :: E_tot  = ZERO
-    real(defReal)         :: E_tail = ZERO
-    real(defReal)         :: f      = ZERO
-    integer(shortInt)     :: idx    = 0
+    real(defReal)         :: E_tail = ZERO, E_tot = ZERO, f = ZERO
+    integer(shortInt)     :: idx = 0
     type(neutronMacroXSs) :: xss
 
     ! Tracking data
-    real(defReal)         :: E_track = ZERO
-    real(defReal)         :: trackXS = ZERO
+    real(defReal)         :: E_track = ZERO, trackXS = ZERO
 
     ! TMS data
-    real(defReal)         :: E_rel  = ZERO
+    real(defReal)         :: E_rel = ZERO
     type(neutronMacroXSs) :: xssRel
 
   end type cacheMatDat
@@ -72,17 +69,12 @@ module ceNeutronCache_mod
   !!   sabIdx    -> S(alpha,beta) index (for stochastic mixing)
   !!
   type, public :: cacheNucDat
-    real(defReal)         :: E_tot  = ZERO
-    real(defReal)         :: E_tail = ZERO
-    real(defReal)         :: f      = ZERO
-    integer(shortInt)     :: idx    = 0
+    real(defReal)         :: E_tail = ZERO, E_tot = ZERO, f = ZERO
+    integer(shortInt)     :: idx = 0
     type(neutronMicroXSs) :: xss
 
     ! TMS data
-    real(defReal)         :: E_maj     = ZERO
-    real(defReal)         :: deltakT   = ZERO
-    real(defReal)         :: tempMajXS = ZERO
-    real(defReal)         :: doppCorr  = ONE
+    real(defReal)         :: doppCorr = ONE, deltakT = ZERO, E_maj = ZERO, tempMajXS = ZERO
 
     ! S(alpha,beta) data
     integer(shortInt)     :: sabIdx = 0
@@ -97,8 +89,7 @@ module ceNeutronCache_mod
   !!   xs -> value of the cross section
   !!
   type, public :: cacheSingleXS
-    real(defReal) :: E  = ZERO
-    real(defReal) :: xs = ZERO
+    real(defReal) :: E = ZERO, xs = ZERO
   end type cacheSingleXS
 
   !!
@@ -109,8 +100,7 @@ module ceNeutronCache_mod
   !!   xi -> value of the random number
   !!
   type, public :: cacheZAID
-    real(defReal) :: E  = ZERO
-    real(defReal) :: xi = ZERO
+    real(defReal) :: E = ZERO, xi = ZERO
   end type cacheZAID
 
   ! MEMBERS OF THE MODULE ARE GIVEN HERE
@@ -141,10 +131,8 @@ contains
   !!   fatalError if nMat, nNuc or Nmaj is not a +ve value
   !!
   subroutine init(nMat, nNuc, nMaj, nZaid)
-    integer(shortInt), intent(in)           :: nMat
-    integer(shortInt), intent(in)           :: nNuc
-    integer(shortInt), optional, intent(in) :: nMaj
-    integer(shortInt), optional, intent(in) :: nZaid
+    integer(shortInt), intent(in)           :: nMat, nNuc
+    integer(shortInt), optional, intent(in) :: nMaj, nZaid
     integer(shortInt)                       :: nLoc
     character(*), parameter :: Here = 'init (ceNeutronCache_mod.f90)'
 
@@ -154,8 +142,10 @@ contains
     ! Read default value of majorant XSs
     if (present(nMaj)) then
       nLoc = nMaj
+
     else
       nLoc = 1
+
     end if
 
     ! Check the provided data
@@ -193,10 +183,10 @@ contains
     ! Need to deallocate on all threads
     !$omp parallel
     if (associated(materialCache)) deallocate (materialCache)
-    if (associated(nuclideCache))  deallocate (nuclideCache)
+    if (associated(nuclideCache)) deallocate (nuclideCache)
     if (associated(majorantCache)) deallocate (majorantCache)
     if (associated(trackingCache)) deallocate (trackingCache)
-    if (associated(zaidCache))     deallocate (zaidCache)
+    if (associated(zaidCache)) deallocate (zaidCache)
     !$omp end parallel
 
   end subroutine kill

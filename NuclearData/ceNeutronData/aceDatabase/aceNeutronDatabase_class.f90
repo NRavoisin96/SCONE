@@ -80,16 +80,16 @@ module aceNeutronDatabase_class
   type, public, extends(ceNeutronDatabase) :: aceNeutronDatabase
     type(aceNeutronNuclide), dimension(:), pointer :: nuclides  => null()
     type(ceNeutronMaterial), dimension(:), pointer :: materials => null()
-    real(defReal), dimension(:), allocatable     :: majorant
-    real(defReal), dimension(:), allocatable     :: eGridUnion
-    real(defReal), dimension(2)                  :: eBounds   = ZERO
+    real(defReal), dimension(:), allocatable       :: majorant
+    real(defReal), dimension(:), allocatable       :: eGridUnion
+    real(defReal), dimension(2)                    :: eBounds   = ZERO
     integer(shortInt), dimension(:), allocatable   :: activeMat
 
     ! Probability tables data
     integer(shortInt), dimension(:), allocatable   :: nucToZaid
-    logical(defBool)                             :: hasUrr  = .false.
-    logical(defBool)                             :: hasDBRC = .false.
-    logical(defBool)                             :: hasMajorant = .false.
+    logical(defBool)                               :: hasUrr  = .false.
+    logical(defBool)                               :: hasDBRC = .false.
+    logical(defBool)                               :: hasMajorant = .false.
 
   contains
 
@@ -144,8 +144,14 @@ contains
     end if
 
     self % eBounds = ZERO
+    self % hasDBRC = .false.
+    self % hasMajorant = .false.
+    self % hasUrr = .false.
 
     if (allocated(self % activeMat)) deallocate(self % activeMat)
+    if (allocated(self % eGridUnion)) deallocate(self % eGridUnion)
+    if (allocated(self % majorant)) deallocate(self % majorant)
+    if (allocated(self % nucToZaid)) deallocate(self % nucToZaid)
 
   end subroutine kill
 
@@ -1177,19 +1183,18 @@ contains
     ! Configure Cache
     if (self % hasUrr) then
       call cache_init(size(self % materials), size(self % nuclides), nZaid = maxval(self % nucToZaid))
+
     else
       call cache_init(size(self % materials), size(self % nuclides))
+
     end if
 
     ! If unionised majorant cross section is requested, build it
     if (self % hasMajorant) then
 
       ! Set build console output flag
-      if (present(silent)) then
-        loud = .not. silent
-      else
-        loud = .true.
-      end if
+      loud = .true.
+      if (present(silent)) loud = .not. silent
 
       ! Precompute majorant cross section
       call self % initMajorant(loud)

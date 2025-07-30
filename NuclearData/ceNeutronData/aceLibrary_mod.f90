@@ -51,8 +51,8 @@ module aceLibrary_mod
 !!<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 
   type(item), dimension(:), allocatable :: entry
-  type(charMap)                       :: map
-  character(:), allocatable           :: libFile
+  type(charMap)                         :: map
+  character(:), allocatable             :: libFile
 
   public :: load
   public :: new_neutronACE
@@ -74,11 +74,10 @@ contains
   !!
   subroutine load(path)
     character(*), intent(in) :: path
-    integer(shortInt)        :: library
-    integer(shortInt)        :: i, errorCode, libLen, readStat, last
+    integer(shortInt)        :: errorCode, i, last, library, libLen, readStat
     character(99)            :: errorMsg
-    character(MAX_COL)       :: buffor
-    character(*), parameter :: Here = 'load (aceLibrary_mod.f90)'
+    character(MAX_COL)       :: buffer
+    character(*), parameter  :: Here = 'load (aceLibrary_mod.f90)'
 
     ! Clean
     call kill()
@@ -98,12 +97,12 @@ contains
     ! Find number of entries in the library
     libLen = 0
     do
-      read(unit = library, fmt=READ_FMT, iostat=readStat) buffor
+      read(unit = library, fmt=READ_FMT, iostat=readStat) buffer
       if (readStat == IOSTAT_END) exit
 
       ! Preform line preprocessing
-      call preprocessLine(buffor)
-      if (len_trim(buffor) /= 0) libLen = libLen + 1
+      call preprocessLine(buffer)
+      if (len_trim(buffer) /= 0) libLen = libLen + 1
     end do
     rewind(library)
 
@@ -114,20 +113,20 @@ contains
     ! Load Library information
     i = 1
     do
-      read(unit = library, fmt=READ_FMT, iostat=readStat) buffor
+      read(unit = library, fmt=READ_FMT, iostat=readStat) buffer
       if (readStat == IOSTAT_END) exit
 
       ! Preform line preprocessing
-      call preprocessLine(buffor)
+      call preprocessLine(buffer)
 
       ! Read if line is not empty
-      if (len_trim(buffor) /= 0) then
-        associate ( bounds => splitChar(buffor, DELIM) )
-          if (size(bounds, 2) < 3) call fatalError(Here, 'Ill formatted line: ' // trim(buffor))
+      if (len_trim(buffer) /= 0) then
+        associate ( bounds => splitChar(buffer, DELIM) )
+          if (size(bounds, 2) < 3) call fatalError(Here, 'Ill formatted line: ' // trim(buffer))
           ! Read Content
-          entry(i) % ZAID      = buffor(bounds(1,1):bounds(2,1))
-          entry(i) % firstLine = charToInt(buffor(bounds(1,2):bounds(2,2)))
-          entry(i) % path      = buffor(bounds(1,3):bounds(2,3))
+          entry(i) % ZAID      = buffer(bounds(1,1):bounds(2,1))
+          entry(i) % firstLine = charToInt(buffer(bounds(1,2):bounds(2,2)))
+          entry(i) % path      = buffer(bounds(1,3):bounds(2,3))
           i = i + 1
         end associate
       end if

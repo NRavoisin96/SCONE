@@ -41,18 +41,10 @@ module urrProbabilityTables_class
   !!
   !!
   type, public :: urrProbabilityTables
-    integer(shortInt) :: nGrid
-    integer(shortInt) :: nTable
-    integer(shortInt) :: INT
-    integer(shortInt) :: ILF
-    integer(shortInt) :: IOA
-    integer(shortInt) :: IFF
-    real(defReal), dimension(:), allocatable  :: majorant
-    real(defReal), dimension(:), allocatable  :: eGrid
+    integer(shortInt)                         :: IFF = 0, ILF = 0, INT = 0, IOA = 0, nGrid = 0, nTable = 0
+    real(defReal), dimension(:), allocatable  :: eGrid, majorant
     type(urrTable), dimension(:), allocatable :: table
-
   contains
-
     procedure :: init
     procedure :: computeMajorant
     procedure :: kill
@@ -60,7 +52,6 @@ module urrProbabilityTables_class
     procedure :: getIFF
     procedure :: sampleXSs
     procedure :: buildFromACE
-
   end type urrProbabilityTables
 
 contains
@@ -99,6 +90,12 @@ contains
   elemental subroutine kill(self)
     class(urrProbabilityTables), intent(inout) :: self
 
+    self % IFF = 0
+    self % ILF = 0
+    self % INT = 0
+    self % IOA = 0
+    self % nGrid = 0
+    self % nTable = 0
     if (allocated(self % eGrid)) deallocate(self % eGrid)
     if (allocated(self % table)) deallocate(self % table)
 

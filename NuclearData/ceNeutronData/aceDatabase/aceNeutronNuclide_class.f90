@@ -111,27 +111,25 @@ module aceNeutronNuclide_class
   !!   display          -> print information about the nuclide to the console
   !!
   type, public, extends(ceNeutronNuclide) :: aceNeutronNuclide
-    character(nameLen)                          :: ZAID    = ''
-    real(defReal), dimension(:), allocatable    :: eGrid
-    real(defReal), dimension(:,:), allocatable  :: mainData
-    type(reactionMT), dimension(:), allocatable :: MTdata
-    integer(shortInt)                           :: nMT     = 0
-    type(intMap)                                :: idxMT
+    character(nameLen)                           :: ZAID = ''
+    real(defReal), dimension(:), allocatable     :: eGrid
+    real(defReal), dimension(:,:), allocatable   :: mainData
+    type(reactionMT), dimension(:), allocatable  :: MTdata
+    integer(shortInt)                            :: nMT = 0
+    type(intMap)                                 :: idxMT
 
-    type(elasticNeutronScatter) :: elasticScatter
-    type(fissionCE)             :: fission
+    type(elasticNeutronScatter)                  :: elasticScatter
+    type(fissionCE)                              :: fission
 
     ! URR probability tables
-    real(defReal), dimension(2) :: urrE = ZERO
-    type(urrProbabilityTables)  :: probTab
-    logical(defBool)            :: hasProbTab = .false.
-    integer(shortInt)           :: IFF = 0
+    real(defReal), dimension(2)                  :: urrE = ZERO
+    type(urrProbabilityTables)                   :: probTab
+    logical(defBool)                             :: hasProbTab = .false.
+    integer(shortInt)                            :: IFF = 0
 
     ! S(alpha,beta)
-    logical(defBool)            :: hasThData = .false.
-    logical(defBool)            :: stochasticMixing = .false.
-    real(defReal), dimension(2) :: SabEl = ZERO
-    real(defReal), dimension(2) :: SabInel = ZERO
+    logical(defBool)                             :: hasThData = .false., stochasticMixing = .false.
+    real(defReal), dimension(2)                  :: SabEl = ZERO, SabInel = ZERO
     type(thermalData), dimension(:), allocatable :: thData
 
   contains
@@ -314,16 +312,27 @@ contains
     if (allocated(self % MTdata)) then
       do i= 1, size(self % MTdata)
         call self % MTdata(i) % kinematics % kill()
+
       end do
+      deallocate(self % MTdata)
+
     end if
 
     ! Local killing
     self % ZAID = ''
     self % nMT  = 0
-    if (allocated(self % MTdata))   deallocate(self % MTdata)
     if (allocated(self % mainData)) deallocate(self % mainData)
-    if (allocated(self % eGrid))    deallocate(self % eGrid)
+    if (allocated(self % eGrid)) deallocate(self % eGrid)
+    if (allocated(self % thData)) then
+      do i = 1, size(self % thData)
+        call self % thData(i) % kill()
+
+      end do
+      deallocate(self % thData)
+
+    end if
     call self % idxMT % kill()
+    call self % probTab % kill()
 
   end subroutine kill
 

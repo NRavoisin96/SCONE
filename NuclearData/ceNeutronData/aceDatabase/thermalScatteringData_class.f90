@@ -113,8 +113,17 @@ contains
     self % isCoherent = .false.
     self % kT = -ONE
 
-    call self % inelasticOut % kill()
-    call self % elasticOut % kill()
+    if (allocated(self % elasticOut)) then
+      call self % elasticOut % kill()
+      deallocate(self % elasticOut)
+
+    end if
+
+    if (allocated(self % inelasticOut)) then
+      call self % inelasticOut % kill()
+      deallocate(self % inelasticOut)
+
+    end if
 
     deallocate(self % inelastic % eGrid)
     deallocate(self % inelastic % xs)

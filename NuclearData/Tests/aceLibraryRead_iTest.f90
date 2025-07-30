@@ -1,13 +1,19 @@
 module aceLibraryRead_iTest
 
-  use numPrecision
-  use aceLibrary_mod, only : load, new_neutronACE
   use aceCard_class,  only : aceCard
+  use aceLibrary_mod, only : load, kill, new_neutronACE
   use funit
+  use numPrecision
 
   implicit none
 
 contains
+@After
+  subroutine cleanUp()
+
+    call kill()
+
+  end subroutine cleanUp
 
   !!
   !! Test reading ACE Library
@@ -16,10 +22,9 @@ contains
   !!
 @Test
   subroutine testReadingACELibrary()
-    type(aceCard)      :: ACE
-    character(nameLen) :: ZAID
+    type(aceCard)            :: ACE
+    character(nameLen)       :: ZAID
     real(defReal), parameter :: TOL = 1.0E-6
-
 
     ! Load library
     call load('./IntegrationTestFiles/testLib')

@@ -91,7 +91,8 @@ contains
 @After
   subroutine clean_up()
   
-    call mats  % kill()
+    call mats % kill()
+    call meshes % kill()
     call surfs % kill()
     call cells % kill()
     call unis  % kill()
