@@ -1,122 +1,112 @@
 module spaceMap_test
-  use numPrecision
-  use universalVariables
+  
+  use dictionary_class,  only : dictionary
   use funit
-  use particle_class,       only : particleState
-  use dictionary_class,     only : dictionary
-  use outputFile_class,     only : outputFile
-  use spaceMap_class,       only : spaceMap
+  use numPrecision
+  use outputFile_class,  only : outputFile
+  use particle_class,    only : particleState
+  use spaceMap_class,    only : spaceMap
+  use universalVariables
 
   implicit none
 
 
-@testParameter
-  type, extends(AbstractTestParameter) :: dirPar
-    integer(shortInt) :: dir
-  contains
-    procedure :: toString
-  end type dirPar
-
-
-@testCase(constructor=newTest)
-  type, extends(ParameterizedTestCase) :: test_spaceMap
+@testCase
+  type, extends(testCase) :: test_spaceMap
     private
-    integer(shortInt) :: dir
-    type(spaceMap) :: map_struct
-    type(spaceMap) :: map_unstruct
-
+    type(spaceMap), dimension(3) :: structuredMaps
+    type(spaceMap), dimension(3) :: unstructuredMaps
+  contains
+    procedure :: setUp
+    procedure :: tearDown
   end type test_spaceMap
 
 contains
+  !!
+  !!
+  !!
+  subroutine setUp(this)
+    class(test_spaceMap), intent(inout)    :: this
+    type(dictionary)                       :: tempDict
+    real(defReal), dimension(*), parameter :: BIN_DIV = [-10.0_defReal, &
+                                                         -8.0_defReal, &
+                                                         -6.0_defReal, &
+                                                         -4.0_defReal, &
+                                                         -2.0_defReal, &
+                                                         0.0_defReal, &
+                                                         2.0_defReal, &
+                                                         4.0_defReal, &
+                                                         6.0_defReal, &
+                                                         8.0_defReal, &
+                                                         10.0_defReal]
+    integer(shortInt)                      :: i
+
+    ! Create structured grids for each axis.
+    do i = 1, 3
+      call tempDict % init(5)
+      call tempDict % store('grid','lin')
+      call tempDict % store('min', -10.0_defReal)
+      call tempDict % store('max', 10.0_defReal)
+      call tempDict % store('N', 20)
+      select case(i)
+        case(1)
+          call tempDict % store('axis', 'x')
+
+        case(2)
+          call tempDict % store('axis', 'y')
+
+        case(3)
+          call tempDict % store('axis', 'z')
+
+      end select
+
+      call this % structuredMaps(i) % init(tempDict)
+      call tempDict % kill()
+
+    end do
+
+    ! Create unstructured grids for each axis.
+    do i = 1, 3
+      call tempDict % init(3)
+      call tempDict % store('grid','unstruct')
+      call tempDict % store('bins', BIN_DIV)
+      select case(i)
+        case(1)
+          call tempDict % store('axis', 'x')
+
+        case(2)
+          call tempDict % store('axis', 'y')
+
+        case(3)
+          call tempDict % store('axis', 'z')
+
+      end select
+      
+      call this % unstructuredMaps(i) % init(tempDict)
+      call tempDict % kill()
+
+    end do
+
+  end subroutine setUp
 
   !!
-  !! Returns an array of test parameters
   !!
-  function getParameters() result(params)
-    type(dirPar), dimension(3) :: params
-
-    params(1) % dir = X_AXIS
-    params(2) % dir = Y_AXIS
-    params(3) % dir = Z_AXIS
-
-  end function getParameters
-
   !!
-  !! Returns only direction x
-  !!
-  function XdirParameter() result(params)
-    type(dirPar), dimension(1) :: params
-
-    params(1) % dir = X_AXIS
-
-  end function XdirParameter
-
-  !!
-  !! Write test parameter to string
-  !!
-  function toString(this) result(string)
-    class(dirPar), intent(in) :: this
-    character(:), allocatable :: string
-    character(1)              :: str
-
-    select case(this % dir)
-      case(X_AXIS)
-        str ='x'
-      case(Y_AXIS)
-        str='y'
-      case(Z_AXIS)
-        str='z'
-      case default
-        str='?'
-    end select
-    string = str
-
-  end function toString
-
-
-  !!
-  !! Construct test case
-  !!
-  function newTest(testParam) result(tst)
-    type(dirPar), intent(in) :: testParam
-    type(test_spaceMap)      :: tst
-    type(dictionary)         :: tempDict
-    real(defReal), dimension(*), parameter :: BIN_DIV = [-10.0, -8.0, -6.0, -4.0, -2.0, 0.0, &
-                                                        2.0,   4.0,  6.0,  8.0,  10.0]
-
-    ! Load direction
-    tst % dir = testParam % dir
-
-    ! Create structured grid
-    call tempDict % init(5)
-    call tempDict % store('axis',testParam % toString())
-    call tempDict % store('grid','lin')
-    call tempDict % store('min', -10.0_defReal)
-    call tempDict % store('max', 10.0_defReal)
-    call tempDict % store('N', 20)
-
-    call tst % map_struct % init(tempDict)
-    call tempDict % kill()
-
-    ! Create unstructured grid
-    call tempDict % init(3)
-    call tempDict % store('axis',testParam % toString())
-    call tempDict % store('grid','unstruct')
-    call tempDict % store('bins', BIN_DIV)
-
-    call tst % map_unstruct % init(tempDict)
-    call tempDict % kill()
-
-  end function newTest
-
-@After
-  subroutine cleanUp(this)
+  subroutine tearDown(this)
     class(test_spaceMap), intent(inout) :: this
+    integer(shortInt)                   :: i
 
-    call this % map_struct % kill()
-    call this % map_unstruct % kill()
+    do i = 1, size(this % structuredMaps)
+      call this % structuredMaps(i) % kill()
 
-  end subroutine cleanUp
+    end do
+
+    do i = 1, size(this % unstructuredMaps)
+      call this % unstructuredMaps(i) % kill()
+
+    end do
+
+  end subroutine tearDown
 
 !!<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 !! PROPER TESTS BEGIN HERE
@@ -125,78 +115,87 @@ contains
   !!
   !! Test structured grid
   !!
-@Test(testParameters={getParameters()})
+@Test
   subroutine testStructuredGrid(this)
-    class(test_spaceMap), intent(inout)      :: this
-    real(defReal), dimension(2), parameter     :: POS = [0.5_defReal, -10.1_defReal]
-    integer(shortInt), dimension(2), parameter :: RES = [11, 0]
-    integer(shortInt), dimension(2)           :: idx
-    type(particleState), dimension(2)         :: states
+    class(test_spaceMap), intent(inout)        :: this
+    real(defReal), dimension(2), parameter     :: positions = [0.5_defReal, -10.1_defReal]
+    integer(shortInt), dimension(2), parameter :: results = [11, 0]
+    integer(shortInt)                          :: i
+    integer(shortInt), dimension(2)            :: idxs
+    type(particleState), dimension(2)          :: states
 
-    states % r(this % dir) = POS
-    idx = this % map_struct % map(states)
+    do i = 1, size(this % structuredMaps)
+      states % r(i) = positions
+      idxs = this % structuredMaps(i) % map(states)
+      @assertEqual(results, idxs)
 
-    @assertEqual(RES, idx)
+    end do
 
   end subroutine testStructuredGrid
 
-  !!
-  !! Test unstructured grid
-  !!
-@Test(testParameters={getParameters()})
+@Test
   subroutine testUnstructuredGrid(this)
-    class(test_spaceMap), intent(inout)      :: this
-    real(defReal), dimension(2), parameter     :: POS = [0.5_defReal, -10.1_defReal]
-    integer(shortInt), dimension(2), parameter :: RES = [6, 0]
-    integer(shortInt), dimension(2)           :: idx
-    type(particleState), dimension(2)         :: states
+    class(test_spaceMap), intent(inout)        :: this
+    real(defReal), dimension(2), parameter     :: positions = [0.5_defReal, -10.1_defReal]
+    integer(shortInt), dimension(2), parameter :: results = [6, 0]
+    integer(shortInt)                          :: i
+    integer(shortInt), dimension(2)            :: idxs
+    type(particleState), dimension(2)          :: states
 
-    states % r(this % dir) = POS
-    idx = this % map_unstruct % map(states)
+    do i = 1, size(this % unstructuredMaps)
+      states % r(i) = positions
+      idxs = this % unstructuredMaps(i) % map(states)
+      @assertEqual(results, idxs)
 
-    @assertEqual(RES, idx)
+    end do
 
   end subroutine testUnstructuredGrid
 
- !!
- !! Test bin output
- !!
-@Test(testParameters ={XdirParameter()})
+@Test
   subroutine testBins(this)
     class(test_spaceMap), intent(inout) :: this
+    integer(shortInt)                   :: i
 
-    ! Structured grid
-    @assertEqual(20, this % map_struct % bins(1),'Normal use')
-    @assertEqual(20, this % map_struct % bins(0),'All binbs')
-    @assertEqual(0, this % map_struct % bins(-2),'Invalid dimension')
+    ! Structured grids
+    do i = 1, size(this % structuredMaps)
+      @assertEqual(20, this % structuredMaps(i) % bins(1), 'Normal use')
+      @assertEqual(20, this % structuredMaps(i) % bins(0), 'All bins')
+      @assertEqual(0, this % structuredMaps(i) % bins(-2), 'Invalid dimension')
 
-    ! Unstructured grid
-    @assertEqual(10, this % map_unstruct % bins(1),'Normal use')
-    @assertEqual(10, this % map_unstruct % bins(0),'All bins')
-    @assertEqual(0, this % map_unstruct % bins(-2),'Invalid dimension')
+    end do
+
+    ! Unstructured grids
+    do i = 1, size(this % unstructuredMaps)
+      @assertEqual(10, this % unstructuredMaps(i) % bins(1), 'Normal use')
+      @assertEqual(10, this % unstructuredMaps(i) % bins(0), 'All bins')
+      @assertEqual(0, this % unstructuredMaps(i) % bins(-2), 'Invalid dimension')
+
+    end do
 
   end subroutine testBins
 
-  !!
-  !! Test correctness of print subroutine
-  !! Does not checks that values are correct, but that calls sequance is without errors
-  !!
-@Test(testParameters ={XdirParameter()})
+@Test
   subroutine testPrint(this)
     class(test_spaceMap), intent(inout) :: this
-    type(outputFile)                     :: out
+    type(outputFile)                    :: out
+    integer(shortInt)                   :: i
 
     call out % init('dummyPrinter', fatalErrors = .false.)
 
-    call this % map_struct % print(out)
-    @assertTrue(out % isValid(),'For map with structured grid: ')
-    call out % reset()
+    do i = 1, size(this % structuredMaps)
+      call this % structuredMaps(i) % print(out)
+      @assertTrue(out % isValid(), 'For map with structured grid: ')
+      call out % reset()
 
-    call this % map_unstruct % print(out)
-    @assertTrue(out % isValid(),'For map with unstructured grid: ')
-    call out % reset()
+    end do
+
+    do i = 1, size(this % unstructuredMaps)
+      call this % unstructuredMaps(i) % print(out)
+      @assertTrue(out % isValid(), 'For map with unstructured grid: ')
+      call out % reset()
+
+    end do
 
   end subroutine testPrint
-
 
 end module spaceMap_test

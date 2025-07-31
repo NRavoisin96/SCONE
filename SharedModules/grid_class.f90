@@ -19,9 +19,9 @@ module grid_class
   !!
   type, public :: grid
     private
-    integer(shortInt)                      :: type = UNDEF
+    integer(shortInt)                        :: type = UNDEF
     real(defReal), dimension(:), allocatable :: bins
-    real(defReal)                          :: step
+    real(defReal)                            :: step = ZERO
 
   contains
     ! Initialisation procedures

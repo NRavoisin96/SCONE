@@ -15,7 +15,7 @@ module tallyMap1D_inter
   !! Interface:
   !!   See tallyMap
   !!
-  type, public, extends(tallyMap),abstract :: tallyMap1D
+  type, public, abstract, extends(tallyMap) :: tallyMap1D
     private
   contains
     procedure                       :: dimensions

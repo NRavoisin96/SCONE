@@ -22,9 +22,8 @@ module tallyMap_inter
   !!   print -> prints information about the map to current block of the output file
   !!   binArrayShape -> returns a shape vector of the map
   !!
-  type, public,abstract :: tallyMap
+  type, public, abstract :: tallyMap
     private
-
   contains
     procedure(init),deferred        :: init
     procedure(bins),deferred        :: bins
@@ -177,7 +176,5 @@ contains
     class(tallyMap), intent(inout) :: self
 
   end subroutine kill
-
-
 
 end module tallyMap_inter
