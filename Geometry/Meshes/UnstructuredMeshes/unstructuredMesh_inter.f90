@@ -359,7 +359,7 @@ contains
       
     !!!
     coordPatch = coords % getElementIdx()
-    coordPatch = coords % getParentElementIdx()
+    !coordPatch = coords % getParentElementIdx()
     end if
     !!!
 
@@ -381,6 +381,8 @@ contains
             ! print*, "INSIDE"
             ! print*, coordBrute, coordPatch
             if (coordBrute /= coordPatch) then
+              print*, "Brute:", coordBrute
+              print*, "Patch:", coordPatch
               call fatalError("INSIDE_ELEMENT", "Element indices not matching between the two methods")
             end if
             !!!
@@ -412,6 +414,8 @@ contains
               ! print*, "INSIDE Element"
               ! print*, coordBrute, coordPatch
               if (coordBrute /= coordPatch) then
+                print*, "Brute:", coordBrute
+                print*, "Patch:", coordPatch
                 call fatalError("ON_BOUNDARY_ELEMENT", "Element indices not matching between the two methods")
               end if
               !!!
@@ -441,6 +445,8 @@ contains
         ! print*, "OUTSIDE Element"
         ! print*, coordBrute, coordPatch
         if (coordBrute /= coordPatch) then
+          print*, "Brute:", coordBrute
+          print*, "Patch:", coordPatch
           call fatalError("OUTSIDE_ELEMENT", "Element indices not matching between the two methods")
         end if
         !!!

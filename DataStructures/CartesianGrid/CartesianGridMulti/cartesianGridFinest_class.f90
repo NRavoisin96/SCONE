@@ -39,7 +39,7 @@ contains
   !!
   !!
   !!
-  pure subroutine init(self, vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
+  subroutine init(self, vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
                        currLayer, candidateElementIdxs, gridBoundsMin, alpha, wStar)
     class(cartesianGridFinest), intent(inout)           :: self
     class(vertexShelf), intent(in)                      :: vertices
@@ -72,7 +72,7 @@ contains
   !!
   !!
   !!
-  pure subroutine constructMapping(self, vertices, edges, faces, elements, spacing, spacingInv, n_xyz, &
+  subroutine constructMapping(self, vertices, edges, faces, elements, spacing, spacingInv, n_xyz, &
                       n_layers, currLayer, candidateElementIdxs, gridBoundsMin, localNxyz, alpha, wStar)
     class(cartesianGridFinest), intent(inout)             :: self
     class(vertexShelf), intent(in)                        :: vertices
@@ -236,7 +236,7 @@ contains
   !!
   !!
   !!
-  pure subroutine sortAngles(self, edges, faces, localNxyz)
+  subroutine sortAngles(self, edges, faces, localNxyz)
     class(cartesianGridFinest), intent(inout)           :: self
     class(edgeShelf), intent(inout)                     :: edges
     class(faceShelf), intent(in)                        :: faces
@@ -413,7 +413,7 @@ contains
   !!
   !!
   !! 
-  pure subroutine setGridIsOutsideMesh(self, localNxyz)
+  subroutine setGridIsOutsideMesh(self, localNxyz)
     class(cartesianGridFinest), intent(inout)              :: self
     integer(shortInt), dimension(3), intent(in)            :: localNxyz
     integer(shortInt)                                      :: i, j, k
@@ -432,7 +432,7 @@ contains
   !!
   !!
   !! 
-  pure function getGridChi(self, baseIntegerCoord, shift, mask, currLayer) result(chi)
+  function getGridChi(self, baseIntegerCoord, shift, mask, currLayer) result(chi)
     class(cartesianGridFinest), intent(in)              :: self
     integer(shortInt), dimension(3), intent(in)         :: baseIntegerCoord
     integer(shortInt), dimension(:,:), intent(in)       :: shift, mask
@@ -449,7 +449,7 @@ contains
   !!
   !!
   !! 
-  pure function getGridPhi(self, baseIntegerCoord, shift, mask, currLayer) result(Phi)
+  function getGridPhi(self, baseIntegerCoord, shift, mask, currLayer) result(Phi)
     class(cartesianGridFinest), intent(in)              :: self
     integer(shortInt), dimension(3), intent(in)         :: baseIntegerCoord
     integer(shortInt), dimension(:,:), intent(in)       :: shift, mask
@@ -466,7 +466,7 @@ contains
   !!
   !!
   !! 
-  pure function getGridPhiCapital(self, baseIntegerCoord, shift, mask, currLayer) result(phiCapital)
+  function getGridPhiCapital(self, baseIntegerCoord, shift, mask, currLayer) result(phiCapital)
     class(cartesianGridFinest), intent(in)              :: self
     integer(shortInt), dimension(3), intent(in)         :: baseIntegerCoord
     integer(shortInt), dimension(:,:), intent(in)       :: shift, mask

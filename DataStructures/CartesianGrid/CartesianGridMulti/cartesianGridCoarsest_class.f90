@@ -359,7 +359,7 @@ contains
   !!
   !!
   !!
-  pure subroutine constructMapping(self, vertices, edges, faces, elements)
+  subroutine constructMapping(self, vertices, edges, faces, elements)
     class(cartesianGridCoarsest), intent(inout)           :: self
     class(vertexShelf), intent(in)                        :: vertices
     class(edgeShelf), intent(inout)                       :: edges
@@ -424,7 +424,7 @@ contains
   !!
   !!
   !!
-  pure subroutine setGridIsOutsideMesh(self)
+  subroutine setGridIsOutsideMesh(self)
     class(cartesianGridCoarsest), intent(inout)         :: self
     integer(shortInt)                                   :: i, j, k
 
@@ -441,7 +441,7 @@ contains
   !!
   !!
   !!
-  pure subroutine refineGrid(self, vertices, edges, faces, elements)
+  subroutine refineGrid(self, vertices, edges, faces, elements)
     class(cartesianGridCoarsest), intent(inout)         :: self
     class(vertexShelf), intent(in)                      :: vertices
     class(edgeShelf), intent(inout)                     :: edges
@@ -471,7 +471,7 @@ contains
   !!
   !!
   !!
-  pure function getGridBounds_min(self) result(gridBounds_min)
+  function getGridBounds_min(self) result(gridBounds_min)
     class(cartesianGridCoarsest), intent(in)            :: self
     real(defReal), dimension(3)                         :: gridBounds_min
 
@@ -482,7 +482,7 @@ contains
   !!
   !!
   !!
-  elemental function getSpacingReciprocal(self) result(spacingReciprocal)
+  function getSpacingReciprocal(self) result(spacingReciprocal)
     class(cartesianGridCoarsest), intent(in)            :: self
     real(defReal)                                       :: spacingReciprocal
 
@@ -493,7 +493,7 @@ contains
   !!
   !!
   !!
-  elemental function getGridWStar(self) result(wStar)
+  function getGridWStar(self) result(wStar)
     class(cartesianGridCoarsest), intent(in)            :: self
     real(defReal)                                       :: wStar
 
@@ -504,7 +504,7 @@ contains
   !!
   !!
   !! (needs to be changed) (possible acceleration?)
-  pure function getGridIsOutsideBounds(self, r) result(isOutside)
+  function getGridIsOutsideBounds(self, r) result(isOutside)
     class(cartesianGridCoarsest), intent(in)            :: self
     real(defReal), dimension(3), intent(in)             :: r
     logical                                             :: isOutside
@@ -524,7 +524,7 @@ contains
   !!
   !!
   !! 
-  pure function getGridChi(self, baseIntegerCoord) result(chi)
+  function getGridChi(self, baseIntegerCoord) result(chi)
     class(cartesianGridCoarsest), intent(in)            :: self
     integer(shortInt), dimension(3), intent(in)         :: baseIntegerCoord
     integer(shortInt)                                   :: chi
@@ -544,7 +544,7 @@ contains
   !!
   !!
   !! 
-  pure function getGridPhi(self, baseIntegerCoord) result(phi)
+  function getGridPhi(self, baseIntegerCoord) result(phi)
     class(cartesianGridCoarsest), intent(in)            :: self
     integer(shortInt), dimension(3), intent(in)         :: baseIntegerCoord
     integer(shortInt)                                   :: phi
@@ -560,7 +560,7 @@ contains
   !!
   !!
   !! 
-  pure function getGridPhiCapital(self, baseIntegerCoord) result(phiCapital)
+  function getGridPhiCapital(self, baseIntegerCoord) result(phiCapital)
     class(cartesianGridCoarsest), intent(in)            :: self
     integer(shortInt), dimension(3), intent(in)         :: baseIntegerCoord
     integer(shortInt)                                   :: phiCapital

@@ -43,7 +43,7 @@ contains
   !!
   !!
   !!
-  pure subroutine cellTestPolyhedronInclusion(self, faces, currElementFaceIdxs, centroid, &
+  subroutine cellTestPolyhedronInclusion(self, faces, currElementFaceIdxs, centroid, &
                                               faceNormalSigns, elementIdx)
     class(cartesianCellIntermediate), intent(inout)     :: self
     class(faceShelf), intent(in)                        :: faces
@@ -63,7 +63,7 @@ contains
   !!
   !!
   !!
-  pure subroutine refineCell(self, vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
+  subroutine refineCell(self, vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
                              currLayer, candidateElementIdxs, newGridBoundsMin, alpha, wStar)
     class(cartesianCellIntermediate), intent(inout)     :: self
     class(vertexShelf), intent(in)                      :: vertices
@@ -97,7 +97,7 @@ contains
   !!
   !!
   !!
-  pure function getChi(self, baseIntegerCoord, shift, mask, currLayer) result(chi)
+  function getChi(self, baseIntegerCoord, shift, mask, currLayer) result(chi)
     class(cartesianCellIntermediate), intent(in)        :: self
     integer(shortInt), dimension(3), intent(in)         :: baseIntegerCoord
     integer(shortInt), dimension(:,:), intent(in)       :: shift, mask
@@ -115,7 +115,7 @@ contains
   !!
   !!
   !!
-  pure function getPhi(self, baseIntegerCoord, shift, mask, currLayer) result(phi)
+  function getPhi(self, baseIntegerCoord, shift, mask, currLayer) result(phi)
     class(cartesianCellIntermediate), intent(in)        :: self
     integer(shortInt), dimension(3), intent(in)         :: baseIntegerCoord
     integer(shortInt), dimension(:,:), intent(in)       :: shift, mask
@@ -129,7 +129,7 @@ contains
   !!
   !!
   !!
-  pure function getPhiCapital(self, baseIntegerCoord, shift, mask, currLayer) result(phiCapital)
+  function getPhiCapital(self, baseIntegerCoord, shift, mask, currLayer) result(phiCapital)
     class(cartesianCellIntermediate), intent(in)        :: self
     integer(shortInt), dimension(3), intent(in)         :: baseIntegerCoord
     integer(shortInt), dimension(:,:), intent(in)       :: shift, mask

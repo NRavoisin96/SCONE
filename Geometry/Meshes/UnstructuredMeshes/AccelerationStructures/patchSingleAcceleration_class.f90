@@ -48,6 +48,10 @@ contains
     ! (needs to be changed) (needs checking) (is it correct to use "getPositionToNudge" or other coordinates?)
     r = coords % getPositionToNudge()
 
+    !!!!!
+    !print*, "coord", r
+    !!!!!
+
     ! !!!
     ! if (.NOT. self % grid % getGridIsOutsideBounds(r)) then
     !   print*, r
@@ -66,6 +70,10 @@ contains
     do i = 1, 3
       cellIdxs(i) = ceiling((r(i) - gridBounds_min(i))*(gridSpacingReciprocal))
     end do
+
+    !!!!!
+    !print*, "indices", cellIdxs
+    !!!!!
 
     !!!
     ! print*, "here"

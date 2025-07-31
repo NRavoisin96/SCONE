@@ -83,7 +83,7 @@ contains
   !!
   !!
   !!
-  pure subroutine testPolyhedronInclusion(faces, currElementFaceIdxs, centroid, &
+  subroutine testPolyhedronInclusion(faces, currElementFaceIdxs, centroid, &
                                      faceNormalSigns, elementIdx, chi)
     class(faceShelf), intent(in)                        :: faces
     integer(shortInt), dimension(:), intent(in)         :: currElementFaceIdxs
@@ -103,8 +103,27 @@ contains
       if (dot_product(faces % getFaceNormal(currElementFaceIdxs(i)), furthestVertexCoord) &
           + faces % getFaceConst(currElementFaceIdxs(i)) > 0) then
           ! if TRUE, then at least a part of this cell lies outside of the polyhedron
+
+          !!!!!
+          ! print*, "----------------------------------------------"
+          ! print*, "fail"
+          ! print*, currElementFaceIdxs(i)
+          ! print*, dot_product(faces % getFaceNormal(currElementFaceIdxs(i)), furthestVertexCoord) &
+          !         + faces % getFaceConst(currElementFaceIdxs(i))
+          !!!!!
+
           return
       end if 
+
+          !!!!!
+          ! print*, "----------------------------------------------"
+          ! print*, "passed"
+          ! print*, currElementFaceIdxs(i)
+          ! print*, furthestVertexCoord
+          ! print*, dot_product(faces % getFaceNormal(currElementFaceIdxs(i)), furthestVertexCoord) &
+          !         + faces % getFaceConst(currElementFaceIdxs(i))
+          ! print*, "----------------------------------------------"
+          !!!!!
 
     end do
 
@@ -117,7 +136,7 @@ contains
   !!
   !!
   !!
-  pure subroutine testFaceIntersection(vertices, edges, faces, currVertexIdxs, extraDistance, currFaceNormal, centroid, &
+  subroutine testFaceIntersection(vertices, edges, faces, currVertexIdxs, extraDistance, currFaceNormal, centroid, &
                                   cellSpacing, faceIdx, currFaceEdgeIdxs, targetDistance, chi, phi, phiCapital, faceIdxs)
     class(vertexShelf), intent(in)                      :: vertices
     class(edgeShelf), intent(in)                        :: edges
@@ -150,6 +169,12 @@ contains
 
     if (.NOT. testIntervalIntersection(vectorDotCentroid - extraDistance, vectorDotCentroid + extraDistance, &
         -faceConst, -faceConst)) then
+          !!!!!
+          ! print*, "faceNormal"
+          ! print*, vectorDotCentroid - extraDistance
+          ! print*, vectorDotCentroid + extraDistance
+          ! print*, -faceConst
+          !!!!!
       return
     end if
 
@@ -210,6 +235,9 @@ contains
       extraDistance2 = (abs(currEdgeUnitVector(3)) + abs(currEdgeUnitVector(2)))*cellSpacing*0.5
       if (.NOT. testIntervalIntersection(vectorDotCentroid - extraDistance2, vectorDotCentroid + extraDistance2, &
                                                 min1(1), max1(1))) then
+          !!!!!
+          ! print*, "Crossx"
+          !!!!!
           return
       end if
 
@@ -217,6 +245,9 @@ contains
       extraDistance2 = (abs(currEdgeUnitVector(3)) + abs(currEdgeUnitVector(1)))*cellSpacing*0.5
       if (.NOT. testIntervalIntersection(vectorDotCentroid - extraDistance2, vectorDotCentroid + extraDistance2, &
                                                 min1(2), max1(2))) then
+          !!!!!
+          ! print*, "Crossy"
+          !!!!!
           return
       end if
 
@@ -224,6 +255,9 @@ contains
       extraDistance2 = (abs(currEdgeUnitVector(2)) + abs(currEdgeUnitVector(1)))*cellSpacing*0.5
       if (.NOT. testIntervalIntersection(vectorDotCentroid - extraDistance2, vectorDotCentroid + extraDistance2, &
                                                 min1(3), max1(3))) then
+          !!!!!
+          ! print*, "Crossz"
+          !!!!!
           return
       end if
 
@@ -245,13 +279,17 @@ contains
       ! of this subroutine.
       call testTwoIntersectedFaces(vertices, edges, faces, centroid, targetDistance, phi, phiCapital, faceIdxs)
     end if
+    
+    !!!!!
+    ! print*, "PASSESD"
+    !!!!!
 
   end subroutine testFaceIntersection
 
   !!
   !!
   !! 
-  pure subroutine testTwoIntersectedFaces(vertices, edges, faces, centroid, targetDistance, phi, phiCapital, faceIdxs)
+  subroutine testTwoIntersectedFaces(vertices, edges, faces, centroid, targetDistance, phi, phiCapital, faceIdxs)
     class(vertexShelf), intent(in)                      :: vertices
     class(edgeShelf), intent(in)                        :: edges
     class(faceShelf), intent(in)                        :: faces
@@ -269,8 +307,15 @@ contains
     ! find the common edge index of the given two faces intersected by the cell 
     commonEdgeIdx = faces % findCommonedgeIdx(faceIdxs(1), faceIdxs(2))
 
+    !!!!!
+    !print*, "ENTERED TWO FACES"
+    !!!!!
+
     ! if there is no common edge, exit the subroutine early (other combinations of faces to be tried later)
     if (commonEdgeIdx == 0) then
+      !!!!!
+      !print*, "Exiting two faces"
+      !!!!!
       return
     end if 
 
@@ -332,6 +377,40 @@ contains
     end if
 
   end subroutine constructMapSingleFace
+
+  !!
+  !!
+  !!
+  subroutine coverFinitePrecision(faces, elements, centroid, elementIdx, chi)
+    class(faceShelf), intent(in)                        :: faces
+    class(elementShelf), intent(in)                     :: elements
+    real(defReal), dimension(3), intent(in)             :: centroid
+    integer(shortInt), intent(in)                       :: elementIdx
+    integer(shortInt), intent(inout)                    :: chi
+    integer(shortInt), dimension(:), allocatable        :: currElementFaceIdxs
+    integer(shortInt)                                   :: i
+
+    currElementFaceIdxs = elements % getElementFaceIdxs(elementIdx)
+
+    do i = 1, size(currElementFaceIdxs)
+
+      if (dot_product(faces % getFaceNormal(currElementFaceIdxs(i)), centroid) &
+          + faces % getFaceConst(currElementFaceIdxs(i)) > 0) then
+          ! if TRUE, then centroid of this cell lies outside of the polyhedron
+          return
+      end if 
+
+    end do
+
+    !print*, "TESTING", centroid
+    ! If survived to this point, this cell is contained within a single mesh element, but
+    ! chi mapping info was not assigned due to floating-point-finite-precision.
+    chi = elementIdx
+
+    !print*, "hahahoho"!!!!!
+
+  end subroutine coverFinitePrecision
+
 
 
 

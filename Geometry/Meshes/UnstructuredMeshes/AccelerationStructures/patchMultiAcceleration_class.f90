@@ -30,7 +30,7 @@ contains
   !!
   !!
   !!
-  pure subroutine findHostElement(self, vertices, edges, faces, elements, coords)
+  subroutine findHostElement(self, vertices, edges, faces, elements, coords)
     class(patchMultiAcceleration), intent(in)    :: self
     class(vertexShelf), intent(in)               :: vertices
     class(edgeShelf), intent(in)                 :: edges

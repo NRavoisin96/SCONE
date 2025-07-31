@@ -43,7 +43,7 @@ contains
   !! (For now this is fine becase only 4% of initialisation time is increased by this - in face no increase in init time observed later.)
   !! (Tried this before and after specifying "elemental" and "pure". Keeping the original architecture (with separte class for cells))
   !! (is faster than without for initialisation, and negligible difference for in-cycle)
-  pure subroutine cellTestEdgeIntersection(self, vertices, edges, edgeIdx, circumscribedBallRadius, &
+  subroutine cellTestEdgeIntersection(self, vertices, edges, edgeIdx, circumscribedBallRadius, &
                                       targetDistance, centroid, currEdgeVector, currVertexIdxs, a)
     class(cartesianCellFinest), intent(inout)           :: self
     class(vertexShelf), intent(in)                      :: vertices
@@ -61,7 +61,7 @@ contains
   !!
   !!
   !!
-  pure subroutine cellTestPolyhedronInclusion(self, faces, currElementFaceIdxs, centroid, &
+  subroutine cellTestPolyhedronInclusion(self, faces, currElementFaceIdxs, centroid, &
                                          faceNormalSigns, elementIdx)
     class(cartesianCellFinest), intent(inout)           :: self
     class(faceShelf), intent(in)                        :: faces
@@ -77,7 +77,7 @@ contains
   !!
   !!
   !!
-  pure subroutine cellTestFaceIntersection(self, vertices, edges, faces, currVertexIdxs, extraDistance, currFaceNormal, &
+  subroutine cellTestFaceIntersection(self, vertices, edges, faces, currVertexIdxs, extraDistance, currFaceNormal, &
                                       centroid, cellSpacing, faceIdx, currFaceEdgeIdxs, targetDistance)
     class(cartesianCellFinest), intent(inout)           :: self
     class(vertexShelf), intent(in)                      :: vertices
@@ -97,7 +97,7 @@ contains
   !!
   !!
   !!
-  pure subroutine cellconstructMapSingleFace(self, faces)
+  subroutine cellconstructMapSingleFace(self, faces)
     class(cartesianCellFinest), intent(inout)           :: self
     class(faceShelf), intent(in)                        :: faces
     integer(shortInt), dimension(:), allocatable        :: currFaceEdgeIdxs!, currFaceVertexIdxs
@@ -110,7 +110,7 @@ contains
   !!
   !!
   !!
-  pure subroutine setIsOutsideMesh(self)
+  subroutine setIsOutsideMesh(self)
     class(cartesianCellFinest), intent(inout)           :: self
 
     ! if a cell intersects with neither any edge nor face, and it is not contained in a single polyhedron,
@@ -126,7 +126,7 @@ contains
   !!
   !!
   !!
-  elemental function getPhiCapital(self) result(phiCapital)
+  function getPhiCapital(self) result(phiCapital)
     class(cartesianCellFinest), intent(in)              :: self
     integer(shortInt)                                   :: phiCapital
 
@@ -137,7 +137,7 @@ contains
   !!
   !!
   !!
-  elemental function getPhi(self) result(phi)
+  function getPhi(self) result(phi)
     class(cartesianCellFinest), intent(in)              :: self
     integer(shortInt)                                   :: phi
 
@@ -148,7 +148,7 @@ contains
   !!
   !!
   !!
-  elemental function getChi(self) result(chi)
+  function getChi(self) result(chi)
     class(cartesianCellFinest), intent(in)              :: self
     integer(shortInt)                                   :: chi
 

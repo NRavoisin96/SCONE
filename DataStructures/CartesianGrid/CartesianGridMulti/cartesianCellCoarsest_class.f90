@@ -44,7 +44,7 @@ contains
   !!
   !!
   !!
-  pure subroutine cellTestPolyhedronInclusion(self, faces, currElementFaceIdxs, centroid, &
+  subroutine cellTestPolyhedronInclusion(self, faces, currElementFaceIdxs, centroid, &
                                               faceNormalSigns, elementIdx)
     class(cartesianCellCoarsest), intent(inout)         :: self
     class(faceShelf), intent(in)                        :: faces
@@ -66,7 +66,7 @@ contains
   !!
   !!
   !!
-  pure subroutine setIsOutsideMesh(self)
+  subroutine setIsOutsideMesh(self)
     class(cartesianCellCoarsest), intent(inout)         :: self
 
     ! if candidateElementIdxs is not allocated, this cell does not intersect AABB of any polyhedron.
@@ -78,7 +78,7 @@ contains
   !!
   !!
   !!
-  pure subroutine refineCell(self, vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
+  subroutine refineCell(self, vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
                              newGridBoundsMin, alpha, wStar)
     class(cartesianCellCoarsest), intent(inout)         :: self
     class(vertexShelf), intent(in)                      :: vertices
@@ -113,7 +113,7 @@ contains
   !!
   !!
   !!
-  pure function getChi(self, baseIntegerCoord, shift, mask) result(chi)
+  function getChi(self, baseIntegerCoord, shift, mask) result(chi)
     class(cartesianCellCoarsest), intent(in)            :: self
     integer(shortInt), dimension(3), intent(in)         :: baseIntegerCoord
     integer(shortInt), dimension(:,:), intent(in)       :: shift, mask
@@ -130,7 +130,7 @@ contains
   !!
   !!
   !!
-  pure function getPhi(self, baseIntegerCoord, shift, mask) result(phi)
+  function getPhi(self, baseIntegerCoord, shift, mask) result(phi)
     class(cartesianCellCoarsest), intent(in)            :: self
     integer(shortInt), dimension(3), intent(in)         :: baseIntegerCoord
     integer(shortInt), dimension(:,:), intent(in)       :: shift, mask
@@ -143,7 +143,7 @@ contains
   !!
   !!
   !!
-  pure function getPhiCapital(self, baseIntegerCoord, shift, mask) result(phiCapital)
+  function getPhiCapital(self, baseIntegerCoord, shift, mask) result(phiCapital)
     class(cartesianCellCoarsest), intent(in)            :: self
     integer(shortInt), dimension(3), intent(in)         :: baseIntegerCoord
     integer(shortInt), dimension(:,:), intent(in)       :: shift, mask

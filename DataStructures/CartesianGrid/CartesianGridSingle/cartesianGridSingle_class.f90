@@ -5,7 +5,7 @@ module cartesianGridSingle_class
   use edgeShelf_class,              only : edgeShelf
   use faceShelf_class,              only : faceShelf
   use elementShelf_class,           only : elementShelf
-  use genericProcedures,            only : crossProduct
+  use genericProcedures,            only : crossProduct, fatalError
   use numPrecision                  
   !!!!
   use cartesianCellSingle_class,    only : cartesianCellSingle
@@ -39,6 +39,7 @@ module cartesianGridSingle_class
     procedure                                    :: constructMapping
     procedure                                    :: sortAngles
     procedure                                    :: setGridIsOutsideMesh
+    procedure                                    :: gridFinitePrecision
     ! Runtime procedures.
     procedure                                    :: getGridBounds_min
     procedure                                    :: getSpacingReciprocal
@@ -61,9 +62,10 @@ contains
     class(faceShelf), intent(inout)                     :: faces
     class(elementShelf), intent(in)                     :: elements
     real(defReal), dimension(6)                         :: extremalCoordinates
-    integer(shortInt)                                   :: i
-    integer(shortInt), dimension(:), allocatable        :: currEdgeVertexIdxs
-    real(defReal), dimension(3)                         :: currEdgeVector, extraRoom, xyz_max, xyz_min
+    integer(shortInt)                                   :: i, j !!!!!
+    integer(shortInt), dimension(:), allocatable        :: currEdgeVertexIdxs, temp1, temp2 !!!!!
+    real(defReal), dimension(3)                         :: currEdgeVector, extraRoom, xyz_max, xyz_min, &
+                                                           centroid !!!!!
     real(defReal)                                       :: maxCosValue, tempMaxCosValue, currEdgeLength
     !integer(shortInt)                                   :: temp, j, k, temp2
 
@@ -171,7 +173,12 @@ contains
     !-----------------------------------------------------------------------------------------
     call self % constructMapping(vertices, edges, faces, elements)
     call self % sortAngles(edges, faces)!, vertices) !!! vertices
+    !!!!!
+    print*, "TEST BEGINS"
+    call self % gridFinitePrecision(vertices, faces, elements) 
+    print*, "TEST ENDS"
     call self % setGridIsOutsideMesh()
+    !!!!!
 
     !!!
     ! temp2 = 0
@@ -188,12 +195,82 @@ contains
     ! print*, temp2
     !!!
 
+    !!!!!
+    ! print*, self % getGridChi([34,169,178])
+    ! print*, self % getGridPhi([34,169,178])
+    ! print*, self % getGridPhiCapital([34,169,178])
+    ! call fatalError("ehere","here")
+    !!!!!
+
+    !!!!!
+    ! print*, self % getGridChi([469,480,1])
+    ! print*, self % getGridPhi([469,480,1])
+    ! print*, self % getGridPhiCapital([469,480,1])
+    ! call fatalError("ehere","here")
+    !!!!!
+
+    !!!!!
+    ! print*, faces % getFaceEdgeIdxs(591)
+    ! print*, faces % getFaceEdgeIdxs(656)
+    ! print*, faces % getFaceElementIdxs(591)
+    ! print*, faces % getFaceElementIdxs(656)
+    ! !call fatalError("ehere","here")
+    !!!!!
+
+    !!!!!
+    ! print*, "FACEIDX", self % grid(34,169,178) % getFaceIdxs()
+    !!!!!
+
+    !!!!!
+    ! temp1 = abs(elements % getElementFaceIdxs(620))
+    ! print*, "£££££££££££££££££££££££££££££"
+    ! do i = 1, size(temp1)
+    !   print*, "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$"
+    !   print*, "face index", temp1(i)
+    !   temp2 = abs(faces % getFaceVertexIdxs(temp1(i)))
+    !   !temp2 = abs(faces % getFaceVertexIdxs(656))
+    !   do j = 1, size(temp2)
+    !     print*, vertices % getVertexCoordinates(temp2(j))
+    !   end do
+    !   print*, temp2
+    !   print*, "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$"
+    ! end do
+    ! print*, "£££££££££££££££££££££££££££££"
+    ! temp1 = abs(elements % getElementFaceIdxs(630))
+    ! print*, "£££££££££££££££££££££££££££££"
+    ! do i = 1, size(temp1)
+    !   print*, "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$"
+    !   print*, "face index", temp1(i)
+    !   temp2 = abs(faces % getFaceVertexIdxs(temp1(i)))
+    !   !temp2 = abs(faces % getFaceVertexIdxs(656))
+    !   do j = 1, size(temp2)
+    !     print*, vertices % getVertexCoordinates(temp2(j))
+    !   end do
+    !   print*, temp2
+    !   print*, "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$"
+    ! end do
+    ! print*, "£££££££££££££££££££££££££££££"
+    ! call fatalError("ehere","here")
+    !!!!!
+
+    !!!!!
+    ! centroid(1) = (self % gridBounds_min(1)) + (self % spacing) * (469-0.5)
+    ! centroid(2) = (self % gridBounds_min(2)) + (self % spacing) * (480-0.5)
+    ! centroid(3) = (self % gridBounds_min(3)) + (self % spacing) * (1-0.5)
+    ! print*, centroid
+    ! call fatalError("ehere","here")
+    !!!!!
+
+    !!!!!
+    !print*, "££££££££££££££££££££££££££££££££££££££££££££££££££££££££££££"
+    !!!!!
+
   end subroutine init
 
   !!
   !!
   !!
-  pure subroutine constructMapping(self, vertices, edges, faces, elements)
+  subroutine constructMapping(self, vertices, edges, faces, elements)
     class(cartesianGridSingle), intent(inout)             :: self
     class(vertexShelf), intent(in)                        :: vertices
     class(edgeShelf), intent(inout)                       :: edges
@@ -284,6 +361,12 @@ contains
             do k = AABBIndices(2), AABBIndices(5)
                 do l = AABBIndices(3), AABBIndices(6)
 
+                  !!!!!
+                  ! if (j==469 .AND. k==480 .AND. l==1 .AND. i==630) then
+                  !   print*, "began!!!!!!!!!!!"
+                  ! end if
+                  !!!!!
+
                     ! (needs to be changed) (store centroid info)
                     centroid(1) = (self % gridBounds_min(1)) + (self % spacing) * (j-0.5)
                     centroid(2) = (self % gridBounds_min(2)) + (self % spacing) * (k-0.5)
@@ -295,6 +378,12 @@ contains
                     !call testPolyhedronInclusion(faces, currElementFaceIdxs, centroid, faceNormalSigns, i, &
                     !                             self % chi(j,k,l))
                     !!!!
+
+                  !!!!!
+                  ! if (j==469 .AND. k==480 .AND. l==1 .AND. i==630) then
+                  !   call fatalError("end", "end")
+                  ! end if
+                  !!!!!
 
                 end do 
             end do    
@@ -329,6 +418,12 @@ contains
                   centroid(2) = (self % gridBounds_min(2)) + (self % spacing) * (k-0.5)
                   centroid(3) = (self % gridBounds_min(3)) + (self % spacing) * (l-0.5)
 
+                  !!!!!
+                  ! if (j==469 .AND. k==480 .AND. l==1 .AND. i==1208) then
+                  !   print*, "began!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+                  ! end if
+                  !!!!!
+
                   !!!!
                   call self % grid(j,k,l) % cellTestFaceIntersection(vertices, edges, faces, &
                                             currVertexIdxs, extraDistance, currFaceNormal, &
@@ -338,6 +433,19 @@ contains
                   !                          targetDistance, self % chi(j,k,l), self % phi(j,k,l), &
                   !                          self % phiCapital(j,k,l), self % faceIdxs(j,k,l,:))
                   !!!!
+
+                  !!!!!
+                  ! if (j==34 .AND. k==169 .AND. l==178 .AND. i==656) then
+                  !   call fatalError("here", "here")
+                  ! end if
+                  !!!!!
+
+                  !!!!!
+                  ! if (j==469 .AND. k==480 .AND. l==1 .AND. i==1208) then
+                  !   print*,"elementIdxs", faces%getFaceElementIdxs(1208)
+                  !   call fatalError("end", "end")
+                  ! end if
+                  !!!!!
 
               end do 
           end do    
@@ -644,17 +752,24 @@ contains
   !!
   !!
   !! 
-  pure subroutine setGridIsOutsideMesh(self)
+  subroutine setGridIsOutsideMesh(self)
     class(cartesianGridSingle), intent(inout)              :: self
     integer(shortInt)                                      :: i, j, k
+    real(defReal), dimension(3)                            :: centroid
 
     ! loop over all cartesian cells and call relevant subroutine
     do i = 1, self % n_xyz(1)
       do j = 1, self % n_xyz(2)
         do k = 1, self % n_xyz(3)
           
+          !!!!!
+          centroid(1) = (self % gridBounds_min(1)) + (self % spacing) * (i-0.5)
+          centroid(2) = (self % gridBounds_min(2)) + (self % spacing) * (j-0.5)
+          centroid(3) = (self % gridBounds_min(3)) + (self % spacing) * (k-0.5)
+          !!!!!
+
           !!!!
-          call self % grid(i,j,k) % setIsOutsideMesh()
+          call self % grid(i,j,k) % setIsOutsideMesh(centroid)
 
           ! ! if a cell intersects with neither any edge nor face, and it is not contained in a single polyhedron,
           ! ! then, this cell lies outside the computational domain for the unstructured mesh
@@ -671,6 +786,50 @@ contains
     end do
 
   end subroutine setGridIsOutsideMesh
+
+  !!
+  !!
+  !!
+  subroutine gridFinitePrecision(self, vertices, faces, elements)
+    class(cartesianGridSingle), intent(inout)             :: self
+    class(vertexShelf), intent(in)                        :: vertices
+    class(faceShelf), intent(in)                          :: faces
+    class(elementShelf), intent(in)                       :: elements
+    integer(shortInt)                                     :: i, j, k, l
+    integer(shortInt), dimension(:), allocatable          :: currVertexIdxs
+    integer(shortInt), dimension(6)                       :: AABBIndices
+    real(defReal), dimension(3)                           :: centroid
+
+
+    do i = 1, elements % getSize()
+
+        ! construct box for candidate cells
+        currVertexIdxs = elements % getElementVertexIdxs(i)
+        AABBIndices = constructAABB(vertices, currVertexIdxs, self % gridBounds_min, self % spacing)
+
+        ! calculate element-only-dependent properties (It is extremly rare that the code has to test this finitePrecision.
+        ! Hence, we do not pre-calculate these unlike testPolyhedronInclusion.)
+
+        !Loop over all cartesian cells in the box and test if each cell is entirely included in the polyhedron
+        !(needs to be changed) (k and l can be a function of j e.g. k = datum + slope*j so that box is narrowed down)
+        do j = AABBIndices(1), AABBIndices(4)
+            do k = AABBIndices(2), AABBIndices(5)
+                do l = AABBIndices(3), AABBIndices(6)
+
+                    ! (needs to be changed) (store centroid info)
+                    centroid(1) = (self % gridBounds_min(1)) + (self % spacing) * (j-0.5)
+                    centroid(2) = (self % gridBounds_min(2)) + (self % spacing) * (k-0.5)
+                    centroid(3) = (self % gridBounds_min(3)) + (self % spacing) * (l-0.5)
+
+                    call self % grid(j,k,l) % cellFinitePrecision(faces, elements, centroid, i)
+
+                end do 
+            end do    
+        end do
+
+    end do
+
+  end subroutine gridFinitePrecision
 
   !!
   !!

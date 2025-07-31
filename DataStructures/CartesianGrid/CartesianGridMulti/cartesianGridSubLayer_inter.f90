@@ -24,7 +24,7 @@ module cartesianGridSubLayer_inter
     !!
     !!
     !!
-    pure subroutine init(self, vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
+    subroutine init(self, vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
                          currLayer, candidateElementIdxs, gridBoundsMin, alpha, wStar)
       import                                                 cartesianGridSubLayer, vertexShelf, edgeShelf, faceShelf, &
                                                              elementShelf, defReal, shortInt
@@ -45,7 +45,7 @@ module cartesianGridSubLayer_inter
     !!
     !!
     !!
-    pure function getGridChi(self, baseIntegerCoord, shift, mask, currLayer) result(chi)
+    function getGridChi(self, baseIntegerCoord, shift, mask, currLayer) result(chi)
       import                                                 cartesianGridSubLayer, shortInt
       class(cartesianGridSubLayer), intent(in)            :: self
       integer(shortInt), dimension(3), intent(in)         :: baseIntegerCoord
@@ -58,7 +58,7 @@ module cartesianGridSubLayer_inter
     !!
     !!
     !!
-    pure function getGridPhi(self, baseIntegerCoord, shift, mask, currLayer) result(phi)
+    function getGridPhi(self, baseIntegerCoord, shift, mask, currLayer) result(phi)
       import                                                 cartesianGridSubLayer, shortInt
       class(cartesianGridSubLayer), intent(in)            :: self
       integer(shortInt), dimension(3), intent(in)         :: baseIntegerCoord
@@ -71,7 +71,7 @@ module cartesianGridSubLayer_inter
     !!
     !!
     !!
-    pure function getGridPhiCapital(self, baseIntegerCoord, shift, mask, currLayer) result(phiCapital)
+    function getGridPhiCapital(self, baseIntegerCoord, shift, mask, currLayer) result(phiCapital)
       import                                                 cartesianGridSubLayer, shortInt
       class(cartesianGridSubLayer), intent(in)            :: self
       integer(shortInt), dimension(3), intent(in)         :: baseIntegerCoord

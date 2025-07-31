@@ -27,10 +27,12 @@ module cartesianCellSingle_class
     procedure                                    :: cellTestFaceIntersection
     procedure                                    :: cellConstructMapSingleFace
     procedure                                    :: setIsOutsideMesh
+    procedure                                    :: cellFinitePrecision
     ! Runtime procedures.
     procedure                                    :: getPhiCapital
     procedure                                    :: getPhi
     procedure                                    :: getChi
+    procedure                                    :: getFaceIdxs
 
   end type cartesianCellSingle
 
@@ -61,7 +63,7 @@ contains
   !!
   !!
   !!
-  pure subroutine cellTestPolyhedronInclusion(self, faces, currElementFaceIdxs, centroid, &
+  subroutine cellTestPolyhedronInclusion(self, faces, currElementFaceIdxs, centroid, &
                                          faceNormalSigns, elementIdx)
     class(cartesianCellSingle), intent(inout)           :: self
     class(faceShelf), intent(in)                        :: faces
@@ -77,7 +79,7 @@ contains
   !!
   !!
   !!
-  pure subroutine cellTestFaceIntersection(self, vertices, edges, faces, currVertexIdxs, extraDistance, currFaceNormal, &
+  subroutine cellTestFaceIntersection(self, vertices, edges, faces, currVertexIdxs, extraDistance, currFaceNormal, &
                                       centroid, cellSpacing, faceIdx, currFaceEdgeIdxs, targetDistance)
     class(cartesianCellSingle), intent(inout)           :: self
     class(vertexShelf), intent(in)                      :: vertices
@@ -88,9 +90,20 @@ contains
     real(defReal), intent(in)                           :: extraDistance, cellSpacing, targetDistance
     integer(shortInt), intent(in)                       :: faceIdx
 
+    !!!!!
+    ! print*, self%chi
+    ! print*, self%Phi
+    ! print*, self%phiCapital
+    ! print*, self%faceIdxs
+    !!!!!
+
     call testFaceIntersection(vertices, edges, faces, currVertexIdxs, extraDistance, currFaceNormal, &
                                   centroid, cellSpacing, faceIdx, currFaceEdgeIdxs, targetDistance, self % chi, &
                                   self % phi, self % phiCapital, self % faceIdxs)
+
+    !!!!!
+    !print*, self%faceIdxs
+    !!!!!
 
   end subroutine cellTestFaceIntersection
 
@@ -110,8 +123,9 @@ contains
   !!
   !!
   !!
-  pure subroutine setIsOutsideMesh(self)
+  subroutine setIsOutsideMesh(self, centroid)
     class(cartesianCellSingle), intent(inout)           :: self
+    real(defReal), dimension(3), intent(in)             :: centroid
 
     ! if a cell intersects with neither any edge nor face, and it is not contained in a single polyhedron,
     ! then, this cell lies outside the computational domain for the unstructured mesh
@@ -119,9 +133,38 @@ contains
       ! if lies outside, set the chi value of the cell equal to -1. There are subroutines that test 
       ! if (chi != 0), but since this subroutine is called after all of those, they are unafftected.
       self % chi = -1
+
+      !!!!!
+      !print*, "testingggggggggg", centroid
+      !!!!!
+
     end if
 
   end subroutine setIsOutsideMesh
+
+  !!
+  !!
+  !!
+  subroutine cellFinitePrecision(self, faces, elements, centroid, elementIdx)
+    class(cartesianCellSingle), intent(inout)           :: self
+    class(faceShelf), intent(in)                        :: faces
+    class(elementShelf), intent(in)                     :: elements
+    real(defReal), dimension(3), intent(in)             :: centroid
+    integer(shortInt), intent(in)                       :: elementIdx
+
+    ! If the current Cartesian cell does not intersect with any faces nor included in a single mesh element,
+    ! Test if centroid lies inside any mesh element. If yes, finite precision error messed it up. Hence, 
+    ! update chi mapping info to that mesh element. If not, this cell lies within another element or is outside mesh domain.
+    if (self%chi == 0) then                   ! The biggest proportion of cells will be included in a single mesh element
+      !if (self%faceIdxs(1)==0) then           ! Then we test face intersection
+      if (self%phi == 0) then
+        if (self%phiCapital == 0) then
+          call coverFinitePrecision(faces, elements, centroid, elementIdx, self%chi)  
+        end if
+      end if
+    end if
+
+  end subroutine cellFinitePrecision
 
   !!
   !!
@@ -155,6 +198,18 @@ contains
     chi = self % chi
 
   end function getChi
+
+  !!
+  !!
+  !!
+  function getFaceIdxs(self) result(faceIdxs)
+    class(cartesianCellSingle), intent(in)              :: self
+    integer(shortInt), dimension(2)                     :: faceIdxs
+
+    faceIdxs = self%faceIdxs
+
+  end function
+
 
 
 end module CartesianCellSingle_class
