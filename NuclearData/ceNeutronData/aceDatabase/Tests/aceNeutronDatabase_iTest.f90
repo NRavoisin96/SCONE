@@ -41,14 +41,23 @@ module aceNeutronDatabase_iTest
   character(*), parameter :: ACE_INPUT_STR = &
   & "aceLibrary ./IntegrationTestFiles/testLib; "
 
+  ! Variables.
+  type(aceNeutronDatabase), target :: data
+
 contains
+@After
+  subroutine cleanUp()
+
+    call data % kill()
+    call mm_kill()
+
+  end subroutine cleanUp
 
   !!
   !! One big monster test to avoid expensive set up each test
   !!
 @Test
   subroutine test_aceNeutronDatabase()
-    type(aceNeutronDatabase), target :: data
     class(nuclearDatabase), pointer  :: ptr
     type(dictionary)                 :: matDict
     type(dictionary)                 :: dataDict
@@ -262,10 +271,6 @@ contains
     call data % energyBounds(t1,t2)
     @assertEqual(1.0E-11_defReal, t1, TOL)
     @assertEqual(20.0_defReal,    t2, TOL)
-
-    ! Clean everything
-    call data % kill()
-    call mm_kill()
 
   end subroutine test_aceNeutronDatabase
 

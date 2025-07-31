@@ -97,6 +97,7 @@ contains
     self % nGrid = 0
     self % nTable = 0
     if (allocated(self % eGrid)) deallocate(self % eGrid)
+    if (allocated(self % majorant)) deallocate(self % majorant)
     if (allocated(self % table)) deallocate(self % table)
 
   end subroutine kill

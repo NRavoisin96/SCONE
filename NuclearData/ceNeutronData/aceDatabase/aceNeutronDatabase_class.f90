@@ -35,7 +35,8 @@ module aceNeutronDatabase_class
                                            cache_materialCache => materialCache, &
                                            cache_majorantCache => majorantCache, &
                                            cache_zaidCache => zaidCache, &
-                                           cache_init => init
+                                           cache_init => init, &
+                                           cache_kill => kill
 
   ! Scattering procedures
   use scatteringKernels_func,  only : relativeEnergy_constXS, dopplerCorrectionFactor
@@ -129,7 +130,7 @@ contains
   !!
   !! Return to uninitialised state
   !!
-  elemental subroutine kill(self)
+  subroutine kill(self)
     class(aceNeutronDatabase), intent(inout) :: self
 
     ! Clean
@@ -152,6 +153,8 @@ contains
     if (allocated(self % eGridUnion)) deallocate(self % eGridUnion)
     if (allocated(self % majorant)) deallocate(self % majorant)
     if (allocated(self % nucToZaid)) deallocate(self % nucToZaid)
+
+    call cache_kill()
 
   end subroutine kill
 

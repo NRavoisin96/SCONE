@@ -284,7 +284,7 @@ contains
   !!
   !! See nuclearDatabase_inter for details
   !!
-  elemental subroutine kill(self)
+  subroutine kill(self)
     class(testNeutronDatabase), intent(inout) :: self
 
     if (associated(self % mat)) deallocate(self % mat)

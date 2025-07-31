@@ -294,7 +294,7 @@ contains
   !!
   !! Return to uninitialised state
   !!
-  elemental subroutine kill(self)
+  subroutine kill(self)
     class(baseMgNeutronDatabase), intent(inout) :: self
 
     if (associated(self % mats)) then

@@ -283,7 +283,7 @@ module nuclearDatabase_inter
     !!
     !! Return to uninitialised state
     !!
-    elemental subroutine kill(self)
+    subroutine kill(self)
       import :: nuclearDatabase
       class(nuclearDatabase), intent(inout) :: self
     end subroutine kill
