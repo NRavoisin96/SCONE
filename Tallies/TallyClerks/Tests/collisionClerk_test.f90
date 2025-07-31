@@ -243,6 +243,11 @@ contains
     call mapDict % kill()
     call res1Dict % kill()
     call res2Dict % kill()
+    if (allocated(this % bins)) deallocate(this % bins)
+    if (allocated(this % results)) deallocate(this % results)
+    call mem % kill()
+    call clerk % kill()
+    call outF % reset()
 
   end subroutine testScoring
 

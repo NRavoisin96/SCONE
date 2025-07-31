@@ -32,11 +32,11 @@ contains
   !!
   subroutine setUp(this)
     class(test_dictionary), intent(inout) :: this
-    type(dictionary) :: tempDict
+    type(dictionary)                      :: tempDict
 
     call this % dict % init(1)
     call this % dict % store('myReal', realVal)
-    call this % dict % store('myInt', intVal )
+    call this % dict % store('myInt', intVal)
     call this % dict % store('myCharNameLen', charNameLen)
     call this % dict % store('myCharPathLen', charPathLen)
     call this % dict % store('realArray', realArray)
@@ -96,8 +96,8 @@ contains
 @test
   subroutine testGettingRealArray(this)
     class(test_dictionary), intent(inout)    :: this
-    real(defReal), dimension(:), allocatable   :: tempReal
-    real(defReal), dimension(:), pointer       :: tempReal_ptr => null()
+    real(defReal), dimension(:), allocatable :: tempReal
+    real(defReal), dimension(:), pointer     :: tempReal_ptr => null()
 
     call this % dict % get(tempReal,'realArray')
     @assertEqual(realArray, tempReal, 'Ordinary Retrival Failed')
@@ -130,6 +130,9 @@ contains
 
     call this % dict % getOrDefault(tempReal_ptr,'intArray', [7.0_defReal])
     @assertEqual(real(intArray,defReal), tempReal_ptr, 'Get or Default int Retrival for Present Keyword')
+
+    ! Clean pointer.
+    if (associated(tempReal_ptr)) deallocate(tempReal_ptr)
 
   end subroutine testGettingRealArray
 
@@ -250,11 +253,11 @@ contains
 !!
 @test
   subroutine testGettingNameLenCharArray(this)
-    class(test_dictionary), intent(inout)        :: this
-    character(nameLen), dimension(:), allocatable  :: temp
-    character(nameLen), dimension(:), pointer      :: temp_ptr => null()
-    character(nameLen), dimension(1), parameter    :: default = ['Brasil, meu Brasil Brasileiro']
-    logical(defBool)                             :: isSame
+    class(test_dictionary), intent(inout)         :: this
+    character(nameLen), dimension(:), allocatable :: temp
+    character(nameLen), dimension(:), pointer     :: temp_ptr => null()
+    character(nameLen), dimension(1), parameter   :: default = ['Brasil, meu Brasil Brasileiro']
+    logical(defBool)                              :: isSame
 
     call this % dict % get(temp,'charNameLenArray')
     ! Fun Fact. pFUnit does not support character arrays comparisons.
@@ -285,6 +288,9 @@ contains
     isSame = all(default == temp_ptr)
     @assertTrue(isSame, 'Get or Default Retrival Failed for Present Keyword')
 
+    ! Clean pointer.
+    if (associated(temp_ptr)) deallocate(temp_ptr)
+
   end subroutine testGettingNameLenCharArray
 
 !!
@@ -292,11 +298,11 @@ contains
 !!
 @test
   subroutine testGettingPathLenCharArray(this)
-    class(test_dictionary), intent(inout)        :: this
-    character(pathLen), dimension(:), allocatable  :: temp
-    character(pathLen), dimension(:), pointer      :: temp_ptr => null()
-    character(pathLen), dimension(1), parameter    :: default = ['Brasil, meu Brasil Brasileiro']
-    logical(defBool)                             :: isSame
+    class(test_dictionary), intent(inout)         :: this
+    character(pathLen), dimension(:), allocatable :: temp
+    character(pathLen), dimension(:), pointer     :: temp_ptr => null()
+    character(pathLen), dimension(1), parameter   :: default = ['Brasil, meu Brasil Brasileiro']
+    logical(defBool)                              :: isSame
 
     call this % dict % get(temp,'charPathLenArray')
     ! Fun Fact. pFUnit does not support character arrays comparisons.
@@ -326,6 +332,9 @@ contains
     call this % dict % getOrDefault(temp_ptr,'invalid', default)
     isSame = all(default == temp_ptr)
     @assertTrue(isSame, 'Get or Default Retrival Failed for Present Keyword')
+
+    ! Clean pointer.
+    if (associated(temp_ptr)) deallocate(temp_ptr)
 
   end subroutine testGettingPathLenCharArray
 

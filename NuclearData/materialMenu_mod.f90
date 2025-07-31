@@ -200,6 +200,7 @@ contains
     integer(shortInt) :: i
 
     call nameMap % kill()
+    call colourMap % kill()
     if (allocated(materialDefs)) then
       do i = 1, size(materialDefs)
         call materialDefs(i) % kill()

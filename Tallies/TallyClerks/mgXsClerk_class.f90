@@ -170,10 +170,16 @@ contains
     call kill_super(self)
 
     ! Kill and deallocate maps
-    call self % energyMap % kill()
+    if (allocated(self % energyMap)) then
+      call self % energyMap % kill()
+      deallocate(self % energyMap)
+
+    end if
 
     if (allocated(self % spaceMap)) then
       call self % spaceMap % kill()
+      deallocate(self % spaceMap)
+      
     end if
 
     ! Reset parameters

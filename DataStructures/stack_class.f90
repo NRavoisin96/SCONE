@@ -192,7 +192,7 @@ contains
   !!
   !! Add element to the stack
   !!
-  subroutine push_char(self,val)
+  subroutine push_char(self, val)
     class(stackChar), intent(inout) :: self
     character(nameLen), intent(in)  :: val
 
@@ -265,8 +265,10 @@ contains
     ! Find size of the stack memory
     if (allocated(self % stack)) then
       S = size(self % stack)
+
     else
       S = 0
+
     end if
 
     ! Extend storage space if needed
@@ -274,7 +276,9 @@ contains
       S = ceiling((S+1) * GROWTH_RATIO)
       allocate(temp(S))
       temp(1:self % top) = self % stack(1: self % top)
+      temp(self % top + 1:S) = ''
       call move_alloc(temp, self % stack)
+
     end if
   end subroutine resize_char
 

@@ -386,7 +386,7 @@ module linearAlgebra_func
 !!<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 
   !! This variable must be private to each OpenMP thread
-  real(defReal), dimension(:), allocatable,target :: workspace
+  real(defReal), dimension(:), allocatable, target :: workspace
 
 contains
 
@@ -401,47 +401,50 @@ contains
   !!
   subroutine solve(A, x, b)
     real(defReal), dimension(:,:), intent(in) :: A
-    real(defReal), dimension(:), intent(out) :: x
-    real(defReal), dimension(:), intent(in)  :: b
+    real(defReal), dimension(:), intent(out)  :: x
+    real(defReal), dimension(:), intent(in)   :: b
     real(defReal), dimension(:,:), pointer    :: A_t, B_t
-    integer(shortInt), dimension(size(x))    :: pivot
-    integer(shortInt)                       :: N, mem, info
-    character(*), parameter :: Here = 'solve ( linearAlgebra_func.f90)'
+    integer(shortInt), dimension(size(x))     :: pivot
+    integer(shortInt)                         :: N, mem, info, bSize, xSize
+    character(*), parameter                   :: Here = 'solve (linearAlgebra_func.f90)'
 
     ! Verify size of the inputs
-    N = size(A,1)
-    if (size(b) /= N) then
-      call fatalError(Here,'Invalid size of RHS vector b. It is not size N')
+    N = size(A, 1)
+    bSize = size(b)
+    xSize = size(x)
+    if (bSize /= N) then
+      call fatalError(Here, 'Size of RHS vector b must be N. Is: '//numToChar(bSize)//'.')
 
-    else if (size(x) /=N) then
-      call fatalError(Here,'Invallid size of result vector x. It is not size N')
+    else if (xSize /= N) then
+      call fatalError(Here, 'Size of x must be N. Is: '//numToChar(xSize)//'.')
 
     else if (any(shape(A) /= N)) then
-      call fatalError(Here,'Invalid shape of array A. Is not NxN')
+      call fatalError(Here, 'Invalid shape of array A. Is not N x N.')
 
     end if
 
     ! Calculate memory required and ensure that memory is avalible
-    mem = N*N + N
+    mem = N * N + N
     call getMem(mem)
 
     ! Associate workspace memory with different variables
     ! Use pointers to change ranks
-    A_t(1:N,1:N) => workspace(1:N*N)
-    B_t(1:N,1:1) => workspace(N*N+1 : N*N + N)
+    A_t(1:N, 1:N) => workspace(1:N * N)
+    B_t(1:N, 1:1) => workspace(N * N + 1:N * N + N)
 
     ! Copy input
-    A_t      = A
+    A_t = A
     B_t(:,1) = b
 
     ! Perform calculation
     call lapack_gesv(N, 1, A_t, N, pivot, B_t, N, info)
 
     if (info < 0) then
-      call fatalError(Here,'LINPACK procedure failed with error: '//numToChar(info))
+      call fatalError(Here,'LINPACK procedure failed with error: '//numToChar(info)//'.')
 
     else if (info > 0) then
       call fatalError(Here,'LINPACK procedure failed. Matrix A is singular.')
+
     end if
 
     ! Copy the results out

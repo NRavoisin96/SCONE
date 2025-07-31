@@ -20,9 +20,8 @@ module charMap_class
   !!
   type, private :: content
     integer(shortInt)  :: status = EMPTY
-    character(nameLen) :: key    = ''
-    integer(shortInt)  :: hash
-    integer(shortInt)  :: val
+    character(nameLen) :: key = ''
+    integer(shortInt)  :: hash = 0, val = 0
   end type
 
 
@@ -67,10 +66,10 @@ module charMap_class
   !!
   type, public :: charMap
    ! private
-    integer(shortInt)                        :: Nexp
-    integer(shortInt)                        :: N     = 0
-    integer(shortInt)                        :: Load  = 0
-    integer(shortInt)                        :: L     = 0
+    integer(shortInt)                        :: Nexp = 0
+    integer(shortInt)                        :: N = 0
+    integer(shortInt)                        :: Load = 0
+    integer(shortInt)                        :: L = 0
     type(content), dimension(:), allocatable :: map
   contains
     procedure :: init
@@ -119,21 +118,18 @@ contains
     call self % kill()
 
     ! Find minumim size required for N entries
-    N_bar = int(N/MAX_LOAD)
+    N_bar = int(N / MAX_LOAD)
 
     ! Find next power of 2
-    ! We are acounting for zero by using N-1 in leadz
-    nextPow2 = bit_size(N_bar) - leadz(N_bar-1)
-
-    ! Assign size to 8 if small value is provided
-    if (nextPow2 < 3 ) nextPow2 = 3
+    ! We are acounting for zero by using N-1 in leadz. Assign size to 8 if small value is provided
+    nextPow2 = max(bit_size(N_bar) - leadz(N_bar - 1), 3)
 
     ! Allocate storage space
     self % Load = 0
-    self % L    = 0
+    self % L = 0
     self % Nexp = nextPow2
-    self % N    = 2**nextPow2
-    allocate(self % map( self % N))
+    self % N = 2 ** nextPow2
+    allocate(self % map(self % N))
 
     ! SET map keys to EMTPY
     self % map % status = EMPTY
@@ -150,9 +146,10 @@ contains
     if (allocated(self % map)) deallocate(self % map)
 
     ! Set default values of parameters
-    self % N    = 0
+    self % Nexp = 0
+    self % N = 0
     self % Load = 0
-    self % L    = 0
+    self % L = 0
 
   end subroutine kill
 

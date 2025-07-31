@@ -125,9 +125,9 @@ module outputFile_class
   type, public :: outputFile
     private
     class(asciiOutput), allocatable :: output
-    character(nameLen)              :: type
-    character(:), allocatable :: outputFileName
-    integer(shortInt)         :: outputUnit = -97875674 ! Hopefully this does not exist for any internal units
+    character(nameLen)              :: type = ''
+    character(:), allocatable       :: outputFileName
+    integer(shortInt)               :: outputUnit = -97875674 ! Hopefully this does not exist for any internal units
 
     ! Error handling settings
     logical(defBool) :: fatalErrors = .true. ! Enable fatalErrors on wrong logic
@@ -429,7 +429,7 @@ contains
   subroutine startBlock(self, name)
     class(outputFile), intent(inout) :: self
     character(nameLen), intent(in)   :: name
-    character(100), parameter :: Here ='startBlock (outputFile_class.f90)'
+    character(*), parameter          :: Here ='startBlock (outputFile_class.f90)'
 
     ! Check that name is unique in current block
     if (self % usedNames % isPresent(name, self % blockLevel)) call self % logNameReuse(name)
@@ -447,7 +447,7 @@ contains
 
     ! Update state
     self % blockLevel = self % blockLevel + 1
-    call self % block_name_stack % push( self % current_block_name)
+    call self % block_name_stack % push(self % current_block_name)
     self % current_block_name = name
 
     ! Start new block in output

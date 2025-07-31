@@ -91,24 +91,24 @@ module dictionary_class
   !!
   type, public :: dictContent
     ! Allocatable space for all content types
-    integer(shortInt)                           :: int0_alloc
+    integer(shortInt)                             :: int0_alloc = 0
     integer(shortInt), dimension(:), allocatable  :: int1_alloc
-    real(defReal)                               :: real0_alloc
+    real(defReal)                                 :: real0_alloc = ZERO
     real(defReal), dimension(:), allocatable      :: real1_alloc
-    character(charLen)                          :: char0_alloc
+    character(charLen)                            :: char0_alloc = ''
     character(charLen), dimension(:), allocatable :: char1_alloc
     ! *** Note that dictionary is defined as pointer not allocatable
     ! *** This is becouse gfortran < 7.0 does not supports circular derived types with
     ! *** allocatable keyword. This line may change in a future
-    type(dictionary), pointer                  :: dict0_alloc => null()
+    type(dictionary), pointer                     :: dict0_alloc => null()
 
     ! dictContent type ID
-    integer(shortInt)                           :: type = empty
+    integer(shortInt)                             :: type = empty
   contains
-    procedure :: kill          => kill_dictCont
-    procedure :: copy          => copy_dictCont
-    procedure :: getType       => getType_dictContent
-    procedure :: getSize       => getSize_dictContent
+    procedure :: kill => kill_dictCont
+    procedure :: copy => copy_dictCont
+    procedure :: getType => getType_dictContent
+    procedure :: getSize => getSize_dictContent
 
   end type dictContent
 
@@ -215,27 +215,21 @@ contains
   !! Helper function to get next empty index in a dictionary storage array
   !! If storage arrays are full it extends dictionary by stride
   !!
-  function getEmptyIdx(self,keyword) result (idx)
-    class(dictionary), intent(inout)   :: self
-    character(nameLen), intent(in)     :: keyword
-    integer(shortInt)                  :: idx
-    integer(shortInt)                  :: i
-    character(100), parameter           :: Here='getEmptyIdx (dictionary_class.f90)'
+  function getEmptyIdx(self, keyword) result (idx)
+    class(dictionary), intent(inout) :: self
+    character(nameLen), intent(in)   :: keyword
+    integer(shortInt)                :: i, idx
+    character(*), parameter          :: Here = 'getEmptyIdx (dictionary_class.f90)'
 
     ! Extend dictionary if required
-    if (self % dictLen >= self % maxSize) then
-      call self % extendBy(self % stride)
-
-    end if
+    if (self % maxSize <= self % dictLen) call self % extendBy(self % stride)
 
     ! Check whether keywods contains characters
-    if (adjustl(keyword) == adjustl('')) then
-      call fatalError(Here,"Keyword contains only blanks : '' ")
-    end if
+    if (adjustl(keyword) == adjustl('')) call fatalError(Here,"Keyword contains only blanks : '' ")
 
     ! Find if keyword is alrady present
     i = linFind(self % keywords(1:self % dictLen), keyword)
-    if (i > 0 ) call fatalError(Here, 'Keyword: ' // keyword // ' is already present in dictionary')
+    if (0 < i) call fatalError(Here, 'Keyword: ' // keyword // ' is already present in dictionary')
 
     ! Increase counter and return avalible index
     self % dictLen = self % dictLen + 1
@@ -246,15 +240,15 @@ contains
   !!
   !! Extends size of dictionary storage arrays by variable stride
   !!
-  subroutine extendBy(self,stride)
-    class(dictionary), intent(inout)             :: self
-    integer(shortInt)                            :: stride
-    character(nameLen), dimension(:), allocatable  :: keywords
+  subroutine extendBy(self, stride)
+    class(dictionary), intent(inout)              :: self
+    integer(shortInt), intent(in)                 :: stride
+    character(nameLen), dimension(:), allocatable :: keywords
     type(dictContent), dimension(:), allocatable  :: entries
-    integer(shortInt)                            :: newSize, oldSize, i
-    character(100), parameter                     :: Here='extendBy (dictionary_class.f90)'
+    integer(shortInt)                             :: newSize, oldSize, i
+    character(*), parameter                       :: Here = 'extendBy (dictionary_class.f90)'
 
-    if (.not.(allocated(self % keywords).and.allocated(self % entries))) then
+    if (.not. (allocated(self % keywords).and. allocated(self % entries))) then
       call fatalError(Here,'An attempt was made to extend uninitialised dictionary')
 
     end if
@@ -263,25 +257,18 @@ contains
     newSize = oldSize + stride
 
     allocate(keywords(newSize))
-    allocate(entries(newSize) )
+    allocate(entries(newSize))
 
     keywords(1:oldSize) = self % keywords
-
-    do i= 1, oldSize
-     entries(i) = self % entries(i)
-
-    end do
-
-    deallocate( self % keywords)
-    deallocate( self % entries)
+    keywords(oldSize + 1:newSize) = ''
+    entries(1:oldSize) = self % entries
 
     call move_alloc(keywords, self % keywords)
-    call move_alloc(entries , self % entries )
+    call move_alloc(entries, self % entries)
 
     self % maxSize = newSize
 
   end subroutine extendBy
-
 
   !!
   !! Initialise a dictionary
@@ -1149,7 +1136,7 @@ contains
   !!
   !! Stores a integer rank 0 in dictionary
   !!
-  subroutine store_int(self,keywordArgument,entry)
+  subroutine store_int(self, keywordArgument, entry)
     class(dictionary), intent(inout)  :: self
     character(*), intent(in)          :: keywordArgument
     integer(shortInt), intent(in)     :: entry
@@ -1335,17 +1322,21 @@ contains
   recursive subroutine kill_dictCont(self)
     class(dictContent), intent(inout) :: self
 
+    ! Reset to default values.
+    self % int0_alloc = 0
+    self % real0_alloc = ZERO
+    self % char0_alloc = ''
+
     ! Deallocate allocatable components
     if (allocated(self % int1_alloc)) deallocate (self % int1_alloc)
-
     if (allocated(self % real1_alloc)) deallocate (self % real1_alloc)
-
     if (allocated(self % char1_alloc)) deallocate (self % char1_alloc)
 
     ! Clean nested dictionaries. Kill before deallocation to avoid memory leaks
     if (associated(self % dict0_alloc)) then
       call self % dict0_alloc % kill()
       deallocate (self % dict0_alloc)
+
     end if
 
     ! Change type of content to empty

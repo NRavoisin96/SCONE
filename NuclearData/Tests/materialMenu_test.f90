@@ -25,7 +25,6 @@ module materialMenu_test
   &     }                                     "
 
 contains
-
   !!
   !! Test the initialisation of matarialMenu
   !!
@@ -102,9 +101,10 @@ contains
     @assertEqual('100253.00', matPtr % nuclides(1) % toChar())
 
     ! Clean
+    call emptyDict % kill()
+    call matDict % kill()
     call kill_menu()
 
   end subroutine testMaterialMenu
-
 
 end module materialMenu_test

@@ -73,9 +73,9 @@ contains
   !!
   subroutine new_tallyMap1D(new, dict)
     class(tallyMap1D), allocatable, intent(inout) :: new
-    class(dictionary), intent(in)                :: dict
-    character(nameLen)                           :: type
-    character(100), parameter  :: Here = 'new_tallyMap1D (tallyMap1DFactory_func.f90)'
+    class(dictionary), intent(in)                 :: dict
+    character(nameLen)                            :: type
+    character(*), parameter                       :: Here = 'new_tallyMap1D (tallyMap1DFactory_func.f90)'
 
     ! Deallocate new if allocated
     if (allocated(new)) deallocate(new)

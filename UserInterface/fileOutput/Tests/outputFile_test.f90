@@ -1,8 +1,8 @@
 module outputFile_test
 
+  use funit
   use numPrecision
   use outputFile_class, only : outputFile
-  use funit
 
   implicit none
 
@@ -351,12 +351,15 @@ contains
 
     do i = 1, 30
       call this % outFile % startBlock(name)
-    end do
-    do i = 1, 30
-      call this % outFile % endBlock()
+
     end do
 
-    @assertTrue( this % outFile % isValid())
+    do i = 1, 30
+      call this % outFile % endBlock()
+
+    end do
+
+    @assertTrue(this % outFile % isValid())
     call this % outFile % reset()
 
   end subroutine testNestedBlocks
