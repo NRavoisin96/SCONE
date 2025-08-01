@@ -62,12 +62,13 @@ contains
     if (.not. facesFile) call fatalError(Here, "Missing 'faces' file for OpenFOAM mesh with Id: "//numToChar(self % getId())//'.')
     
     ! If nInternal = 0, return early.
-    if (nInternalFaces == 0) return
+    if (0 < nInternalFaces) then
+      ! If reached here check that the 'neighbour' file exists and report error if not.
+      inquire(file = folderPath//'neighbour', exist = neighbourFile)
+      if (.not. neighbourFile) &
+      call fatalError(Here, "Missing 'neighbour' file for OpenFOAM mesh with Id: "//numToChar(self % getId())//'.')
 
-    ! If reached here check that the 'neighbour' file exists and report error if not.
-    inquire(file = folderPath//'neighbour', exist = neighbourFile)
-    if (.not. neighbourFile) &
-    call fatalError(Here, "Missing 'neighbour' file for OpenFOAM mesh with Id: "//numToChar(self % getId())//'.')
+    end if
 
     ! Check that the 'cellZones' file exists.
     inquire(file = folderPath//'cellZones', exist = cellZonesFile)
@@ -553,7 +554,6 @@ contains
     character(*), intent(in)           :: folderPath
     integer(shortInt)                  :: nElements, nFaces, nInternalFaces, nVertices
     logical(defBool)                   :: hasCellZones
-    character(*), parameter            :: Here = 'importMesh (OpenFOAMMesh_class.f90)'
     
     ! Retrieve preliminary information about the mesh and set global properties.
     call self % getMeshInfo(folderPath, nVertices, nFaces, nInternalFaces, nElements, hasCellZones)
