@@ -267,12 +267,17 @@ contains
     integer(shortInt)                   :: i
 
     if (allocated(self % unis)) then
-        do i = 1, size(self % unis)
-            call self % unis(i) % ptr % kill()
-            if (allocated(self % unis(i) % name)) deallocate(self % unis(i) % name)
-        
-        end do
-        deallocate(self % unis)
+      do i = 1, size(self % unis)
+        if (associated(self % unis(i) % ptr)) then
+          call self % unis(i) % ptr % kill()
+          deallocate(self % unis(i) % ptr)
+
+        end if
+        if (allocated(self % unis(i) % name)) deallocate(self % unis(i) % name)
+      
+      end do
+      deallocate(self % unis)
+
     end if
     call self % idMap % kill()
 

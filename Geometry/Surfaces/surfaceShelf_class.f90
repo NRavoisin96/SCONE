@@ -212,11 +212,16 @@ contains
 
     if (allocated(self % surfaces)) then
       do i = 1, size(self % surfaces)
-        call self % surfaces(i) % ptr % kill()
+        if (associated(self % surfaces(i) % ptr)) then
+          call self % surfaces(i) % ptr % kill()
+          deallocate(self % surfaces(i) % ptr)
+
+        end if
         if (allocated(self % surfaces(i) % name)) deallocate(self % surfaces(i) % name)
 
       end do
       deallocate(self % surfaces)
+
     end if
 
     call self % idMap % kill()

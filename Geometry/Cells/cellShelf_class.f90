@@ -297,11 +297,16 @@ contains
 
     if (allocated(self % cells)) then
       do i = 1, size(self % cells)
-        call self % cells(i) % ptr % kill()
-        if (allocated(self % cells(i) % name)) deallocate(self % cells(i) % name)
-      end do
+        if (associated(self % cells(i) % ptr)) then
+          call self % cells(i) % ptr % kill()
+          deallocate(self % cells(i) % ptr)
 
+        end if
+        if (allocated(self % cells(i) % name)) deallocate(self % cells(i) % name)
+
+      end do
       deallocate(self % cells)
+
     end if
 
     call self % idMap % kill()

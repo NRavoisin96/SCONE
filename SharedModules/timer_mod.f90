@@ -32,6 +32,7 @@ module timer_mod
   private
 
   !! Public interface
+  public :: killTimer
   public :: secToChar
   public :: registerTimer
   public :: timerStart
@@ -142,6 +143,17 @@ contains
       call move_alloc(timerTemp, timers)
     end if
   end subroutine growIfNeeded
+
+  !!
+  !!
+  !!
+  subroutine killTimer()
+
+    if (allocated(timerNames)) deallocate(timerNames)
+    if (allocated(timers)) deallocate(timers)
+    idx = 0
+
+  end subroutine killTimer
 
   !!
   !! Return a nameLen string with elapsed time in hhh:mm:ss format

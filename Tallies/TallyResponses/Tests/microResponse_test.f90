@@ -6,7 +6,7 @@ module microResponse_test
   use particle_class,                 only : particle, P_NEUTRON
   use dictionary_class,               only : dictionary
   use testNeutronDatabase_class,      only : testNeutronDatabase
-  use materialMenu_mod,               only : init
+  use materialMenu_mod,               only : init, kill
   use funit
 
   implicit none
@@ -106,6 +106,7 @@ contains
 
     ! Kill and deallocate testTransportNuclearData
     call this % xsData % kill()
+    call kill()
 
   end subroutine tearDown
 

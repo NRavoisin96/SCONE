@@ -10,7 +10,7 @@ seed 1;
 collisionOperator { neutronCE {type neutronCEstd;}
                     neutronMG {type neutronMGstd;} }
 
-transportOperator { type transportOperatorST; }
+transportOperator { type transportOperatorDT; }
 
 inactiveTally {}
 

@@ -98,7 +98,11 @@ contains
     ! Clear everything.
     if (allocated(self % meshes)) then
         do i = 1, size(self % meshes)
-            call self % meshes(i) % ptr % kill()
+            if (associated(self % meshes(i) % ptr)) then
+              call self % meshes(i) % ptr % kill()
+              deallocate(self % meshes(i) % ptr)
+              
+            end if
             if (allocated(self % meshes(i) % name)) deallocate(self % meshes(i) % name)
             
         end do
