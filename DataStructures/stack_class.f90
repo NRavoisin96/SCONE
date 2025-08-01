@@ -155,8 +155,10 @@ contains
     if (S == self % top) then
       S = ceiling((S+1) * GROWTH_RATIO)
       allocate(temp(S))
-      temp(1:self % top) = self % stack(1: self % top)
+      if (0 < self % top) temp(1:self % top) = self % stack(1: self % top)
+      temp(self % top + 1:S) = 0
       call move_alloc(temp, self % stack)
+
     end if
 
   end subroutine resize_shortInt
@@ -273,9 +275,9 @@ contains
 
     ! Extend storage space if needed
     if (S == self % top) then
-      S = ceiling((S+1) * GROWTH_RATIO)
+      S = ceiling((S + 1) * GROWTH_RATIO)
       allocate(temp(S))
-      temp(1:self % top) = self % stack(1: self % top)
+      if (0 < self % top) temp(1:self % top) = self % stack(1: self % top)
       temp(self % top + 1:S) = ''
       call move_alloc(temp, self % stack)
 

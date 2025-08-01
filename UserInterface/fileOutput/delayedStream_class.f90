@@ -35,7 +35,7 @@ module delayedStream_class
     private
     integer(shortInt) :: unit = -8
     integer(shortInt) :: bufferPos = 0
-    character(MAX_DELAY) :: buffer
+    character(MAX_DELAY) :: buffer = ''
   contains
     procedure :: write
     procedure :: cut

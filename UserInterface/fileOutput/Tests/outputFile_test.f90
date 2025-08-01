@@ -166,7 +166,7 @@ contains
     call this % outFile % reset()
 
     ! Array overflow char
-    name ='lkm'
+    name = 'lkm'
     call this % outFile % startBlock(myBlock)
     call this % outFile % startArray(myArray,[2])
     call this % outFile % addValue(name)
@@ -196,7 +196,7 @@ contains
     call this % outFile % startBlock(myBlock)
     call this % outFile % startArray(myArray,[2])
     call this % outFile % addValue(0.0_defReal)
-    name ='myVal'
+    name = 'myVal'
     call this % outFile % printValue(0, name)
     @assertFalse( this % outFile % isValid())
     call this % outFile % reset()
@@ -205,7 +205,7 @@ contains
     call this % outFile % startBlock(myBlock)
     call this % outFile % startArray(myArray,[2])
     call this % outFile % addValue(0.0_defReal)
-    name ='myVal'
+    name = 'myVal'
     call this % outFile % printValue(0_longInt, name)
     @assertFalse( this % outFile % isValid())
     call this % outFile % reset()
@@ -214,18 +214,18 @@ contains
     call this % outFile % startBlock(myBlock)
     call this % outFile % startArray(myArray,[2])
     call this % outFile % addValue(0.0_defReal)
-    name ='myVal'
+    name = 'myVal'
     call this % outFile % printValue(0.0_defReal, name)
     @assertFalse( this % outFile % isValid())
     call this % outFile % reset()
 
     ! Printing character value inside an array
     charArray(1) = 'sth'
-    charArray(2) ='sth else'
+    charArray(2) = 'sth else'
     call this % outFile % startBlock(myBlock)
     call this % outFile % startArray(myArray,[2])
     call this % outFile % addValue(0.0_defReal)
-    name ='myVal'
+    name = 'myVal'
     call this % outFile % printValue(charArray(1), name)
     @assertFalse( this % outFile % isValid())
     call this % outFile % reset()
@@ -234,7 +234,7 @@ contains
     call this % outFile % startBlock(myBlock)
     call this % outFile % startArray(myArray,[2])
     call this % outFile % addValue(0.0_defReal)
-    name ='myVal'
+    name = 'myVal'
     call this % outFile % printResult(0.0_defReal,1.0_defReal, name)
     @assertFalse( this % outFile % isValid())
     call this % outFile % reset()
@@ -258,7 +258,7 @@ contains
     call this % outFile % reset()
 
     ! Add char value without starting an array
-    name ='char value'
+    name = 'char value'
     call this % outFile % startBlock(myBlock)
     call this % outFile % addValue(name)
     @assertFalse( this % outFile % isValid())

@@ -1,8 +1,8 @@
 module charMap_class
 
-  use numPrecision
   use genericProcedures,  only : fatalError, numToChar
   use hashFunctions_func, only : FNV_1, knuthHash
+  use numPrecision
 
   implicit none
   private
@@ -86,7 +86,6 @@ module charMap_class
     procedure :: end
     procedure :: kill
 
-
     ! Private Procedures
     procedure, private :: grow
   end type charMap
@@ -112,7 +111,7 @@ contains
     integer(shortInt)             :: nextPow2
     character(*), parameter :: Here = 'init (charMap_class.f90)'
 
-    if (N <= 0) call fatalError(Here,'Size needs to be +ve')
+    if (N < 1) call fatalError(Here,'Size needs to be +ve')
 
     ! Clean map
     call self % kill()
@@ -139,7 +138,7 @@ contains
   !!
   !! Return to uninitialised state
   !!
-  elemental subroutine kill(self)
+  subroutine kill(self)
     class(charMap), intent(inout) :: self
 
     ! Deallocate space
@@ -194,21 +193,20 @@ contains
     class(charMap), intent(inout)  :: self
     character(nameLen), intent(in) :: key
     integer(shortInt), intent(in)  :: val
-    integer(shortInt)              :: hash
-    integer(shortInt)              :: idx
+    integer(shortInt)              :: hash, idx
     logical(defBool)               :: sameEntry
 
     ! Check for initialisation or growth
     if (self % N == 0) then ! Initialise map
       call self % init(1)
 
-    else if (real(self % Load +1) / self % N > MAX_LOAD) then ! Double storage space
+    else if (real(self % Load + 1) / self % N > MAX_LOAD) then ! Double storage space
       call self % grow()
 
     end if
 
     ! Hash character key to integer
-    call FNV_1(key,hash)
+    call FNV_1(key, hash)
 
     ! Hash Hashed key to map to index
     idx = knuthHash(hash, self % Nexp) + 1
@@ -235,15 +233,16 @@ contains
     end do
 
     ! Increment load if not overwriting existing entry
-    if (.not.sameEntry) then
-      self % Load = self % Load +1
-      self % L = self % L +1
+    if (.not. sameEntry) then
+      self % Load = self % Load + 1
+      self % L = self % L + 1
+
     end if
 
     ! Load key and value
-    self % map(idx) % key    = key
-    self % map(idx) % hash   = hash
-    self % map(idx) % val    = val
+    self % map(idx) % key = key
+    self % map(idx) % hash = hash
+    self % map(idx) % val = val
     self % map(idx) % status = TAKEN
 
   end subroutine add
@@ -611,13 +610,13 @@ contains
     integer(shortInt)             :: i
 
     ! When growing rehasing is required. We will just create new map and copy all values in
-    call tempMap % init( self % Load * 2)
+    call tempMap % init(self % Load * 2)
 
     ! Loop throuth current table and rehash non-empty entries
-    do i= 1, self % N
-      associate (entry => self % map(i) )
+    do i = 1, self % N
+      associate (entry => self % map(i))
         if (entry % status == TAKEN) then
-          call tempMap % add( entry % key, entry % val)
+          call tempMap % add(entry % key, entry % val)
 
         end if
       end associate

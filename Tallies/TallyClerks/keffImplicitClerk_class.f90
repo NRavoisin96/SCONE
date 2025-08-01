@@ -335,7 +335,7 @@ contains
     real(defReal)                        :: val, STD
     integer(longInt)                     :: addr
 
-    call outFile % startBlock( self % getName())
+    call outFile % startBlock(self % getName())
     addr = self % getMemAddress()
 
     name = 'IMP_PROD'

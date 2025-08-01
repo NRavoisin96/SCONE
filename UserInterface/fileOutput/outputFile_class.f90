@@ -218,14 +218,14 @@ contains
   !!                    based on the format of the output file.
   !!
   subroutine init(self, type, fatalErrors, filename)
-    class(outputFile), intent(inout)      :: self
-    character(*), intent(in)              :: type
+    class(outputFile), intent(inout)       :: self
+    character(*), intent(in)               :: type
     logical(defBool), optional, intent(in) :: fatalErrors
-    character(*), optional, intent(in)    :: filename
-    integer(shortInt)                     :: error
-    character(99)                         :: errorMsg
-    logical(defBool)                      :: isOpen
-    character(100), parameter             :: Here = "init (outputFile_class.f90)"
+    character(*), optional, intent(in)     :: filename
+    integer(shortInt)                      :: error
+    character(99)                          :: errorMsg
+    logical(defBool)                       :: isOpen
+    character(*), parameter                :: Here = "init (outputFile_class.f90)"
 
     self % type = type
     allocate( self % output, source = new_asciiOutput(self % type))
@@ -294,13 +294,12 @@ contains
     if (allocated(self % output)) then
       call self % output % close()
       deallocate(self % output)
+
     end if
 
     inquire(unit = self % outputUnit, opened = isOpen)
 
-    if (isOpen) then
-      close(self % outputUnit)
-    end if
+    if (isOpen) close(self % outputUnit)
 
   end subroutine finalisation
 
@@ -383,6 +382,7 @@ contains
     else ! log error
       self % noErrors = .false.
       call self % errorLog % append(msg)
+
     end if
 
   end subroutine logNameReuse
@@ -429,7 +429,7 @@ contains
   subroutine startBlock(self, name)
     class(outputFile), intent(inout) :: self
     character(nameLen), intent(in)   :: name
-    character(*), parameter          :: Here ='startBlock (outputFile_class.f90)'
+    character(*), parameter          :: Here = 'startBlock (outputFile_class.f90)'
 
     ! Check that name is unique in current block
     if (self % usedNames % isPresent(name, self % blockLevel)) call self % logNameReuse(name)
@@ -1252,8 +1252,9 @@ contains
     character(nameLen), intent(in)     :: name
     integer(shortInt), intent(in)      :: b_lvl
 
-    if (b_lvl >= 0 .and. b_lvl < self % lvl) then
+    if (0 <= b_lvl .and. b_lvl < self % lvl) then
       call self % stack(b_lvl + 1) % add(name, IS_PRESENT)
+
     end if
 
   end subroutine add_charMapStack

@@ -6,6 +6,13 @@ module linearAlgebra_test
   implicit none
 
 contains
+@After
+  subroutine cleanUp()
+
+    ! Kill workspace
+    call kill_linearAlgebra()
+
+  end subroutine cleanUp
 
   !!
   !! Test eigenvalue calculation
@@ -55,9 +62,6 @@ contains
     @assertEqual([ 0.38548337_defReal, -0.00693389_defReal,  0.45994233_defReal, -0.79987971_defReal], v44(:,3), TOL)
     @assertEqual([-0.25724392_defReal, -0.66999974_defReal,  0.64227835_defReal,  0.26908070_defReal], v44(:,4), TOL)
 
-    ! Kill workspace
-    call kill_linearAlgebra()
-
   end subroutine testEigenvalue
 
   !!
@@ -80,7 +84,7 @@ contains
     call solve(A, x, b)
 
     ! Verify results
-    @assertEqual([0.21666667_defReal, -0.03333333_defReal, 0.21666667_defReal],x,TOL)
+    @assertEqual([0.21666667_defReal, -0.03333333_defReal, 0.21666667_defReal], x, TOL)
 
   end subroutine testLinSolve
 
@@ -105,7 +109,7 @@ contains
     call solveAdjointProblem(A, x, s, f)
 
     ! Verify solution
-    @assertEqual([ONE/sqrt(TWO), -ONE/sqrt(TWO)], x, TOL)
+    @assertEqual([ONE / sqrt(TWO), -ONE / sqrt(TWO)], x, TOL)
 
   end subroutine testAdjointSolve
 

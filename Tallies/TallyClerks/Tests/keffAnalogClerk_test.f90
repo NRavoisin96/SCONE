@@ -29,7 +29,7 @@ contains
   subroutine setUp(this)
     class(test_keffAnalogClerk), intent(inout) :: this
     type(dictionary)                           :: dict
-    character(nameLen)                         :: name
+    character(nameLen), parameter              :: name = 'dummyClerk'
 
     call dict % init(2)
     call this % clerk % init(dict, name)

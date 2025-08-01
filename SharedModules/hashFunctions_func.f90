@@ -103,10 +103,10 @@ contains
   !! TODO: Hash functions should be offloaded to C
   !!
   pure subroutine FNV_1_int32(key, hash)
-    character(*), intent(in)     :: key
+    character(*), intent(in)    :: key
     integer(int32), intent(out) :: hash
-    integer(int32), parameter    :: FNV_prime  = 16777619_int32
-    integer(int32), parameter    :: FNV_offset =  -2128831035_int32 !int(z'811c9dc5',int32)
+    integer(int32), parameter   :: FNV_prime = 16777619_int32
+    integer(int32), parameter   :: FNV_offset = -2128831035_int32 !int(z'811c9dc5',int32)
     integer(int32)              :: bajt
     integer(shortInt)           :: i
 
