@@ -19,7 +19,7 @@ module fixedSourcePhysicsPackage_class
   use RNG_class,                      only : RNG
 
   ! Physics package interface
-  use physicsPackage_inter,           only : physicsPackage
+  use physicsPackage_inter,           only : initPhysicsPackagePayload, physicsPackage
 
   ! Geometry
   use geometry_inter,                 only : geometry
@@ -296,15 +296,15 @@ contains
   !!
   !! Initialise from individual components and dictionaries for source and tally
   !!
-  subroutine init(self, dict)
+  subroutine init(self, payload)
     class(fixedSourcePhysicsPackage), intent(inout) :: self
-    class(dictionary), intent(inout)                :: dict
-    class(dictionary), pointer                       :: tempDict
+    type(initPhysicsPackagePayload), intent(in)     :: payload
+    class(dictionary), pointer                      :: tempDict
     integer(shortInt)                               :: seed_temp, commonBufferSize
     integer(longInt)                                :: seed
     character(10)                                   :: time
     character(8)                                    :: date
-    character(:), allocatable                        :: string
+    character(:), allocatable                       :: string
     character(nameLen)                              :: nucData, energy, geomName
     type(outputFile)                                :: test_out
     type(visualiser)                                :: viz
@@ -313,31 +313,34 @@ contains
     call cpu_time(self % CPU_time_start)
 
     ! Read calculation settings
-    call dict % get( self % pop,'pop')
-    call dict % get( self % N_cycles,'cycles')
-    call dict % get( nucData, 'XSdata')
-    call dict % get( energy, 'dataType')
+    call payload % dict % get(self % pop,'pop')
+    call payload % dict % get(self % N_cycles,'cycles')
+    call payload % dict % get(nucData, 'XSdata')
+    call payload % dict % get(energy, 'dataType')
 
     ! Process type of data
     select case(energy)
       case('mg')
         self % particleType = P_NEUTRON_MG
+
       case('ce')
         self % particleType = P_NEUTRON_CE
+
       case default
         call fatalError(Here,"dataType must be 'mg' or 'ce'.")
+
     end select
 
     ! Read outputfile path
-    call dict % getOrDefault(self % outputFile,'outputFile','./output')
+    call payload % dict % getOrDefault(self % outputFile,'outputFile','./output')
 
     ! Get output format and verify
     ! Initialise output file before calculation (so mistake in format will be caught early)
-    call dict % getOrDefault(self % outputFormat, 'outputFormat', 'asciiMATLAB')
+    call payload % dict % getOrDefault(self % outputFormat, 'outputFormat', 'asciiMATLAB')
     call test_out % init(self % outputFormat)
 
     ! Parallel buffer size
-    call dict % getOrDefault( self % bufferSize, 'buffer', 50)
+    call payload % dict % getOrDefault( self % bufferSize, 'buffer', 50)
 
     ! Register timer
     self % timerMain = registerTimer('transportTime')
@@ -347,8 +350,8 @@ contains
 
     ! *** It is a bit silly but dictionary cannot store longInt for now
     !     so seeds are limited to 32 bits (can be -ve)
-    if (dict % isPresent('seed')) then
-      call dict % get(seed_temp,'seed')
+    if (payload % dict % isPresent('seed')) then
+      call payload % dict % get(seed_temp,'seed')
 
     else
       ! Obtain time string and hash it to obtain random seed
@@ -361,26 +364,20 @@ contains
     call self % pRNG % init(seed)
 
     ! Read whether to print particle source per cycle
-    call dict % getOrDefault(self % printSource, 'printSource', 0)
-
-    ! Build Nuclear Data
-    call ndReg_init(dict % getDictPtr("nuclearData"))
+    call payload % dict % getOrDefault(self % printSource, 'printSource', 0)
 
     ! Build geometry
-    tempDict => dict % getDictPtr('geometry')
-    geomName = 'fixedSourceGeom'
-    call new_geometry(tempDict, geomName)
-    self % geomIdx = gr_geomIdx(geomName)
-    self % geom    => gr_geomPtr(self % geomIdx)
+    self % geomIdx = payload % geometryIdx
+    self % geom => payload % geometry
 
     ! Activate Nuclear Data *** All materials are active
     call ndReg_activate(self % particleType, nucData, self % geom % activeMats())
     self % nucData => ndReg_get(self % particleType)
 
     ! Call visualisation
-    if (dict % isPresent('viz')) then
+    if (payload % dict % isPresent('viz')) then
       print *, "Initialising visualiser"
-      tempDict => dict % getDictPtr('viz')
+      tempDict => payload % dict % getDictPtr('viz')
       call viz % init(self % geom, tempDict)
       print *, "Constructing visualisation"
       call viz % makeViz()
@@ -388,26 +385,26 @@ contains
     endif
 
     ! Read variance reduction option as a geometry field
-    if (dict % isPresent('varianceReduction')) then
+    if (payload % dict % isPresent('varianceReduction')) then
       ! Build and initialise
-      tempDict => dict % getDictPtr('varianceReduction')
+      tempDict => payload % dict % getDictPtr('varianceReduction')
       call new_field(tempDict, nameWW)
     end if
 
     ! Read particle source definition
-    tempDict => dict % getDictPtr('source')
+    tempDict => payload % dict % getDictPtr('source')
     call new_source(self % fixedSource, tempDict, self % geom)
 
     ! Build collision operator
-    tempDict => dict % getDictPtr('collisionOperator')
+    tempDict => payload % dict % getDictPtr('collisionOperator')
     call self % collOp % init(tempDict)
 
     ! Build transport operator
-    tempDict => dict % getDictPtr('transportOperator')
+    tempDict => payload % dict % getDictPtr('transportOperator')
     call new_transportOperator(self % transOp, tempDict)
 
     ! Initialise tally Admin
-    tempDict => dict % getDictPtr('tally')
+    tempDict => payload % dict % getDictPtr('tally')
     allocate(self % tally)
     call self % tally % init(tempDict)
 
@@ -417,14 +414,14 @@ contains
     call self % thisCycle % init(self % pop)
 
     ! Is the common buffer turned on? Set the size if so
-    if (dict % isPresent('commonBufferSize')) then
-      call dict % get(commonBufferSize,'commonBufferSize')
+    if (payload % dict % isPresent('commonBufferSize')) then
+      call payload % dict % get(commonBufferSize,'commonBufferSize')
       allocate(self % commonBuffer)
       call self % commonBuffer % init(commonBufferSize)
 
       ! Set threshold at which to shift particles from private buffer
       ! to common buffer
-      call dict % getOrDefault(self % bufferShift, 'bufferShift', 10)
+      call payload % dict % getOrDefault(self % bufferShift, 'bufferShift', 10)
       if (self % bufferShift > self % bufferSize) call fatalError(Here, &
               'Buffer size should be greater than the shift threshold')
     end if

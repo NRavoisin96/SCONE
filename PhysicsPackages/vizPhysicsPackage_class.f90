@@ -10,7 +10,7 @@ module vizPhysicsPackage_class
                                              timerTime, timerReset, secToChar
 
   ! Physics package interface
-  use physicsPackage_inter,           only : physicsPackage
+  use physicsPackage_inter,           only : initPhysicsPackagePayload, physicsPackage
 
   ! Geometry
   use geometry_inter,                 only : geometry
@@ -66,35 +66,26 @@ contains
   !!
   !! Initialise from individual components and dictionaries
   !!
-  subroutine init(self, dict)
-    class(vizPhysicsPackage), intent(inout) :: self
-    class(dictionary), intent(inout)        :: dict
-    class(dictionary), pointer               :: tempDict
-    class(geometry), pointer                :: geom
-    character(nameLen)                      :: geomName
-    character(100), parameter :: Here ='init (vizPhysicsPackage_class.f90)'
+  subroutine init(self, payload)
+    class(vizPhysicsPackage), intent(inout)     :: self
+    type(initPhysicsPackagePayload), intent(in) :: payload
+    character(*), parameter                     :: Here = 'init (vizPhysicsPackage_class.f90)'
 
     ! Register timer
     self % timerMain = registerTimer('transportTime')
 
-    ! Build Nuclear Data
-    call ndReg_init(dict % getDictPtr("nuclearData"))
-
     ! Build geometry
-    tempDict => dict % getDictPtr('geometry')
-    geomName = 'visualGeom'
-    call new_geometry(tempDict, geomName)
-    self % geomIdx = gr_geomIdx(geomName)
-    self % geom    => gr_geomPtr(self % geomIdx)
+    self % geomIdx = payload % geometryIdx
+    self % geom => payload % geometry
 
     ! Call visualisation
-    if (dict % isPresent('viz')) then
+    if (payload % dict % isPresent('viz')) then
       print *, "Initialising visualiser"
-      tempDict => dict % getDictPtr('viz')
-      geom => self % geom
-      call self % viz % init(geom, tempDict)
+      call self % viz % init(self % geom, payload % dict % getDictPtr('viz'))
+
     else
-      call fatalError(here,'Must provide viz dict for plotting')
+      call fatalError(here,'Must provide viz dict for plotting.')
+
     endif
 
   end subroutine init

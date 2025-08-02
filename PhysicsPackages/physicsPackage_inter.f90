@@ -1,7 +1,8 @@
 module physicsPackage_inter
 
-  use numPrecision
   use dictionary_class, only : dictionary
+  use geometry_inter,   only : geometry
+  use numPrecision
 
   implicit none
   private
@@ -15,28 +16,28 @@ module physicsPackage_inter
     private
   contains
     procedure(init), deferred :: init
+    procedure(kill), deferred :: kill
     procedure(run),deferred   :: run
   end type physicsPackage
 
-  abstract interface
+  !!
+  !!
+  !!
+  type, public :: initPhysicsPackagePayload
+    type(dictionary), pointer :: dict => null()
+    integer(shortInt)         :: geometryIdx = 0
+    class(geometry), pointer  :: geometry => null()
+  end type initPhysicsPackagePayload
 
+  abstract interface
     !!
     !! Initialise Physics Package from dictionary
     !!
-    subroutine init(self,dict)
-      import :: physicsPackage, &
-                dictionary
-      class(physicsPackage), intent(inout) :: self
-      class(dictionary), intent(inout)     :: dict
+    subroutine init(self, payload)
+      import                                      :: initPhysicsPackagePayload, physicsPackage
+      class(physicsPackage), intent(inout)        :: self
+      type(initPhysicsPackagePayload), intent(in) :: payload
     end subroutine init
-
-    !!
-    !! Run calculation in the physics package
-    !!
-    subroutine run(self)
-      import :: physicsPackage
-      class(physicsPackage), intent(inout) :: self
-    end subroutine run
 
     !!
     !! Deallocate memory used by physicsPackage
@@ -46,7 +47,14 @@ module physicsPackage_inter
       class(physicsPackage), intent(inout) :: self
     end subroutine kill
 
+
+    !!
+    !! Run calculation in the physics package
+    !!
+    subroutine run(self)
+      import :: physicsPackage
+      class(physicsPackage), intent(inout) :: self
+    end subroutine run
   end interface
-contains
 
 end module physicsPackage_inter

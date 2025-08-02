@@ -26,9 +26,10 @@ module commandLineUI
   !!  -> clOptionIsPresent(keyword) - Returns .true. if the option uder keyword was invoked
   !!
   public :: addClOption
-  public :: getInputFile
   public :: clOptionIsPresent
   public :: getFromCL
+  public :: getInputFile
+  public :: kill
 
   interface getFromCL
     module procedure getFromCL_shortInt
@@ -50,11 +51,12 @@ module commandLineUI
   !! Type to hold a single option argument (type + character with value)
   !!
   type, private :: optionArg
-    integer(shortInt)        :: type = UNDEFINED_TYPE
+    integer(shortInt)         :: type = UNDEFINED_TYPE
     character(:), allocatable :: val
   contains
+    procedure :: kill => kill_optionArg
     procedure :: typeChar => typeChar_optionArg
-    procedure :: verify   => verify_optionArg
+    procedure :: verify => verify_optionArg
   end type optionArg
 
   !!
@@ -62,13 +64,13 @@ module commandLineUI
   !! NOTE: Options are unique. Only one option of a given type is allowed
   !!
   type, private :: optionDescriptor
-    logical(defBool)                         :: isLoaded
-    integer(shortInt)                        :: keywordHash
+    logical(defBool)                           :: isLoaded = .false.
+    integer(shortInt)                          :: keywordHash = 0
     type(optionArg), dimension(:), allocatable :: optArgs
-    character(:), allocatable                 :: keyword
-    character(:), allocatable                 :: help
+    character(:), allocatable                  :: help, keyword
   contains
     procedure :: init         => init_optionDescriptor
+    procedure :: kill         => kill_optionDescriptor
     procedure :: read         => read_optionDescriptor
     generic   :: operator(==) => eq_optionDescriptor
     procedure :: display      => display_optionDescriptor
@@ -95,14 +97,14 @@ contains
   !!  argTypes -> type of argument ('int', 'real', 'char'). Must have size of Narg
   !!  help     -> help string displayed when help is invoked
   !!
-  subroutine addClOption(keyword,Narg,argTypes,help)
-    character(*), intent(in)                        :: keyword
-    integer(shortInt), intent(in)                   :: Narg
+  subroutine addClOption(keyword, Narg, argTypes, help)
+    character(*), intent(in)                          :: keyword
+    integer(shortInt), intent(in)                     :: Narg
     character(*), dimension(:), intent(in)            :: argTypes
-    character(*), intent(in)                         :: help
+    character(*), intent(in)                          :: help
     type(optionDescriptor), dimension(:), allocatable :: temp
-    integer(shortInt)                               :: N
-    character(*), parameter :: Here = 'addClOption (commandLinieUI.f90)'
+    integer(shortInt)                                 :: N
+    character(*), parameter                           :: Here = 'addClOption (commandLinieUI.f90)'
 
     ! Extend or allocate options array
     if (allocated(options)) then
@@ -112,23 +114,24 @@ contains
 
       ! Create new extended array
       allocate(temp(N))
-      temp(1:N-1) = options
+      temp(1:N - 1) = options
 
       ! Move allocation
       call move_alloc(temp, options)
+
     else
       ! Allocate memory
       N = 1
       allocate(options(N))
+
     end if
 
-    ! Initialise new entery
-    call options(N) % init(keyword,Narg,argTypes,help)
+    ! Initialise new entry
+    call options(N) % init(keyword, Narg, argTypes, help)
 
     ! Check that new entry is unique
-    if (any( options(1:N-1) == options(N))) then
-      call parseError('Option with keyword: '//trim(options(N) % keyword)//' is already present')
-    end if
+    if (any(options(1:N - 1) == options(N))) &
+    call parseError('Option with keyword: '//trim(options(N) % keyword)//' is already present.')
 
   end subroutine addClOption
 
@@ -166,6 +169,26 @@ contains
     string =input
 
   end subroutine getInputFile
+
+  !!
+  !!
+  !!
+  subroutine kill()
+    integer(shortInt) :: i
+
+    ! Clean everything.
+    parsed = .false.
+    if (allocated(input)) deallocate(input)
+    if (allocated(options)) then
+      do i = 1, size(options)
+        call options(i) % kill()
+
+      end do
+      deallocate(options)
+
+    end if
+
+  end subroutine kill
 
   !!
   !! Parse command line arguments
@@ -495,6 +518,29 @@ contains
   end subroutine init_optionDescriptor
 
   !!
+  !!
+  !!
+  subroutine kill_optionDescriptor(self)
+    class(optionDescriptor), intent(inout) :: self
+    integer(shortInt)                      :: i
+
+    ! Local.
+    self % isLoaded = .false.
+    self % keywordHash = 0
+    if (allocated(self % help)) deallocate(self % help)
+    if (allocated(self % keyword)) deallocate(self % keyword)
+    if (allocated(self % optArgs)) then
+      do i = 1, size(self % optArgs)
+        call self % optArgs(i) % kill()
+
+      end do
+      deallocate(self % optArgs)
+
+    end if
+
+  end subroutine kill_optionDescriptor
+
+  !!
   !! Read arguments of an option from command line,
   !! given position(pos) of the keyword and number of CL arguments(argCount)
   !!   Increment pos by the number of arguments at the end
@@ -599,6 +645,18 @@ contains
 !!<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 !! Option Argument procedures
 !!<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+  !!
+  !!
+  !!
+  subroutine kill_optionArg(self)
+    class(optionArg), intent(inout) :: self
+
+    ! Local.
+    self % type = UNDEFINED_TYPE
+    if (allocated(self % val)) deallocate(self % val)
+
+  end subroutine kill_optionArg
+
   !!
   !! Return 6 character string describing required argument type
   !!

@@ -82,7 +82,7 @@ module nuclearDataReg_mod
   !!   nd -> Polymorphic Nuclear Database
   !!
   type, private :: ndBox
-    character(nameLen)                  :: name
+    character(nameLen)                  :: name = ''
     type(dictionary)                    :: def
     class(nuclearDatabase), allocatable :: nd
   end type
@@ -114,7 +114,7 @@ module nuclearDataReg_mod
 
   !! Members
   type(ndBox), dimension(:), allocatable,target :: databases
-  type(charMap)                               :: databaseNameMap
+  type(charMap)                                 :: databaseNameMap
 
   class(ceNeutronDatabase), pointer :: active_ceNeutron => null()
   integer(shortInt)                 :: activeIdx_ceNeutron = 0
@@ -178,6 +178,7 @@ contains
       databases(i) % name = dataNames(i)
       databases(i) % def  = handles % getDictPtr(dataNames(i)) ! Note deep copy
       call databaseNameMap % add(dataNames(i), i)
+
     end do
 
     ! Load Materials
@@ -253,6 +254,7 @@ contains
     if (allocated(databases(idx) % nd)) then
       call databases(idx) % nd % kill()
       deallocate(databases(idx) % nd)
+
     end if
 
   end subroutine clean
@@ -368,6 +370,7 @@ contains
   !!
   subroutine kill()
     integer(shortInt) :: it
+    
     !! Clean all databases
     it = databaseNameMap % begin()
     do while (it /= databaseNameMap % end())
@@ -375,14 +378,20 @@ contains
       it = databaseNameMap % next(it)
 
     end do
+    call databaseNameMap % kill()
 
     !! Take care of databases array
     if (allocated(databases)) then
       do it = 1, size(databases)
         call databases(it) % def % kill()
+
       end do
       deallocate(databases)
+
     end if
+
+    ! Clean material menu.
+    call mm_kill()
 
     !! Return pointers to active databases to initial state
     ! CE NEUTRON

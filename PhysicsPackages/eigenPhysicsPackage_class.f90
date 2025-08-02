@@ -18,12 +18,13 @@ module eigenPhysicsPackage_class
   use RNG_class,                      only : RNG
 
   ! Physics package interface
-  use physicsPackage_inter,           only : physicsPackage
+  use physicsPackage_inter,           only : initPhysicsPackagePayload, physicsPackage
 
   ! Geometry
   use geometry_inter,                 only : geometry
-  use geometryReg_mod,                only : gr_geomPtr  => geomPtr, gr_geomIdx  => geomIdx, &
-                                             gr_fieldIdx => fieldIdx, gr_fieldPtr => fieldPtr
+  use geometryReg_mod,                only : gr_geomPtr => geomPtr, gr_geomIdx => geomIdx, &
+                                             gr_fieldIdx => fieldIdx, gr_fieldPtr => fieldPtr, &
+                                             gr_kill => kill
   use geometryFactory_func,           only : new_geometry
 
   ! Fields
@@ -85,27 +86,27 @@ module eigenPhysicsPackage_class
 
 
     ! Settings
-    integer(shortInt)  :: N_inactive
-    integer(shortInt)  :: N_active
-    integer(shortInt)  :: pop
-    character(pathLen) :: outputFile
-    character(nameLen) :: outputFormat
+    integer(shortInt)  :: N_inactive = 0
+    integer(shortInt)  :: N_active = 0
+    integer(shortInt)  :: pop = 0
+    character(pathLen) :: outputFile = ''
+    character(nameLen) :: outputFormat = ''
     integer(shortInt)  :: printSource = 0
-    integer(shortInt)  :: particleType
-    real(defReal)      :: keff_0
-    integer(shortInt)  :: bufferSize
+    integer(shortInt)  :: particleType = 0
+    real(defReal)      :: keff_0 = ONE
+    integer(shortInt)  :: bufferSize = 0
     logical(defBool)   :: UFS = .false.
 
     ! Calculation components
-    type(particleDungeon), pointer :: thisCycle    => null()
-    type(particleDungeon), pointer :: nextCycle    => null()
+    type(particleDungeon), pointer :: thisCycle => null()
+    type(particleDungeon), pointer :: nextCycle => null()
     type(particleDungeon), pointer :: temp_dungeon => null()
 
     ! Timer bins
-    integer(shortInt) :: timerMain
-    real (defReal)    :: time_transport = 0.0
-    real (defReal)    :: CPU_time_start
-    real (defReal)    :: CPU_time_end
+    integer(shortInt) :: timerMain = 0
+    real (defReal) :: time_transport = ZERO
+    real (defReal) :: CPU_time_start = ZERO
+    real (defReal) :: CPU_time_end = ZERO
 
   contains
     procedure :: init
@@ -365,50 +366,53 @@ contains
   !!
   !! Initialise from individual components and dictionaries for inactive and active tally
   !!
-  subroutine init(self, dict)
-    class(eigenPhysicsPackage), intent(inout) :: self
-    class(dictionary), intent(inout)          :: dict
-    class(dictionary), pointer                 :: tempDict
-    type(dictionary)                          :: locDict1, locDict2
-    integer(shortInt)                         :: seed_temp
-    integer(longInt)                          :: seed
-    character(10)                             :: time
-    character(8)                              :: date
-    character(:), allocatable                  :: string
-    character(nameLen)                        :: nucData, energy, geomName
-    type(outputFile)                          :: test_out
-    type(visualiser)                          :: viz
-    class(field), pointer                     :: field
-    character(100), parameter :: Here ='init (eigenPhysicsPackage_class.f90)'
+  subroutine init(self, payload)
+    class(eigenPhysicsPackage), intent(inout)   :: self
+    type(initPhysicsPackagePayload), intent(in) :: payload
+    class(dictionary), pointer                  :: tempDict
+    type(dictionary)                            :: locDict1, locDict2
+    integer(shortInt)                           :: seed_temp
+    integer(longInt)                            :: seed
+    character(10)                               :: time
+    character(8)                                :: date
+    character(:), allocatable                   :: string
+    character(nameLen)                          :: nucData, energy, geomName
+    type(outputFile)                            :: test_out
+    type(visualiser)                            :: viz
+    class(field), pointer                       :: field
+    character(*), parameter                     :: Here ='init (eigenPhysicsPackage_class.f90)'
 
     call cpu_time(self % CPU_time_start)
 
     ! Read calculation settings
-    call dict % get( self % pop,'pop')
-    call dict % get( self % N_inactive,'inactive')
-    call dict % get( self % N_active,'active')
-    call dict % get( nucData, 'XSdata')
-    call dict % get( energy, 'dataType')
+    call payload % dict % get(self % pop,'pop')
+    call payload % dict % get(self % N_inactive,'inactive')
+    call payload % dict % get(self % N_active,'active')
+    call payload % dict % get(nucData, 'XSdata')
+    call payload % dict % get(energy, 'dataType')
 
     ! Parallel buffer size
-    call dict % getOrDefault( self % bufferSize, 'buffer', 1000)
+    call payload % dict % getOrDefault(self % bufferSize, 'buffer', 1000)
 
     ! Process type of data
     select case(energy)
       case('mg')
         self % particleType = P_NEUTRON_MG
+
       case('ce')
         self % particleType = P_NEUTRON_CE
+
       case default
         call fatalError(Here,"dataType must be 'mg' or 'ce'.")
+
     end select
 
     ! Read outputfile path
-    call dict % getOrDefault(self % outputFile,'outputFile','./output')
+    call payload % dict % getOrDefault(self % outputFile,'outputFile','./output')
 
     ! Get output format and verify
     ! Initialise output file before calculation (so mistake in format will be caught early)
-    call dict % getOrDefault(self % outputFormat, 'outputFormat', 'asciiMATLAB')
+    call payload % dict % getOrDefault(self % outputFormat, 'outputFormat', 'asciiMATLAB')
     call test_out % init(self % outputFormat)
 
     ! Register timer
@@ -419,43 +423,37 @@ contains
 
     ! *** It is a bit silly but dictionary cannot store longInt for now
     !     so seeds are limited to 32 bits (can be -ve)
-    if (dict % isPresent('seed')) then
-      call dict % get(seed_temp,'seed')
+    if (payload % dict % isPresent('seed')) then
+      call payload % dict % get(seed_temp,'seed')
 
     else
       ! Obtain time string and hash it to obtain random seed
       call date_and_time(date, time)
       string = date // time
-      call FNV_1(string,seed_temp)
+      call FNV_1(string, seed_temp)
 
     end if
     seed = seed_temp
     call self % pRNG % init(seed)
 
     ! Initial k_effective guess
-    call dict % getOrDefault(self % keff_0,'keff_0', ONE)
+    call payload % dict % getOrDefault(self % keff_0, 'keff_0', ONE)
 
     ! Read whether to print particle source per cycle
-    call dict % getOrDefault(self % printSource, 'printSource', 0)
-
-    ! Build Nuclear Data
-    call ndReg_init(dict % getDictPtr("nuclearData"))
+    call payload % dict % getOrDefault(self % printSource, 'printSource', 0)
 
     ! Build geometry
-    tempDict => dict % getDictPtr('geometry')
-    geomName = 'eigenGeom'
-    call new_geometry(tempDict, geomName)
-    self % geomIdx = gr_geomIdx(geomName)
-    self % geom    => gr_geomPtr(self % geomIdx)
+    self % geomIdx = payload % geometryIdx
+    self % geom => payload % geometry
 
     ! Activate Nuclear Data *** All materials are active
     call ndReg_activate(self % particleType, nucData, self % geom % activeMats())
     self % nucData => ndReg_get(self % particleType)
 
     ! Call visualisation
-    if (dict % isPresent('viz')) then
+    if (payload % dict % isPresent('viz')) then
       print *, "Initialising visualiser"
-      tempDict => dict % getDictPtr('viz')
+      tempDict => payload % dict % getDictPtr('viz')
       call viz % init(self % geom, tempDict)
       print *, "Constructing visualisation"
       call viz % makeViz()
@@ -463,10 +461,10 @@ contains
     endif
 
     ! Read uniform fission site option as a geometry field
-    if (dict % isPresent('uniformFissionSites')) then
+    if (payload % dict % isPresent('uniformFissionSites')) then
       self % ufs = .true.
       ! Build and initialise
-      tempDict => dict % getDictPtr('uniformFissionSites')
+      tempDict => payload % dict % getDictPtr('uniformFissionSites')
       call new_field(tempDict, nameUFS)
       ! Save UFS field
       field => gr_fieldPtr(gr_fieldIdx(nameUFS))
@@ -477,32 +475,32 @@ contains
     end if
 
     ! Read variance reduction option as a geometry field
-    if (dict % isPresent('varianceReduction')) then
+    if (payload % dict % isPresent('varianceReduction')) then
       ! Build and initialise
-      tempDict => dict % getDictPtr('varianceReduction')
+      tempDict => payload % dict % getDictPtr('varianceReduction')
       call new_field(tempDict, nameWW)
     end if
 
     ! Build collision operator
-    tempDict => dict % getDictPtr('collisionOperator')
+    tempDict => payload % dict % getDictPtr('collisionOperator')
     call self % collOp % init(tempDict)
 
     ! Build transport operator
-    tempDict => dict % getDictPtr('transportOperator')
+    tempDict => payload % dict % getDictPtr('transportOperator')
     call new_transportOperator(self % transOp, tempDict)
 
     ! Initialise active & inactive tally Admins
-    tempDict => dict % getDictPtr('inactiveTally')
+    tempDict => payload % dict % getDictPtr('inactiveTally')
     allocate(self % inactiveTally)
     call self % inactiveTally % init(tempDict)
 
-    tempDict => dict % getDictPtr('activeTally')
+    tempDict => payload % dict % getDictPtr('activeTally')
     allocate(self % activeTally)
     call self % activeTally % init(tempDict)
 
     ! Load Initial source
-    if (dict % isPresent('source')) then ! Load definition from file
-      call new_source(self % initSource, dict % getDictPtr('source'), self % geom)
+    if (payload % dict % isPresent('source')) then ! Load definition from file
+      call new_source(self % initSource, payload % dict % getDictPtr('source'), self % geom)
 
     else
       call locDict1 % init(3)
@@ -557,7 +555,84 @@ contains
   subroutine kill(self)
     class(eigenPhysicsPackage), intent(inout) :: self
 
-    ! TODO: This subroutine
+    ! Reset pointers.
+    self % nucData => null()
+    self % geom => null()
+
+    call self % collOp % kill()
+    if (allocated(self % transOp)) then
+      call self % transOp % kill()
+      deallocate(self % transOp)
+
+    end if
+
+    if (allocated(self % initSource)) then
+      call self % initSource % kill()
+      deallocate(self % initSource)
+
+    end if
+
+    if (associated(self % pRNG)) deallocate(self % pRNG)
+    
+    if (associated(self % inactiveTally)) then
+      call self % inactiveTally % kill()
+      deallocate(self % inactiveTally)
+
+    end if
+
+    if (associated(self % activeTally)) then
+      call self % activeTally % kill()
+      deallocate(self % activeTally)
+
+    end if
+
+    if (associated(self % inactiveAtch)) then
+      call self % inactiveAtch % kill()
+      deallocate(self % inactiveAtch)
+
+    end if
+
+    if (associated(self % activeAtch)) then
+      call self % activeAtch % kill()
+      deallocate(self % activeAtch)
+ 
+    end if
+
+    if (associated(self % ufsField)) then
+      call self % ufsField % kill()
+      deallocate(self % ufsField)
+
+    end if
+
+    if (associated(self % thisCycle)) then
+      call self % thisCycle % kill()
+      deallocate(self % thisCycle)
+
+    end if
+
+    if (associated(self % nextCycle)) then
+      call self % nextCycle % kill()
+      deallocate(self % nextCycle)
+
+    end if
+
+    self % temp_dungeon => null()
+
+    ! Reset local values.
+    self % geomIdx = 0
+    self % N_inactive = 0
+    self % N_active = 0
+    self % outputFile = ''
+    self % outputFormat = ''
+    self % printSource = 0
+    self % particleType = 0
+    self % keff_0 = ONE
+    self % bufferSize = 0
+    self % timerMain = 0
+    self % time_transport = ZERO
+    self % CPU_time_start = ZERO
+    self % CPU_time_end = ZERO
+    self % UFS = .false.
 
   end subroutine kill
 

@@ -28,15 +28,17 @@
 module geometryReg_mod
 
   use numPrecision
-  use genericProcedures, only : fatalError, numToChar
-  use dictionary_class,  only : dictionary
-  use charMap_class,     only : charMap
+  use genericProcedures,  only : fatalError, numToChar
+  use dictionary_class,   only : dictionary
+  use charMap_class,      only : charMap
 
   ! Geometry
-  use geometry_inter,    only : geometry
+  use geometry_inter,     only : geometry
 
   ! Fields
-  use field_inter,       only : field
+  use field_inter,        only : field
+
+  use universalVariables, only : NOT_PRESENT
 
   implicit none
   private
@@ -98,8 +100,7 @@ contains
     class(geometry), allocatable, intent(inout) :: geom
     character(nameLen), intent(in)              :: name
     integer(shortInt)                           :: idx
-    integer(shortInt), parameter                :: NOT_PRESENT = -7
-    character(100), parameter                   :: Here = 'addGeom (geometryReg_mod.f90)'
+    character(*), parameter                     :: Here = 'addGeom (geometryReg_mod.f90)'
 
     ! Get free index
     idx = geometryNameMap % getOrDefault(name, NOT_PRESENT)

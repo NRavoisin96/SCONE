@@ -6,7 +6,7 @@ module rayVolPhysicsPackage_class
   use hashFunctions_func,   only : FNV_1
   use dictionary_class,     only : dictionary
   use rng_class,            only : RNG
-  use physicsPackage_inter, only : physicsPackage
+  use physicsPackage_inter, only : initPhysicsPackagePayload, physicsPackage
 
   ! Timers
   use timer_mod,            only : registerTimer, timerStart, timerStop, timerTime, timerReset, secToChar
@@ -122,25 +122,25 @@ contains
   !!
   !! See physicsPackage_inter for details
   !!
-  subroutine init(self,dict)
-    class(rayVolPhysicsPackage), intent(inout) :: self
-    class(dictionary), intent(inout)           :: dict
-    integer(shortInt)                          :: seed_temp
-    integer(longInt)                           :: seed
-    character(10)                              :: time
-    character(8)                               :: date
+  subroutine init(self,payload)
+    class(rayVolPhysicsPackage), intent(inout)  :: self
+    type(initPhysicsPackagePayload), intent(in) :: payload
+    integer(shortInt)                           :: seed_temp
+    integer(longInt)                            :: seed
+    character(10)                               :: time
+    character(8)                                :: date
     character(:), allocatable                   :: string
     class(dictionary), pointer                  :: tempDict
-    character(nameLen)                         :: geomName
-    character(*), parameter :: Here = 'init (rayVolPhysicsPackage_class.f90)'
+    character(nameLen)                          :: geomName
+    character(*), parameter                     :: Here = 'init (rayVolPhysicsPackage_class.f90)'
 
     ! Load settings
-    call dict % get(self % mfp, 'mfp')
-    call dict % get(self % abs_prob, 'abs_prob')
-    call dict % get(self % pop, 'pop')
-    call dict % get(self % N_cycles, 'cycles')
-    call dict % get(self % robust, 'robust')
-    call dict % get(self % cache, 'cache')
+    call payload % dict % get(self % mfp, 'mfp')
+    call payload % dict % get(self % abs_prob, 'abs_prob')
+    call payload % dict % get(self % pop, 'pop')
+    call payload % dict % get(self % N_cycles, 'cycles')
+    call payload % dict % get(self % robust, 'robust')
+    call payload % dict % get(self % cache, 'cache')
 
     ! Check settings
     if (self % mfp < ZERO) then
@@ -155,8 +155,8 @@ contains
     self % timerMain = registerTimer('transportTime')
 
     ! Initialise RNG
-    if (dict % isPresent('seed')) then
-      call dict % get(seed_temp,'seed')
+    if (payload % dict % isPresent('seed')) then
+      call payload % dict % get(seed_temp, 'seed')
 
     else
       ! Obtain time string and hash it to obtain random seed
@@ -168,15 +168,9 @@ contains
     seed = seed_temp
     call self % rand % init(seed)
 
-    ! Build Nuclear Data
-    call ndReg_init(dict % getDictPtr("nuclearData"))
-
     ! Build geometry
-    tempDict => dict % getDictPtr('geometry')
-    geomName = 'rayCalcGeom'
-    call new_geometry(tempDict, geomName)
-    self % geomIdx = gr_geomIdx(geomName)
-    self % geom    => gr_geomPtr(self % geomIdx)
+    self % geomIdx = payload % geometryIdx
+    self % geom => payload % geometry
 
     ! Allocate results space
     allocate(self % res(mm_nMat(), 3))

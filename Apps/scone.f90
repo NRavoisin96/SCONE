@@ -1,22 +1,28 @@
 program scone
 
-  use numPrecision
-  use genericProcedures,          only : printStart
-  use openmp_func,                only : ompSetNumThreads
-  use commandLineUI,              only : getInputFile, clOptionIsPresent, addClOption, getFromCL
+  use commandLineUI,              only : addClOption, clOptionIsPresent, getFromCL, getInputFile, killCommandLineOptions => kill
   use dictionary_class,           only : dictionary
   use dictParser_func,            only : fileToDict
-  use physicsPackage_inter,       only : physicsPackage
+  use genericProcedures,          only : printStart
+  use geometryFactory_func,       only : new_geometry
+  use geometryReg_mod,            only : geomIdx, geomPtr, killGeometryRegistry => kill
+  use nuclearDataReg_mod,         only : initNuclearDataRegistry => init, killNuclearDataRegistry => kill
+  use numPrecision
+  use openmp_func,                only : ompSetNumThreads
+  use physicsPackage_inter,       only : initPhysicsPackagePayload, physicsPackage
   use physicsPackageFactory_func, only : new_physicsPackage
+  use timer_mod,                  only : killTimer, registerTimer, secToChar, timerStart, timerStop, timerTime
   use vizPhysicsPackage_class,    only : vizPhysicsPackage
-  use timer_mod                 , only : registerTimer, timerStart, timerStop, timerTime, secToChar
 
   implicit none
-  type(dictionary)                  :: input
+  type(dictionary), target           :: input
   class(physicsPackage), allocatable :: core
   character(:), allocatable          :: inputPath
-  integer(shortInt)                 :: timerIdx
-  integer(shortInt)                 :: cores
+  integer(shortInt)                  :: timerIdx
+  integer(shortInt)                  :: cores
+  type(dictionary), pointer          :: subDict
+  character(nameLen)                 :: geometryName
+  type(initPhysicsPackagePayload)    :: physicsPackagePayload
 
   ! Add command line options here
   call addClOption('--plot', 0, ['int'],&
@@ -30,27 +36,36 @@ program scone
   call getInputFile(inputPath)
 
   ! Set Number of threads
-  if (clOptionIsPresent('--omp')) then
-    call getFromCL(cores, '--omp', 1)
-  else
-    cores = 1
-  end if
+  cores = 1
+  if (clOptionIsPresent('--omp')) call getFromCL(cores, '--omp', 1)
   call ompSetNumThreads(cores)
 
-  ! Register timer
+  ! Register timer and begin time tracking.
   timerIdx = registerTimer('Main Timer')
-
   call printStart()
-
-  call fileToDict(input, inputPath)
-
   call timerStart(timerIdx)
 
+  ! Parse file to dictionary.
+  call fileToDict(input, inputPath)
+
+  ! Build nuclear data and geometry.
+  call initNuclearDataRegistry(input % getDictPtr('nuclearData'))
+  
+  subDict => input % getDictPtr('geometry')
+  geometryName = 'mainGeometry'
+  call new_geometry(subDict, geometryName)
+  
+  ! Assemble payload then initialise physics package.
+  physicsPackagePayload % dict => input
+  physicsPackagePayload % geometryIdx = geomIdx(geometryName)
+  physicsPackagePayload % geometry => geomPtr(physicsPackagePayload % geometryIdx)
   if (clOptionIsPresent('--plot')) then
     allocate(vizPhysicsPackage :: core)
-    call core % init(input)
+    call core % init(physicsPackagePayload)
+
   else
-    allocate( core, source = new_physicsPackage(input))
+    allocate(core, source = new_physicsPackage(physicsPackagePayload))
+
   endif
 
   call core % run()
@@ -58,4 +73,21 @@ program scone
   call timerStop(timerIdx)
   print *, 'Total calculation time: ', trim(secToChar(timerTime(timerIdx)))
   print *, 'Have a good day and enjoy your result analysis!'
+
+  ! Clean up.
+  if (allocated(core)) then
+    call core % kill()
+    deallocate(core)
+
+  end if
+
+  call killCommandLineOptions()
+  call killTimer()
+
+  call input % kill()
+  if (allocated(inputPath)) deallocate(inputPath)
+
+  call killNuclearDataRegistry()
+  call killGeometryRegistry()
+
 end program scone
