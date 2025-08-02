@@ -371,11 +371,9 @@ contains
     type(initPhysicsPackagePayload), intent(in) :: payload
     class(dictionary), pointer                  :: tempDict
     type(dictionary)                            :: locDict1, locDict2
-    integer(shortInt)                           :: seed_temp
     integer(longInt)                            :: seed
     character(10)                               :: time
     character(8)                                :: date
-    character(:), allocatable                   :: string
     character(nameLen)                          :: nucData, energy, geomName
     type(outputFile)                            :: test_out
     type(visualiser)                            :: viz
@@ -421,19 +419,16 @@ contains
     ! Initialise RNG
     allocate(self % pRNG)
 
-    ! *** It is a bit silly but dictionary cannot store longInt for now
-    !     so seeds are limited to 32 bits (can be -ve)
+    ! Get seed from dictionary or create it from current date and time.
     if (payload % dict % isPresent('seed')) then
-      call payload % dict % get(seed_temp,'seed')
+      call payload % dict % get(seed, 'seed')
 
     else
       ! Obtain time string and hash it to obtain random seed
       call date_and_time(date, time)
-      string = date // time
-      call FNV_1(string, seed_temp)
+      call FNV_1(date // time, seed)
 
     end if
-    seed = seed_temp
     call self % pRNG % init(seed)
 
     ! Initial k_effective guess

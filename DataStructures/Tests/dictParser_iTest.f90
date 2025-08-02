@@ -1,8 +1,10 @@
 module dictParser_iTest
-  use numPrecision
+  
   use dictionary_class,   only : dictionary
   use dictParser_func,    only : fileToDict
   use funit
+  use numPrecision
+  
   implicit none
 
 contains
@@ -12,14 +14,16 @@ contains
   !!
 @Test
   subroutine testFromFile()
-    type(dictionary) :: dict
-    integer(shortInt)  :: tempInt
-    real(defReal)      :: tempReal
-    class(dictionary), pointer :: dictPtr
-    integer(shortInt), dimension(:), allocatable  :: tempIntArray
-    real(defReal), dimension(:), allocatable      :: tempRealArray
+    type(dictionary)                             :: dict
+    integer(shortInt)                            :: tempInt
+    integer(longInt)                             :: tempLongInt
+    real(defReal)                                :: tempReal
+    class(dictionary), pointer                   :: dictPtr
+    integer(shortInt), dimension(:), allocatable :: tempIntArray
+    integer(longInt), dimension(:), allocatable  :: tempLongIntArray
+    real(defReal), dimension(:), allocatable     :: tempRealArray
 
-    call fileToDict(dict,'./IntegrationTestFiles/testDictionary')
+    call fileToDict(dict, './IntegrationTestFiles/testDictionary')
 
     ! Verify integer values
     call dict % get(tempInt, 'myInt')
@@ -27,6 +31,13 @@ contains
 
     @assertEqual(7, tempInt)
     @assertEqual([1, 2, 4, 5], tempIntArray)
+
+    ! Verify longInt values.
+    call dict % get(tempLongInt, 'myLongInt')
+    call dict % get(tempLongIntArray, 'longIntArray')
+    
+    @assertEqual(777777777777_longInt, tempLongInt)
+    @assertEqual([51234567890_longInt, -678998846213_longInt, 44498876563976_longInt], tempLongIntArray)
 
     ! Verify real values
     call dict % get(tempReal, 'myReal')
@@ -38,9 +49,11 @@ contains
     ! Verify nested dictionary
     dictPtr => dict % getDictPtr('subDict')
     call dictPtr % get(tempInt, 'myInt')
+    call dictPtr % get(tempLongInt, 'myLongInt')
     call dictPtr % get(tempReal, 'myReal')
 
     @assertEqual(3, tempInt)
+    @assertEqual(4_longInt, tempLongInt)
     @assertEqual(3.2_defReal, tempReal)
 
   end subroutine testFromFile

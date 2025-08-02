@@ -14,7 +14,7 @@ module hashFunctions_func
   public :: FNV_1
   interface FNV_1
     module procedure FNV_1_int32
-    !module procedure FNV_1_int64
+    module procedure FNV_1_int64
   end interface
 
   !!
@@ -105,49 +105,37 @@ contains
   pure subroutine FNV_1_int32(key, hash)
     character(*), intent(in)    :: key
     integer(int32), intent(out) :: hash
-    integer(int32), parameter   :: FNV_prime = 16777619_int32
-    integer(int32), parameter   :: FNV_offset = -2128831035_int32 !int(z'811c9dc5',int32)
-    integer(int32)              :: bajt
+    integer(int32), parameter   :: FNV_offset = -2128831035_int32, FNV_prime = 16777619_int32
     integer(shortInt)           :: i
 
     ! There is a problem in gfortran 8.3, where if the loop
     ! starts from 2 (1st iteration is unrolled) incorrect code
     ! is generated
     hash = FNV_offset
-    do i= 1, len(key)
-      bajt = iachar(key(i:i), int32)
-      hash = hash * FNV_prime
-      hash = ieor(hash,bajt)
+    do i = 1, len(key)
+      hash = ieor(hash * FNV_prime, iachar(key(i:i), int32))
+
     end do
 
   end subroutine FNV_1_int32
 
-!  !!
-!  !! Implementation of Fowler-Noll-Vo 1 hash function for 64 bit integer
-!  !! Prime and offset taken from: 14695981039346656037
-!  !!   http://www.isthe.com/chongo/tech/comp/fnv/index.html
-!  !!
-!  subroutine FNV_1_int64(key, hash)
-!    character(*), intent(in)    :: key
-!    integer(int64), intent(out) :: hash
-!    integer(int64), parameter   :: FNV_prime  = 1099511628211_int64
-!    integer(int64), parameter   :: FNV_offset = transfer(z'cbf29ce484222325',int64)
-!    integer(int64)             :: bajt
-!    integer(shortInt)          :: i
-!
-!    bajt = ichar(key(1:1),int64)
-!    hash = FNV_offset
-!    hash = hash * FNV_prime
-!    hash = ieor(hash,bajt)
-!
-!    do i=2,len(key)
-!      bajt = ichar(key(i:i),int64)
-!      hash = hash * FNV_prime
-!      hash = ieor(hash, bajt)
-!
-!    end do
-!
-!  end subroutine FNV_1_int64
+  !!
+  !! Implementation of Fowler-Noll-Vo 1 hash function for 64 bit integer
+  !! Prime and offset taken from: 14695981039346656037
+  !!   http://www.isthe.com/chongo/tech/comp/fnv/index.html
+  !!
+  subroutine FNV_1_int64(key, hash)
+    character(*), intent(in)    :: key
+    integer(int64), intent(out) :: hash
+    integer(int64), parameter   :: FNV_offset = int(Z'cbf29ce484222325', int64), FNV_prime = 1099511628211_int64
+    integer(shortInt)           :: i
 
+    hash = FNV_offset
+    do i = 1, len(key)
+      hash = ieor(hash * FNV_prime, iachar(key(i:i), int64))
+
+    end do
+
+  end subroutine FNV_1_int64
 
 end module hashFunctions_func

@@ -73,17 +73,19 @@ module dictionary_class
   !
   ! Subroutine: dict % getReal(r,'integerKey') will put 3.0 into r
   !
-  integer(shortInt), parameter, public :: charLen  = max(nameLen,pathLen)
-  integer(shortInt), parameter        :: empty    = 0
-  integer(shortInt), parameter        :: numInt   = 1
-  integer(shortInt), parameter        :: numReal  = 2
-  integer(shortInt), parameter        :: word     = 3
-  integer(shortInt), parameter        :: nestDict = 4
-  integer(shortInt), parameter        :: arrInt   = 5
-  integer(shortInt), parameter        :: arrReal  = 6
-  integer(shortInt), parameter        :: arrWord  = 7
+  integer(shortInt), parameter, public :: charLen  = max(nameLen, pathLen)
+  integer(shortInt), parameter         :: empty    = 0
+  integer(shortInt), parameter         :: numInt   = 1
+  integer(shortInt), parameter         :: numReal  = 2
+  integer(shortInt), parameter         :: word     = 3
+  integer(shortInt), parameter         :: nestDict = 4
+  integer(shortInt), parameter         :: arrInt   = 5
+  integer(shortInt), parameter         :: arrReal  = 6
+  integer(shortInt), parameter         :: arrWord  = 7
+  integer(shortInt), parameter         :: numLongInt = 8
+  integer(shortInt), parameter         :: arrLongInt = 9
 
-  integer(shortInt), parameter        :: defStride = 20
+  integer(shortInt), parameter         :: defStride = 20
 
   !!
   !! Type to store a single entery in a dictionary
@@ -93,6 +95,8 @@ module dictionary_class
     ! Allocatable space for all content types
     integer(shortInt)                             :: int0_alloc = 0
     integer(shortInt), dimension(:), allocatable  :: int1_alloc
+    integer(longInt)                              :: longInt0_alloc = 0_longInt
+    integer(longInt), dimension(:), allocatable   :: longInt1_alloc
     real(defReal)                                 :: real0_alloc = ZERO
     real(defReal), dimension(:), allocatable      :: real1_alloc
     character(charLen)                            :: char0_alloc = ''
@@ -127,85 +131,92 @@ module dictionary_class
     integer(shortInt)                            :: stride  = defStride ! Extension size when reached maxSize
   contains
 
-    generic    :: store => store_real      ,&
-                           store_realArray ,&
-                           store_int       ,&
-                           store_intArray  ,&
-                           store_char      ,&
-                           store_charArray ,&
-                           store_dict
-    procedure  :: isPresent
-    procedure  :: getSize
-    procedure  :: getDictPtr
-    procedure  :: length => length_dictionary
-
-    generic    :: get => getReal_new,&
-                         getRealArray_alloc_new,&
-                         getRealArray_ptr_new,&
-                         getInt_new,&
-                         getIntArray_alloc_new,&
-                         getIntArray_ptr_new,&
-                         getChar_new,&
-                         getCharArray_alloc_new,&
-                         getCharArray_ptr_new,&
-                         getDict_new,&
-                         getBool_new
-
+    generic            :: store => store_real, &
+                                   store_realArray, &
+                                   store_int, &
+                                   store_intArray, &
+                                   store_longInt, &
+                                   store_longIntArray, &
+                                   store_char, &
+                                   store_charArray, &
+                                   store_dict
+    procedure, private :: store_real
+    procedure, private :: store_realArray
+    procedure, private :: store_int
+    procedure, private :: store_intArray
+    procedure, private :: store_longInt
+    procedure, private :: store_longIntArray
+    procedure, private :: store_char
+    procedure, private :: store_charArray
+    procedure, private :: store_dict
+    procedure          :: isPresent
+    procedure          :: getSize
+    procedure          :: getDictPtr
+    procedure          :: length => length_dictionary
+    generic            :: get => getReal_new, &
+                                 getRealArray_alloc_new, &
+                                 getRealArray_ptr_new, &
+                                 getInt_new, &
+                                 getIntArray_alloc_new, &
+                                 getIntArray_ptr_new, &
+                                 getLongInt_new, &
+                                 getLongIntArray_alloc_new, &
+                                 getLongIntArray_ptr_new, &
+                                 getChar_new, &
+                                 getCharArray_alloc_new, &
+                                 getCharArray_ptr_new, &
+                                 getDict_new, &
+                                 getBool_new
     procedure, private :: getReal_new
     procedure, private :: getRealArray_alloc_new
     procedure, private :: getRealArray_ptr_new
     procedure, private :: getInt_new
     procedure, private :: getIntArray_alloc_new
     procedure, private :: getIntArray_ptr_new
+    procedure, private :: getLongInt_new
+    procedure, private :: getLongIntArray_alloc_new
+    procedure, private :: getLongIntArray_ptr_new
     procedure, private :: getChar_new
     procedure, private :: getCharArray_alloc_new
     procedure, private :: getCharArray_ptr_new
     procedure, private :: getDict_new
     procedure, private :: getBool_new
-
-    generic :: getOrDefault => getOrDefault_real ,&
-                               getOrDefault_realArray_alloc ,&
-                               getOrDefault_realArray_ptr ,&
-                               getOrDefault_int ,&
-                               getOrDefault_intArray_alloc ,&
-                               getOrDefault_intArray_ptr ,&
-                               getOrDefault_char ,&
-                               getOrDefault_charArray_alloc ,&
-                               getOrDefault_charArray_ptr, &
-                               getOrDefault_bool
-
+    generic            :: getOrDefault => getOrDefault_real, &
+                                          getOrDefault_realArray_alloc, &
+                                          getOrDefault_realArray_ptr, &
+                                          getOrDefault_int, &
+                                          getOrDefault_intArray_alloc, &
+                                          getOrDefault_intArray_ptr, &
+                                          getOrDefault_longInt, &
+                                          getOrDefault_longIntArray_alloc, &
+                                          getOrDefault_longIntArray_ptr, &
+                                          getOrDefault_char, &
+                                          getOrDefault_charArray_alloc, &
+                                          getOrDefault_charArray_ptr, &
+                                          getOrDefault_bool
     procedure, private :: getOrDefault_real
     procedure, private :: getOrDefault_realArray_alloc
     procedure, private :: getOrDefault_realArray_ptr
     procedure, private :: getOrDefault_int
     procedure, private :: getOrDefault_intArray_alloc
     procedure, private :: getOrDefault_intArray_ptr
+    procedure, private :: getOrDefault_longInt
+    procedure, private :: getOrDefault_longIntArray_alloc
+    procedure, private :: getOrDefault_longIntArray_ptr
     procedure, private :: getOrDefault_char
     procedure, private :: getOrDefault_charArray_alloc
     procedure, private :: getOrDefault_charArray_ptr
     procedure, private :: getOrDefault_bool
 
     ! Keys inquiry procedures
-    procedure  :: keys
-
-    generic    :: assignment(=) => copy
-
-    procedure  :: copy    => copy_dictionary
-    procedure  :: init
-    procedure  :: kill => kill_dictionary
-    final      :: final_dictionary
-
+    procedure          :: keys
+    generic            :: assignment(=) => copy
+    procedure          :: copy => copy_dictionary
+    procedure          :: init
+    procedure          :: kill => kill_dictionary
+    final              :: final_dictionary
     procedure, private :: extendBy
     procedure, private :: getEmptyIdx
-
-    procedure, private :: store_real
-    procedure, private :: store_realArray
-    procedure, private :: store_int
-    procedure, private :: store_intArray
-    procedure, private :: store_char
-    procedure, private :: store_charArray
-    procedure, private :: store_dict
-
     procedure, private :: search
   end type dictionary
 
@@ -245,7 +256,7 @@ contains
     integer(shortInt), intent(in)                 :: stride
     character(nameLen), dimension(:), allocatable :: keywords
     type(dictContent), dimension(:), allocatable  :: entries
-    integer(shortInt)                             :: newSize, oldSize, i
+    integer(shortInt)                             :: newSize, oldSize
     character(*), parameter                       :: Here = 'extendBy (dictionary_class.f90)'
 
     if (.not. (allocated(self % keywords).and. allocated(self % entries))) then
@@ -311,13 +322,13 @@ contains
     integer(shortInt)                :: i
     logical(defBool)                 :: keysAllocated
     logical(defBool)                 :: entAllocated
-    character(100), parameter         :: Here='kill (dictionary_class.f90)'
+    character(*), parameter          :: Here = 'kill (dictionary_class.f90)'
 
     keysAllocated = allocated(self % keywords)
     entAllocated  = allocated(self % entries)
 
     if (keysAllocated .neqv. entAllocated) then
-      call fatalError(Here,'Immposible state. Keywors or entries is allocated without the other')
+      call fatalError(Here, 'Impossible state. Keywords or entries is allocated without the other.')
 
     elseif (keysAllocated .and. entAllocated) then
 
@@ -371,7 +382,7 @@ contains
     LHS % keywords = RHS % keywords
 
     do i= 1, RHS % dictLen
-      call LHS % entries(i) % copy(RHS % entries(i) )
+      call LHS % entries(i) % copy(RHS % entries(i))
 
     end do
     ! Copy state settings
@@ -431,12 +442,12 @@ contains
   !! Loads a real rank 0 from a dictionary into provided variable
   !! If keyword is associated with an integer it converts it to real
   !!
-  subroutine getReal_new(self,value,keyword)
-    class(dictionary), intent(in)  :: self
-    real(defReal), intent(inout)    :: value
-    character(*), intent(in)        :: keyword
-    integer(shortInt)              :: idx
-    character(100), parameter       :: Here='getReal (dictionary_class.f90)'
+  subroutine getReal_new(self, value, keyword)
+    class(dictionary), intent(in) :: self
+    real(defReal), intent(inout)  :: value
+    character(*), intent(in)      :: keyword
+    integer(shortInt)             :: idx
+    character(*), parameter       :: Here = 'getReal (dictionary_class.f90)'
 
     idx = self % search(keyword, Here, fatal =.true.)
 
@@ -446,6 +457,9 @@ contains
 
       case(numInt)
         value = real(self % entries(idx) % int0_alloc, defReal)
+
+      case(numLongInt)
+        value = real(self % entries(idx) % longInt0_alloc, defReal)
 
       case default
         call fatalError(Here,'Entry under keyword ' // keyword // ' is not a real or int')
@@ -460,11 +474,11 @@ contains
   !! Variable needs to be allocatable. It will be deallocated before assignment
   !!
   subroutine getRealArray_alloc_new(self,value,keyword)
-    class(dictionary), intent(in)                        :: self
+    class(dictionary), intent(in)                           :: self
     real(defReal), dimension(:), allocatable, intent(inout) :: value
-    character(*), intent(in)                              :: keyword
-    integer(shortInt)                                    :: idx
-    character(100), parameter                             :: Here='getRealArray_alloc (dictionary_class.f90)'
+    character(*), intent(in)                                :: keyword
+    integer(shortInt)                                       :: idx
+    character(*), parameter                                 :: Here = 'getRealArray_alloc (dictionary_class.f90)'
 
     idx = self % search(keyword, Here, fatal =.true.)
 
@@ -476,6 +490,9 @@ contains
 
       case(arrInt)
         value = real(self % entries(idx) % int1_alloc, defReal)
+
+      case(arrLongInt)
+        value = real(self % entries(idx) % longInt1_alloc, defReal)
 
       case default
         call fatalError(Here,'Entry under keyword ' // keyword // ' is not a real array or int array')
@@ -490,11 +507,11 @@ contains
   !! Variable needs to be pointer. It will be deallocated before assignment
   !!
   subroutine getRealArray_ptr_new(self,value,keyword)
-    class(dictionary), intent(in)                      :: self
-    real(defReal), dimension(:), pointer, intent(inout)   :: value
+    class(dictionary), intent(in)                       :: self
+    real(defReal), dimension(:), pointer, intent(inout) :: value
     character(*), intent(in)                            :: keyword
-    integer(shortInt)                                  :: idx, N
-    character(100), parameter                           :: Here='getRealArray_ptr (dictionary_class.f90)'
+    integer(shortInt)                                   :: idx, N
+    character(*), parameter                             :: Here = 'getRealArray_ptr (dictionary_class.f90)'
 
     idx = self % search(keyword, Here, fatal =.true.)
 
@@ -502,15 +519,20 @@ contains
 
     select case (self % entries(idx) % getType())
       case(arrReal)
-        N = size (self % entries(idx) % real1_alloc)
+        N = size(self % entries(idx) % real1_alloc)
         allocate(value(N))
         value = self % entries(idx) % real1_alloc
 
 
       case(arrInt)
-        N = size (self % entries(idx) % int1_alloc)
+        N = size(self % entries(idx) % int1_alloc)
         allocate(value(N))
         value = real(self % entries(idx) % int1_alloc, defReal)
+
+      case(arrLongInt)
+        N = size(self % entries(idx) % longInt1_alloc)
+        allocate(value(N))
+        value = real(self % entries(idx) % longInt1_alloc, defReal)
 
       case default
         call fatalError(Here,'Entry under keyword ' // keyword // ' is not a real array or int array')
@@ -523,12 +545,12 @@ contains
   !! Loads a integer rank 0 from a dictionary
   !! If keyword is associated with real integer (i.e. 1.0) it returns an error
   !!
-  subroutine getInt_new(self,value,keyword)
-    class(dictionary), intent(in)  :: self
-    integer(shortInt), intent(inout):: value
-    character(*), intent(in)        :: keyword
-    integer(shortInt)              :: idx
-    character(100), parameter       :: Here='getInt (dictionary_class.f90)'
+  subroutine getInt_new(self, value, keyword)
+    class(dictionary), intent(in)    :: self
+    integer(shortInt), intent(inout) :: value
+    character(*), intent(in)         :: keyword
+    integer(shortInt)                :: idx
+    character(*), parameter          :: Here = 'getInt (dictionary_class.f90)'
 
     idx = self % search(keyword, Here, fatal =.true.)
 
@@ -549,11 +571,11 @@ contains
   !! Variable needs to be allocatable. It will be deallocated before assignment
   !!
   subroutine getIntArray_alloc_new(self,value,keyword)
-    class(dictionary), intent(in)                            :: self
+    class(dictionary), intent(in)                               :: self
     integer(shortInt), dimension(:), allocatable, intent(inout) :: value
-    character(*), intent(in)                                  :: keyword
-    integer(shortInt)                                        :: idx
-    character(100), parameter                   :: Here='getIntArray_alloc (dictionary_class.f90)'
+    character(*), intent(in)                                    :: keyword
+    integer(shortInt)                                           :: idx
+    character(*), parameter                                     :: Here = 'getIntArray_alloc (dictionary_class.f90)'
 
     idx = self % search(keyword, Here, fatal =.true.)
 
@@ -576,12 +598,12 @@ contains
   !! If keyword is associated with real integer (i.e. 1.0) it returns an error
   !! Variable needs to be pointer. It will be deallocated before assignment
   !!
-  subroutine getIntArray_ptr_new(self,value,keyword)
-    class(dictionary), intent(in)                            :: self
-    integer(shortInt), dimension(:), pointer, intent(inout)     :: value
-    character(*), intent(in)                                  :: keyword
-    integer(shortInt)                                        :: idx,N
-    character(100), parameter                   :: Here='getIntArray_ptr (dictionary_class.f90)'
+  subroutine getIntArray_ptr_new(self, value, keyword)
+    class(dictionary), intent(in)                           :: self
+    integer(shortInt), dimension(:), pointer, intent(inout) :: value
+    character(*), intent(in)                                :: keyword
+    integer(shortInt)                                       :: idx,N
+    character(*), parameter                                 :: Here = 'getIntArray_ptr (dictionary_class.f90)'
 
     idx = self % search(keyword, Here, fatal =.true.)
 
@@ -599,6 +621,92 @@ contains
     end select
 
   end subroutine getIntArray_ptr_new
+
+  !!
+  !!
+  !!
+  subroutine getLongInt_new(self, value, keyword)
+    class(dictionary), intent(in)   :: self
+    integer(longInt), intent(inout) :: value
+    character(*), intent(in)        :: keyword
+    integer(shortInt)               :: idx
+    character(*), parameter         :: Here = 'getLongInt (dictionary_class.f90)'
+
+    idx = self % search(keyword, Here, fatal = .true.)
+
+    select case (self % entries(idx) % getType())
+      case(numInt)
+        value = int(self % entries(idx) % int0_alloc, longInt)
+
+      case(numLongInt)
+        value = self % entries(idx) % longInt0_alloc
+
+      case default
+        call fatalError(Here,'Entry under keyword: ' //keyword// ' is not a long integer.')
+
+    end select
+
+  end subroutine getLongInt_new
+
+  !!
+  !!
+  !!
+  subroutine getLongIntArray_alloc_new(self, value, keyword)
+    class(dictionary), intent(in)                              :: self
+    integer(longInt), dimension(:), allocatable, intent(inout) :: value
+    character(*), intent(in)                                   :: keyword
+    integer(shortInt)                                          :: idx
+    character(*), parameter                                    :: Here = 'getLongIntArray_alloc (dictionary_class.f90)'
+
+    idx = self % search(keyword, Here, fatal = .true.)
+
+    if (allocated(value)) deallocate(value)
+
+    select case (self % entries(idx) % getType())
+      case(arrInt)
+        value = int(self % entries(idx) % int1_alloc, longInt)
+
+      case(arrLongInt)
+        value = self % entries(idx) % longInt1_alloc
+
+      case default
+        call fatalError(Here,'Entry under keyword: ' //keyword// ' is not a long integer array.')
+
+    end select
+
+  end subroutine getLongIntArray_alloc_new
+
+  !!
+  !!
+  !!
+  subroutine getLongIntArray_ptr_new(self, value, keyword)
+    class(dictionary), intent(in)                          :: self
+    integer(longInt), dimension(:), pointer, intent(inout) :: value
+    character(*), intent(in)                               :: keyword
+    integer(shortInt)                                      :: idx, N
+    character(*), parameter                                :: Here = 'getLongIntArray_ptr (dictionary_class.f90)'
+
+    idx = self % search(keyword, Here, fatal = .true.)
+
+    if (associated(value)) deallocate(value)
+
+    select case (self % entries(idx) % getType())
+      case(arrInt)
+        N = size(self % entries(idx) % int1_alloc)
+        allocate(value(N))
+        value = int(self % entries(idx) % int1_alloc, longInt)
+
+      case(arrLongInt)
+        N = size(self % entries(idx) % longInt1_alloc)
+        allocate(value(N))
+        value = self % entries(idx) % longInt1_alloc
+
+      case default
+        call fatalError(Here,'Entry under keyword: ' //keyword// ' is not a long integer array.')
+
+    end select
+
+  end subroutine getLongIntArray_ptr_new
 
   !!
   !! Reads a character rank 0 from a dictionary
@@ -936,6 +1044,75 @@ contains
   end subroutine getOrDefault_intArray_ptr
 
   !!
+  !!
+  !!
+  subroutine getOrDefault_longInt(self, value, keyword, default)
+    class(dictionary), intent(in)   :: self
+    integer(longInt), intent(inout) :: value
+    character(*), intent(in)        :: keyword
+    integer(longInt), intent(in)    :: default
+    integer(shortInt)               :: idx
+    character(*), parameter         :: Here = 'getOrDefault_longInt (dictionary_class.f90)'
+
+    idx = self % search(keyword, Here, fatal = .false.)
+    if (idx == targetNotFound) then
+      value = default
+
+    else
+      call self % get(value, keyword)
+
+    end if
+
+  end subroutine getOrDefault_longInt
+
+  !!
+  !!
+  !!
+  subroutine getOrDefault_longIntArray_alloc(self, value, keyword, default)
+    class(dictionary), intent(in)                              :: self
+    integer(longInt), dimension(:), allocatable, intent(inout) :: value
+    character(*), intent(in)                                   :: keyword
+    integer(longInt), dimension(:), intent(in)                 :: default
+    integer(shortInt)                                          :: idx
+    character(*), parameter                                    :: Here = 'getOrDefault_longIntArray_alloc (dictionary_class.f90)'
+
+    idx = self % search(keyword, Here, fatal = .false.)
+    if (allocated(value)) deallocate(value)
+    if (idx == targetNotFound) then
+      value = default
+
+    else
+      call self % get(value, keyword)
+
+    end if
+
+  end subroutine getOrDefault_longIntArray_alloc
+
+  !!
+  !!
+  !!
+  subroutine getOrDefault_longIntArray_ptr(self, value, keyword, default)
+    class(dictionary), intent(in)                          :: self
+    integer(longInt), dimension(:), pointer, intent(inout) :: value
+    character(*), intent(in)                               :: keyword
+    integer(longInt), dimension(:), intent(in)             :: default
+    integer(shortInt)                                      :: idx
+    character(*), parameter                                :: Here = 'getOrDefault_longIntArray_ptr (dictionary_class.f90)'
+
+    idx = self % search(keyword, Here, fatal = .false.)
+    if (associated(value)) deallocate(value)
+    if (idx == targetNotFound) then
+      allocate(value(size(default)))
+      value = default
+
+    else
+      call self % get(value, keyword)
+
+    end if
+
+  end subroutine getOrDefault_longIntArray_ptr
+
+  !!
   !! Reads a character rank 0 from a dictionary
   !!
   !! For further details refer to doc of getOrDefault_real
@@ -1048,18 +1225,18 @@ contains
   !!   Will throw fatalError if type is unrecognised
   !!
   subroutine keys(self, keysArr, type)
-    class(dictionary), intent(in)                            :: self
+    class(dictionary), intent(in)                              :: self
     character(nameLen), dimension(:), allocatable, intent(out) :: keysArr
-    character(*), optional, intent(in)                       :: type
+    character(*), optional, intent(in)                         :: type
     logical(defBool), dimension(:), allocatable                :: mask
-    integer(shortInt)                                        :: L
-    character(*), parameter :: Here = 'keys (dictionary_class.f90)'
+    integer(shortInt)                                          :: L
+    character(*), parameter                                    :: Here = 'keys (dictionary_class.f90)'
 
     !  Get current length of the dictionary
-    L       = self % dictLen
+    L = self % dictLen
 
     ! Create mask of all types
-    allocate( mask(L) )
+    allocate(mask(L))
     mask = .true.
 
     if (present(type)) then
@@ -1067,23 +1244,39 @@ contains
       select case(trim(type))
         case('all')
           ! Do nothing
+
         case('real')
-          mask = (self % entries(1:L) % getType() == numReal)
+          mask = self % entries(1:L) % getType() == numReal
+
         case('realArray')
-          mask = (self % entries(1:L) % getType() == arrReal)
+          mask = self % entries(1:L) % getType() == arrReal
+
         case('int')
-          mask = (self % entries(1:L) % getType() == numInt)
+          mask = self % entries(1:L) % getType() == numInt
+
         case('intArray')
-          mask = (self % entries(1:L) % getType() == arrInt)
+          mask = self % entries(1:L) % getType() == arrInt
+
+        case('longInt')
+          mask = self % entries(1:L) % getType() == longInt
+
+        case('longIntArray')
+          mask = self % entries(1:L) % getType() == arrLongInt
+        
         case('char')
-          mask = (self % entries(1:L) % getType() == word)
+          mask = self % entries(1:L) % getType() == word
+
         case('charArray')
-          mask = (self % entries(1:L) % getType() == arrWord)
+          mask = self % entries(1:L) % getType() == arrWord
+
         case('dict')
-          mask = (self % entries(1:L) % getType() == nestDict)
+          mask = self % entries(1:L) % getType() == nestDict
+
         case default
-          call fatalError(Here,'Unrecognised type of content type: '//type )
+          call fatalError(Here,'Unrecognised type of content type: '//type//'.')
+
       end select
+
     end if
 
     ! Return approperiate keys
@@ -1168,12 +1361,48 @@ contains
 
     idx = self % getEmptyIdx(keyword)
 
-    self % keywords(idx)  = keyword
+    self % keywords(idx) = keyword
     ! Load into dictionary content
     self % entries(idx) % int1_alloc = entry
     self % entries(idx) % type = arrInt
 
   end subroutine store_intArray
+
+  !!
+  !!
+  !!
+  subroutine store_longInt(self, keywordArgument, entry)
+    class(dictionary), intent(inout) :: self
+    character(*), intent(in)         :: keywordArgument
+    integer(longInt), intent(in)     :: entry
+    character(nameLen)               :: keyword
+    integer(shortInt)                :: idx
+
+    keyword = keywordArgument
+    idx = self % getEmptyIdx(keyword)
+    self % keywords(idx) = keyword
+    self % entries(idx) % longInt0_alloc = entry
+    self % entries(idx) % type = longInt
+
+  end subroutine store_longInt
+
+  !!
+  !!
+  !!
+  subroutine store_longIntArray(self, keywordArgument, entry)
+    class(dictionary), intent(inout)           :: self
+    character(*), intent(in)                   :: keywordArgument
+    integer(longInt), dimension(:), intent(in) :: entry
+    character(nameLen)                         :: keyword
+    integer(shortInt)                          :: idx
+
+    keyword = keywordArgument
+    idx = self % getEmptyIdx(keyword)
+    self % keywords(idx) = keyword
+    self % entries(idx) % longInt1_alloc = entry
+    self % entries(idx) % type = arrLongInt
+
+  end subroutine 
 
   !!
   !! Stores a character rank 0 in dictionary
@@ -1266,19 +1495,15 @@ contains
     logical(defBool)                     :: fatal_loc
 
     ! Select error behaviour
-    if (present(fatal)) then
-      fatal_loc = fatal
-    else
-      fatal_loc = .true.
-    end if
+    fatal_loc = .true.
+    if (present(fatal)) fatal_loc = fatal
 
     ! Search for bin index
     ! NOTE: Returns targetNotFound for a failed search
     idx = linFind(self % keywords, keyword)
 
-    if (idx == targetNotFound .and. fatal_loc) then
-      call fatalError(Where,'Keyword: '// trim(keyword) //' was requested but is not in the dictionary')
-    end if
+    if (idx == targetNotFound .and. fatal_loc) &
+    call fatalError(Where, 'Keyword: '//trim(keyword)//' was requested but is not in the dictionary.')
 
   end function search
 
@@ -1295,18 +1520,20 @@ contains
     ! Copy dictContent type
     LHS % type = RHS % type
 
-    ! Copy individual enteries
+    ! Copy individual entries
     LHS % int0_alloc = RHS % int0_alloc
-    if (allocated( RHS % int1_alloc)) LHS % int1_alloc = RHS % int1_alloc
+    if (allocated(RHS % int1_alloc)) LHS % int1_alloc = RHS % int1_alloc
 
+    LHS % longInt0_alloc = RHS % longInt0_alloc
+    if (allocated(RHS % longInt1_alloc)) LHS % longInt1_alloc = RHS % longInt1_alloc
 
     LHS % real0_alloc = RHS % real0_alloc
-    if (allocated( RHS % real1_alloc)) LHS % real1_alloc = RHS % real1_alloc
+    if (allocated(RHS % real1_alloc)) LHS % real1_alloc = RHS % real1_alloc
 
     LHS % char0_alloc = RHS % char0_alloc
-    if (allocated( RHS % char1_alloc)) LHS % char1_alloc = RHS % char1_alloc
+    if (allocated(RHS % char1_alloc)) LHS % char1_alloc = RHS % char1_alloc
 
-    if (associated( RHS % dict0_alloc)) then
+    if (associated(RHS % dict0_alloc)) then
       ! Ensure hard copy of nested dictionary
       allocate(LHS % dict0_alloc)
       LHS % dict0_alloc = RHS % dict0_alloc
@@ -1324,11 +1551,13 @@ contains
 
     ! Reset to default values.
     self % int0_alloc = 0
+    self % longInt0_alloc = 0_longInt
     self % real0_alloc = ZERO
     self % char0_alloc = ''
 
     ! Deallocate allocatable components
     if (allocated(self % int1_alloc)) deallocate (self % int1_alloc)
+    if (allocated(self % longInt1_alloc)) deallocate(self % longInt1_alloc)
     if (allocated(self % real1_alloc)) deallocate (self % real1_alloc)
     if (allocated(self % char1_alloc)) deallocate (self % char1_alloc)
 
@@ -1365,12 +1594,15 @@ contains
     integer(shortInt)              :: S
 
     select case(self % type)
-      case(numInt, numReal, word, nestDict)
+      case(numInt, numLongInt, numReal, word, nestDict)
         ! Scalar Content
         S = 1
 
       case(arrInt)
         S = size(self % int1_alloc)
+
+      case(arrLongInt)
+        S = size(self % longInt1_alloc)
 
       case(arrReal)
         S = size(self % real1_alloc)
@@ -1384,6 +1616,5 @@ contains
     end select
 
   end function getSize_dictContent
-
 
 end module dictionary_class

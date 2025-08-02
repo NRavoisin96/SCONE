@@ -13,7 +13,7 @@ module dictParser_func
   public :: charToDict
 
   ! Parameters
-  integer(shortInt), parameter :: CONV_INT = 1, CONV_REAL = 2, CONV_CHAR = 3, CONV_UDEF = 0
+  integer(shortInt), parameter :: CONV_INT = 1, CONV_LONGINT = 2, CONV_REAL = 3, CONV_CHAR = 4, CONV_UDEF = 0
 
   !!
   !! Pseudo dynamic type for reading entries
@@ -33,6 +33,7 @@ module dictParser_func
   !!
   type, private :: reader
     integer(shortInt)  :: i = 0
+    integer(longInt)   :: l = 0_longInt
     real(defReal)      :: r = ZERO
     character(pathLen) :: c = ''
     integer(shortInt)  :: type = CONV_UDEF
@@ -61,11 +62,11 @@ contains
     integer(shortInt)           :: unit, stat
     character(1)                :: buffer, lastChar
     character(100)              :: errorMsg
-    character(100), parameter    :: Here = 'readFileContents (dictParser_func.f90)'
+    character(*), parameter     :: Here = 'readFileContents (dictParser_func.f90)'
 
     ! Open file and read its contents to a charTape
-    open (newunit=unit, file=filePath, status="old", action="read", &
-          access="stream", form="formatted", iostat=stat, iomsg=errorMsg)
+    open (newunit = unit, file = filePath, status = "old", action = "read", &
+          access = "stream", form = "formatted", iostat = stat, iomsg = errorMsg)
 
     ! Process possible errors
     if (stat > 0) call fatalError(Here, errorMsg)
@@ -74,7 +75,7 @@ contains
     ! For some reason Fortran converts NEWLINE to SPACE <- Investigate!
     lastChar = ' '
     do
-      read(unit=unit, fmt='(A)', iostat=stat, advance='no') buffer
+      read(unit = unit, fmt = '(A)', iostat = stat, advance = 'no') buffer
 
       if (is_iostat_end(stat)) exit
 
@@ -94,13 +95,13 @@ contains
       ! after the read operation
       !
       if (buffer == '!') then
-        read(unit=unit, fmt='(A)', iostat=stat, advance='yes') buffer
+        read(unit = unit, fmt = '(A)', iostat = stat, advance = 'yes') buffer
         buffer = ' '
 
-      else if (lastChar == '/' .and. buffer == '/') then
+      elseif (lastChar == '/' .and. buffer == '/') then
         ! We need to remove the last character
         call file % cut(1)
-        read(unit=unit, fmt='(A)', iostat=stat, advance='yes') buffer
+        read(unit = unit, fmt = '(A)', iostat = stat, advance = 'yes') buffer
         buffer = ' '
 
       end if
@@ -109,7 +110,7 @@ contains
       lastChar = buffer
     end do
 
-    close(unit=unit)
+    close(unit = unit)
 
   end subroutine readFileContents
 
@@ -170,10 +171,8 @@ contains
 
     ! Make sure there are no leftovers in the file
     ! Remember that pos will be 1 over last '}'
-    if (pos-1 /= file % length()) then
-      call fatalError(Here,"Not entire file was read. It means that there must be an &
-                           &extra '}' bracket somwhere. ")
-    end if
+    if (pos - 1 /= file % length()) &
+    call fatalError(Here, 'Could not parse entirety of input file. There must be an extra "}" bracket somewhere.')
 
   end subroutine fileToDict
 
@@ -194,19 +193,19 @@ contains
   !!   fatalError if 'data' contains extra } tokens
   !!
   subroutine charToDict(dict, data)
-    class(dictionary), intent(inout) :: dict
-    character(*), intent(in)         :: data
-    character(len(data))             :: loc_data
-    type(charTape)                   :: file
-    integer(shortInt)                :: i, pos
-    character(*), parameter :: Here = 'charToDict (dictParser_func.f90)'
-    character(2), dimension(2), parameter :: cmtSigns    = ['! ','//']
+    class(dictionary), intent(inout)      :: dict
+    character(*), intent(in)              :: data
+    character(len(data))                  :: loc_data
+    type(charTape)                        :: file
+    integer(shortInt)                     :: i, pos
+    character(2), dimension(2), parameter :: cmtSigns = ['! ','//']
+    character(*), parameter               :: Here = 'charToDict (dictParser_func.f90)'
 
     ! Check that data string has no comment
     do i = 1, size(cmtSigns)
       if (index(data, trim(cmtSigns(i))) /= 0) then
-        call fatalError(Here, 'Detected line comment sign: ' // trim(cmtSigns(i)) //&
-                              ' Comments are nor allowed in dictionary made of character string')
+        call fatalError(Here, 'Detected line comment sign: '//trim(cmtSigns(i))//&
+                              ' Comments are not allowed in dictionary made of character string.')
       end if
     end do
 
@@ -231,10 +230,8 @@ contains
 
     ! Make sure there are no leftovers in the file
     ! Remember that pos will be 1 over last '}'
-    if (pos-1 /= file % length()) then
-      call fatalError(Here,"Not entire string was read. It means that there must be an &
-                           &extra '}' bracket somewhere. ")
-    end if
+    if (pos - 1 /= file % length()) &
+    call fatalError(Here, 'Could not parse entirety of string. There must be an extra "}" bracket somewhere.')
 
   end subroutine charToDict
 
@@ -396,6 +393,9 @@ contains
         case(CONV_INT)
           call dict % store(name, converter % i)
 
+        case(CONV_LONGINT)
+          call dict % store(name, converter % l)
+
         case(CONV_REAL)
           call dict % store(name, converter % r)
 
@@ -462,19 +462,20 @@ contains
   !!   fatalError if if list is not one of the valid types
   !!
   subroutine readList(dict, name, start, end, tape)
-    class(dictionary), intent(inout) :: dict
-    character(nameLen), intent(in)   :: name
-    integer(shortInt), intent(in)    :: start
-    integer(shortInt), intent(in)    :: end
-    type(charTape), intent(in)       :: tape
-    type(reader)                     :: converter
-    integer(shortInt)                :: p1
-    character(pathLen)               :: buffer
-    integer(shortInt)                :: listType, N, i
+    class(dictionary), intent(inout)              :: dict
+    character(nameLen), intent(in)                :: name
+    integer(shortInt), intent(in)                 :: start
+    integer(shortInt), intent(in)                 :: end
+    type(charTape), intent(in)                    :: tape
+    type(reader)                                  :: converter
+    integer(shortInt)                             :: p1
+    character(pathLen)                            :: buffer
+    integer(shortInt)                             :: listType, N, i
     integer(shortInt), dimension(:), allocatable  :: temp_int
+    integer(longInt), dimension(:), allocatable   :: temp_longInt
     real(defReal), dimension(:), allocatable      :: temp_real
     character(nameLen), dimension(:), allocatable :: temp_char
-    character(*), parameter :: Here = 'readList (dictParser_func.f90)'
+    character(*), parameter                       :: Here = 'readList (dictParser_func.f90)'
 
     if (end < start) then
       call fatalError(Here,'In: '//trim(name)//' End: '//numToChar(end)//' < Start: '//&
@@ -496,28 +497,42 @@ contains
       call converter % convert(buffer)
 
       ! Update state
-      N = N +1
+      N = N + 1
       select case(listType)
         case(CONV_INT)
+          if (converter % type == CONV_LONGINT) then
+            listType = CONV_LONGINT
+
+          elseif (converter % type == CONV_REAL) then
+            listType = CONV_REAL
+
+          elseif(converter % type == CONV_CHAR) then
+            call fatalError(Here,'In: '//trim(name)//" Mixed Numbers/Character lists are not allowed.")
+
+          end if
+
+        case(CONV_LONGINT)
           if (converter % type == CONV_REAL) then
             listType = CONV_REAL
-          elseif(converter % type == CONV_CHAR) then
-            call fatalError(Here,'In: '//trim(name)//" Mixed Numbers/Character lists are not allowed")
+
+          elseif (converter % type == CONV_CHAR) then
+            call fatalError(Here,'In: '//trim(name)//" Mixed Numbers/Character lists are not allowed.")
+
           end if
 
         case(CONV_REAL)
-          if (converter % type == CONV_CHAR) then
-            call fatalError(Here, 'In: '//trim(name)//" Mixed Numbers/Character lists are not allowed" )
-          end if
+          if (converter % type == CONV_CHAR) &
+          call fatalError(Here, 'In: '//trim(name)//" Mixed Numbers/Character lists are not allowed." )
 
         case(CONV_CHAR)
-          if (converter % type /= CONV_CHAR) then
-            call fatalError(Here, 'In: '//trim(name)//" Mixed Numbers/Character lists are not allowed" )
-          end if
+          if (converter % type /= CONV_CHAR) &
+          call fatalError(Here, 'In: '//trim(name)//" Mixed Numbers/Character lists are not allowed." )
 
         case default
           call fatalError(Here,'In: '//trim(name)//' Unknown list type: '//numtoChar(listType)//'. WTF!')
+
       end select
+
     end do
 
     ! Read The list
@@ -525,8 +540,8 @@ contains
       case(CONV_INT)
         allocate(temp_int(N))
         p1 = start
-        do i= 1, N
-          call converter % convert( readWord(p1, end, tape))
+        do i = 1, N
+          call converter % convert(readWord(p1, end, tape))
           temp_int(i) = converter % i
           if (converter % type /= CONV_INT) then
             call fatalError(Here,'In: '//trim(name)//' WTF?  Not-Int in IntList!')
@@ -534,11 +549,31 @@ contains
         end do
         call dict % store(name, temp_int)
 
+      case(CONV_LONGINT)
+        allocate(temp_longInt(N))
+        p1 = start
+        do i = 1, N
+          call converter % convert(readWord(p1, end, tape))
+          ! Handle mixed integer types in lists.
+          if (converter % type == CONV_LONGINT) then
+            temp_longInt(i) = converter % l
+
+          elseif (converter % type == CONV_INT) then
+            temp_longInt(i) = converter % i
+
+          else
+            call fatalError(here, 'In: '//trim(name)//' WTF?  Not-longInt in longIntList!')
+
+          end if
+
+        end do
+        call dict % store(name, temp_longInt)
+
       case(CONV_REAL)
         allocate(temp_real(N))
         p1 = start
-        do i= 1, N
-          call converter % convert( readWord(p1, end, tape))
+        do i = 1, N
+          call converter % convert(readWord(p1, end, tape))
           if (converter % type == CONV_REAL) then
             temp_real(i) = converter % r
           elseif (converter % type == CONV_INT) then
@@ -666,18 +701,26 @@ contains
 
     ! Try to read data as a INTEGER and check if this gives an error
     read(unit = buffer, fmt = "(I20)" , iostat = readErr) self % i
-
     if (readErr == 0) then
       self % type = CONV_INT
       return
+
+    end if
+
+    ! Try to read data as a LONGINT and check if this gives an error.
+    read(unit = buffer, fmt = "(I40)", iostat = readErr) self % l
+    if (readErr == 0) then
+      self % type = CONV_LONGINT
+      return
+
     end if
 
     ! Try to read data as a REAL and check if this gives an error
     read(unit = buffer, fmt = "(ES100.0)" , iostat = readErr) self % r
-
     if (readErr == 0) then
       self % type = CONV_REAL
       return
+
     end if
 
     ! Interpret as a character
