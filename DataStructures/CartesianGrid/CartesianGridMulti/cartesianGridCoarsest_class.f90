@@ -504,6 +504,9 @@ contains
   !!
   !!
   !! (needs to be changed) (possible acceleration?)
+  !! (needs to be changed) (meshBounds here are AABB of the entire mesh. Hence,
+  !! there can be a problem if mesh bounds are not perfectly cubic but somewhat irregular.
+  !! more rigorous analysis required.)
   function getGridIsOutsideBounds(self, r) result(isOutside)
     class(cartesianGridCoarsest), intent(in)            :: self
     real(defReal), dimension(3), intent(in)             :: r
@@ -513,7 +516,7 @@ contains
     isOutside = .FALSE.
 
     do i = 1, 3
-      if (r(i) > self % gridBounds_max(i) .OR. r(i) < self % gridBounds_min(i)) then
+      if (r(i) > self % meshBounds_max(i) .OR. r(i) < self % meshBounds_min(i)) then
         isOutside = .TRUE.
         return
       end if
