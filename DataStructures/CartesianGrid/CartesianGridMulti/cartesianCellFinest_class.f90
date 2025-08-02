@@ -27,6 +27,7 @@ module cartesianCellFinest_class
     procedure                                    :: cellTestFaceIntersection
     procedure                                    :: cellConstructMapSingleFace
     procedure                                    :: setIsOutsideMesh
+    procedure                                    :: cellFinitePrecision
     ! Runtime procedures.
     procedure                                    :: getPhiCapital
     procedure                                    :: getPhi
@@ -122,6 +123,30 @@ contains
     end if
 
   end subroutine setIsOutsideMesh
+
+  !!
+  !!
+  !!
+  subroutine cellFinitePrecision(self, faces, elements, centroid, elementIdx)
+    class(cartesianCellFinest), intent(inout)           :: self
+    class(faceShelf), intent(in)                        :: faces
+    class(elementShelf), intent(in)                     :: elements
+    real(defReal), dimension(3), intent(in)             :: centroid
+    integer(shortInt), intent(in)                       :: elementIdx
+
+    ! If the current Cartesian cell does not intersect with any faces nor included in a single mesh element,
+    ! Test if centroid lies inside any mesh element. If yes, finite precision error messed it up. Hence, 
+    ! update chi mapping info to that mesh element. If not, this cell lies within another element or is outside mesh domain.
+    if (self%chi == 0) then                   ! The biggest proportion of cells will be included in a single mesh element
+      !if (self%faceIdxs(1)==0) then           ! Then we test face intersection
+      if (self%phi == 0) then
+        if (self%phiCapital == 0) then
+          call coverFinitePrecision(faces, elements, centroid, elementIdx, self%chi)  
+        end if
+      end if
+    end if
+
+  end subroutine cellFinitePrecision
 
   !!
   !!

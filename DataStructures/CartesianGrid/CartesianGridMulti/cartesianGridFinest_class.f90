@@ -28,6 +28,7 @@ module cartesianGridFinest_class
     procedure                                    :: constructMapping
     procedure                                    :: sortAngles
     procedure                                    :: setGridIsOutsideMesh
+    procedure                                    :: gridFinitePrecision
     ! Runtime procedures
     procedure                                    :: getGridChi
     procedure                                    :: getGridPhi
@@ -65,6 +66,12 @@ contains
     call self % constructMapping(vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
                                  currLayer, candidateElementIdxs, gridBoundsMin, localNxyz, alpha, wStar)
     call self % sortAngles(edges, faces, localNxyz)
+    !!!!!
+    !print*, "TEST BEGINS"
+    call self % gridFinitePrecision(faces, elements, candidateElementIdxs, gridBoundsMin, spacing, &
+                                    n_layers, localNxyz) 
+    !print*, "TEST ENDS"
+    !!!!!
     call self % setGridIsOutsideMesh(localNxyz)
 
   end subroutine
@@ -428,6 +435,55 @@ contains
     end do
 
   end subroutine setGridIsOutsideMesh
+
+  !!
+  !!
+  !!
+  subroutine gridFinitePrecision(self, faces, elements, candidateElementIdxs, gridBoundsMin, &
+                                 spacing, n_layers, localNxyz)
+    class(cartesianGridFinest), intent(inout)             :: self
+    class(faceShelf), intent(in)                          :: faces
+    class(elementShelf), intent(in)                       :: elements
+    integer(shortInt), dimension(:), intent(in)           :: candidateElementIdxs
+    real(defReal), dimension(3), intent(in)               :: gridBoundsMin
+    real(defReal), dimension(:), intent(in)               :: spacing
+    integer(shortInt), intent(in)                         :: n_layers
+    integer(shortInt), dimension(3), intent(in)           :: localNxyz
+    integer(shortInt)                                     :: i, j, k, l
+    real(defReal), dimension(3)                           :: centroid
+
+
+    do i = 1, size(candidateElementIdxs)
+
+        ! No need to calculate AABB of candidate elements because refined grid is guaranteed to overlap with AABB of all candidates.
+
+        ! calculate element-only-dependent properties (It is extremly rare that the code has to test this finitePrecision.
+        ! Hence, we do not pre-calculate these unlike testPolyhedronInclusion.)
+
+        !Loop over all cartesian cells in the box and test if each cell is entirely included in the polyhedron
+        !(needs to be changed) (k and l can be a function of j e.g. k = datum + slope*j so that box is narrowed down)
+        do j = 1, localNxyz(1)
+            do k = 1, localNxyz(2)
+                do l = 1, localNxyz(3)
+
+                    ! (needs to be changed) (store centroid info)
+                    ! (needs to be changed) (instead of passing entire spacingArray, pass single 
+                    ! spacing for the last layer so that we do not have to find the n_layer'th spacing.
+                    ! this applies to all other subroutines.)
+                    centroid(1) = (gridBoundsMin(1)) + (spacing(n_layers)) * (j-0.5)
+                    centroid(2) = (gridBoundsMin(2)) + (spacing(n_layers)) * (k-0.5)
+                    centroid(3) = (gridBoundsMin(3)) + (spacing(n_layers)) * (l-0.5)
+
+                    call self % grid(j,k,l) % cellFinitePrecision(faces, elements, centroid, &
+                                                                  candidateElementIdxs(i))
+
+                end do 
+            end do    
+        end do
+
+    end do
+
+  end subroutine gridFinitePrecision
 
   !!
   !!
