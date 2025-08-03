@@ -123,9 +123,9 @@ contains
   !!
   !!
   !!
-  subroutine setIsOutsideMesh(self, centroid)
+  subroutine setIsOutsideMesh(self)!, centroid)
     class(cartesianCellSingle), intent(inout)           :: self
-    real(defReal), dimension(3), intent(in)             :: centroid
+    !real(defReal), dimension(3), intent(in)             :: centroid  !!!
 
     ! if a cell intersects with neither any edge nor face, and it is not contained in a single polyhedron,
     ! then, this cell lies outside the computational domain for the unstructured mesh

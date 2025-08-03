@@ -755,7 +755,7 @@ contains
   subroutine setGridIsOutsideMesh(self)
     class(cartesianGridSingle), intent(inout)              :: self
     integer(shortInt)                                      :: i, j, k
-    real(defReal), dimension(3)                            :: centroid
+    !real(defReal), dimension(3)                            :: centroid !!!
 
     ! loop over all cartesian cells and call relevant subroutine
     do i = 1, self % n_xyz(1)
@@ -763,13 +763,13 @@ contains
         do k = 1, self % n_xyz(3)
           
           !!!!!
-          centroid(1) = (self % gridBounds_min(1)) + (self % spacing) * (i-0.5)
-          centroid(2) = (self % gridBounds_min(2)) + (self % spacing) * (j-0.5)
-          centroid(3) = (self % gridBounds_min(3)) + (self % spacing) * (k-0.5)
+          ! centroid(1) = (self % gridBounds_min(1)) + (self % spacing) * (i-0.5)
+          ! centroid(2) = (self % gridBounds_min(2)) + (self % spacing) * (j-0.5)
+          ! centroid(3) = (self % gridBounds_min(3)) + (self % spacing) * (k-0.5)
           !!!!!
 
           !!!!
-          call self % grid(i,j,k) % setIsOutsideMesh(centroid)
+          call self % grid(i,j,k) % setIsOutsideMesh()!centroid)
 
           ! ! if a cell intersects with neither any edge nor face, and it is not contained in a single polyhedron,
           ! ! then, this cell lies outside the computational domain for the unstructured mesh
