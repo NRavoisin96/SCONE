@@ -7,7 +7,7 @@ module cartesianGridFinest_class
   use cartesianGridSubLayer_inter,             only : cartesianGridSubLayer
   use cartesianCellFinest_class,               only : cartesianCellFinest
   use numPrecision   
-  use genericProcedures,                       only : crossProduct
+  use genericProcedures,                       only : crossProduct, append
   use cartesianGenericProcedures
 
   implicit none
@@ -95,7 +95,7 @@ contains
     real(defReal), intent(in)                             :: alpha, wStar
     integer(shortInt)                                     :: h, i, j, k, l
     integer(shortInt), dimension(:), allocatable          :: currVertexIdxs, currElementFaceIdxs, currFaceEdgeIdxs, &
-                                                             candElementEdgeIdxs, candElementFaceIdxs
+                                                             candElementEdgeIdxs, candElementFaceIdxs, duplicatesArray !!!!!(last)
     real(defReal)                                         :: circumscribedBallRadius, targetDistance, a, &
                                                              extraDistance
     real(defReal), dimension(3)                           :: centroid, currEdgeVector, currFaceNormal
@@ -108,8 +108,17 @@ contains
     circumscribedBallRadius = sqrt(3.0d0)*(spacing(n_layers))/2
     targetDistance = (wStar) / (1 + SIN(alpha))
 
+    !!!!!
+    ! Get a list of unique edge indices of the candidate elements
+    ! (needs to be checked) (double check) (Originally, outer loop was candidateElements, and inner loop was edge indices of 
+    ! each candidate element. Finding unique list takes extra time initially but eventually it is a win because
+    ! we do not have to test the same edge multiple times over multiple cells.)
     do h = 1, size(candidateElementIdxs)
-      candElementEdgeIdxs = elements % getElementEdgeIdxs(candidateElementIdxs(h))
+      !candElementEdgeIdxs = elements % getElementEdgeIdxs(candidateElementIdxs(h))
+      call append(duplicatesArray, elements % getElementEdgeIdxs(candidateElementIdxs(h)))
+    end do
+    candElementEdgeIdxs = getUniqueSortedArr(duplicatesArray)
+    !!!!!
 
       do i = 1, size(candElementEdgeIdxs)
 
@@ -139,7 +148,19 @@ contains
 
       end do
 
-    end do
+    !!!!!
+    !end do
+    !!!!!
+
+    !!!!!
+    ! print*, "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$"
+    ! do i = 1, size(candidateElementIdxs)
+    !   print*, elements % getElementEdgeIdxs(candidateElementIdxs(i))
+    ! end do
+    ! print*, "----------------------------------------------"
+    ! print*, candElementEdgeIdxs
+    ! print*, "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$"
+    !!!!!
 
     !----------------------------------------------------------------------------------------------
     ! polyhedron inclusion tests
@@ -190,8 +211,23 @@ contains
     !----------------------------------------------------------------------------------------------
     targetDistance = targetDistance**2
 
+    !!!!!
+    ! Deallocated "duplicatesArray" used for edge intersection and initialise it for face intersection
+    deallocate(duplicatesArray)
+    !!!!!
+
+    !!!!!
+    ! Get a list of unique face indices of the candidate elements
+    ! (needs to be checked) (double check) (Originally, outer loop was candidateElements, and inner loop was face indices of 
+    ! each candidate element. Finding unique list takes extra time initially but eventually it is a win because
+    ! we do not have to test the same edge multiple times over multiple cells. Also, if we test the same face twice,
+    ! it can enter twoFacesIntersection subroutine with two same face indices, potentially giving an error.)
     do h = 1, size(candidateElementIdxs)
-      candElementFaceIdxs = abs(elements % getElementFaceIdxs(candidateElementIdxs(h)))
+      !candElementFaceIdxs = abs(elements % getElementFaceIdxs(candidateElementIdxs(h)))
+      call append(duplicatesArray, abs(elements % getElementFaceIdxs(candidateElementIdxs(h))))
+    end do
+    candElementFaceIdxs = getUniqueSortedArr(duplicatesArray)
+    !!!!!
 
       do i = 1, size(candElementFaceIdxs)
 
@@ -224,7 +260,19 @@ contains
 
       end do
 
-    end do
+    !!!!!
+    !end do
+    !!!!!
+    
+    !!!!!
+    ! print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+    ! do i = 1, size(candidateElementIdxs)
+    !   print*, abs(elements % getElementFaceIdxs(candidateElementIdxs(i)))
+    ! end do
+    ! print*, "----------------------------------------------"
+    ! print*, candElementFaceIdxs
+    ! print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+    !!!!!
 
     ! for cells that intersec more than one face, mappings constructions are performed during face intersection test
     ! for those that intersect exactly one face, mappings constructions are performed here.
@@ -496,7 +544,10 @@ contains
     integer(shortInt)                                   :: chi
     integer(shortInt), dimension(3)                     :: cellIdxs
 
-    cellIdxs = getLocalIdx(baseIntegerCoord, shift(currLayer,:), mask(currLayer,:))
+    ! (needs to be changed) (just double check) (since shift for the finest layer is all 0,
+    !  ishft does not do anyting. So, just perfrom iand for the finest layer.)
+    !cellIdxs = getLocalIdx(baseIntegerCoord, shift(currLayer,:), mask(currLayer,:))
+    cellIdxs = getLocalIdxFinest(baseIntegerCoord, shift(currLayer,:), mask(currLayer,:))
 
     chi = self % grid(cellIdxs(1), cellIdxs(2), cellIdxs(3)) % getChi()
 
@@ -513,7 +564,8 @@ contains
     integer(shortInt)                                   :: phi
     integer(shortInt), dimension(3)                     :: cellIdxs
 
-    cellIdxs = getLocalIdx(baseIntegerCoord, shift(currLayer,:), mask(currLayer,:))
+    !cellIdxs = getLocalIdx(baseIntegerCoord, shift(currLayer,:), mask(currLayer,:))
+    cellIdxs = getLocalIdxFinest(baseIntegerCoord, shift(currLayer,:), mask(currLayer,:))
 
     phi = self % grid(cellIdxs(1), cellIdxs(2), cellIdxs(3)) % getphi()
 
@@ -530,7 +582,8 @@ contains
     integer(shortInt)                                   :: phiCapital
     integer(shortInt), dimension(3)                     :: cellIdxs
 
-    cellIdxs = getLocalIdx(baseIntegerCoord, shift(currLayer,:), mask(currLayer,:))
+    !cellIdxs = getLocalIdx(baseIntegerCoord, shift(currLayer,:), mask(currLayer,:))
+    cellIdxs = getLocalIdxFinest(baseIntegerCoord, shift(currLayer,:), mask(currLayer,:))
 
     phiCapital = self % grid(cellIdxs(1), cellIdxs(2), cellIdxs(3)) % getPhiCapital()
 

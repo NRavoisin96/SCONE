@@ -116,6 +116,7 @@ contains
 
     ! if a cell intersects with neither any edge nor face, and it is not contained in a single polyhedron,
     ! then, this cell lies outside the computational domain for the unstructured mesh
+    ! (needs to be changed) (construct nested if to allow early exit)
     if (self % chi == 0 .AND. self % phi == 0 .AND. self % phiCapital == 0) then
       ! if lies outside, set the chi value of the cell equal to -1. There are subroutines that test 
       ! if (chi != 0), but since this subroutine is called after all of those, they are unafftected.

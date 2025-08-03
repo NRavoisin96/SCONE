@@ -285,4 +285,88 @@ contains
     
   end function getLocalIdx
 
+  !!
+  !!
+  !!
+  pure function getLocalIdxFinest(baseIntegerCoord, shift, mask) result(localIdx)
+    integer(shortInt), dimension(3), intent(in)     :: baseIntegerCoord, shift, mask
+    integer(shortInt), dimension(3)                 :: localIdx
+    integer(shortInt)                               :: i
+
+    localIdx = iand( baseIntegerCoord,  mask ) + 1
+    
+  end function getLocalIdxFinest
+
+  !!
+  !!
+  !! (needs to be changed) (can go to genericProcedures)
+  function getUniqueSortedArr(arr) result(res)
+    integer(shortInt), intent(in)   :: arr(:)
+    integer(shortInt), allocatable  :: res(:)
+    integer(shortInt), allocatable  :: temp(:)
+    integer(shortInt)               :: n, i, m
+
+    n = size(arr)
+    if (n == 0) then
+        allocate(res(0))
+        return
+    end if
+
+    allocate(temp(n))
+    temp = arr
+
+    ! sort temp in-place
+    call quicksort(temp, 1, n)
+
+    ! compact unique values
+    m = 0
+    do i = 1, n
+        if (i == 1 .or. temp(i) /= temp(i-1)) then
+          m = m + 1
+          temp(m) = temp(i)
+        end if
+    end do
+
+    allocate(res(m))
+    res = temp(1:m)
+
+  end function getUniqueSortedArr
+
+  !!
+  !!
+  !! (needs to be changed) (there is the same in genericProcedures already?)
+  recursive subroutine quicksort(a, left, right)
+    integer(shortInt), intent(inout) :: a(:)
+    integer(shortInt), intent(in)    :: left, right
+    integer(shortInt)                :: i, j, pivot, tmp
+
+    if (left >= right) return
+
+    pivot = a((left + right) / 2)
+    i = left
+    j = right
+
+    do
+       do while (a(i) < pivot)
+          i = i + 1
+       end do
+       do while (a(j) > pivot)
+          j = j - 1
+       end do
+
+       if (i <= j) then
+          tmp = a(i)
+          a(i) = a(j)
+          a(j) = tmp
+          i = i + 1
+          j = j - 1
+       end if
+
+       if (i > j) exit
+    end do
+
+    if (left < j) call quicksort(a, left, j)
+    if (i < right) call quicksort(a, i, right)
+  end subroutine quicksort
+
 end module cartesianGenericProcedures
