@@ -182,14 +182,13 @@ contains
 
     ! Need to deallocate on all threads
     !$omp parallel
-    if (associated(materialCache)) deallocate (materialCache)
-    if (associated(nuclideCache)) deallocate (nuclideCache)
-    if (associated(majorantCache)) deallocate (majorantCache)
-    if (associated(trackingCache)) deallocate (trackingCache)
-    if (associated(zaidCache)) deallocate (zaidCache)
+    if (associated(materialCache)) deallocate(materialCache)
+    if (associated(nuclideCache)) deallocate(nuclideCache)
+    if (associated(majorantCache)) deallocate(majorantCache)
+    if (associated(trackingCache)) deallocate(trackingCache)
+    if (associated(zaidCache)) deallocate(zaidCache)
     !$omp end parallel
 
   end subroutine kill
-
 
 end module ceNeutronCache_mod

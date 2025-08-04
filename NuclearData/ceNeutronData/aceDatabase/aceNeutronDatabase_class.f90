@@ -1516,6 +1516,4 @@ contains
 
   end function aceNeutronDatabase_CptrCast
 
-
-
 end module aceNeutronDatabase_class

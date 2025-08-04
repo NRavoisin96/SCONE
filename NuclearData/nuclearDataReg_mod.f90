@@ -384,6 +384,7 @@ contains
     if (allocated(databases)) then
       do it = 1, size(databases)
         call databases(it) % def % kill()
+        databases(it) % name = ''
 
       end do
       deallocate(databases)

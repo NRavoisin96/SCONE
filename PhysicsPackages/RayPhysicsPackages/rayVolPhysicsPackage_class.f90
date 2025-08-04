@@ -6,7 +6,8 @@ module rayVolPhysicsPackage_class
   use hashFunctions_func,   only : FNV_1
   use dictionary_class,     only : dictionary
   use rng_class,            only : RNG
-  use physicsPackage_inter, only : initPhysicsPackagePayload, physicsPackage
+  use physicsPackage_inter, only : init_super => init, initPhysicsPackagePayload, kill_super => kill, physicsPackage
+  use outputFile_class,     only : outputFile
 
   ! Timers
   use timer_mod,            only : registerTimer, timerStart, timerStop, timerTime, timerReset, secToChar
@@ -19,7 +20,7 @@ module rayVolPhysicsPackage_class
 
   ! Nuclear Data
   use materialMenu_mod,     only : mm_nMat => nMat, mm_matName => matName
-  use nuclearDataReg_mod,   only : ndReg_init => init, ndReg_getMatNames => getMatNames, ndReg_kill => kill
+  use nuclearDataReg_mod,   only : ndReg_init => init, ndReg_getMatNames => getMatNames
 
   implicit none
   private
@@ -81,29 +82,23 @@ module rayVolPhysicsPackage_class
   !! Interface:
   !!   physicsPackage interface
   !!
-  type, public, extends(physicsPackage) :: rayVolPhysicsPackage
+  type, public, extends(physicsPackage)         :: rayVolPhysicsPackage
     private
     ! Components
-    class(geometry), pointer :: geom
-    integer(shortInt)        :: geomIdx   = 0
-    type(RNG)                :: rand
-    integer(shortInt)        :: timerMain = 0
+    type(RNG)                                   :: rand
 
     ! Settings
-    real(defReal)      :: mfp       = ZERO
-    real(defReal)      :: abs_prob  = ZERO
-    integer(shortInt)  :: pop       = 0
-    integer(shortInt)  :: N_cycles  = 0
-    logical(defBool)   :: robust    = .false.
-    logical(defBool)   :: cache     = .false.
+    real(defReal)                               :: abs_prob = ZERO, mfp = ZERO
+    logical(defBool)                            :: cache = .false., robust = .false.
 
     ! Results space
-    real(defReal), dimension(:,:), allocatable :: res
-    real(defReal)                              :: totDist   = ZERO
-    real(defReal), dimension(2)                :: ray_speed = ZERO
+    real(defReal), dimension(:, :), allocatable :: res
+    real(defReal)                               :: totDist = ZERO
+    real(defReal), dimension(2)                 :: ray_speed = ZERO
 
   contains
     ! Superclass procedures
+    procedure :: collectSpecificResults
     procedure :: init
     procedure :: run
     procedure :: kill
@@ -116,6 +111,16 @@ module rayVolPhysicsPackage_class
   end type rayVolPhysicsPackage
 
 contains
+  !!
+  !!
+  !!
+  subroutine collectSpecificResults(self, out)
+    class(rayVolPhysicsPackage), intent(in) :: self
+    type(outputFile), intent(inout)         :: out
+
+    ! Do nothing for now.
+
+  end subroutine collectSpecificResults
 
   !!
   !! Initialise Physics Package from dictionary
@@ -123,60 +128,34 @@ contains
   !! See physicsPackage_inter for details
   !!
   subroutine init(self,payload)
-    class(rayVolPhysicsPackage), intent(inout)  :: self
-    type(initPhysicsPackagePayload), intent(in) :: payload
-    integer(shortInt)                           :: seed_temp
-    integer(longInt)                            :: seed
-    character(10)                               :: time
-    character(8)                                :: date
-    character(:), allocatable                   :: string
-    class(dictionary), pointer                  :: tempDict
-    character(nameLen)                          :: geomName
-    character(*), parameter                     :: Here = 'init (rayVolPhysicsPackage_class.f90)'
+    class(rayVolPhysicsPackage), intent(inout)   :: self
+    class(initPhysicsPackagePayload), intent(in) :: payload
+    character(*), parameter                      :: Here = 'init (rayVolPhysicsPackage_class.f90)'
+
+    ! Initialise superclass.
+    call init_super(self, payload)
 
     ! Load settings
     call payload % dict % get(self % mfp, 'mfp')
     call payload % dict % get(self % abs_prob, 'abs_prob')
-    call payload % dict % get(self % pop, 'pop')
-    call payload % dict % get(self % N_cycles, 'cycles')
     call payload % dict % get(self % robust, 'robust')
     call payload % dict % get(self % cache, 'cache')
 
     ! Check settings
     if (self % mfp < ZERO) then
-      call fatalError(Here, 'Was given -ve mean free path (mfp): '//numToChar(self % mfp))
+      call fatalError(Here, 'Was given negative mean free path (mfp): '//numToChar(self % mfp)//'.')
 
-    else if (self % abs_prob <= ZERO .or. self % abs_prob > ONE) then
-      call fatalError(Here, 'Absorbtion probability is outside valid range &
-                            &of 0.0-1.0: '//numToChar(self % abs_prob))
+    else if (self % abs_prob <= ZERO .or. ONE < self % abs_prob) then
+      call fatalError(Here, 'Absorption probability is outside range [0, 1): '//numToChar(self % abs_prob)//'.')
+
     end if
-
-    ! Register timer
-    self % timerMain = registerTimer('transportTime')
 
     ! Initialise RNG
-    if (payload % dict % isPresent('seed')) then
-      call payload % dict % get(seed_temp, 'seed')
-
-    else
-      ! Obtain time string and hash it to obtain random seed
-      call date_and_time(date, time)
-      string = date // time
-      call FNV_1(string,seed_temp)
-
-    end if
-    seed = seed_temp
-    call self % rand % init(seed)
-
-    ! Build geometry
-    self % geomIdx = payload % geometryIdx
-    self % geom => payload % geometry
+    call self % rand % init(self % getInitialSeed())
 
     ! Allocate results space
     allocate(self % res(mm_nMat(), 3))
     self % res = ZERO
-    self % totDist = ZERO
-    self % ray_speed = ZERO
 
   end subroutine init
 
@@ -210,14 +189,14 @@ contains
   subroutine cycles(self, rand)
     class(rayVolPhysicsPackage), intent(inout) :: self
     class(RNG), intent(inout)                  :: rand
-    type(coordList)                     :: coords
-    real(defReal), dimension(3)         :: randomNumbers, bottom, top
-    real(defReal), dimension(3)         :: r, u
-    real(defReal)                       :: mu, phi
-    integer(shortInt)                   :: gen, ray, matIdx, uniqueId, i
-    type(RNG), save                     :: pRNG
-    real(defReal)                       :: elapsed_T, end_T, T_toEnd, av_speed, cycle_T
-    character(*), parameter :: Here = 'cycles (rayVolPhysicsPackage_class.f90)'
+    type(coordList)                            :: coords
+    real(defReal), dimension(3)                :: randomNumbers, bottom, top
+    real(defReal), dimension(3)                :: r, u
+    real(defReal)                              :: mu, phi
+    integer(shortInt)                          :: gen, ray, matIdx, uniqueId, i, nCycles, nParticles, timerMain
+    type(RNG), save                            :: pRNG
+    real(defReal)                              :: elapsed_T, end_T, T_toEnd, av_speed, cycle_T
+    character(*), parameter                    :: Here = 'cycles (rayVolPhysicsPackage_class.f90)'
     !$omp threadprivate(pRNG)
 
     !$omp parallel
@@ -225,22 +204,25 @@ contains
     !$omp end parallel
 
     ! Reset and start timer
-    call timerReset(self % timerMain)
-    call timerStart(self % timerMain)
+    timerMain = self % getTimerMain()
+    call timerReset(timerMain)
+    call timerStart(timerMain)
 
     ! Get lower an upper corner of bounding box
-    associate (aabb => self % geom % bounds())
+    associate (aabb => self % getGeometryBounds())
       bottom = aabb(1:3)
       top    = aabb(4:6)
     end associate
 
     ! Perform clculation
-    do gen = 1, self % N_cycles
+    nCycles = self % getCyclesNumber()
+    nParticles = self % getParticlesNumber()
+    do gen = 1, nCycles
       !$omp parallel do private(r, u, mu, phi, i, randomNumbers, matIdx, uniqueID, coords)
-      do ray = 1, self % pop
+      do ray = 1, nParticles
 
         ! Set seed
-        call pRNG % stride( (gen-1) * self % pop + ray )
+        call pRNG % stride((gen - 1) * nParticles + ray)
 
         ! Find starting point that is inside the geometry
         i = 0
@@ -253,7 +235,7 @@ contains
           r = bottom + (top - bottom) * randomNumbers
 
           ! Exit if point is inside the geometry
-          call self % geom % whatIsAt(matIdx, uniqueId, r, u)
+          call self % whatIsAt(r, u, uniqueId, matIdx)
           if (matIdx /= OUTSIDE_MAT) exit rejection
 
           i = i + 1
@@ -264,19 +246,19 @@ contains
 
         ! Place in the geometry & process the ray
         call coords % init(r, u)
-        call self % geom % placeCoord(coords)
+        call self % placeCoord(coords)
         call self % trackRay(coords, pRNG)
 
       end do
       !$omp end parallel do
 
       ! Calculate times
-      call timerStop(self % timerMain)
-      cycle_T = timerTime(self % timerMain) - elapsed_T
-      elapsed_T = timerTime(self % timerMain)
+      call timerStop(timerMain)
+      cycle_T = timerTime(timerMain) - elapsed_T
+      elapsed_T = timerTime(timerMain)
 
       ! Predict time to end
-      end_T = real(self % N_cycles, defReal) * elapsed_T / gen
+      end_T = real(nCycles, defReal) * elapsed_T / gen
       T_toEnd = max(ZERO, end_T - elapsed_T)
 
       ! Calculate average tracking speed
@@ -285,8 +267,8 @@ contains
       ! Display progress
       call printFishLineR(gen)
       print *
-      print *, 'Cycle: ', numToChar(gen), ' of ', numToChar(self % N_cycles)
-      print *, 'Pop: ', numToChar(self % pop)
+      print *, 'Cycle: ', numToChar(gen), ' of ', numToChar(nCycles)
+      print *, 'Pop: ', numToChar(nParticles)
       print '(A, ES12.5)', ' Av. Ray speed: [m/s]: ', av_speed
       print *, 'Elapsed time: ', trim(secToChar(elapsed_T))
       print *, 'End time:     ', trim(secToChar(end_T))
@@ -301,7 +283,7 @@ contains
 
       ! Average ray speed
       self % ray_speed(1) = self % ray_speed(1) + av_speed
-      self % ray_speed(2) = self % ray_speed(2) + av_speed**2
+      self % ray_speed(2) = self % ray_speed(2) + av_speed * av_speed
 
     end do
 
@@ -353,17 +335,17 @@ contains
 
         ! Move in geometry
         if (self % cache) then
-          call self % geom % move(coords, distance, event, cache_space)
+          call self % move(coords, distance, event, cache_space)
 
         else
-          call self % geom % move(coords, distance, event)
+          call self % move(coords, distance, event)
 
         end if
 
         ! If robust verify matIdx in the mid point
         if (self % robust) then
           r = r_pre + u_pre * HALF * distance
-          call self % geom % whatIsAt(mat_mid, unique_mid, r, u_pre)
+          call self % whatIsAt(r, u_pre, unique_mid, mat_mid)
 
           if (matIdx /= mat_mid) then
             print *, "EVENT: ", event
@@ -417,20 +399,21 @@ contains
     class(rayVolPhysicsPackage), intent(in) :: self
     real(defReal)                           :: mean, SD, var
     real(defReal)                           :: V, V_SD
-    integer(shortInt)                       :: i
+    integer(shortInt)                       :: i, nCycles
 
     ! Calculate speed and its SD
-    V = self % ray_speed(1) / self % N_cycles
-    V_SD = self % ray_speed(2) / self % N_cycles - V**2
-    V_SD = ONE/(self % N_cycles - 1) * sqrt(V_SD)
+    nCycles = self % getCyclesNumber()
+    V = self % ray_speed(1) / nCycles
+    V_SD = self % ray_speed(2) / nCycles - V * V
+    V_SD = ONE / (nCycles - 1) * sqrt(V_SD)
 
     print *
     print '(A, ES12.5, A, ES12.5)', " Ray speed [m/s]: ", V, " +/- ", V_SD
     print *, "RELATIVE VOLUME FOR MATERIALS: "
     do i = 1, mm_nMat()
-      mean = self % res(i, CSUM) / self % N_cycles
-      var = self % res(i, CSUM2) / self % N_cycles - mean**2
-      SD = ONE/(self % N_cycles - 1) * sqrt(var)
+      mean = self % res(i, CSUM) / nCycles
+      var = self % res(i, CSUM2) / nCycles - mean * mean
+      SD = ONE / (nCycles - 1) * sqrt(var)
       print '(A, A, A, ES12.5, A, ES12.5)', " Material: ", mm_matName(i), " Vol", mean, " +/-", SD
     end do
 
@@ -447,8 +430,8 @@ contains
 
     print *, repeat("<>", MAX_COL/2)
     print *, "/\/\ RAY-TRACING RELATIVE VOLUME CALCULATION /\/\"
-    print *, "Total Cycles:    ", numToChar(self % N_cycles)
-    print *, "Rays per cycle: ", numToChar(self % pop)
+    print *, "Total Cycles:    ", numToChar(self % getCyclesNumber())
+    print *, "Rays per cycle: ", numToChar(self % getParticlesNumber())
     print *, "Initial RNG Seed:   ", numToChar(self % rand % getInitialSeed())
     print *
     print *, repeat("<>", MAX_COL/2)
@@ -461,24 +444,18 @@ contains
   subroutine kill(self)
     class(rayVolPhysicsPackage), intent(inout) :: self
 
-    ! Clean Nuclear Data & Geometries
-    call gr_kill()
-    call ndreg_kill()
+    ! Superclass.
+    call kill_super(self)
 
     ! Clean contents
-    self % geom    => null()
-    self % geomIdx = 0
     !call self % rand % kill()
-    self % timerMain = 0
 
-    self % mfp      = ZERO
+    self % mfp = ZERO
     self % abs_prob = ZERO
-    self % pop      = 0
-    self % N_cycles = 0
-    self % robust   = .false.
+    self % robust = .false.
 
     if (allocated(self % res)) deallocate(self % res)
-    self % totDist   = ZERO
+    self % totDist = ZERO
     self % ray_speed = ZERO
 
   end subroutine kill
