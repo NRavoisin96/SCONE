@@ -42,6 +42,8 @@ module cartesianGridCoarsest_class
     procedure                               :: getGridChi
     procedure                               :: getGridPhi
     procedure                               :: getGridPhiCapital
+    ! Analysis procedures
+    procedure                               :: getNumberOfCells
 
   end type cartesianGridCoarsest
 
@@ -296,19 +298,21 @@ contains
     !-----------------------------------------------------------------------------------------
     print*, "----------------------------------------------------"
     print*, "/\/\ Cartesian grid parameters and mesh quality /\/\"
-    print*, "Minimum angle                   : ", self % alpha
-    print*, "Minimum edge length             : ", self % l_min
-    print*, "No. of vertices                 : ", vertices % getSize()
-    print*, "No. of edges                    : ", edges % getSize()
-    print*, "No. of faces                    : ", faces % getSize()
-    print*, "No. of elements                 : ", elements % getSize()
-    print*, "No. of layers                   : ", self % n_layers
-    print*, "Grid spacing for coarsest       : ", self % spacing(1)
-    print*, "Grid spacing for finest         : ", self % spacing(self % n_layers)
-    print*, "Grid size in xyz for coarsest   : ", self % n_xyz(1,:)
-    print*, "Grid size in xyz for finest     : ", self % n_xyz(self % n_layers,:)
-    print*, "Grid lower bounds in xyz        : ", self % gridBounds_min
-    print*, "Grid upper bounds in xyz        : ", self % gridBounds_max
+    print*, "Minimum angle                       : ", self % alpha
+    print*, "Minimum edge length                 : ", self % l_min
+    print*, "No. of vertices                     : ", vertices % getSize()
+    print*, "No. of edges                        : ", edges % getSize()
+    print*, "No. of faces                        : ", faces % getSize()
+    print*, "No. of elements                     : ", elements % getSize()
+    print*, "No. of layers                       : ", self % n_layers
+    print*, "Grid spacing for coarsest           : ", self % spacing(1)
+    print*, "Grid spacing for intermediate       : ", self % spacing(2)
+    print*, "Grid spacing for finest             : ", self % spacing(self % n_layers)
+    print*, "Grid size in xyz for coarsest       : ", self % n_xyz(1,:)
+    print*, "Grid size in xyz for intermediate   : ", self % n_xyz(2,:)
+    print*, "Grid size in xyz for finest         : ", self % n_xyz(self % n_layers,:)
+    print*, "Grid lower bounds in xyz            : ", self % gridBounds_min
+    print*, "Grid upper bounds in xyz            : ", self % gridBounds_max
     print*, "----------------------------------------------------"
 
     ! for temporary debugging
@@ -343,6 +347,12 @@ contains
     call self % setGridIsOutsideMesh()
     call self % refineGrid(vertices, edges, faces, elements)
 
+    ! Print the number of cells for each layer.
+    ! print*, "Starting the procedure to calculate number of cells for each type"
+    ! print*, self % getNumberOfCells()
+    ! call fatalError("Init, cartesianGridCoarsest_class.f90", "Terminating after printing &
+    !                 the number of cells for each type. If not intended, comment these lines.")
+
     ! ! temporary for debugging
     ! do i = 1, self % n_xyz(1,1)
     !   do j = 1, self % n_xyz(1,2)
@@ -353,6 +363,14 @@ contains
     !     end do
     !   end do
     ! end do
+
+    !!!!!
+    ! print*,"***************************************"
+    ! print*, "Coarsest layer global index", getGlobalIdx([154,37,175], self%shift(1,:))
+    ! print*, "Intermediate layer local index", getlocalIdx([154,37,175], self%shift(2,:), self%mask(2,:))
+    ! print*, "Finest layer local index",getlocalIdxFinest([154,37,175], self%shift(3,:), self%mask(3,:))
+    !print*, "gridChi", self%getGridChi([154,37,175])
+    !!!!!
 
   end subroutine init
 
@@ -537,11 +555,7 @@ contains
 
     chi = self % grid(cellIdxs(1), cellIdxs(2), cellIdxs(3)) % getChi(baseIntegerCoord, &
                                                                       self%shift,self%mask)
-    !!!!
-    ! if (chi == 260) then
-    !   print*, "Cell indices", cellIdxs
-    ! end if
-    !!!!
+
   end function getGridChi
 
   !!
@@ -575,5 +589,55 @@ contains
                                               baseIntegerCoord, self%shift,self%mask)
 
   end function getGridPhiCapital
+
+  !!
+  !!
+  !!
+  function getNumberOfCells(self) result(numberOfCells)
+    class(cartesianGridCoarsest), intent(in)         :: self
+    integer(shortInt), dimension(:), allocatable     :: numberOfCells
+    integer(shortInt)                                :: i, j, k, l
+    integer(shortInt), dimension(:), allocatable     :: output
+    integer(shortInt), dimension(:,:), allocatable   :: localNxyz
+
+    ! Allocate array and matrix
+    allocate(numberOfCells(self % n_layers + 1))
+    numberOfCells = 0
+    allocate(localNxyz(self % n_layers - 1, 3))
+
+    ! Initialise localNxyz. It starts from the second layer in the first row.
+    ! Three different columns represent three different directions. 
+    do i = 1, self % n_layers - 1 
+      do j = 1, 3
+        localNxyz(i,j) = self % n_xyz(i+1, j)/self % n_xyz(i, j)
+      end do
+    end do
+
+    !!!!!
+    print*, localNxyz
+    !!!!!
+
+    ! Loop through all Cartesian cells in the coarsest layer. If needed, it descend down the layers.
+    do i = 1, self % n_xyz(1,1)
+      do j = 1, self % n_xyz(1,2)
+        do k = 1, self % n_xyz(1,3)
+
+          ! Retrive an array containing the number of cells for each type.
+          output = self % grid(i,j,k) % cellGetNumberOfCells(localNxyz, self % n_layers)
+
+          ! Update the number of cells for each type.
+          ! The first integer represents the number of cells in coarsest layer
+          ! The second integer represents the number of cells in the second coarsest layer
+          ! The second last integer represent the number of cells in the finest layer
+          ! The last integer represents the number of cells in the finest layer without phiCaptial mapping.
+          do l = 1, self % n_layers + 1
+            numberOfCells(l) = numberOfCells(l) + output(l)
+          end do
+
+        end do
+      end do
+    end do
+    
+  end function getNumberOfCells
     
 end module cartesianGridCoarsest_class

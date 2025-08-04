@@ -36,6 +36,8 @@ module cartesianCellIntermediate_class
     procedure                                    :: getChi
     procedure                                    :: getPhi
     procedure                                    :: getPhiCapital
+    ! Analysis procedures
+    procedure                                    :: cellGetNumberOfCells
   end type cartesianCellIntermediate
 
 contains
@@ -88,7 +90,7 @@ contains
       ! end if
 
       call self % subgrid % init(vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
-                                 currLayer, candidateElementIdxs, newGridBoundsMin, alpha, wStar)
+                                 currLayer + 1, candidateElementIdxs, newGridBoundsMin, alpha, wStar)
 
     end if 
 
@@ -139,6 +141,27 @@ contains
     phiCapital = self % subGrid % getGridPhiCapital(baseIntegerCoord, shift, mask, currLayer+1)
 
   end function getPhiCapital
+
+  !!
+  !!
+  !!
+  function cellGetNumberOfCells(self, localNxyz, n_layers, currLayer) result(output)
+    class(cartesianCellIntermediate), intent(in)        :: self
+    integer(shortInt), dimension(:,:), intent(in)       :: localNxyz
+    integer(shortInt), intent(in)                       :: n_layers, currLayer
+    integer(shortInt), dimension(:), allocatable        :: output
+
+    ! Allocate and initialise output array
+    allocate(output(n_layers+1))
+    output = 0
+
+    if (self % chi /= 0) then
+      output(currLayer) = 1
+    else
+      output = self % subgrid % getNumberOfCells(localNxyz, n_layers, currLayer + 1)
+    end if
+    
+  end function cellGetNumberOfCells
 
 
 end module cartesianCellIntermediate_class

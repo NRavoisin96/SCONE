@@ -32,6 +32,8 @@ module cartesianCellFinest_class
     procedure                                    :: getPhiCapital
     procedure                                    :: getPhi
     procedure                                    :: getChi
+    ! Analysis procedures
+    procedure                                    :: cellGetNumberOfCells
 
   end type cartesianCellFinest
 
@@ -181,6 +183,28 @@ contains
     chi = self % chi
 
   end function getChi
+
+  !!
+  !!
+  !!
+  function cellGetNumberOfCells(self, n_layers) result(output)
+    class(cartesianCellFinest), intent(in)              :: self
+    integer(shortInt), intent(in)                       :: n_layers
+    integer(shortInt), dimension(:), allocatable        :: output
+
+    ! Allocate and initialise output array
+    allocate(output(n_layers+1))
+    output = 0
+
+    output(n_layers) = 1
+
+    if (self % chi == 0) then
+      if (self % phiCapital == 0) then
+        output(n_layers + 1) = 1
+      end if
+    end if
+    
+  end function cellGetNumberOfCells
 
 
 end module cartesianCellFinest_class

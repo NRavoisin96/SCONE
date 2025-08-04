@@ -174,9 +174,9 @@ contains
     call self % constructMapping(vertices, edges, faces, elements)
     call self % sortAngles(edges, faces)!, vertices) !!! vertices
     !!!!!
-    print*, "TEST BEGINS"
+    !print*, "TEST BEGINS"
     call self % gridFinitePrecision(vertices, faces, elements) 
-    print*, "TEST ENDS"
+    !print*, "TEST ENDS"
     call self % setGridIsOutsideMesh()
     !!!!!
 
@@ -222,7 +222,7 @@ contains
     !!!!!
 
     !!!!!
-    ! temp1 = abs(elements % getElementFaceIdxs(620))
+    ! temp1 = abs(elements % getElementFaceIdxs(256))
     ! print*, "£££££££££££££££££££££££££££££"
     ! do i = 1, size(temp1)
     !   print*, "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$"

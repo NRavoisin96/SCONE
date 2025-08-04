@@ -287,7 +287,7 @@ contains
 
   !!
   !!
-  !!
+  !! (needs to be changed) (remove shift)
   pure function getLocalIdxFinest(baseIntegerCoord, shift, mask) result(localIdx)
     integer(shortInt), dimension(3), intent(in)     :: baseIntegerCoord, shift, mask
     integer(shortInt), dimension(3)                 :: localIdx

@@ -36,6 +36,9 @@ module cartesianCellCoarsest_class
     procedure                                    :: getPhi
     procedure                                    :: getPhiCapital
     !procedure                                    :: getElementIdxs
+    !procedure                                    :: getCandElemIdxs
+    ! Analysis procedures.
+    procedure                                    :: cellgetNumberOfCells
 
   end type cartesianCellCoarsest
 
@@ -170,6 +173,39 @@ contains
 !       Idxs(:) = 999
 !     end if 
 ! end function getElementIdxs
+
+! !!
+! !!
+! !!
+! function getCandElemIdxs(self) result(arr)
+!   class(cartesianCellCoarsest), intent(in)            :: self
+!   integer(shortInt), dimension(:), allocatable        :: arr
+
+!   arr = self%CandidateElementIdxs
+
+! end function getCandElemIdxs
+
+!!
+!!
+!!
+function cellGetNumberOfCells(self, localNxyz, n_layers) result(output)
+  class(cartesianCellCoarsest), intent(in)            :: self
+  integer(shortInt), dimension(:,:), intent(in)       :: localNxyz
+  integer(shortInt), intent(in)                       :: n_layers
+  integer(shortInt), dimension(:), allocatable        :: output
+
+  ! Allocate and initialise output array
+  allocate(output(n_layers+1))
+  output = 0
+
+  if (self % chi /= 0) then
+    output(1) = 1
+  else
+    output = self % subgrid % getNumberOfCells(localNxyz, n_layers, 2)
+  end if
+  
+end function cellGetNumberOfCells
+
 
 
 end module cartesianCellCoarsest_class

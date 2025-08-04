@@ -9,6 +9,7 @@ module patchMultiAcceleration_class
   use edgeShelf_class,             only : edgeShelf
   use cartesianGridCoarsest_class, only : cartesianGridCoarsest
   use cartesianGenericProcedures,  only : binarySearchAngle
+  use genericProcedures,            only : fatalError
 
   implicit none
   private
@@ -47,6 +48,11 @@ contains
     ! retrieve the coordinates of neutron
     ! (needs to be changed) (needs checking) (is it correct to use "getPositionToNudge" or other coordinates?)
     r = coords % getPositionToNudge()
+  
+    !!!!!
+    ! print*, "-----------------------------------------------"
+    ! print*, "coord", r
+    !!!!!
 
     ! check if the position of neutron is inside the catesian grid bounds
     if (self % grid % getGridIsOutsideBounds(r)) return
@@ -62,15 +68,20 @@ contains
 
     ! retrieve element index from chi mapping.
     potentialElementIdx = self % grid % getGridChi(baseIntegerCoord)
+
+    !!!!!
+    !print*, "indices", baseIntegerCoord
+    !print*, "PotentialElementIdx", potentialElementIdx
+    !!!!!
     
     ! if element index is valid (the current cell, characterised by "cellIdxs", is fully contained within that element)
     if (potentialElementIdx > 0) then
       call coords % setElementIdx(potentialElementIdx)
 
-      !!!!
-      ! print*, r
-      ! print*, potentialElementIdx
-      !!!!
+    !!!!!
+    !print*, "indices", baseIntegerCoord
+    !print*, "PotentialElementIdx", potentialElementIdx
+    !!!!!
       
       call coords % setParentElementIdx(elements % getElementParentIdx(potentialElementIdx))
       return
@@ -84,6 +95,10 @@ contains
     else
       edgeIdx = self % grid % getGridPhiCapital(baseIntegerCoord)
 
+      !!!!!
+      !print*, "edgeIdx", edgeIdx
+      !!!!!
+
       if (edgeIdx == 0) then
         ! push the coordinates away from the current vertex (= phi)
         ! (needs to be changed) (possible improvement/acceleration for the rest of the subroutine below?)
@@ -92,13 +107,30 @@ contains
         dummyVector = r - phiCoord
         r = phiCoord + (self % grid % getGridWStar())/(norm2(dummyVector))*(dummyVector)
 
+        !!!!!
+        !print*, "Phi", vertexIdx
+        !print*, "pushed coord", r
+        !!!!!
+
         ! find updated cartesian cell indices
         do i = 1, 3
           baseIntegerCoord(i) = floor((r(i) - gridBounds_min(i))*(gridSpacingReciprocal))
         end do
 
+        !!!!!
+        ! print*, "baseCoordPUSHED", baseIntegerCoord
+        ! print*, self % grid % getGridChi(baseIntegerCoord)
+        ! print*, self % grid % getGridPhi(baseIntegerCoord)
+        ! print*, self % grid % getGridPhiCapital(baseIntegerCoord)
+        !!!!!
+
         ! get updated edge and element index
-        edgeIdx = self % grid % getGridPhiCapital(baseIntegerCoord)
+        !!!!!edgeIdx = self % grid % getGridPhiCapital(baseIntegerCoord)
+        
+        !!!!!
+        !print*, edgeIdx
+        !!!!!
+
         potentialElementIdx = self % grid % getGridChi(baseIntegerCoord)
 
         ! if pushed coordinate has direct mapping for element index, use that
@@ -111,6 +143,8 @@ contains
           call coords % setParentElementIdx(potentialElementIdx)
           return
         end if
+
+        edgeIdx = self % grid % getGridPhiCapital(baseIntegerCoord)
 
       end if
     
@@ -134,6 +168,13 @@ contains
 
       call coords % setElementIdx(potentialElementIdx)
       call coords % setParentElementIdx(elements % getElementParentIdx(potentialElementIdx))
+
+    !!!!!
+    ! print*, self % grid % getGridPhiCapital(baseIntegerCoord)
+    ! print*, self % grid % getGridPhi(baseIntegerCoord)
+    ! call fatalError("end","end")
+    !!!!!
+
       return
 
     end if

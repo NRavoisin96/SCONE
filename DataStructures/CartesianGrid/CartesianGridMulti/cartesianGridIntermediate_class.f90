@@ -30,6 +30,8 @@ module cartesianGridIntermediate_class
     procedure                                    :: getGridChi
     procedure                                    :: getGridPhi
     procedure                                    :: getGridPhiCapital
+    ! Analysis procedures
+    procedure                                    :: getNumberOfCells
 
   end type cartesianGridIntermediate
 
@@ -167,6 +169,7 @@ contains
           call self % grid(i,j,k) % refineCell(vertices, edges, faces, elements, spacing, spacingInv, n_xyz, &
                                                n_layers, currLayer, candidateElementIdxs, newGridBoundsMin, &
                                                alpha, wStar)
+                                               
         end do
       end do
     end do
@@ -226,5 +229,35 @@ contains
                                               baseIntegerCoord, shift,mask,currLayer)
 
   end function getGridPhiCapital
+
+  !!
+  !!
+  !!
+  function getNumberOfCells(self, localNxyz, n_layers, currLayer) result(report)
+    class(cartesianGridIntermediate), intent(in)        :: self
+    integer(shortInt), dimension(:,:), intent(in)       :: localNxyz
+    integer(shortInt), intent(in)                       :: n_layers, currLayer
+    integer(shortInt), dimension(:), allocatable        :: output, report
+    integer(shortInt)                                   :: i, j, k, l
+
+    ! Allocate and initialise output array
+    allocate(report(n_layers+1))
+    report = 0
+
+    do i = 1, localNxyz(currLayer-1,1)
+      do j = 1, localNxyz(currLayer-1,2)
+        do k = 1, localNxyz(currLayer-1,3)
+
+          output = self % grid(i,j,k) % cellGetNumberOfCells(localNxyz, n_layers, currLayer)
+
+          do l = 1, n_layers + 1
+            report(l) = report(l) + output(l)
+          end do
+
+        end do
+      end do
+    end do
+
+  end function getNumberOfCells
 
 end module cartesianGridIntermediate_class

@@ -17,6 +17,7 @@ module cartesianGridSubLayer_inter
     procedure(getGridChi), deferred               :: getGridChi
     procedure(getGridPhi), deferred               :: getGridPhi
     procedure(getGridPhiCapital), deferred        :: getGridPhiCapital
+    procedure(getNumberOfCells), deferred         :: getNumberOfCells
   end type cartesianGridSubLayer
 
   abstract interface
@@ -80,6 +81,19 @@ module cartesianGridSubLayer_inter
       integer(shortInt)                                   :: phiCapital
 
     end function getGridPhiCapital
+
+    !!
+    !!
+    !!
+    function getNumberOfCells(self, localNxyz, n_layers, currLayer) result(report)
+      import                                                 cartesianGridSubLayer, shortInt
+      class(cartesianGridSubLayer), intent(in)            :: self
+      integer(shortInt), dimension(:,:), intent(in)       :: localNxyz
+      integer(shortInt), intent(in)                       :: n_layers, currLayer
+      integer(shortInt), dimension(:), allocatable        :: output, report
+      integer(shortInt)                                   :: i, j, k, l
+
+    end function getNumberOfCells
 
   end interface
 

@@ -49,6 +49,7 @@ contains
     r = coords % getPositionToNudge()
 
     !!!!!
+    !r = [-0.40675141160938533,      -0.57523604333256917,        5.3471601775829991E-002]
     !print*, "coord", r
     !!!!!
 
@@ -87,6 +88,10 @@ contains
 
     ! retrieve element index from chi mapping.
     potentialElementIdx = self % grid % getGridChi(cellIdxs)
+
+    !!!!!
+    !print*, "elementIdx1", potentialElementIdx
+    !!!!!
     
     ! if element index is valid (the current cell, characterised by "cellIdxs", is fully contained within that element)
     if (potentialElementIdx > 0) then
@@ -135,6 +140,11 @@ contains
           ! (needs to be changed) (temp:there is no internal subdivision)
           !call coords % setParentElementIdx(elements % getElementParentIdx(potentialElementIdx))
           call coords % setParentElementIdx(potentialElementIdx)
+
+              !!!!!
+              !print*, "elementIdx2", potentialElementIdx
+              !!!!!
+
           return
         end if
 
@@ -166,6 +176,11 @@ contains
 
       call coords % setElementIdx(potentialElementIdx)
       call coords % setParentElementIdx(elements % getElementParentIdx(potentialElementIdx))
+
+    !!!!!
+    !print*, "elementIdx3", potentialElementIdx
+    !!!!!
+
       return
 
 

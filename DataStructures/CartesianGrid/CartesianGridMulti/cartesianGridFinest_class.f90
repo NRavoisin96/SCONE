@@ -33,6 +33,8 @@ module cartesianGridFinest_class
     procedure                                    :: getGridChi
     procedure                                    :: getGridPhi
     procedure                                    :: getGridPhiCapital
+    ! Analysis procedures
+    procedure                                    :: getNumberOfCells
   end type cartesianGridFinest
 
 contains
@@ -66,12 +68,8 @@ contains
     call self % constructMapping(vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
                                  currLayer, candidateElementIdxs, gridBoundsMin, localNxyz, alpha, wStar)
     call self % sortAngles(edges, faces, localNxyz)
-    !!!!!
-    !print*, "TEST BEGINS"
     call self % gridFinitePrecision(faces, elements, candidateElementIdxs, gridBoundsMin, spacing, &
                                     n_layers, localNxyz) 
-    !print*, "TEST ENDS"
-    !!!!!
     call self % setGridIsOutsideMesh(localNxyz)
 
   end subroutine
@@ -588,5 +586,35 @@ contains
     phiCapital = self % grid(cellIdxs(1), cellIdxs(2), cellIdxs(3)) % getPhiCapital()
 
   end function getGridPhiCapital
+
+  !!
+  !!
+  !!
+  function getNumberOfCells(self, localNxyz, n_layers, currLayer) result(report)
+    class(cartesianGridFinest), intent(in)              :: self
+    integer(shortInt), dimension(:,:), intent(in)       :: localNxyz
+    integer(shortInt), intent(in)                       :: n_layers, currLayer
+    integer(shortInt), dimension(:), allocatable        :: output, report
+    integer(shortInt)                                   :: i, j, k, l
+
+    ! Allocate and initialise output array
+    allocate(report(n_layers+1))
+    report = 0
+
+    do i = 1, localNxyz(n_layers-1,1)
+      do j = 1, localNxyz(n_layers-1,2)
+        do k = 1, localNxyz(n_layers-1,3)
+
+          output = self % grid(i,j,k) % cellGetNumberOfCells(n_layers)
+
+          do l = 1, n_layers + 1
+            report(l) = report(l) + output(l)
+          end do
+
+        end do
+      end do
+    end do
+
+  end function getNumberOfCells
 
 end module cartesianGridFinest_class
