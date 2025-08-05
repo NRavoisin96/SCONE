@@ -5,6 +5,7 @@ module csg_class
   use dictionary_class,    only : dictionary
   use genericProcedures,   only : fatalError, numToChar
   use geomGraph_class,     only : geomGraph
+  use mesh_inter,          only : mesh
   use meshShelf_class,     only : meshShelf
   use numPrecision
   use publicObjects,       only : coordData
@@ -67,6 +68,7 @@ module csg_class
     procedure :: getActiveMaterialIdxs
     procedure :: getBorderIdx
     procedure :: getCellIdx
+    procedure :: getMeshPtr
     procedure :: getFill
     procedure :: getRootIdx
     procedure :: getSurfaceBounds
@@ -180,6 +182,18 @@ contains
     cellIdx = self % cells % getIdx(cellId)
 
   end function getCellIdx
+
+  !!
+  !!
+  !!
+  function getMeshPtr(self, id) result(meshPtr)
+    class(csg), intent(in)        :: self
+    integer(shortInt), intent(in) :: id
+    class(mesh), pointer          :: meshPtr
+
+    meshPtr => self % meshes % getMeshPtr(self % meshes % getMeshIdx(id))
+
+  end function getMeshPtr
 
   !!
   !!

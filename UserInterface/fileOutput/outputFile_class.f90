@@ -602,7 +602,7 @@ contains
     class(outputFile), intent(inout) :: self
     real(defReal), intent(in)        :: val
     real(defReal), intent(in)        :: std
-    character(100), parameter :: Here ='addResult_scalar (outputFile_class.f90)'
+    character(*), parameter          :: Here = 'addResult_scalar (outputFile_class.f90)'
 
     ! Check is array is undefined
     if (self % arrayType == UNDEF_ARRAY) then
@@ -623,8 +623,8 @@ contains
     end if
 
     ! Print value and std
-    call self % output % printNum( trim(self % num2char(val)))
-    call self % output % printNum( trim(self % num2char(std)))
+    call self % output % printNum(trim(self % num2char(val)))
+    call self % output % printNum(trim(self % num2char(std)))
 
     ! Update state
     self % arrayTop = self % arrayTop + 2
@@ -745,7 +745,7 @@ contains
     end if
 
     ! Print value and std
-    call self % output % printNum( trim(self % num2char(val)))
+    call self % output % printNum(trim(self % num2char(val)))
 
     ! Update state
     self % arrayTop = self % arrayTop + 1
@@ -940,7 +940,7 @@ contains
     end if
 
     ! Print value and std
-    call self % output % printNum( trim(self % num2char(val)))
+    call self % output % printNum(trim(self % num2char(val)))
 
     ! Update state
     self % arrayTop = self % arrayTop + 1

@@ -25,8 +25,8 @@ module unstructuredMesh_inter
   implicit none
   private
 
-  ! Extendable procedures.
-  public :: distanceToBoundary, distanceToNextFace, findHostElement, kill
+  ! Public procedures.
+  public :: distanceToBoundary, distanceToNextFace, findHostElement, getCastUnstructuredMeshPtr, kill
   
   !! Abstract interface to group all unstructured meshes. An unstructured mesh uses a vertex -> face 
   !! -> element representation of space. Each element is composed by a set of faces which are themselves 
@@ -59,7 +59,7 @@ module unstructuredMesh_inter
   type, public, abstract, extends(mesh)   :: unstructuredMesh
     private
     integer(shortInt)                     :: nVertices = 0, nFaces = 0, nEdges = 0, &
-                                             nElements = 0, nInternalFaces = 0
+                                             nInternalFaces = 0
     class(accelerationStructure), pointer :: acceleration
     type(topologicalObjectShelf)          :: edges, elements, faces, vertices
     class(triangulationMethod), pointer   :: triangulation
@@ -75,7 +75,6 @@ module unstructuredMesh_inter
     procedure                       :: kill
     procedure, non_overridable      :: printComposition
     procedure                       :: setEdgesNumber
-    procedure                       :: setElementsNumber
     procedure                       :: setFacesNumber
     procedure                       :: setInternalFacesNumber
     procedure                       :: setVerticesNumber
@@ -84,6 +83,7 @@ module unstructuredMesh_inter
     procedure                       :: distanceToNextFace
     procedure                       :: findHostElement
     procedure                       :: getEdgesNumber
+    procedure                       :: getElementBox
     procedure                       :: getElementsNumber
     procedure                       :: getFacesNumber
     procedure                       :: getInternalFacesNumber
@@ -284,6 +284,26 @@ contains
   !!
   !!
   !!
+  function getCastUnstructuredMeshPtr(source) result(ptr)
+    class(mesh), intent(in)          :: source
+    class(unstructuredMesh), pointer :: ptr
+    character(*), parameter          :: here = 'getCastUnstructuredMeshPtr (unstructuredMesh_inter.f90)'
+
+    ! Downcast to correct type.
+    select type(temp => source)
+      class is(unstructuredMesh)
+        ptr => temp
+
+      class default
+        call fatalError(here, 'Mesh is not of class unstructuredMesh.')
+
+    end select
+
+  end function getCastUnstructuredMeshPtr
+
+  !!
+  !!
+  !!
   elemental function getEdgesNumber(self) result(nEdges)
     class(unstructuredMesh), intent(in) :: self
     integer(shortInt)                   :: nEdges
@@ -295,11 +315,24 @@ contains
   !!
   !!
   !!
-  elemental function getElementsNumber(self) result(nElements)
+  function getElementBox(self, idx) result(box)
     class(unstructuredMesh), intent(in) :: self
-    integer(shortInt)                   :: nElements
+    integer(shortInt), intent(in)       :: idx
+    type(elementBox)                    :: box
 
-    nElements = self % nElements
+    box = self % elements % getElementBox(idx)
+
+  end function getElementBox
+
+  !!
+  !!
+  !!
+  function getElementsNumber(self, activeOnly) result(nElements)
+    class(unstructuredMesh), intent(in)    :: self
+    logical(defBool), intent(in), optional :: activeOnly
+    integer(shortInt)                      :: nElements
+
+    nElements = self % elements % getObjectsNumber(activeOnly)
 
   end function getElementsNumber
 
@@ -366,12 +399,6 @@ contains
     ! Update number of edges, elements, faces, internal faces, and vertices.
     self % nEdges = self % edges % getObjectsNumber()
     self % nVertices = self % vertices % getObjectsNumber()
-    self % nElements = 0
-    do i = 1, self % elements % getObjectsNumber()
-      element = self % elements % getElementBox(i)
-      if (element % ptr % getIsActive()) self % nElements = self % nElements + 1
-
-    end do
 
     self % nFaces = 0
     self % nInternalFaces = 0
@@ -421,7 +448,6 @@ contains
     type(faceBox)                                            :: face
 
     nElements = size(elementInfos)
-    self % nElements = nElements
     do i = 1, nElements
       payloads(i) % idx = elementInfos(i) % idx
       payloads(i) % parentIdx = elementInfos(i) % parentIdx
@@ -616,7 +642,6 @@ contains
     self % nVertices = 0
     self % nFaces = 0
     self % nInternalFaces = 0
-    self % nElements = 0
     self % nEdges = 0
     call self % acceleration % kill()
     deallocate(self % acceleration)
@@ -649,7 +674,7 @@ contains
     nOthers = 0
     
     ! Loop over all elements in the mesh.
-    do i = 1, self % nElements
+    do i = 1, self % elements % getObjectsNumber()
       ! Retrieve the number of faces in the current element and increment specific polyhedra
       ! accordingly.
       element = self % elements % getElementBox(i)
@@ -687,17 +712,6 @@ contains
     self % nEdges = nEdges
 
   end subroutine setEdgesNumber
-
-  !!
-  !!
-  !!
-  elemental subroutine setElementsNumber(self, nElements)
-    class(unstructuredMesh), intent(inout) :: self
-    integer(shortInt), intent(in)          :: nElements
-
-    self % nElements = nElements
-
-  end subroutine setElementsNumber
 
   !!
   !!

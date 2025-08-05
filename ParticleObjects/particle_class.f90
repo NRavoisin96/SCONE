@@ -58,6 +58,7 @@ module particle_class
     real(defReal)              :: time = ZERO       ! Particle time position
     integer(shortInt)          :: matIdx   = -1     ! Material index where particle is
     integer(shortInt)          :: cellIdx  = -1     ! Cell idx at the lowest coord level
+    integer(shortInt)          :: elementIdx = 0    ! Unstructured mesh element index at the lowest coord level
     integer(shortInt)          :: uniqueID = -1     ! Unique id at the lowest coord level
     integer(shortInt)          :: collisionN = 0    ! Number of collisions
     integer(shortInt)          :: broodID = 0       ! ID of the source particle
@@ -666,6 +667,7 @@ contains
     LHS % matIdx   = RHS % coords % getMatIdx()
     LHS % uniqueID = RHS % coords % getUniqueId()
     LHS % cellIdx  = RHS % coords % getLowestCellIdx()
+    LHS % elementIdx = RHS % coords % getLowestElementIdx()
     LHS % collisionN = RHS % collisionN
     LHS % broodID    = RHS % broodID
 
@@ -689,6 +691,7 @@ contains
     isEqual = isEqual .and. LHS % type == RHS % type
     isEqual = isEqual .and. LHS % matIdx   == RHS % matIdx
     isEqual = isEqual .and. LHS % cellIdx  == RHS % cellIdx
+    isEqual = isEqual .and. LHS % elementIdx == RHS % elementIdx
     isEqual = isEqual .and. LHS % uniqueID == RHS % uniqueID
     isEqual = isEqual .and. LHS % collisionN == RHS % collisionN
     isEqual = isEqual .and. LHS % broodID    == RHS % broodID
@@ -732,6 +735,7 @@ contains
     self % time = ZERO
     self % matIdx   = -1
     self % cellIdx  = -1
+    self % elementIdx = 0
     self % uniqueID = -1
     self % collisionN = 0
     self % broodID    = 0

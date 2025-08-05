@@ -34,9 +34,9 @@ module meshShelf_class
     type(meshBox), dimension(:), allocatable :: meshes
     type(intMap)                             :: idMap
   contains
-    procedure                                :: getId
-    procedure                                :: getIdx
-    procedure                                :: getPtr
+    procedure                                :: getMeshId
+    procedure                                :: getMeshIdx
+    procedure                                :: getMeshPtr
     procedure                                :: getSize
     procedure                                :: init
     procedure                                :: kill
@@ -124,7 +124,7 @@ contains
   !! Errors:
   !!   fatalError if idx is invalid.
   !!
-  function getId(self, idx) result(id)
+  function getMeshId(self, idx) result(id)
     class(meshShelf), intent(in)  :: self
     integer(shortInt), intent(in) :: idx
     integer(shortInt)             :: id, size
@@ -136,7 +136,7 @@ contains
                                                  &1 and '//numToChar(size))
     id = self % meshes(idx) % ptr % getId()
 
-  end function getId
+  end function getMeshId
   
   !! Function 'getIdx'
   !!
@@ -152,7 +152,7 @@ contains
   !! Errors:
   !!   fatalError if id is invalid.
   !!
-  function getIdx(self, id) result(idx)
+  function getMeshIdx(self, id) result(idx)
     class(meshShelf), intent(in)  :: self
     integer(shortInt), intent(in) :: id
     integer(shortInt)             :: idx
@@ -162,7 +162,7 @@ contains
     idx = self % idMap % getOrDefault(id, NOT_PRESENT)
     if (idx == NOT_PRESENT) call fatalError(Here, 'There is no mesh with Id: '//numToChar(id)//'.')
 
-  end function getIdx
+  end function getMeshIdx
   
   !! Function 'getPtr'
   !!
@@ -178,20 +178,22 @@ contains
   !! Errors:
   !!   fatalError if idx is invalid.
   !!
-  function getPtr(self, idx) result(ptr)
+  function getMeshPtr(self, idx) result(ptr)
     class(meshShelf), intent(in)  :: self
     integer(shortInt), intent(in) :: idx
     class(mesh), pointer          :: ptr
-    integer(shortInt)             :: size
+    integer(shortInt)             :: nMeshes
     character(*), parameter       :: Here = 'getPtr (meshShelf_class.f90)'
     
     ! Catch invalid idx.
-    size = self % getSize()
-    if (idx < 1 .or. idx > size) call fatalError(Here, 'Requested index: '//numToChar(idx)//' is not valid. Must be between &
-                                                 &1 and '//numToChar(size)//'.')
+    nMeshes = self % getSize()
+    if (idx < 1 .or. nMeshes < idx) &
+    call fatalError(Here, 'Index: '//numToChar(idx)//' is not valid. Must be between 1 and '//numToChar(nMeshes)//'.')
+    
     ! Return pointer.
     ptr => self % meshes(idx) % ptr
-  end function getPtr
+
+  end function getMeshPtr
   
   !! Function 'getSize'
   !!

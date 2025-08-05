@@ -72,7 +72,7 @@ contains
     ! Test number of edges.
     @assertEqual(72, mesh % getEdgesNumber())
     ! Test number of tetrahedra.
-    @assertEqual(24, mesh % getElementsNumber())
+    @assertEqual(24, mesh % getElementsNumber(.true.))
 
 
   end subroutine test_info

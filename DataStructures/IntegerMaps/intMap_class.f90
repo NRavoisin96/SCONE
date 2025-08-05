@@ -106,28 +106,24 @@ contains
     integer(shortInt), intent(in):: N
     integer(shortInt)            :: N_bar
     integer(shortInt)            :: nextPow2
-    character(*), parameter :: Here = 'init (intMap_class.f90)'
+    character(*), parameter      :: Here = 'init (intMap_class.f90)'
 
-    if (N <= 0) call fatalError(Here,'Size needs to be +ve')
+    if (N < 1) call fatalError(Here, 'Size needs to be positive.')
 
     ! Clean map
     call self % kill()
 
     ! Find minumim size required for N entries
-    N_bar = int(N/MAX_LOAD)
+    N_bar = int(N / MAX_LOAD)
 
-    ! Find next power of 2
-    ! We are acounting for zero by using N-1 in leadz
-    nextPow2 = bit_size(N_bar) - leadz(N_bar-1)
-
-    ! Assign size to 8 if small value is provided
-    if (nextPow2 < 3 ) nextPow2 = 3
+    ! Find next power of 2. We are acounting for zero by using N - 1 in leadz. Assign size to 8 if small value is provided
+    nextPow2 = max(bit_size(N_bar) - leadz(N_bar - 1), 3)
 
     ! Allocate storage space
     self % Load = 0
     self % L    = 0
     self % Nexp = nextPow2
-    self % N    = 2**nextPow2
+    self % N    = 2 ** nextPow2
     allocate(self % map(self % N))
 
     ! SET map keys to EMTPY

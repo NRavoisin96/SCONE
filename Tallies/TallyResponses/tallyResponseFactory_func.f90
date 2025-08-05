@@ -1,19 +1,20 @@
 module tallyResponseFactory_func
 
   use numPrecision
-  use genericProcedures, only : fatalError
-  use dictionary_class,  only : dictionary
+  use genericProcedures,          only : fatalError
+  use dictionary_class,           only : dictionary
 
   ! tallyResponse interface
-  use tallyResponse_inter,    only : tallyResponse
+  use tallyResponse_inter,        only : tallyResponse
 
   ! tallyResponse implementations
-  use fluxResponse_class,     only : fluxResponse
-  use macroResponse_class,    only : macroResponse
-  use microResponse_class,    only : microResponse
-  use weightResponse_class,   only : weightResponse
-  use densityResponse_class,  only : densityResponse
-  use testResponse_class,     only : testResponse
+  use fissionPowerResponse_class, only : fissionPowerResponse
+  use fluxResponse_class,         only : fluxResponse
+  use macroResponse_class,        only : macroResponse
+  use microResponse_class,        only : microResponse
+  use weightResponse_class,       only : weightResponse
+  use densityResponse_class,      only : densityResponse
+  use testResponse_class,         only : testResponse
 
   implicit none
   private
@@ -24,11 +25,12 @@ module tallyResponseFactory_func
   ! It is printed if type was unrecognised
   ! NOTE:
   ! For now  it is necessary to adjust trailing blanks so all enteries have the same length
-  character(nameLen), dimension(*), parameter :: AVALIBLE_tallyResponses = ['fluxResponse   ',&
-                                                                          'macroResponse  ',&
-                                                                          'microResponse  ',&
-                                                                          'weightResponse ',&
-                                                                          'densityResponse']
+  character(nameLen), dimension(*), parameter :: AVALIBLE_tallyResponses = ['fissionPowerResponse', &
+                                                                            'fluxResponse        ', &
+                                                                            'macroResponse       ', &
+                                                                            'microResponse       ', &
+                                                                            'weightResponse      ', &
+                                                                            'densityResponse     ']
 
 contains
 
@@ -51,6 +53,9 @@ contains
 
     ! Allocate approperiate subclass of tallyResponse
     select case(type)
+      case('fissionPowerResponse')
+        allocate(fissionPowerResponse :: new)
+
       case('fluxResponse')
         allocate(fluxResponse :: new)
 

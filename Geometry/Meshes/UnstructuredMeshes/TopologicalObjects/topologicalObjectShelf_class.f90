@@ -509,11 +509,28 @@ contains
   !!
   !!
   !!
-  elemental function getObjectsNumber(self) result(nObjects)
+  function getObjectsNumber(self, activeOnly) result(nObjects)
     class(topologicalObjectShelf), intent(in) :: self
-    integer(shortInt)                         :: nObjects
+    logical(defBool), intent(in), optional    :: activeOnly
+    integer(shortInt)                         :: i, nObjects
+    logical(defBool)                          :: filterActive
+    type(topologicalObjectBox)                :: box
 
-    nObjects = self % nObjects
+    filterActive = .false.
+    if (present(activeOnly)) filterActive = activeOnly
+
+    if (.not. filterActive) then
+      nObjects = self % nObjects
+
+    else
+      nObjects = 0
+      do i = 1, self % nObjects
+        box = self % getObjectBox(i)
+        if (box % ptr % getIsActive()) nObjects = nObjects + 1
+
+      end do
+
+    end if
 
   end function getObjectsNumber
 

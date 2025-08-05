@@ -8,6 +8,7 @@ module geometryStd_class
   use genericProcedures, only : fatalError, numToChar
   use geometry_inter,    only : geometry, distCache
   use materialMenu_mod,  only : nMat
+  use mesh_inter,        only : mesh
   use numPrecision
   use publicObjects,     only : coordData, newCoordData
   use universalVariables
@@ -60,6 +61,7 @@ module geometryStd_class
     procedure          :: activeMats
 
     procedure          :: getCellIdx
+    procedure          :: getMeshPtr
     ! Private procedures
     procedure, private :: diveToMat
     procedure, private :: closestDist
@@ -347,6 +349,18 @@ contains
   end function getCellIdx
 
   !!
+  !!
+  !!
+  function getMeshPtr(self, id) result(meshPtr)
+    class(geometryStd), intent(in) :: self
+    integer(shortInt), intent(in)  :: id
+    class(mesh), pointer           :: meshPtr
+
+    meshPtr => self % geom % getMeshPtr(id)
+
+  end function getMeshPtr
+
+  !!
   !! Descend down the geometry structure until material is reached
   !!
   !! Requires starting level to be specified.
@@ -485,6 +499,7 @@ contains
     select type(source)
       class is (geometryStd)
         ptr => source
+
       class default
         ptr => null()
 

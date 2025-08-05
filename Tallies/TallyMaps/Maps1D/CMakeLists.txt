@@ -1,0 +1,29 @@
+# Add Source Files to the global list
+add_sources(
+            ./cellMap_class.f90
+            ./collNumMap_class.f90
+            ./directionMap_class.f90
+            ./energyMap_class.f90
+            ./homogMatMap_class.f90
+            ./materialMap_class.f90
+            ./radialMap_class.f90
+            ./spaceMap_class.f90
+            ./tallyMap1D_inter.f90
+            ./tallyMap1DFactory_func.f90
+            ./testMap_class.f90
+            ./unstructuredMeshMap_class.f90
+            ./weightMap_class.f90
+           )
+
+add_unit_tests(
+               ./Tests/cellMap_test.f90
+               ./Tests/collNumMap_test.f90
+               ./Tests/directionMap_test.f90
+               ./Tests/energyMap_test.f90
+               ./Tests/homogMatMap_test.f90
+               ./Tests/materialMap_test.f90
+               ./Tests/radialMap_test.f90
+               ./Tests/spaceMap_test.f90
+               ./Tests/testMap_test.f90
+               ./Tests/weightMap_test.f90
+              )

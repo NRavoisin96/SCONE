@@ -1,9 +1,9 @@
 module tallyMap_inter
 
+  use dictionary_class,  only : dictionary
   use numPrecision
-  use particle_class,   only : particleState
-  use dictionary_class, only : dictionary
-  use outputFile_class, only : outputFile
+  use outputFile_class,  only : outputFile
+  use particle_class,    only : particleState
 
   implicit none
   private
@@ -25,14 +25,14 @@ module tallyMap_inter
   type, public, abstract :: tallyMap
     private
   contains
-    procedure(init),deferred        :: init
-    procedure(bins),deferred        :: bins
-    procedure(dimensions),deferred  :: dimensions
-    procedure(getAxisName),deferred :: getAxisName
-    procedure                       :: binArrayShape
-    procedure(map),deferred         :: map
-    procedure(print),deferred       :: print
-    procedure                       :: kill
+    procedure(init), deferred        :: init
+    procedure(bins), deferred        :: bins
+    procedure(dimensions), deferred  :: dimensions
+    procedure(getAxisName), deferred :: getAxisName
+    procedure                        :: binArrayShape
+    procedure(map), deferred         :: map
+    procedure(print), deferred       :: print
+    procedure                        :: kill
   end type tallyMap
 
   ! Procedures extendable in subclasses
@@ -159,12 +159,13 @@ contains
   !!   as if the tally map was a multi-dimensional matrix.
   !!
   pure function binArrayShape(self) result(sh)
-    class(tallyMap), intent(in)                      :: self
+    class(tallyMap), intent(in)                       :: self
     integer(shortInt), dimension(self % dimensions()) :: sh
-    integer(shortInt)                                :: i
+    integer(shortInt)                                 :: i
 
-    do i= 1, self % dimensions()
+    do i = 1, self % dimensions()
       sh(i) = self % bins(i)
+
     end do
 
   end function binArrayShape

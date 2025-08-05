@@ -104,7 +104,7 @@ contains
     type(meshShelf), intent(inout)                            :: meshes
     integer(shortInt)                                         :: cellId, i, meshId, nFills
     character(nameLen), dimension(:), allocatable             :: fillNames
-    character(100), parameter                                 :: Here = 'init (meshUniverse_class.f90)'
+    character(*), parameter                                   :: Here = 'init (meshUniverse_class.f90)'
     
     ! Setup the base class
     ! With: id, origin rotations...
@@ -112,8 +112,8 @@ contains
     
     ! Load meshId, convert meshId to meshIdx and get pointer to the mesh with corresponding idx.
     call dict % get(meshId, 'mesh')
-    self % mesh % idx = meshes % getIdx(meshId)
-    self % mesh % ptr => meshes % getPtr(self % mesh % idx)
+    self % mesh % idx = meshes % getMeshIdx(meshId)
+    self % mesh % ptr => meshes % getMeshPtr(self % mesh % idx)
 
     ! Load cellId, covert cellId to cellIdx and get pointer to the cell with corresponding idx.
     call dict % get(cellId, 'cell')

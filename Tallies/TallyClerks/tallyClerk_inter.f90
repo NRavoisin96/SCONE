@@ -71,7 +71,6 @@ module tallyClerk_inter
     private
     integer(longInt)   :: memAdress = -1
     character(nameLen) :: name = ''
-
   contains
     ! Procedures used during build
     procedure(init),deferred          :: init

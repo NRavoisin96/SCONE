@@ -48,7 +48,7 @@ module asciiMATLAB_class
   type, public, extends(asciiOutput) :: asciiMATLAB
     private
     ! State components
-    integer(shortInt) :: state  = IN_BLOCK
+    integer(shortInt) :: state = IN_BLOCK
     type(stackChar)   :: blockNameStack
     integer(shortInt) :: blockLevel = 0
 
@@ -119,7 +119,6 @@ contains
   subroutine startBlock(self, name)
     class(asciiMATLAB), intent(inout) :: self
     character(nameLen), intent(in)    :: name
-    character(100), parameter :: Here ='startBlock (asciiMATLAB_class.f90)'
 
     ! Update state - change current prefix
     call self % blockNameStack % push(name)
@@ -137,7 +136,6 @@ contains
     class(asciiMATLAB), intent(inout) :: self
     character(nameLen)                :: temp
     integer(shortInt)                 :: N
-    character(100), parameter :: Here ='endBlock (asciiMATLAB_class.f90)'
 
     ! Update state - change current prefix
     call self % blockNameStack % pop(temp)
@@ -157,15 +155,13 @@ contains
   subroutine startEntry(self, name)
     class(asciiMATLAB), intent(inout) :: self
     character(*), intent(in)          :: name
-    character(100), parameter :: Here ='startEntry (asciiMATLAB_class.f90)'
 
     ! Update state
     self % state = IN_ENTRY
 
     ! Write variable name with prefix
-    call self % append( trim(self % prefix % expose()) // trim(name))
-    call self % append( ' = ')
-
+    call self % append(trim(self % prefix % expose()) // trim(name))
+    call self % append(' = ')
 
   end subroutine startEntry
 
@@ -176,7 +172,6 @@ contains
   !!
   subroutine endEntry(self)
     class(asciiMATLAB), intent(inout) :: self
-    character(100), parameter :: Here ='endEntry (asciiMATLAB_class.f90)'
 
     ! Update state
     self % state = IN_BLOCK
@@ -192,9 +187,8 @@ contains
   !! See asciiOutput_inter for details
   !!
   subroutine startArray(self, shape)
-    class(asciiMATLAB), intent(inout)         :: self
+    class(asciiMATLAB), intent(inout)           :: self
     integer(shortInt), dimension(:), intent(in) :: shape
-    character(100), parameter :: Here ='startArray (asciiMATLAB_class.f90)'
 
     ! Update state
     self % state = IN_ARRAY
@@ -204,10 +198,10 @@ contains
 
     ! Write start of array
     if (size(self % shapeBuffer) == 1) then
-      call self % append('[ ')
+      call self % append('[')
 
     else
-      call self % append('reshape([ ')
+      call self % append('reshape([')
 
     end if
 
@@ -221,7 +215,6 @@ contains
   subroutine endArray(self)
     class(asciiMATLAB), intent(inout) :: self
     integer(shortInt)                 :: i
-    character(100), parameter :: Here ='endArray (asciiMATLAB_class.f90)'
 
     ! Update state
     self % state = IN_ENTRY
@@ -247,8 +240,7 @@ contains
   !!
   subroutine printNum(self, val)
     class(asciiMATLAB), intent(inout) :: self
-    character(*), intent(in)           :: val
-    character(100), parameter :: Here ='printNum (asciiMATLAB_class.f90)'
+    character(*), intent(in)          :: val
 
     if (self % state == IN_ARRAY) then
       call self % append(val//',')
@@ -267,14 +259,13 @@ contains
   !!
   subroutine printChar(self, val)
     class(asciiMATLAB), intent(inout) :: self
-    character(*), intent(in)           :: val
-    character(100), parameter :: Here ='printChar (asciiMATLAB_class.f90)'
+    character(*), intent(in)          :: val
 
     if (self % state == IN_ARRAY) then
-      call self % append(BRAKET_L // APOS // val // APOS // BRAKET_R // ",")
+      call self % append(BRAKET_L // APOS // val // APOS // BRAKET_R // ',')
 
     else if (self % state == IN_ENTRY) then
-      call self % append(BRAKET_L // APOS // val // APOS // BRAKET_R )
+      call self % append(BRAKET_L // APOS // val // APOS // BRAKET_R)
 
     end if
 

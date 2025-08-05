@@ -354,7 +354,7 @@ contains
 
     ! Create parallel region once outside the main loop for performance.
     !$omp parallel private(p, buffer, pRNG, collOp, transOp, j) &
-    !$omp shared(nFinalParticles, nInitialParticles, tallyAdminPtr)
+    !$omp shared(elapsedTime, nFinalParticles, nInitialParticles, tallyAdminPtr)
 
     ! Create particle buffer and a transport operator which can be made thread private
     call buffer % init(self % bufferSize)
@@ -399,11 +399,11 @@ contains
       ! Stop timer and display progress so far.
       call timerStop(timerMain)
       elapsedTime = timerTime(timerMain)
+      self % time_transport = elapsedTime
       endTime = nCycles * elapsedTime / i
       call self % displayCycleProgress(i, nInitialParticles, nFinalParticles, elapsedTime, endTime, &
                                        max(ZERO, endTime - elapsedTime))
       call tallyAdminPtr % display()
-      self % time_transport = self % time_transport + elapsedTime
       !$omp end master
 
     end do

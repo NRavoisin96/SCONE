@@ -45,14 +45,14 @@ contains
     class(mesh), pointer :: ptr
     integer(shortInt)    :: idx
     ! Mesh ID 11.
-    idx = meshes % getIdx(11)
-    ptr => meshes % getPtr(idx)
+    idx = meshes % getMeshIdx(11)
+    ptr => meshes % getMeshPtr(idx)
     @assertEqual(11, ptr % getId())
-    @assertEqual(11, meshes % getID(idx))
+    @assertEqual(11, meshes % getMeshId(idx))
     ! Mesh ID 21.
-    idx = meshes % getIdx(21)
-    ptr => meshes % getPtr(idx)
+    idx = meshes % getMeshIdx(21)
+    ptr => meshes % getMeshPtr(idx)
     @assertEqual(21, ptr % getId())
-    @assertEqual(21, meshes % getID(idx))    
+    @assertEqual(21, meshes % getMeshId(idx))    
   end subroutine test_get
 end module meshShelf_iTest

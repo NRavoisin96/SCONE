@@ -40,7 +40,7 @@ module collisionClerk_class
   !! Interface
   !!   tallyClerk Interface
   !!
-  !! SAMPLE DICTIOANRY INPUT:
+  !! SAMPLE DICTIONARY INPUT:
   !!
   !! myCollisionClerk {
   !!   type collisionClerk;
@@ -88,36 +88,34 @@ contains
   !! See tallyClerk_inter for details
   !!
   subroutine init(self, dict, name)
-    class(collisionClerk), intent(inout)        :: self
-    class(dictionary), intent(in)               :: dict
-    character(nameLen), intent(in)              :: name
+    class(collisionClerk), intent(inout)          :: self
+    class(dictionary), intent(in)                 :: dict
+    character(nameLen), intent(in)                :: name
     character(nameLen), dimension(:), allocatable :: responseNames
-    integer(shortInt)                           :: i
+    integer(shortInt)                             :: i, nResponses
 
     ! Assign name
     call self % setName(name)
 
-    ! Load filetr
-    if (dict % isPresent('filter')) then
-      call new_tallyFilter(self % filter, dict % getDictPtr('filter'))
-    end if
+    ! Load filter
+    if (dict % isPresent('filter')) call new_tallyFilter(self % filter, dict % getDictPtr('filter'))
 
     ! Load map
-    if (dict % isPresent('map')) then
-      call new_tallyMap(self % map, dict % getDictPtr('map'))
-    end if
+    if (dict % isPresent('map')) call new_tallyMap(self % map, dict % getDictPtr('map'))
 
     ! Get names of response dictionaries
     call dict % get(responseNames,'response')
+    nResponses = size(responseNames)
 
     ! Load responses
-    allocate(self % responses(size(responseNames)))
-    do i= 1,  size(responseNames)
-      call self % responses(i) % init(dict % getDictPtr( responseNames(i) ))
+    allocate(self % responses(nResponses))
+    do i = 1, nResponses
+      call self % responses(i) % init(dict % getDictPtr(responseNames(i)))
+
     end do
 
     ! Set width
-    self % width = size(responseNames)
+    self % width = nResponses
 
     ! Handle virtual collisions
     call dict % getOrDefault(self % handleVirtual,'handleVirtual', .true.)
@@ -266,17 +264,14 @@ contains
     ! Begin block
     call outFile % startBlock(self % getName())
 
-    ! If collision clerk has map print map information
+    ! If collision clerk has map print map information. Then, write results.
     if (allocated(self % map)) then
       call self % map % print(outFile)
-    end if
-
-    ! Write results.
-    ! Get shape of result array
-    if (allocated(self % map)) then
       resArrayShape = [size(self % responses), self % map % binArrayShape()]
+
     else
       resArrayShape = [size(self % responses)]
+
     end if
 
     ! Start array

@@ -68,6 +68,7 @@ module coordList_class
     procedure :: getDirection
     procedure :: getLocalId
     procedure :: getLowestCellIdx
+    procedure :: getLowestElementIdx
     procedure :: getMatIdx
     procedure :: getNesting
     procedure :: getPosition
@@ -241,6 +242,17 @@ contains
     cellIdx = self % lvl(max(self % nesting, 1)) % getCellIdx()
 
   end function getLowestCellIdx
+
+  !!
+  !!
+  !!
+  elemental function getLowestElementIdx(self) result(elementIdx)
+    class(coordList), intent(in) :: self
+    integer(shortInt)            :: elementIdx
+
+    elementIdx = self % lvl(max(self % nesting, 1)) % getElementIdx()
+
+  end function getLowestElementIdx
 
   !!
   !!

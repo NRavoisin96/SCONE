@@ -114,7 +114,7 @@ contains
     call out % printValue(self % pop, name)
 
     ! Print class specific results.
-
+    call self % collectSpecificResults(out)
 
   end subroutine collectResults
 

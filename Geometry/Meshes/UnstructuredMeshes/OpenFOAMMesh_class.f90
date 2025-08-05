@@ -560,7 +560,6 @@ contains
     call self % setVerticesNumber(nVertices)
     call self % setFacesNumber(nFaces)
     call self % setInternalFacesNumber(nInternalFaces)
-    call self % setElementsNumber(nElements)
     
     ! Import vertices.
     call self % importVertices(folderPath, nVertices)

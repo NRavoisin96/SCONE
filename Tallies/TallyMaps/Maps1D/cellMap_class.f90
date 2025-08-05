@@ -181,11 +181,7 @@ contains
     integer(shortInt), intent(in) :: D
     integer(shortInt)             :: N
 
-    if (D == 1 .or. D == 0) then
-      N = self % Nbins
-    else
-      N = 0
-    end if
+    N = merge(self % Nbins, 0, any([0, 1] == D))
 
   end function bins
 
@@ -225,7 +221,7 @@ contains
     class(cellMap), intent(in)       :: self
     class(outputFile), intent(inout) :: out
     character(nameLen)               :: name
-    integer(shortInt)                :: i
+    integer(shortInt)                :: i, nCells
 
     ! Name the array
     name = trim(self % getAxisName()) // 'Bins'
@@ -233,14 +229,17 @@ contains
     call out % startArray(name, [1, self % Nbins])
 
     ! Print cell indexes
-    do i= 1, size(self % cellIdx)
+    nCells = size(self % cellIdx)
+    do i = 1, nCells
       call out % addValue(numToChar(self % cellIdx(i)))
+
     end do
 
     ! Print 'undefined'
-    if (self % Nbins > size(self % cellIdx)) then
+    if (nCells < self % Nbins) then
       name = 'undefined'
       call out % addValue(name)
+
     end if
 
     call out % endArray()
