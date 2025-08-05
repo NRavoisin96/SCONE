@@ -60,7 +60,7 @@ contains
     class(elementShelf), intent(in)                     :: elements
     real(defReal), dimension(6)                         :: extremalCoordinates
     integer(shortInt)                                   :: i, j, diffExponent, exponentGapLayers, k
-    integer(shortInt), dimension(:), allocatable        :: currEdgeVertexIdxs
+    integer(shortInt), dimension(:), allocatable        :: currEdgeVertexIdxs, numberOfCellsAnalysis
     real(defReal), dimension(3)                         :: currEdgeVector, extraRoom, n_xyzTarget, &
                                                            spacingComparison
     real(defReal)                                       :: maxCosValue, tempMaxCosValue, currEdgeLength, &
@@ -347,11 +347,12 @@ contains
     call self % setGridIsOutsideMesh()
     call self % refineGrid(vertices, edges, faces, elements)
 
-    ! Print the number of cells for each layer.
-    ! print*, "Starting the procedure to calculate number of cells for each type"
-    ! print*, self % getNumberOfCells()
-    ! call fatalError("Init, cartesianGridCoarsest_class.f90", "Terminating after printing &
-    !                 the number of cells for each type. If not intended, comment these lines.")
+    ! Print the number of cells for each layer (for extra analysis).
+    print*, "Starting the procedure to calculate number of cells for each type"
+    numberOfCellsAnalysis = self % getNumberOfCells()
+    print*, numberOfCellsAnalysis
+    call fatalError("Init, cartesianGridCoarsest_class.f90", "Terminating after printing &
+                    the number of cells for each type. If not intended, comment these lines.")
 
     ! ! temporary for debugging
     ! do i = 1, self % n_xyz(1,1)
@@ -612,10 +613,6 @@ contains
         localNxyz(i,j) = self % n_xyz(i+1, j)/self % n_xyz(i, j)
       end do
     end do
-
-    !!!!!
-    print*, localNxyz
-    !!!!!
 
     ! Loop through all Cartesian cells in the coarsest layer. If needed, it descend down the layers.
     do i = 1, self % n_xyz(1,1)

@@ -48,6 +48,9 @@ module cartesianGridSingle_class
     procedure                                    :: getGridPhi
     procedure                                    :: getGridChi
     procedure                                    :: getGridIsOutsideBounds
+    ! Analysis procedures
+    procedure                                    :: vertexValenceDistribution
+    procedure                                    :: edgeValenceDistribution
   end type cartesianGridSingle
 
 contains
@@ -62,10 +65,10 @@ contains
     class(faceShelf), intent(inout)                     :: faces
     class(elementShelf), intent(in)                     :: elements
     real(defReal), dimension(6)                         :: extremalCoordinates
-    integer(shortInt)                                   :: i, j !!!!!
-    integer(shortInt), dimension(:), allocatable        :: currEdgeVertexIdxs, temp1, temp2 !!!!!
-    real(defReal), dimension(3)                         :: currEdgeVector, extraRoom, xyz_max, xyz_min, &
-                                                           centroid !!!!!
+    integer(shortInt)                                   :: i
+    integer(shortInt), dimension(:), allocatable        :: currEdgeVertexIdxs
+    real(defReal), dimension(3)                         :: currEdgeVector, extraRoom, xyz_max, xyz_min!, &
+                                                           !centroid !!!!!
     real(defReal)                                       :: maxCosValue, tempMaxCosValue, currEdgeLength
     !integer(shortInt)                                   :: temp, j, k, temp2
 
@@ -173,12 +176,14 @@ contains
     !-----------------------------------------------------------------------------------------
     call self % constructMapping(vertices, edges, faces, elements)
     call self % sortAngles(edges, faces)!, vertices) !!! vertices
-    !!!!!
-    !print*, "TEST BEGINS"
     call self % gridFinitePrecision(vertices, faces, elements) 
-    !print*, "TEST ENDS"
     call self % setGridIsOutsideMesh()
-    !!!!!
+
+    ! Finding the distribution of valence of vertices/edges (for extra analysis).
+    ! call self % vertexValenceDistribution(vertices)
+    ! call self % edgeValenceDistribution(edges)
+    ! call fatalError("Init, cartesianGridSingle_class.f90", "Terminating after printing &
+    !                 the valence distribution. If not intended, comment these lines.")
 
     !!!
     ! temp2 = 0
@@ -942,5 +947,73 @@ contains
     !!!!!
 
   end function getGridIsOutsideBounds
+
+  !!
+  !!
+  !!
+  subroutine vertexValenceDistribution(self, vertices)
+    class(cartesianGridSingle), intent(in)        :: self
+    class(vertexShelf), intent(in)                :: vertices
+    integer(shortInt)                             :: i, max, sizeArr
+    integer(shortInt), dimension(:), allocatable  :: temp, distribution
+    
+    ! Find maximum valence
+    max = 0
+    do i = 1, vertices % getSize()
+      temp = vertices % getVertexElementIdxs(i)
+      if (max < size(temp)) then
+        max = size(temp)
+      end if
+    end do
+
+    ! Allocate distrubution array
+    allocate(distribution(max))
+    distribution = 0
+
+    ! Find the distribution
+    do i = 1, vertices % getSize()
+      temp = vertices % getVertexElementIdxs(i)
+      sizeArr = size(temp)
+      distribution(sizeArr) = distribution(sizeArr) + 1
+    end do
+
+    print*, "vertexValence"
+    print*, distribution
+
+  end subroutine vertexValenceDistribution
+
+  !!
+  !!
+  !!
+  subroutine edgeValenceDistribution(self, edges)
+    class(cartesianGridSingle), intent(in)        :: self
+    class(edgeShelf), intent(inout)               :: edges
+    integer(shortInt)                             :: i, max, sizeArr
+    integer(shortInt), dimension(:), allocatable  :: temp, distribution
+    
+    ! Find maximum valence
+    max = 0
+    do i = 1, edges % getSize()
+      temp = edges % getEdgeElementIdxs(i)
+      if (max < size(temp)) then
+        max = size(temp)
+      end if
+    end do
+
+    ! Allocate distrubution array
+    allocate(distribution(max))
+    distribution = 0
+
+    ! Find the distribution
+    do i = 1, edges % getSize()
+      temp = edges % getEdgeElementIdxs(i)
+      sizeArr = size(temp)
+      distribution(sizeArr) = distribution(sizeArr) + 1
+    end do
+
+    print*, "edgeValence"
+    print*, distribution
+
+  end subroutine edgeValenceDistribution
 
 end module CartesianGridSingle_class
