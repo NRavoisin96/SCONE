@@ -4,7 +4,7 @@ module cartesianGridSubLayer_inter
   use edgeShelf_class,                 only : edgeShelf
   use faceShelf_class,                 only : faceShelf
   use elementShelf_class,              only : elementShelf
-  use numPrecision
+  use numPrecision,                    only : shortInt, defReal
 
   implicit none
   private
@@ -43,14 +43,60 @@ module cartesianGridSubLayer_inter
 
      end subroutine
 
+!&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+! bit-trick (not saving)
+!&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+    ! !!
+    ! !!
+    ! !!
+    ! function getGridChi(self, baseIntegerCoord, shift, mask, currLayer) result(chi)
+    !   import                                                 cartesianGridSubLayer, shortInt
+    !   class(cartesianGridSubLayer), intent(in)            :: self
+    !   integer(shortInt), dimension(3), intent(in)         :: baseIntegerCoord
+    !   integer(shortInt), dimension(:,:), intent(in)       :: shift, mask
+    !   integer(shortInt), intent(in)                       :: currLayer
+    !   integer(shortInt)                                   :: chi
+
+    ! end function getGridChi
+
+    ! !!
+    ! !!
+    ! !!
+    ! function getGridPhi(self, baseIntegerCoord, shift, mask, currLayer) result(phi)
+    !   import                                                 cartesianGridSubLayer, shortInt
+    !   class(cartesianGridSubLayer), intent(in)            :: self
+    !   integer(shortInt), dimension(3), intent(in)         :: baseIntegerCoord
+    !   integer(shortInt), dimension(:,:), intent(in)       :: shift, mask
+    !   integer(shortInt), intent(in)                       :: currLayer
+    !   integer(shortInt)                                   :: phi
+
+    ! end function getGridPhi
+
+    ! !!
+    ! !!
+    ! !!
+    ! function getGridPhiCapital(self, baseIntegerCoord, shift, mask, currLayer) result(phiCapital)
+    !   import                                                 cartesianGridSubLayer, shortInt
+    !   class(cartesianGridSubLayer), intent(in)            :: self
+    !   integer(shortInt), dimension(3), intent(in)         :: baseIntegerCoord
+    !   integer(shortInt), dimension(:,:), intent(in)       :: shift, mask
+    !   integer(shortInt), intent(in)                       :: currLayer
+    !   integer(shortInt)                                   :: phiCapital
+
+    ! end function getGridPhiCapital
+
+!&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+! bit-trick (saving)
+!&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
     !!
     !!
     !!
-    function getGridChi(self, baseIntegerCoord, shift, mask, currLayer) result(chi)
+    function getGridChi(self, baseIntegerCoord, shift, mask, currLayer, cellIdxsMat) result(chi)
       import                                                 cartesianGridSubLayer, shortInt
       class(cartesianGridSubLayer), intent(in)            :: self
       integer(shortInt), dimension(3), intent(in)         :: baseIntegerCoord
       integer(shortInt), dimension(:,:), intent(in)       :: shift, mask
+      integer(shortInt), dimension(:,:), intent(inout)    :: cellIdxsMat
       integer(shortInt), intent(in)                       :: currLayer
       integer(shortInt)                                   :: chi
 
@@ -59,11 +105,10 @@ module cartesianGridSubLayer_inter
     !!
     !!
     !!
-    function getGridPhi(self, baseIntegerCoord, shift, mask, currLayer) result(phi)
+    function getGridPhi(self, cellIdxsMat, currLayer) result(phi)
       import                                                 cartesianGridSubLayer, shortInt
       class(cartesianGridSubLayer), intent(in)            :: self
-      integer(shortInt), dimension(3), intent(in)         :: baseIntegerCoord
-      integer(shortInt), dimension(:,:), intent(in)       :: shift, mask
+      integer(shortInt), dimension(:,:), intent(in)       :: cellIdxsMat
       integer(shortInt), intent(in)                       :: currLayer
       integer(shortInt)                                   :: phi
 
@@ -72,15 +117,60 @@ module cartesianGridSubLayer_inter
     !!
     !!
     !!
-    function getGridPhiCapital(self, baseIntegerCoord, shift, mask, currLayer) result(phiCapital)
+    function getGridPhiCapital(self, cellIdxsMat, currLayer) result(phiCapital)
       import                                                 cartesianGridSubLayer, shortInt
       class(cartesianGridSubLayer), intent(in)            :: self
-      integer(shortInt), dimension(3), intent(in)         :: baseIntegerCoord
-      integer(shortInt), dimension(:,:), intent(in)       :: shift, mask
+      integer(shortInt), dimension(:,:), intent(in)       :: cellIdxsMat
       integer(shortInt), intent(in)                       :: currLayer
       integer(shortInt)                                   :: phiCapital
 
     end function getGridPhiCapital
+
+!&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+! Non bit-trick (saving)
+!&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+    ! !!
+    ! !!
+    ! !!
+    ! function getGridChi(self, r, gridBounds_min, spacingInv, currLayer, cellIdxsMat, nSub_xyz) result(chi)
+    !   import                                                 cartesianGridSubLayer, shortInt, defReal
+    !   class(cartesianGridSubLayer), intent(in)            :: self
+    !   real(defReal), dimension(3), intent(in)             :: r, gridBounds_min                                    
+    !   real(defReal), dimension(:), intent(in)             :: spacingInv
+    !   integer(shortInt), dimension(:,:), intent(inout)    :: cellIdxsMat
+    !   integer(shortInt), dimension(:,:), intent(in)       :: nSub_xyz
+    !   integer(shortInt), intent(in)                       :: currLayer
+    !   integer(shortInt)                                   :: chi
+
+    ! end function getGridChi
+
+    ! !!
+    ! !!
+    ! !!
+    ! function getGridPhi(self, cellIdxsMat, currLayer) result(phi)
+    !   import                                                 cartesianGridSubLayer, shortInt
+    !   class(cartesianGridSubLayer), intent(in)            :: self
+    !   integer(shortInt), dimension(:,:), intent(in)       :: cellIdxsMat
+    !   integer(shortInt), intent(in)                       :: currLayer
+    !   integer(shortInt)                                   :: phi
+
+    ! end function getGridPhi
+
+    ! !!
+    ! !!
+    ! !!
+    ! function getGridPhiCapital(self, cellIdxsMat, currLayer) result(phiCapital)
+    !   import                                                 cartesianGridSubLayer, shortInt
+    !   class(cartesianGridSubLayer), intent(in)            :: self
+    !   integer(shortInt), dimension(:,:), intent(in)       :: cellIdxsMat
+    !   integer(shortInt), intent(in)                       :: currLayer
+    !   integer(shortInt)                                   :: phiCapital
+
+    ! end function getGridPhiCapital
+
+!&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+!
+!&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 
     !!
     !!

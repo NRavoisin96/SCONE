@@ -531,62 +531,169 @@ contains
 
   end subroutine gridFinitePrecision
 
+!&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+! bit-trick (not saving)
+!&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+  ! !!
+  ! !!
+  ! !! 
+  ! function getGridChi(self, baseIntegerCoord, shift, mask, currLayer) result(chi)
+  !   class(cartesianGridFinest), intent(in)              :: self
+  !   integer(shortInt), dimension(3), intent(in)         :: baseIntegerCoord
+  !   integer(shortInt), dimension(:,:), intent(in)       :: shift, mask
+  !   integer(shortInt), intent(in)                       :: currLayer
+  !   integer(shortInt)                                   :: chi
+  !   integer(shortInt), dimension(3)                     :: cellIdxs
+
+  !   ! (needs to be changed) (just double check) (since shift for the finest layer is all 0,
+  !   !  ishft does not do anyting. So, just perfrom iand for the finest layer.)
+  !   !cellIdxs = getLocalIdx(baseIntegerCoord, shift(currLayer,:), mask(currLayer,:))
+  !   cellIdxs = getLocalIdxFinest(baseIntegerCoord, shift(currLayer,:), mask(currLayer,:))
+
+  !   chi = self % grid(cellIdxs(1), cellIdxs(2), cellIdxs(3)) % getChi()
+
+  ! end function getGridChi
+
+  ! !!
+  ! !!
+  ! !! 
+  ! function getGridPhi(self, baseIntegerCoord, shift, mask, currLayer) result(Phi)
+  !   class(cartesianGridFinest), intent(in)              :: self
+  !   integer(shortInt), dimension(3), intent(in)         :: baseIntegerCoord
+  !   integer(shortInt), dimension(:,:), intent(in)       :: shift, mask
+  !   integer(shortInt), intent(in)                       :: currLayer
+  !   integer(shortInt)                                   :: phi
+  !   integer(shortInt), dimension(3)                     :: cellIdxs
+
+  !   !cellIdxs = getLocalIdx(baseIntegerCoord, shift(currLayer,:), mask(currLayer,:))
+  !   cellIdxs = getLocalIdxFinest(baseIntegerCoord, shift(currLayer,:), mask(currLayer,:))
+
+  !   phi = self % grid(cellIdxs(1), cellIdxs(2), cellIdxs(3)) % getphi()
+
+  ! end function getGridPhi
+
+  ! !!
+  ! !!
+  ! !! 
+  ! function getGridPhiCapital(self, baseIntegerCoord, shift, mask, currLayer) result(phiCapital)
+  !   class(cartesianGridFinest), intent(in)              :: self
+  !   integer(shortInt), dimension(3), intent(in)         :: baseIntegerCoord
+  !   integer(shortInt), dimension(:,:), intent(in)       :: shift, mask
+  !   integer(shortInt), intent(in)                       :: currLayer
+  !   integer(shortInt)                                   :: phiCapital
+  !   integer(shortInt), dimension(3)                     :: cellIdxs
+
+  !   !cellIdxs = getLocalIdx(baseIntegerCoord, shift(currLayer,:), mask(currLayer,:))
+  !   cellIdxs = getLocalIdxFinest(baseIntegerCoord, shift(currLayer,:), mask(currLayer,:))
+
+  !   phiCapital = self % grid(cellIdxs(1), cellIdxs(2), cellIdxs(3)) % getPhiCapital()
+
+  ! end function getGridPhiCapital
+
+!&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+! bit-trick (saving)
+!&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
   !!
   !!
   !! 
-  function getGridChi(self, baseIntegerCoord, shift, mask, currLayer) result(chi)
+  function getGridChi(self, baseIntegerCoord, shift, mask, currLayer, cellIdxsMat) result(chi)
     class(cartesianGridFinest), intent(in)              :: self
     integer(shortInt), dimension(3), intent(in)         :: baseIntegerCoord
     integer(shortInt), dimension(:,:), intent(in)       :: shift, mask
+    integer(shortInt), dimension(:,:), intent(inout)    :: cellIdxsMat
     integer(shortInt), intent(in)                       :: currLayer
     integer(shortInt)                                   :: chi
-    integer(shortInt), dimension(3)                     :: cellIdxs
 
     ! (needs to be changed) (just double check) (since shift for the finest layer is all 0,
     !  ishft does not do anyting. So, just perfrom iand for the finest layer.)
     !cellIdxs = getLocalIdx(baseIntegerCoord, shift(currLayer,:), mask(currLayer,:))
-    cellIdxs = getLocalIdxFinest(baseIntegerCoord, shift(currLayer,:), mask(currLayer,:))
+    cellIdxsMat(currLayer,:) = getLocalIdxFinest(baseIntegerCoord, shift(currLayer,:), mask(currLayer,:))
 
-    chi = self % grid(cellIdxs(1), cellIdxs(2), cellIdxs(3)) % getChi()
+    chi = self % grid(cellIdxsMat(currLayer,1), cellIdxsMat(currLayer,2), cellIdxsMat(currLayer,3)) % getChi()
 
   end function getGridChi
 
   !!
   !!
   !! 
-  function getGridPhi(self, baseIntegerCoord, shift, mask, currLayer) result(Phi)
+  function getGridPhi(self, cellIdxsMat, currLayer) result(Phi)
     class(cartesianGridFinest), intent(in)              :: self
-    integer(shortInt), dimension(3), intent(in)         :: baseIntegerCoord
-    integer(shortInt), dimension(:,:), intent(in)       :: shift, mask
+    integer(shortInt), dimension(:,:), intent(in)       :: cellIdxsMat
     integer(shortInt), intent(in)                       :: currLayer
     integer(shortInt)                                   :: phi
-    integer(shortInt), dimension(3)                     :: cellIdxs
 
-    !cellIdxs = getLocalIdx(baseIntegerCoord, shift(currLayer,:), mask(currLayer,:))
-    cellIdxs = getLocalIdxFinest(baseIntegerCoord, shift(currLayer,:), mask(currLayer,:))
-
-    phi = self % grid(cellIdxs(1), cellIdxs(2), cellIdxs(3)) % getphi()
+    phi = self % grid(cellIdxsMat(currLayer,1), cellIdxsMat(currLayer,2), cellIdxsMat(currLayer,3)) % getphi()
 
   end function getGridPhi
 
   !!
   !!
   !! 
-  function getGridPhiCapital(self, baseIntegerCoord, shift, mask, currLayer) result(phiCapital)
+  function getGridPhiCapital(self, cellIdxsMat, currLayer) result(phiCapital)
     class(cartesianGridFinest), intent(in)              :: self
-    integer(shortInt), dimension(3), intent(in)         :: baseIntegerCoord
-    integer(shortInt), dimension(:,:), intent(in)       :: shift, mask
+    integer(shortInt), dimension(:,:), intent(in)       :: cellIdxsMat
     integer(shortInt), intent(in)                       :: currLayer
     integer(shortInt)                                   :: phiCapital
-    integer(shortInt), dimension(3)                     :: cellIdxs
 
-    !cellIdxs = getLocalIdx(baseIntegerCoord, shift(currLayer,:), mask(currLayer,:))
-    cellIdxs = getLocalIdxFinest(baseIntegerCoord, shift(currLayer,:), mask(currLayer,:))
-
-    phiCapital = self % grid(cellIdxs(1), cellIdxs(2), cellIdxs(3)) % getPhiCapital()
+    phiCapital = self % grid(cellIdxsMat(currLayer,1), cellIdxsMat(currLayer,2), cellIdxsMat(currLayer,3)) % getPhiCapital()
 
   end function getGridPhiCapital
 
+!&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+! Non bit-trick (saving)
+!&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+  ! !!
+  ! !!
+  ! !! 
+  ! function getGridChi(self, r, gridBounds_min, spacingInv, currLayer, cellIdxsMat, nSub_xyz) result(chi)
+  !   class(cartesianGridFinest), intent(in)              :: self
+  !   real(defReal), dimension(3), intent(in)             :: r, gridBounds_min                                    
+  !   real(defReal), dimension(:), intent(in)             :: spacingInv
+  !   integer(shortInt), dimension(:,:), intent(inout)    :: cellIdxsMat
+  !   integer(shortInt), dimension(:,:), intent(in)       :: nSub_xyz
+  !   integer(shortInt), intent(in)                       :: currLayer
+  !   integer(shortInt)                                   :: chi
+
+  !   ! (needs to be changed) (just double check) (since shift for the finest layer is all 0,
+  !   !  ishft does not do anyting. So, just perfrom iand for the finest layer.)
+  !   !cellIdxs = getLocalIdx(baseIntegerCoord, shift(currLayer,:), mask(currLayer,:))
+  !   cellIdxsMat(currLayer,:) = floor((r(:) - gridBounds_min(:))*(spacingInv(currLayer)))
+  !   cellIdxsMat(currLayer,:) = mod(cellIdxsMat(currLayer,:),nSub_xyz(currLayer,:)) + 1
+
+  !   chi = self % grid(cellIdxsMat(currLayer,1), cellIdxsMat(currLayer,2), cellIdxsMat(currLayer,3)) % getChi()
+
+  ! end function getGridChi
+
+  ! !!
+  ! !!
+  ! !! 
+  ! function getGridPhi(self, cellIdxsMat, currLayer) result(Phi)
+  !   class(cartesianGridFinest), intent(in)              :: self
+  !   integer(shortInt), dimension(:,:), intent(in)       :: cellIdxsMat
+  !   integer(shortInt), intent(in)                       :: currLayer
+  !   integer(shortInt)                                   :: phi
+
+  !   phi = self % grid(cellIdxsMat(currLayer,1), cellIdxsMat(currLayer,2), cellIdxsMat(currLayer,3)) % getphi()
+
+  ! end function getGridPhi
+
+  ! !!
+  ! !!
+  ! !! 
+  ! function getGridPhiCapital(self, cellIdxsMat, currLayer) result(phiCapital)
+  !   class(cartesianGridFinest), intent(in)              :: self
+  !   integer(shortInt), dimension(:,:), intent(in)       :: cellIdxsMat
+  !   integer(shortInt), intent(in)                       :: currLayer
+  !   integer(shortInt)                                   :: phiCapital
+
+  !   phiCapital = self % grid(cellIdxsMat(currLayer,1), cellIdxsMat(currLayer,2), cellIdxsMat(currLayer,3)) % getPhiCapital()
+
+  ! end function getGridPhiCapital
+
+!&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+!
+!&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+ 
   !!
   !!
   !!
