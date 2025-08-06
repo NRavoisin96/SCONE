@@ -1,21 +1,22 @@
-module cartesianCellIntermediate_class
+module cartesianCellIntermediate9_class
   
   use numPrecision
-  use universalVariables,              only : ZERO
-  use vertexShelf_class,               only : vertexShelf
-  use edgeShelf_class,                 only : edgeShelf
-  use faceShelf_class,                 only : faceShelf
+  use universalVariables,               only : ZERO
+  use vertexShelf_class,                only : vertexShelf
+  use edgeShelf_class,                  only : edgeShelf
+  use faceShelf_class,                  only : faceShelf
   use cartesianInitProcedures
-  use cartesianGridSubLayer_inter,     only : cartesianGridSubLayer
-  use cartesianGridFinest_class,       only : cartesianGridFinest
-  use genericProcedures,               only : append, fatalError
+  use cartesianGridSubLayer_inter,      only : cartesianGridSubLayer
+  use cartesianGridIntermediate10_class,only : cartesianGridIntermediate10
+  use cartesianGridFinest_class,        only : cartesianGridFinest
+  use genericProcedures,                only : append, fatalError
 
   implicit none
   private
   
   !!
   !!
-  type, public                                          :: cartesianCellIntermediate
+  type, public                                          :: cartesianCellIntermediate9
     private
     class(cartesianGridSubLayer), pointer               :: subGrid => null()
     integer(shortInt)                                   :: chi = 0
@@ -38,7 +39,7 @@ module cartesianCellIntermediate_class
     procedure                                    :: getPhiCapital
     ! Analysis procedures
     procedure                                    :: cellGetNumberOfCells
-  end type cartesianCellIntermediate
+  end type cartesianCellIntermediate9
 
 contains
 
@@ -47,7 +48,7 @@ contains
   !!
   subroutine cellTestPolyhedronInclusion(self, faces, currElementFaceIdxs, centroid, &
                                               faceNormalSigns, elementIdx)
-    class(cartesianCellIntermediate), intent(inout)     :: self
+    class(cartesianCellIntermediate9), intent(inout)     :: self
     class(faceShelf), intent(in)                        :: faces
     integer(shortInt), dimension(:), intent(in)         :: currElementFaceIdxs
     real(defReal), dimension(3), intent(in)             :: centroid
@@ -67,7 +68,7 @@ contains
   !!
   subroutine refineCell(self, vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
                              currLayer, candidateElementIdxs, newGridBoundsMin, alpha, wStar)
-    class(cartesianCellIntermediate), intent(inout)     :: self
+    class(cartesianCellIntermediate9), intent(inout)     :: self
     class(vertexShelf), intent(in)                      :: vertices
     class(edgeShelf), intent(inout)                     :: edges
     class(faceShelf), intent(inout)                     :: faces
@@ -83,11 +84,11 @@ contains
     if (self % chi == 0) then
 
       ! (needs to be changed) (pointers cannot point to the same class)
-      ! if (n_layers > currLayer+1) then 
-      !   allocate(cartesianGridIntermediate:: self % subGrid)
-      ! else
+      if (n_layers > currLayer+1) then 
+        allocate(cartesianGridIntermediate10:: self % subGrid)
+      else
         allocate(cartesianGridFinest:: self % subGrid)
-      ! end if
+      end if
 
       call self % subgrid % init(vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
                                  currLayer + 1, candidateElementIdxs, newGridBoundsMin, alpha, wStar)
@@ -103,7 +104,7 @@ contains
   ! !!
   ! !!
   ! function getChi(self, baseIntegerCoord, shift, mask, currLayer) result(chi)
-  !   class(cartesianCellIntermediate), intent(in)        :: self
+  !   class(cartesianCellIntermediate9), intent(in)        :: self
   !   integer(shortInt), dimension(3), intent(in)         :: baseIntegerCoord
   !   integer(shortInt), dimension(:,:), intent(in)       :: shift, mask
   !   integer(shortInt), intent(in)                       :: currLayer
@@ -121,7 +122,7 @@ contains
   ! !!
   ! !!
   ! function getPhi(self, baseIntegerCoord, shift, mask, currLayer) result(phi)
-  !   class(cartesianCellIntermediate), intent(in)        :: self
+  !   class(cartesianCellIntermediate9), intent(in)        :: self
   !   integer(shortInt), dimension(3), intent(in)         :: baseIntegerCoord
   !   integer(shortInt), dimension(:,:), intent(in)       :: shift, mask
   !   integer(shortInt), intent(in)                       :: currLayer
@@ -135,7 +136,7 @@ contains
   ! !!
   ! !!
   ! function getPhiCapital(self, baseIntegerCoord, shift, mask, currLayer) result(phiCapital)
-  !   class(cartesianCellIntermediate), intent(in)        :: self
+  !   class(cartesianCellIntermediate9), intent(in)        :: self
   !   integer(shortInt), dimension(3), intent(in)         :: baseIntegerCoord
   !   integer(shortInt), dimension(:,:), intent(in)       :: shift, mask
   !   integer(shortInt), intent(in)                       :: currLayer
@@ -152,7 +153,7 @@ contains
   !!
   !!
   function getChi(self, baseIntegerCoord, shift, mask, currLayer, cellIdxsMat) result(chi)
-    class(cartesianCellIntermediate), intent(in)        :: self
+    class(cartesianCellIntermediate9), intent(in)        :: self
     integer(shortInt), dimension(3), intent(in)         :: baseIntegerCoord
     integer(shortInt), dimension(:,:), intent(in)       :: shift, mask
     integer(shortInt), dimension(:,:), intent(inout)    :: cellIdxsMat
@@ -171,7 +172,7 @@ contains
   !!
   !!
   function getPhi(self, cellIdxsMat, currLayer) result(phi)
-    class(cartesianCellIntermediate), intent(in)        :: self
+    class(cartesianCellIntermediate9), intent(in)        :: self
     integer(shortInt), dimension(:,:), intent(in)       :: cellIdxsMat
     integer(shortInt), intent(in)                       :: currLayer
     integer(shortInt)                                   :: phi
@@ -184,7 +185,7 @@ contains
   !!
   !!
   function getPhiCapital(self, cellIdxsMat, currLayer) result(phiCapital)
-    class(cartesianCellIntermediate), intent(in)        :: self
+    class(cartesianCellIntermediate9), intent(in)        :: self
     integer(shortInt), dimension(:,:), intent(in)       :: cellIdxsMat
     integer(shortInt), intent(in)                       :: currLayer
     integer(shortInt)                                   :: phiCapital
@@ -200,7 +201,7 @@ contains
   ! !!
   ! !!
   ! function getChi(self, r, gridBounds_min, spacingInv, currLayer, cellIdxsMat, nSub_xyz) result(chi)
-  !   class(cartesianCellIntermediate), intent(in)        :: self
+  !   class(cartesianCellIntermediate9), intent(in)        :: self
   !   real(defReal), dimension(3), intent(in)             :: r, gridBounds_min                                    
   !   real(defReal), dimension(:), intent(in)             :: spacingInv
   !   integer(shortInt), dimension(:,:), intent(inout)    :: cellIdxsMat
@@ -220,7 +221,7 @@ contains
   ! !!
   ! !!
   ! function getPhi(self, cellIdxsMat, currLayer) result(phi)
-  !   class(cartesianCellIntermediate), intent(in)        :: self
+  !   class(cartesianCellIntermediate9), intent(in)        :: self
   !   integer(shortInt), dimension(:,:), intent(in)       :: cellIdxsMat
   !   integer(shortInt), intent(in)                       :: currLayer
   !   integer(shortInt)                                   :: phi
@@ -233,7 +234,7 @@ contains
   ! !!
   ! !!
   ! function getPhiCapital(self, cellIdxsMat, currLayer) result(phiCapital)
-  !   class(cartesianCellIntermediate), intent(in)        :: self
+  !   class(cartesianCellIntermediate9), intent(in)        :: self
   !   integer(shortInt), dimension(:,:), intent(in)       :: cellIdxsMat
   !   integer(shortInt), intent(in)                       :: currLayer
   !   integer(shortInt)                                   :: phiCapital
@@ -250,7 +251,7 @@ contains
   !!
   !!
   function cellGetNumberOfCells(self, localNxyz, n_layers, currLayer) result(output)
-    class(cartesianCellIntermediate), intent(in)        :: self
+    class(cartesianCellIntermediate9), intent(in)        :: self
     integer(shortInt), dimension(:,:), intent(in)       :: localNxyz
     integer(shortInt), intent(in)                       :: n_layers, currLayer
     integer(shortInt), dimension(:), allocatable        :: output
@@ -268,4 +269,4 @@ contains
   end function cellGetNumberOfCells
 
 
-end module cartesianCellIntermediate_class
+end module cartesianCellIntermediate9_class

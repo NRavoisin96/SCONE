@@ -73,7 +73,7 @@ contains
 
     ! (needs to be changed) (change it so that it can be read from the inputfile?)
     ! (Currently, n_layers can be only either 2 or 3; to be updated)
-    self % n_layers = 3
+    self % n_layers = 4
     allocate(minExponent(self % n_layers,3))
     allocate(self % spacing(self % n_layers))
     allocate(self % spacingInv(self % n_layers))
@@ -317,10 +317,18 @@ contains
     print*, "No. of elements                     : ", elements % getSize()
     print*, "No. of layers                       : ", self % n_layers
     print*, "Grid spacing for coarsest           : ", self % spacing(1)
-    print*, "Grid spacing for intermediate       : ", self % spacing(2)
+    if (self % n_layers > 2) then
+      do i = 2, self % n_layers - 1 
+        print*, "Grid spacing for intermediate       : ", self % spacing(i)
+      end do
+    end if
     print*, "Grid spacing for finest             : ", self % spacing(self % n_layers)
     print*, "Grid size in xyz for coarsest       : ", self % n_xyz(1,:)
-    print*, "Grid size in xyz for intermediate   : ", self % n_xyz(2,:)
+    if (self % n_layers > 2) then
+      do i = 2, self % n_layers - 1 
+        print*, "Grid size in xyz for intermediate   : ", self % n_xyz(i,:)
+      end do
+    end if
     print*, "Grid size in xyz for finest         : ", self % n_xyz(self % n_layers,:)
     print*, "Grid lower bounds in xyz            : ", self % gridBounds_min
     print*, "Grid upper bounds in xyz            : ", self % gridBounds_max

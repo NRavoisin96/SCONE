@@ -1,11 +1,11 @@
-module cartesianGridIntermediate_class
+module cartesianGridIntermediate5_class
 
   use vertexShelf_class,                       only : vertexShelf
   use edgeShelf_class,                         only : edgeShelf
   use faceShelf_class,                         only : faceShelf
   use elementShelf_class,                      only : elementShelf
   use cartesianGridSubLayer_inter,             only : cartesianGridSubLayer
-  use cartesianCellIntermediate_class,         only : cartesianCellIntermediate
+  use cartesianCellIntermediate5_class,        only : cartesianCellIntermediate5
   use numPrecision   
   use cartesianGenericProcedures
 
@@ -16,9 +16,9 @@ module cartesianGridIntermediate_class
   !!
   !!
   !!
-  type, public, extends(cartesianGridSubLayer)                      :: cartesianGridIntermediate
+  type, public, extends(cartesianGridSubLayer)                      :: cartesianGridIntermediate5
     private
-    type(cartesianCellIntermediate), dimension(:,:,:), allocatable  :: grid
+    type(cartesianCellIntermediate5), dimension(:,:,:), allocatable  :: grid
 
   contains
 
@@ -33,7 +33,7 @@ module cartesianGridIntermediate_class
     ! Analysis procedures
     procedure                                    :: getNumberOfCells
 
-  end type cartesianGridIntermediate
+  end type cartesianGridIntermediate5
 
 contains
 
@@ -42,7 +42,7 @@ contains
   !!
   subroutine init(self, vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
                        currLayer, candidateElementIdxs, gridBoundsMin, alpha, wStar)
-    class(cartesianGridIntermediate), intent(inout)     :: self
+    class(cartesianGridIntermediate5), intent(inout)     :: self
     class(vertexShelf), intent(in)                      :: vertices
     class(edgeShelf), intent(inout)                     :: edges
     class(faceShelf), intent(inout)                     :: faces
@@ -75,7 +75,7 @@ contains
   !!
   subroutine constructMapping(self, vertices, edges, faces, elements, spacing, spacingInv, n_xyz, &
                                    n_layers, currLayer, candidateElementIdxs, gridBoundsMin, localNxyz)
-    class(cartesianGridIntermediate), intent(inout)     :: self
+    class(cartesianGridIntermediate5), intent(inout)     :: self
     class(vertexShelf), intent(in)                      :: vertices
     class(edgeShelf), intent(inout)                     :: edges
     class(faceShelf), intent(inout)                     :: faces
@@ -142,7 +142,7 @@ contains
   !!
   subroutine refineGrid(self, vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
                              currLayer, candidateElementIdxs, gridBoundsMin, localNxyz, alpha, wStar)
-    class(cartesianGridIntermediate), intent(inout)     :: self
+    class(cartesianGridIntermediate5), intent(inout)     :: self
     class(vertexShelf), intent(in)                      :: vertices
     class(edgeShelf), intent(inout)                     :: edges
     class(faceShelf), intent(inout)                     :: faces
@@ -183,7 +183,7 @@ contains
   ! !!
   ! !! 
   ! function getGridChi(self, baseIntegerCoord, shift, mask, currLayer) result(chi)
-  !   class(cartesianGridIntermediate), intent(in)        :: self
+  !   class(cartesianGridIntermediate5), intent(in)        :: self
   !   integer(shortInt), dimension(3), intent(in)         :: baseIntegerCoord
   !   integer(shortInt), dimension(:,:), intent(in)       :: shift, mask
   !   integer(shortInt), intent(in)                       :: currLayer
@@ -201,7 +201,7 @@ contains
   ! !!
   ! !! 
   ! function getGridPhi(self, baseIntegerCoord, shift, mask, currLayer) result(phi)
-  !   class(cartesianGridIntermediate), intent(in)        :: self
+  !   class(cartesianGridIntermediate5), intent(in)        :: self
   !   integer(shortInt), dimension(3), intent(in)         :: baseIntegerCoord
   !   integer(shortInt), dimension(:,:), intent(in)       :: shift, mask
   !   integer(shortInt), intent(in)                       :: currLayer
@@ -219,7 +219,7 @@ contains
   ! !!
   ! !! 
   ! function getGridPhiCapital(self, baseIntegerCoord, shift, mask, currLayer) result(phiCapital)
-  !   class(cartesianGridIntermediate), intent(in)        :: self
+  !   class(cartesianGridIntermediate5), intent(in)        :: self
   !   integer(shortInt), dimension(3), intent(in)         :: baseIntegerCoord
   !   integer(shortInt), dimension(:,:), intent(in)       :: shift, mask
   !   integer(shortInt), intent(in)                       :: currLayer
@@ -240,7 +240,7 @@ contains
   !!
   !! 
   function getGridChi(self, baseIntegerCoord, shift, mask, currLayer, cellIdxsMat) result(chi)
-    class(cartesianGridIntermediate), intent(in)        :: self
+    class(cartesianGridIntermediate5), intent(in)        :: self
     integer(shortInt), dimension(3), intent(in)         :: baseIntegerCoord
     integer(shortInt), dimension(:,:), intent(in)       :: shift, mask
     integer(shortInt), dimension(:,:), intent(inout)    :: cellIdxsMat
@@ -258,7 +258,7 @@ contains
   !!
   !! 
   function getGridPhi(self, cellIdxsMat, currLayer) result(phi)
-    class(cartesianGridIntermediate), intent(in)        :: self
+    class(cartesianGridIntermediate5), intent(in)        :: self
     integer(shortInt), dimension(:,:), intent(in)       :: cellIdxsMat
     integer(shortInt), intent(in)                       :: currLayer
     integer(shortInt)                                   :: phi
@@ -272,7 +272,7 @@ contains
   !!
   !! 
   function getGridPhiCapital(self, cellIdxsMat, currLayer) result(phiCapital)
-    class(cartesianGridIntermediate), intent(in)        :: self
+    class(cartesianGridIntermediate5), intent(in)        :: self
     integer(shortInt), dimension(:,:), intent(in)       :: cellIdxsMat
     integer(shortInt), intent(in)                       :: currLayer
     integer(shortInt)                                   :: phiCapital
@@ -289,7 +289,7 @@ contains
   ! !!
   ! !! 
   ! function getGridChi(self, r, gridBounds_min, spacingInv, currLayer, cellIdxsMat, nSub_xyz) result(chi)
-  !   class(cartesianGridIntermediate), intent(in)        :: self
+  !   class(cartesianGridIntermediate5), intent(in)        :: self
   !   real(defReal), dimension(3), intent(in)             :: r, gridBounds_min                                    
   !   real(defReal), dimension(:), intent(in)             :: spacingInv
   !   integer(shortInt), dimension(:,:), intent(inout)    :: cellIdxsMat
@@ -309,7 +309,7 @@ contains
   ! !!
   ! !! 
   ! function getGridPhi(self, cellIdxsMat, currLayer) result(phi)
-  !   class(cartesianGridIntermediate), intent(in)        :: self
+  !   class(cartesianGridIntermediate5), intent(in)        :: self
   !   integer(shortInt), dimension(:,:), intent(in)       :: cellIdxsMat
   !   integer(shortInt), intent(in)                       :: currLayer
   !   integer(shortInt)                                   :: phi
@@ -323,7 +323,7 @@ contains
   ! !!
   ! !! 
   ! function getGridPhiCapital(self, cellIdxsMat, currLayer) result(phiCapital)
-  !   class(cartesianGridIntermediate), intent(in)        :: self
+  !   class(cartesianGridIntermediate5), intent(in)        :: self
   !   integer(shortInt), dimension(:,:), intent(in)       :: cellIdxsMat
   !   integer(shortInt), intent(in)                       :: currLayer
   !   integer(shortInt)                                   :: phiCapital
@@ -341,7 +341,7 @@ contains
   !!
   !!
   function getNumberOfCells(self, localNxyz, n_layers, currLayer) result(report)
-    class(cartesianGridIntermediate), intent(in)        :: self
+    class(cartesianGridIntermediate5), intent(in)        :: self
     integer(shortInt), dimension(:,:), intent(in)       :: localNxyz
     integer(shortInt), intent(in)                       :: n_layers, currLayer
     integer(shortInt), dimension(:), allocatable        :: output, report
@@ -367,4 +367,4 @@ contains
 
   end function getNumberOfCells
 
-end module cartesianGridIntermediate_class
+end module cartesianGridIntermediate5_class

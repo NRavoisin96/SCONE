@@ -1,10 +1,30 @@
 # Add Source Files to the global list
 add_sources(
             ./cartesianGridCoarsest_class.f90
-            ./cartesianGridIntermediate_class.f90
+            ./cartesianGridIntermediate1_class.f90
+            ./cartesianGridIntermediate2_class.f90
+            ./cartesianGridIntermediate3_class.f90
+            ./cartesianGridIntermediate4_class.f90
+            ./cartesianGridIntermediate5_class.f90
+            ./cartesianGridIntermediate6_class.f90
+            ./cartesianGridIntermediate7_class.f90
+            ./cartesianGridIntermediate8_class.f90
+            ./cartesianGridIntermediate9_class.f90
+            ./cartesianGridIntermediate10_class.f90
+            ./cartesianGridIntermediate11_class.f90
             ./cartesianGridFinest_class.f90
             ./cartesianGridSubLayer_inter.f90
             ./cartesianCellCoarsest_class.f90
-            ./cartesianCellIntermediate_class.f90
+            ./cartesianCellIntermediate1_class.f90
+            ./cartesianCellIntermediate2_class.f90
+            ./cartesianCellIntermediate3_class.f90
+            ./cartesianCellIntermediate4_class.f90
+            ./cartesianCellIntermediate5_class.f90
+            ./cartesianCellIntermediate6_class.f90
+            ./cartesianCellIntermediate7_class.f90
+            ./cartesianCellIntermediate8_class.f90
+            ./cartesianCellIntermediate9_class.f90
+            ./cartesianCellIntermediate10_class.f90
+            ./cartesianCellIntermediate11_class.f90
             ./cartesianCellFinest_class.f90
            )
