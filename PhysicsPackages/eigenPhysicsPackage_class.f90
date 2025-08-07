@@ -284,14 +284,14 @@ contains
 
 
       ! Display progress
-      call printFishLineR(i)
-      print *
-      print *, 'Cycle: ', numToChar(i), ' of ', numToChar(N_cycles)
-      print *, 'Pop: ', numToChar(Nstart) , ' -> ', numToChar(Nend)
-      print *, 'Elapsed time: ', trim(secToChar(elapsed_T))
-      print *, 'End time:     ', trim(secToChar(end_T))
-      print *, 'Time to end:  ', trim(secToChar(T_toEnd))
-      call tally % display()
+      ! call printFishLineR(i)
+      ! print *
+      ! print *, 'Cycle: ', numToChar(i), ' of ', numToChar(N_cycles)
+      ! print *, 'Pop: ', numToChar(Nstart) , ' -> ', numToChar(Nend)
+      ! print *, 'Elapsed time: ', trim(secToChar(elapsed_T))
+      ! print *, 'End time:     ', trim(secToChar(end_T))
+      ! print *, 'Time to end:  ', trim(secToChar(T_toEnd))
+      ! call tally % display()
     end do
 
     ! end timer for in-cycle calculation and print
