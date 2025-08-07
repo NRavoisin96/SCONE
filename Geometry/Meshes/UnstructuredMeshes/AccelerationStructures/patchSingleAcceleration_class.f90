@@ -9,6 +9,10 @@ module patchSingleAcceleration_class
   use edgeShelf_class,             only : edgeShelf
   use cartesianGridSingle_class,   only : cartesianGridSingle
   use cartesianGenericProcedures,  only : binarySearchAngle
+  !!!!!
+  ! With analysis on distribution
+  !use analysisDistribution
+  !!!!!
   
   implicit none
   private
@@ -27,6 +31,11 @@ module patchSingleAcceleration_class
 
 contains
 
+!&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+! Without analysis on distribution. Comment/uncomment also:
+! 1. "./analysisDistribution.f90" in CMakeLists.txt in AccelerationStrutures, UnstructuredMeshes
+! 2. "use analysisDistribution" at the top of this .f90 file 
+!&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
   !!
   !!
   !!
@@ -197,6 +206,218 @@ contains
 
 
   end subroutine findHostElement
+
+!&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+! With analysis on distribution. Comment/uncomment also:
+! 1. "./analysisDistribution.f90" in CMakeLists.txt in AccelerationStrutures, UnstructuredMeshes
+! 2. "use analysisDistribution" at the top of this .f90 file 
+!&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+  ! !!
+  ! !!
+  ! !!
+  ! subroutine findHostElement(self, vertices, edges, faces, elements, coords)
+  !   class(patchSingleAcceleration), intent(in)      :: self
+  !   class(vertexShelf), intent(in)                  :: vertices
+  !   class(edgeShelf), intent(in)                    :: edges
+  !   type(faceShelf), intent(in)                     :: faces
+  !   type(elementShelf), intent(in)                  :: elements
+  !   type(coord), intent(inout)                      :: coords
+  !   integer(shortInt)                               :: potentialElementIdx, i, edgeIdx, vertexIdx, pointerIdx, &
+  !                                                      max, sizeArr
+  !   integer(shortInt), dimension(3)                 :: cellIdxs
+  !   real(defReal), dimension(3)                     :: r, v_eCoord, rLocalCoord, dummyVector, phiCoord, gridBounds_min
+  !   integer(shortInt), dimension(2)                 :: currEdgeVertexIdxs
+  !   real(defReal)                                   :: thetaHat, xLocalCoord, yLocalCoord, gridSpacingReciprocal
+  !   integer(shortInt), dimension(:), allocatable    :: elementIdxsArray, temp
+
+  !   if (.NOT. getIsInitialisedANALYSIS()) then
+
+  !     ! Find maximum valence of edge
+  !     max = 0
+  !     do i = 1, edges % getSize()
+  !       temp = edges % getEdgeElementIdxs(i)
+  !       if (max < size(temp)) then
+  !         max = size(temp)
+  !       end if
+  !     end do
+
+  !     ! Initialise analysisDistribution
+  !     call initDistributionANALYSIS(max)
+
+  !   end if
+
+  !   ! retrieve the coordinates of neutron
+  !   ! (needs to be changed) (needs checking) (is it correct to use "getPositionToNudge" or other coordinates?)
+  !   r = coords % getPositionToNudge()
+
+  !   call updateCountANALYSIS()
+
+  !   !!!!!
+  !   !r = [-0.40675141160938533,      -0.57523604333256917,        5.3471601775829991E-002]
+  !   !print*, "coord", r
+  !   !!!!!
+
+  !   ! !!!
+  !   ! if (.NOT. self % grid % getGridIsOutsideBounds(r)) then
+  !   !   print*, r
+  !   ! end if
+  !   ! !!!
+
+  !   ! check if the position of neutron is inside the catesian grid bounds
+  !   if (self % grid % getGridIsOutsideBounds(r)) then
+  !     call updateDistributionTypeANALYSIS(1)
+  !     return
+  !   end if
+
+  !   !print*, "here"
+  !   ! retrieve grid properties
+  !   gridBounds_min = self % grid % getGridBounds_min()
+  !   gridSpacingReciprocal = self % grid % getSpacingReciprocal()
+
+  !   ! find cartesian cell indices
+  !   do i = 1, 3
+  !     cellIdxs(i) = ceiling((r(i) - gridBounds_min(i))*(gridSpacingReciprocal))
+  !   end do
+
+  !   !!!!!
+  !   !print*, "indices", cellIdxs
+  !   !!!!!
+
+  !   !!!
+  !   ! print*, "here"
+  !   ! print*, r
+  !   ! print*, self % grid % getGridChi(cellIdxs)
+  !   ! print*, self % grid % getGridPhi(cellIdxs)
+  !   ! print*, self % grid % getGridPhiCapital(cellIdxs)
+  !   !!!
+
+
+
+  !   ! retrieve element index from chi mapping.
+  !   potentialElementIdx = self % grid % getGridChi(cellIdxs)
+
+  !   !!!!!
+  !   !print*, "elementIdx1", potentialElementIdx
+  !   !!!!!
+    
+  !   ! if element index is valid (the current cell, characterised by "cellIdxs", is fully contained within that element)
+  !   if (potentialElementIdx > 0) then
+  !     call coords % setElementIdx(potentialElementIdx)
+  !     call coords % setParentElementIdx(elements % getElementParentIdx(potentialElementIdx))
+  !     call updateDistributionTypeANALYSIS(2)
+  !     return
+
+  !   ! in case the current cell lies outside the computational domain for the unstructured mesh, return.
+  !   ! this is tested after testing if (chi > 0) because that is the most likely case in terms of the number of the cells
+  !   elseif (potentialElementIdx == -1) then
+  !     call updateDistributionTypeANALYSIS(3)
+  !     return
+      
+  !   ! otherwise, the current cell intersects with either face(s) or edge(s). Start patch searching.
+  !   else
+  !     edgeIdx = self % grid % getGridPhiCapital(cellIdxs)
+
+  !     if (edgeIdx == 0) then
+  !       call updateDistributionTypeANALYSIS(4)
+  !     else
+  !       call updateDistributionTypeANALYSIS(5)
+  !     end if
+
+  !     if (edgeIdx == 0) then
+  !       ! push the coordinates away from the current vertex (= phi)
+  !       ! (needs to be changed) (possible improvement/acceleration for the rest of the subroutine below?)
+  !       vertexIdx = self % grid % getGridPhi(cellIdxs)
+  !       phiCoord = vertices % getVertexCoordinates(vertexIdx)
+  !       dummyVector = r - phiCoord
+  !       r = phiCoord + (self % grid % getGridWStar())/(norm2(dummyVector))*(dummyVector)
+
+  !       ! !!!
+  !       ! print*, "-----------------------------------------------------------------------"
+  !       ! print*, "original vertex", vertexIdx
+  !       ! print*, "original Edge", self % grid % getGridPhiCapital(cellIdxs)
+  !       ! print*, "original Element", self % grid % getGridChi(cellIdxs)
+  !       ! !!! 
+
+  !       ! find updated cartesian cell indices
+  !       do i = 1, 3
+  !         cellIdxs(i) = ceiling((r(i) - gridBounds_min(i))*(gridSpacingReciprocal))
+  !       end do
+
+  !       ! get updated edge and element index
+  !       edgeIdx = self % grid % getGridPhiCapital(cellIdxs)
+  !       potentialElementIdx = self % grid % getGridChi(cellIdxs)
+
+  !       ! if pushed coordinate has direct mapping for element index, use that
+  !       ! (needs to be changed) (possible acceleration for this and other parts of the subroutine)
+  !       ! (needs checking) (is pushed position has direct mapping for element idx, is it guaranteed to lie inside. OW, ">=" not "/=")
+  !       if (potentialElementIdx /= 0) then
+  !         call coords % setElementIdx(potentialElementIdx)
+  !         ! (needs to be changed) (temp:there is no internal subdivision)
+  !         !call coords % setParentElementIdx(elements % getElementParentIdx(potentialElementIdx))
+  !         call coords % setParentElementIdx(potentialElementIdx)
+
+  !             !!!!!
+  !             !print*, "elementIdx2", potentialElementIdx
+  !             !!!!!
+  !         call updateDistributionTypeANALYSIS(6)
+  !         return
+  !       end if
+
+  !       ! !!!
+  !       ! print*, "new vertex", self % grid % getGridPhi(cellIdxs)
+  !       ! print*, "new Edge", self % grid % getGridPhiCapital(cellIdxs)
+  !       ! print*, "new Element", self % grid % getGridChi(cellIdxs)
+  !       ! !!!
+
+  !     end if
+    
+  !     ! calculate pseudo angle
+  !     currEdgeVertexIdxs = edges % getEdgeVertexIdxs(edgeIdx)
+  !     v_eCoord = vertices % getVertexCoordinates(currEdgeVertexIdxs(2))
+  !     rLocalCoord = r - v_eCoord
+  !     xLocalCoord = dot_product(rLocalCoord, edges % getEdgeLocalBasis1(edgeIdx))
+  !     yLocalCoord = dot_product(rLocalCoord, edges % getEdgeLocalBasis2(edgeIdx))
+  !     thetaHat = SIGN(1 - (xLocalCoord / (abs(xLocalCoord) + abs(yLocalCoord))), yLocalCoord)
+
+  !     ! perform binary search and return index pointer
+  !     ! (needs checking) (index order and mechanics)
+  !     !isBoundary = edges % getEdgeIsBoundary(edgeIdx) !!! not needed anymore
+  !     pointerIdx = binarySearchAngle(edges % getEdgeAnglesArray(edgeIdx), thetaHat)
+  !     elementIdxsArray = edges % getEdgeElementIdxsArray(edgeIdx)
+  !     potentialElementIdx = elementIdxsArray(pointerIdx)
+  !     call updateDistributionValenceANALYSIS(size(elementIdxsArray))
+
+  !     ! if the neutron turns out to lie outside the mesh domain, return 
+  !     if (potentialElementIdx == 0) then
+  !       call updateDistributionTypeANALYSIS(7)
+  !       return
+  !     end if
+
+  !     call coords % setElementIdx(potentialElementIdx)
+  !     call coords % setParentElementIdx(elements % getElementParentIdx(potentialElementIdx))
+
+  !   !!!!!
+  !   !print*, "elementIdx3", potentialElementIdx
+  !   !!!!!
+
+  !     return
+
+
+
+
+  !   end if
+
+  !   !outside of this subroutine:
+  !   ! check if functions at cellClass is callable
+  !   ! check spacingReciprocal
+  !   ! getphi, getPhiCapital, getChi
+
+  ! end subroutine findHostElement
+
+!&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+! 
+!&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+
 
   !!
   !!
