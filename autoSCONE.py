@@ -1,7 +1,22 @@
 #!/usr/bin/env python3
 """
-Automate SCONE (Fortran) runs for several source-population (‘pop’) sizes,
-record timing statistics, and collate everything in a CSV.
+Benchmark SCONE (Fortran Monte-Carlo solver) across a matrix of
+  ▸ geometry definitions,
+  ▸ acceleration schemes, and
+  ▸ source-population sizes (‘pop’).
+
+For every (geometry → accelerationMethod → pop) triple the script
+
+  1. rewrites the appropriate input deck
+  2. runs   ./Build/scone.out <deck>
+  3. parses the solver’s stdout for timing blocks
+  4. appends the result to an in-memory table
+
+When all experiments finish the table is flushed to
+  scone_benchmark_<YYYYMMDD_HHMMSS>.csv   in the current directory.
+
+The input files are **always restored** to their pristine state, even
+after an interruption (SIGINT / Ctrl-C).
 """
 
 from __future__ import annotations
@@ -13,17 +28,44 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
-# ────────────────────────────── USER-TUNEABLE PARAMETERS ───────────────────────
-SCONE_DIR = Path("/home/daeyeun/MPhil_project/SCONE")          # project root
-EXECUTABLE = SCONE_DIR / "Build" / "scone.out"                 # compiled code
-INPUT_FILE = SCONE_DIR / "InputFiles" / "SCONE_ToyProblem"     # main deck
-POP_VALUES = [100, 200, 300]                                   # populations
-CSV_PREFIX = "scone_run_summary"                               # output stem
-# ───────────────────────────────────────────────────────────────────────────────
+# ─────────────────────────── USER-EDITABLE CONTROL PANEL ───────────────────────
+# NB  Changing these lists is the *only* thing most users ever need to do.
 
-# Compiled regexes (multiline / dot-all)
+POP_VALUES: List[int] = [100, 200]                        # innermost
+ACCELERATION_METHODS: List[str] = ["patchSingle", "octree"]         # middle
+GEOMETRY_CASES: List[str] = [                                       # outermost
+    # polyhedral (HEX or POLY) meshes
+    "FinalFuelPinHex72",
+    "FinalFuelPinHex243",
+    # "FinalFuelPinHex576",
+    # "FinalFuelPinHex1125",
+    # "FinalFuelPinHex1944",
+    # "FinalFuelPinHex3087",
+    # "FinalFuelPinHex4608",
+    # "FinalFuelPinPoly264",
+    # "FinalFuelPinPoly436",
+    # "FinalFuelPinPoly468",
+    # "FinalFuelPinPoly940",
+    # "FinalFuelPinPoly1560",
+    # tetrahedral meshes
+    #"FinalFuelPinTet137",
+    # "FinalFuelPinTet298",
+     "FinalFuelPinTet427",
+    # "FinalFuelPinTet660",
+]
+# ───────────────────────── END OF USER-EDITABLE SECTION ────────────────────────
+
+
+# Project layout (adapt if you move directories)
+BASE_DIR = Path(__file__).resolve().parent
+EXECUTABLE = BASE_DIR / "Build" / "scone.out"
+INPUT_DIR = BASE_DIR / "InputFiles"
+TET_DECK = INPUT_DIR / "SCONE_ToyProblemTet"
+POLY_DECK = INPUT_DIR / "SCONE_ToyProblemPoly"
+
+# Regexes for parsing SCONE stdout
 _INIT_RE = re.compile(
     r"Initialisation procedure time.*?"
     r"CPU\s+time:\s+([0-9.E+-]+).*?seconds.*?"
@@ -37,88 +79,152 @@ _IN_CYCLE_RE = re.compile(
     re.S,
 )
 
-# ------------------------------------------------------------------------------
-def _set_pop_in_deck(content: List[str], new_pop: int) -> List[str]:
-    """Return a *new* list of lines with the pop value replaced."""
-    out = content.copy()
-    for idx, line in enumerate(out):
-        if line.strip().startswith("pop"):
-            out[idx] = re.sub(r"pop\s+\d+;", f"pop      {new_pop};", line)
+
+# Helpers ───────────────────────────────────────────────────────────────────────
+def _load_original_decks() -> Dict[Path, List[str]]:
+    """Read the untouched decks once at start-up."""
+    decks: Dict[Path, List[str]] = {}
+    for p in (TET_DECK, POLY_DECK):
+        decks[p] = p.read_text().splitlines(keepends=True)
+        # Make an on-disk backup the first time we run, “just in case”.
+        bak = p.with_suffix(".bak")
+        if not bak.exists():
+            shutil.copy2(p, bak)
+    return decks
+
+
+def _prepare_deck(
+    deck_lines: List[str],
+    pop: int,
+    geometry: str,
+    accel: str,
+) -> List[str]:
+    """Return *new* list of lines with the required substitutions."""
+    out = deck_lines.copy()
+
+    # Replace population line (assumed unique token 'pop')
+    for i, l in enumerate(out):
+        if l.strip().startswith("pop"):
+            out[i] = re.sub(r"pop\s+\d+;", f"pop      {pop};", l)
             break
     else:
-        raise RuntimeError("No 'pop' line found in input deck.")
+        raise RuntimeError("No 'pop' line found in deck.")
+
+    # Replace geometry identifier + acceleration method in *same* line
+    for i, l in enumerate(out):
+        if "FinalFuelPin" in l and ("patchSingle" in l or "octree" in l):
+            # geometry
+            l = re.sub(
+                r"FinalFuelPin(?:Tet|Hex|Poly)\d+",
+                geometry,
+                l,
+            )
+            # accel method
+            l = re.sub(r"\b(patchSingle|octree)\b", accel, l)
+            out[i] = l
+            break
+    else:
+        raise RuntimeError("Could not locate geometry/acceleration line.")
+
     return out
 
 
-def _run_scone(pop: int) -> Dict[str, str | float | int]:
-    """Run SCONE once for a given population size and return timing data."""
-    # 1. Rewrite input file
-    INPUT_FILE.write_text("".join(_set_pop_in_deck(original_deck, pop)))
-
-    # 2. Launch solver & capture stdout
+def _run_scone(deck_path: Path) -> str:
+    """Run SCONE once and return full stdout (stderr is suppressed)."""
     proc = subprocess.run(
-        [str(EXECUTABLE), str(INPUT_FILE.resolve())],
+        [str(EXECUTABLE), str(deck_path.resolve())],
         stdout=subprocess.PIPE,
         stderr=subprocess.DEVNULL,
-        text=True,
-        cwd=SCONE_DIR,
-        check=True,
+        cwd=BASE_DIR,
+        text=True,          # decode as UTF-8
+        check=True,         # raise upon non-zero exit
     )
-    out = proc.stdout
-
-    # 3. Parse timing blocks
-    init_m = _INIT_RE.search(out)
-    cycle_ms = _IN_CYCLE_RE.findall(out)
-
-    if not init_m or len(cycle_ms) < 2:
-        raise ValueError(
-            f"Unexpected SCONE output format for pop={pop}. "
-            "Could not locate all requested timing blocks."
-        )
-
-    init_cpu, init_wall = init_m.groups()
-    (cyc1_cpu, cyc1_wall), (cyc2_cpu, cyc2_wall) = cycle_ms[:2]
-
-    return {
-        "pop": pop,
-        "init_cpu_s": float(init_cpu),
-        "init_wall_hms": init_wall,
-        "cycle1_cpu_s": float(cyc1_cpu),
-        "cycle1_wall_hms": cyc1_wall,
-        "cycle2_cpu_s": float(cyc2_cpu),
-        "cycle2_wall_hms": cyc2_wall,
-    }
+    return proc.stdout
 
 
-# ------------------------------------------------------------------------------
-if __name__ == "__main__":
+def _extract_timings(stdout: str) -> Tuple[float, str, float, str, float, str]:
+    """Return (initCPU, initWall, cyc1CPU, cyc1Wall, cyc2CPU, cyc2Wall)."""
+    m_init = _INIT_RE.search(stdout)
+    cycles = _IN_CYCLE_RE.findall(stdout)
+
+    if not m_init or len(cycles) < 2:
+        raise ValueError("Unexpected SCONE output – timing blocks missing.")
+
+    init_cpu, init_wall = m_init.groups()
+    (c1_cpu, c1_wall), (c2_cpu, c2_wall) = cycles[:2]
+
+    return (
+        float(init_cpu),
+        init_wall,
+        float(c1_cpu),
+        c1_wall,
+        float(c2_cpu),
+        c2_wall,
+    )
+
+
+def _select_template(geometry: str) -> Path:
+    """Heuristic: any ‘Tet…’ → tetrahedral deck, everything else → poly deck."""
+    return TET_DECK if "Tet" in geometry else POLY_DECK
+
+
+# Main driver ──────────────────────────────────────────────────────────────────
+def main() -> None:
     if not EXECUTABLE.exists():
-        sys.exit(f"Executable not found at {EXECUTABLE!s}")
+        sys.exit(f"Fatal: executable not found at {EXECUTABLE}")
 
-    # Preserve a pristine copy of the original deck
-    backup_path = INPUT_FILE.with_suffix(".bak")
-    if not backup_path.exists():
-        shutil.copy2(INPUT_FILE, backup_path)
-    original_deck = INPUT_FILE.read_text().splitlines(keepends=True)
+    originals = _load_original_decks()
+    results = []
 
-    results: List[Dict[str, str | float | int]] = []
     try:
-        for pop in POP_VALUES:
-            print(f"⇒ Running SCONE with pop = {pop} …", flush=True)
-            stats = _run_scone(pop)
-            results.append(stats)
-            print("   ✔ completed")
+        for geom in GEOMETRY_CASES:                       # outer-most
+            deck_template = _select_template(geom)
+            for accel in ACCELERATION_METHODS:            # intermediate
+                for pop in POP_VALUES:                    # inner-most
+                    print(f"→ {geom:>20s} | {accel:<11s} | pop={pop:4d}",
+                          end=" … ", flush=True)
 
-    finally:  # Always restore the file, even after Ctrl-C
-        INPUT_FILE.write_text("".join(original_deck))
+                    # 1. materialise temporary deck on disk
+                    modified = _prepare_deck(
+                        originals[deck_template], pop, geom, accel
+                    )
+                    deck_template.write_text("".join(modified))
 
-    # Write CSV
-    timestamp = _dt.datetime.now().strftime("%Y%m%d_%H%M%S")
-    csv_path = SCONE_DIR / f"{CSV_PREFIX}_{timestamp}.csv"
-    with csv_path.open("w", newline="") as f:
-        fieldnames = list(results[0].keys())
-        w = csv.DictWriter(f, fieldnames=fieldnames)
+                    # 2. run solver & harvest timings
+                    stdout = _run_scone(deck_template)
+                    timings = _extract_timings(stdout)
+
+                    # 3. store statistics
+                    results.append(
+                        {
+                            "geometry": geom,
+                            "acceleration": accel,
+                            "pop": pop,
+                            "init_cpu_s": timings[0],
+                            "init_wall_hms": timings[1],
+                            "cycle1_cpu_s": timings[2],
+                            "cycle1_wall_hms": timings[3],
+                            "cycle2_cpu_s": timings[4],
+                            "cycle2_wall_hms": timings[5],
+                        }
+                    )
+                    print("✓")
+
+    finally:
+        # Always restore pristine decks
+        for p, lines in originals.items():
+            p.write_text("".join(lines))
+
+    # ─────────────────────── report to CSV ─────────────────────────
+    stamp = _dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+    out_path = BASE_DIR / f"scone_benchmark_{stamp}.csv"
+    with out_path.open("w", newline="") as fh:
+        w = csv.DictWriter(fh, fieldnames=results[0].keys())
         w.writeheader()
         w.writerows(results)
 
-    print(f"\nAll done. Summary saved to {csv_path}")
+    print(f"\nAll experiments complete. Results → {out_path}")
+
+
+if __name__ == "__main__":
+    main()
