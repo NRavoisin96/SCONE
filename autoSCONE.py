@@ -2,8 +2,6 @@
 """
 Automate SCONE (Fortran) runs for several source-population (‘pop’) sizes,
 record timing statistics, and collate everything in a CSV.
-
-Author : ChatGPT (OpenAI), 7 Aug 2025
 """
 
 from __future__ import annotations
