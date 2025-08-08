@@ -1,6 +1,6 @@
 type eigenPhysicsPackage;
 
-pop      60000;
+pop      100000;
 active   50;
 inactive 50;
 XSdata ce;
@@ -33,7 +33,7 @@ geometry {
   	}
 
 	meshes { 
-		testMesh {id 1; type OpenFOAMMesh; path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/FinalFuelPinTet137/; accelerationMethod patchSingle;}
+		testMesh {id 1; type OpenFOAMMesh; path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/FinalFuelPinHex576/; accelerationMethod patchMulti;}
 	}
 
 	universes {

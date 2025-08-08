@@ -25,6 +25,7 @@ module cartesianGridCoarsest_class
     integer(shortInt), dimension(:,:), allocatable              :: n_xyz, shift, mask, nSub_xyz !!!!!(last one)
     type(cartesianCellCoarsest), dimension(:,:,:), allocatable  :: grid
     integer(shortInt)                                           :: n_layers
+    integer(shortInt), dimension(3)                             :: n_xyzCoarsest
     ! (needs to be changed) (one-dimensinoalise matrixes if possible)
 
   contains
@@ -73,7 +74,7 @@ contains
 
     ! (needs to be changed) (change it so that it can be read from the inputfile?)
     ! (Currently, n_layers can be only either 2 or 3; to be updated)
-    self % n_layers = 4
+    self % n_layers = 3
     allocate(minExponent(self % n_layers,3))
     allocate(self % spacing(self % n_layers))
     allocate(self % spacingInv(self % n_layers))
@@ -147,6 +148,7 @@ contains
 
       ! calculate the target number of cells for the coarsest layer
       n_xyzTarget(i) = (self % gridBounds_max(i) - self % gridBounds_min(i)) / self % spacing(1)
+      self % n_xyzCoarsest(i) = ceiling(n_xyzTarget(i))
       
       ! to use cheaper indexing calc. procedure, the number of cells must be a power of 2
       ! Hence, find the lowest possible j such that n_xyzTarget(i) <= 2**j   
@@ -176,10 +178,10 @@ contains
       ! print*, "residual                        : ", residual
       ! print*, "Grid lower bounds in xyz        : ", self % gridBounds_min
       ! print*, "Grid upper bounds in xyz        : ", self % gridBounds_max      
-      ! Through fatal error in case grid bounds not set appropriately
-      if (self%n_xyz(1,i)*self%spacing(1) /= (self%gridBounds_max(i)-self%gridBounds_min(i))) then
-            call fatalError("Calculation of grid dimensions for the coarsest", "grid bounds not set appropriately")
-      end if
+      ! Call fatal error in case grid bounds not set appropriately
+      ! if (self%n_xyz(1,i)*self%spacing(1) /= (self%gridBounds_max(i)-self%gridBounds_min(i))) then
+      !       call fatalError("Calculation of grid dimensions for the coarsest", "grid bounds not set appropriately")
+      ! end if
 
     end do outer1
 
@@ -231,16 +233,16 @@ contains
     self % spacing(self % n_layers) = (self % gridBounds_max(1) - self % gridBounds_min(1)) / self % n_xyz(self % n_layers,1)
     self % spacingInv(self % n_layers) = 1/(self % spacing(self % n_layers))
 
-    ! though fatal error for inappropirate cell number
-    do i = 1, 3
-      spacingComparison(i) = (self % gridBounds_max(i) - self % gridBounds_min(i)) / self % n_xyz(self % n_layers,i)
-    end do
-    if (spacingComparison(1) /= spacingComparison(2)) then
-      call fatalError("Calculation of grid dimensions for the finest", "cell number not set appropriately")
-    end if
-    if (spacingComparison(1) /= spacingComparison(3)) then
-      call fatalError("Calculation of grid dimensions for the finest", "cell number not set appropriately")
-    end if
+    ! Call fatal error for inappropirate cell number
+    ! do i = 1, 3
+    !   spacingComparison(i) = (self % gridBounds_max(i) - self % gridBounds_min(i)) / self % n_xyz(self % n_layers,i)
+    ! end do
+    ! if (spacingComparison(1) /= spacingComparison(2)) then
+    !   call fatalError("Calculation of grid dimensions for the finest", "cell number not set appropriately")
+    ! end if
+    ! if (spacingComparison(1) /= spacingComparison(3)) then
+    !   call fatalError("Calculation of grid dimensions for the finest", "cell number not set appropriately")
+    ! end if
 
     !---------------------------------------------
     ! Repeat the same process for intermediate layers
@@ -263,13 +265,13 @@ contains
         self % spacing(i) = (self % gridBounds_max(1) - self % gridBounds_min(1)) / (self % n_xyz(i,1))
         self % spacingInv(i) = 1/(self % spacing(i))  
 
-        ! through fatal error in case of inappropriate spacings
-        if (self % spacing(i) /= (self%gridBounds_max(2)-self%gridBounds_min(2))/(self % n_xyz(i,2))) then
-          call fatalError("Calculation of grid dimensions for intermediate", "cell number not set appropriately")
-        end if
-        if (self % spacing(i) /= (self%gridBounds_max(3)-self%gridBounds_min(3))/(self % n_xyz(i,3))) then
-          call fatalError("Calculation of grid dimensions for intermediate", "cell number not set appropriately")
-        end if
+        ! Call fatal error in case of inappropriate spacings
+        ! if (self % spacing(i) /= (self%gridBounds_max(2)-self%gridBounds_min(2))/(self % n_xyz(i,2))) then
+        !   call fatalError("Calculation of grid dimensions for intermediate", "cell number not set appropriately")
+        ! end if
+        ! if (self % spacing(i) /= (self%gridBounds_max(3)-self%gridBounds_min(3))/(self % n_xyz(i,3))) then
+        !   call fatalError("Calculation of grid dimensions for intermediate", "cell number not set appropriately")
+        ! end if
 
       end do
 
@@ -360,7 +362,7 @@ contains
     !-----------------------------------------------------------------------------------------
     !initialise for patch search
     !-----------------------------------------------------------------------------------------
-    allocate(self % grid(self % n_xyz(1,1), self % n_xyz(1,2), self % n_xyz(1,3)))
+    allocate(self % grid(self % n_xyzCoarsest(1), self % n_xyzCoarsest(2), self % n_xyzCoarsest(3)))
 
     call self % constructMapping(vertices, edges, faces, elements)
     call self % setGridIsOutsideMesh()
@@ -466,9 +468,9 @@ contains
     class(cartesianGridCoarsest), intent(inout)         :: self
     integer(shortInt)                                   :: i, j, k
 
-    do i = 1, self % n_xyz(1,1)
-      do j = 1, self % n_xyz(1,2)
-        do k = 1, self % n_xyz(1,3)
+    do i = 1, self % n_xyzCoarsest(1)
+      do j = 1, self % n_xyzCoarsest(2)
+        do k = 1, self % n_xyzCoarsest(3)
           call self % grid(i,j,k) % setIsOutsideMesh()
         end do
       end do
@@ -488,9 +490,9 @@ contains
     integer(shortInt)                                   :: i, j, k
     real(defReal), dimension(3)                         :: newGridBoundsMin
 
-    do i = 1, self % n_xyz(1,1)
-      do j = 1, self % n_xyz(1,2)
-        do k = 1, self % n_xyz(1,3)
+    do i = 1, self % n_xyzCoarsest(1)
+      do j = 1, self % n_xyzCoarsest(2)
+        do k = 1, self % n_xyzCoarsest(3)
 
           ! (needs to be changed) (store newGridBoundsMin info)
           newGridBoundsMin(1) = (self % gridBounds_min(1)) + (self % spacing(1)) * (i-1)
@@ -733,9 +735,9 @@ contains
     end do
 
     ! Loop through all Cartesian cells in the coarsest layer. If needed, it descend down the layers.
-    do i = 1, self % n_xyz(1,1)
-      do j = 1, self % n_xyz(1,2)
-        do k = 1, self % n_xyz(1,3)
+    do i = 1, self % n_xyzCoarsest(1)
+      do j = 1, self % n_xyzCoarsest(2)
+        do k = 1, self % n_xyzCoarsest(3)
 
           ! Retrive an array containing the number of cells for each type.
           output = self % grid(i,j,k) % cellGetNumberOfCells(localNxyz, self % n_layers)
