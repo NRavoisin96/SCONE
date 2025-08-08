@@ -113,7 +113,7 @@ contains
 
     ! (needs to be changed) (written for temp operation; can be optimised further; calculate it during l_min calc.?)
     ! (can probably be a separte subroutine on its own, and the return value can be assigned as a grid attribute?)
-    !print*, "Average edge length", calculateAvgEdgeLength(edges) 
+    !print*, "Min edge length / Average edge length", self % l_min / calculateAvgEdgeLength(edges) 
 
     !-----------------------------------------------------------------------------------------
     ! set alpha

@@ -1,6 +1,6 @@
 type eigenPhysicsPackage;
 
-pop      100;
+pop      20000;
 active   50;
 inactive 50;
 XSdata ce;
@@ -33,12 +33,12 @@ geometry {
   	}
 
 	meshes { 
-		testMesh {id 1; type OpenFOAMMesh; path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/FinalFuelPinHex243/; accelerationMethod octree;}
+		testMesh {id 1; type OpenFOAMMesh; path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/FinalFuelPinTet137/; accelerationMethod patchMulti;}
 	}
 
 	universes {
     		root { id 1; type rootUniverse; border 1; fill u<2>; }
-		mesh { id 2; type meshUniverse; origin (0.0 0.0 0.0); rotation (0.0 0.0 0.0); cell 1; mesh 1; fills (water water water fuel water fuel fuel fuel fuel); }
+		mesh { id 2; type meshUniverse; origin (0.0 0.0 0.0); rotation (0.0 0.0 0.0); cell 1; mesh 1; fills (fuel water); }
   	}
 
 }
