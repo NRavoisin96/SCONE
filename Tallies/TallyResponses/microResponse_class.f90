@@ -47,9 +47,8 @@ module microResponse_class
   type, public, extends(tallyResponse) :: microResponse
     private
     !! Response MT number
-    integer(shortInt)         :: MT
-    integer(shortInt), public :: matIdx
-    real(defReal)             :: dens
+    integer(shortInt) :: matIdx = 0, MT = 0
+    real(defReal)     :: dens = ZERO
   contains
     ! Superclass Procedures
     procedure  :: init
@@ -115,22 +114,31 @@ contains
   subroutine build(self, MT)
     class(microResponse), intent(inout) :: self
     integer(shortInt), intent(in)       :: MT
-    character(*), parameter :: Here = 'build ( microResponse_class.f90)'
+    character(*), parameter             :: Here = 'build (microResponse_class.f90)'
 
     ! Check that MT number is valid and load MT
     select case(MT)
-      case(N_TOTAL)
-        self % MT = macroTotal
-      case(N_N_ELASTIC)
-        self % MT = macroEScatter
-      case(N_GAMMA)
-        self % MT = macroCapture
-      case(N_FISSION)
-        self % MT = macroFission
       case(N_ABSORPTION)
         self % MT = macroAbsorption
+
+      case(N_FISSION)
+        self % MT = macroFission
+
+      case(N_GAMMA)
+        self % MT = macroCapture
+
+      case(N_heating)
+        self % MT = macroHeating
+
+      case(N_N_ELASTIC)
+        self % MT = macroEScatter
+
+      case(N_TOTAL)
+        self % MT = macroTotal
+
       case default
-        call fatalError(Here,'Unrecognised MT number: '// numToChar(MT))
+        call fatalError(Here,'Unrecognised MT number: '//numToChar(MT)//'.')
+
     end select
 
   end subroutine build
@@ -179,7 +187,9 @@ contains
   elemental subroutine kill(self)
     class(microResponse), intent(inout) :: self
 
+    self % matIdx = 0
     self % MT = 0
+    self % dens = ZERO
 
   end subroutine kill
 

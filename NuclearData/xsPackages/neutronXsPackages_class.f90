@@ -15,13 +15,14 @@ module neutronXsPackages_class
   !! Neutron MACROscopic Reaction XSS
   !!
   !! Public Members:
-  !!   total            -> total Cross-Section [1/cm]
-  !!   elasticScatter   -> sum of MT=2 elastic neutron scattering [1/cm]
-  !!   inelasticScatter -> sum of all neutron producing reaction that are not elastic scattering
-  !!     or fission. [1/cm]
-  !!   capture          -> sum of all reactions without secendary neutrons excluding fission [1/cm]
-  !!   fission          -> total Fission MT=18 Cross-section [1/cm]
-  !!   nuFission        -> total average neutron production Cross-section [1/cm]
+  !!   total            -> Total Cross-Section [1 / cm]
+  !!   elasticScatter   -> Sum of MT=2 elastic neutron scattering [1 / cm]
+  !!   inelasticScatter -> Sum of all neutron producing reaction that are not elastic scattering
+  !!                       or fission. [1 / cm]
+  !!   capture          -> Sum of all reactions without secendary neutrons excluding fission [1 / cm]
+  !!   fission          -> Total Fission MT=18 Cross-section [1 / cm]
+  !!   nuFission        -> Total average neutron production Cross-section [1 / cm]
+  !!   heating          -> Energy deposition [1 / cm]
   !!
   !!  Interface:
   !!    clean -> Set all XSs to 0.0
@@ -29,15 +30,11 @@ module neutronXsPackages_class
   !!    get   -> Return XS by MT number
   !!
   type, public :: neutronMacroXSs
-    real(defReal) :: total            = ZERO
-    real(defReal) :: elasticScatter   = ZERO
-    real(defReal) :: inelasticScatter = ZERO
-    real(defReal) :: capture          = ZERO
-    real(defReal) :: fission          = ZERO
-    real(defReal) :: nuFission        = ZERO
+    real(defReal) :: capture = ZERO, elasticScatter = ZERO, fission = ZERO, heating = ZERO, &
+                     inelasticScatter = ZERO, nuFission = ZERO, total = ZERO
   contains
     procedure :: clean => clean_neutronMacroXSs
-    procedure :: add   => add_neutronMacroXSs
+    procedure :: add => add_neutronMacroXSs
     procedure :: get
     procedure :: invert => invert_macroXSs
   end type neutronMacroXSs
@@ -54,14 +51,11 @@ module neutronXsPackages_class
   !!   capture          -> all reactions without secendary neutrons excluding fission [barn]
   !!   fission          -> total Fission MT=18 Cross-section [barn]
   !!   nuFission        -> total average neutron production Cross-section [barn]
+  !!   heating          -> Energy deposition (fission * QFission * scaleFactor) [MeV * barn]
   !!
   type, public :: neutronMicroXSs
-    real(defReal) :: total            = ZERO
-    real(defReal) :: elasticScatter   = ZERO
-    real(defReal) :: inelasticScatter = ZERO
-    real(defReal) :: capture          = ZERO
-    real(defReal) :: fission          = ZERO
-    real(defReal) :: nuFission        = ZERO
+    real(defReal) :: capture = ZERO, elasticScatter = ZERO, fission = ZERO, heating = ZERO, &
+                     inelasticScatter = ZERO, nuFission = ZERO, total = ZERO
   contains
     procedure :: invert => invert_microXSs
   end type neutronMicroXSs
@@ -82,12 +76,13 @@ contains
   elemental subroutine clean_neutronMacroXSs(self)
     class(neutronMacroXSs), intent(inout) :: self
 
-    self % total            = ZERO
-    self % elasticScatter   = ZERO
+    self % capture = ZERO
+    self % elasticScatter = ZERO
+    self % fission = ZERO
+    self % heating = ZERO
     self % inelasticScatter = ZERO
-    self % capture          = ZERO
-    self % fission          = ZERO
-    self % nuFission        = ZERO
+    self % nuFission = ZERO
+    self % total = ZERO
 
   end subroutine clean_neutronMacroXSs
 
@@ -108,12 +103,13 @@ contains
     type(neutronMicroXSs), intent(in)     :: micro
     real(defReal), intent(in)             :: dens
 
-    self % total            = self % total            + dens * micro % total
-    self % elasticScatter   = self % elasticScatter   + dens * micro % elasticScatter
+    self % capture = self % capture + dens * micro % capture
+    self % elasticScatter = self % elasticScatter + dens * micro % elasticScatter
+    self % fission = self % fission + dens * micro % fission
+    self % heating = self % heating + dens * micro % heating
     self % inelasticScatter = self % inelasticScatter + dens * micro % inelasticScatter
-    self % capture          = self % capture          + dens * micro % capture
-    self % fission          = self % fission          + dens * micro % fission
-    self % nuFission        = self % nuFission        + dens * micro % nuFission
+    self % nuFission = self % nuFission + dens * micro % nuFission
+    self % total = self % total + dens * micro % total
 
   end subroutine add_neutronMacroXSs
 
@@ -135,8 +131,8 @@ contains
     real(defReal)                      :: xs
 
      select case(MT)
-      case(macroTotal)
-        xs = self % total
+      case(macroAbsorption)
+        xs = self % fission + self % capture
 
       case(macroCapture)
         xs = self % capture
@@ -147,11 +143,14 @@ contains
       case(macroFission)
         xs = self % fission
 
+      case(macroHeating)
+        xs = self % heating
+
       case(macroNuFission)
         xs = self % nuFission
 
-      case(macroAbsorption)
-        xs = self % fission + self % capture
+      case(macroTotal)
+        xs = self % total
 
       case default
         xs = ZERO
@@ -224,7 +223,7 @@ contains
   !!
   !! Use a real r in <0;1> to sample reaction from Microscopic XSs
   !!
-  !! This function involves a bit of code so is written for conviniance
+  !! This function involves a bit of code so is written for convinience.
   !!
   !! Args:
   !!   r [in] -> Real number in <0;1>

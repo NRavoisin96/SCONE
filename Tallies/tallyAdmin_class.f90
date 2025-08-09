@@ -1,29 +1,25 @@
 module tallyAdmin_class
 
+  use charMap_class,                   only : charMap
+  use dictionary_class,                only : dictionary
+  use dynArray_class,                  only : dynIntArray
+  use genericProcedures,               only : fatalError, charCmp
+  use normalisationMethod_inter,       only : normalisationMethod
+  use normalisationMethodFactory_func, only : newNormalisationMethod
+  use nuclearDatabase_inter,           only : nuclearDatabase
+  use nuclearDataReg_mod,              only : ndReg_get => get
   use numPrecision
+  use outputFile_class,                only : outputFile
+  use particle_class,                  only : particle, particleState
+  use particleDungeon_class,           only : particleDungeon
+  use scoreMemory_class,               only : scoreMemory
+  use tallyClerk_inter,                only : tallyClerk
+  use tallyClerkSlot_class,            only : tallyClerkSlot
   use tallyCodes
-  use genericProcedures,      only : fatalError, charCmp
-  use dictionary_class,       only : dictionary
-  use dynArray_class,         only : dynIntArray
-  use charMap_class,          only : charMap
-  use particle_class,         only : particle, particleState
-  use particleDungeon_class,  only : particleDungeon
-  use tallyClerk_inter,       only : tallyClerk
-  use tallyClerkSlot_class,   only : tallyClerkSlot
-  use tallyResult_class,      only : tallyResult, tallyResultEmpty
-  use scoreMemory_class,      only : scoreMemory
-  use outputFile_class,       only : outputFile
-
-  ! Nuclear Data Interface
-  use nuclearDataReg_mod,     only : ndReg_get => get
-  use nuclearDatabase_inter,  only : nuclearDatabase
+  use tallyResult_class,               only : tallyResult, tallyResultEmpty
 
   implicit none
   private
-
-
-  !! Parameters
-  integer(longInt), parameter :: NO_NORM = -17_longInt
 
   !!
   !! TallyAdmin is responsible for:
@@ -95,9 +91,7 @@ module tallyAdmin_class
     type(tallyAdmin), pointer :: atch => null()  ! Pointer to tallyAdmin attachment
 
     ! Normalisation data
-    integer(longInt)   :: normBinAddr  = NO_NORM
-    real(defReal)      :: normValue
-    character(nameLen) :: normClerkName
+    class(normalisationMethod), allocatable :: normalisation
 
     ! Clerks and clerks name map
     type(tallyClerkSlot), dimension(:), allocatable :: tallyClerks
@@ -122,6 +116,7 @@ module tallyAdmin_class
 
     ! Build procedures
     procedure :: init
+    procedure :: initClerks
     procedure :: kill
 
     ! Attachment procedures
@@ -166,48 +161,23 @@ contains
   !! Errors:
   !!   fatalError if there are mistakes in definition
   !!
-  subroutine init(self,dict)
-    class(tallyAdmin), intent(inout)            :: self
-    class(dictionary), intent(in)               :: dict
-    character(nameLen), dimension(:), allocatable :: names
-    integer(shortInt)                           :: i, j, cyclesPerBatch
-    integer(longInt)                            :: memSize, memLoc
-    character(100), parameter :: Here ='init (tallyAdmin_class.f90)'
+  subroutine init(self, dict)
+    class(tallyAdmin), intent(inout)              :: self
+    class(dictionary), intent(in)                 :: dict
+    integer(shortInt)                             :: i, cyclesPerBatch
+    integer(longInt)                              :: memSize, memLoc
+    character(*), parameter                       :: Here = 'init (tallyAdmin_class.f90)'
 
     ! Clean itself
     call self % kill()
 
     ! Obtain clerks dictionary names
-    call dict % keys(names,'dict')
+    if (dict % isPresent('clerks')) then
+      call self % initClerks(dict % getDictPtr('clerks'))
 
-    ! Allocate space for clerks
-    allocate(self % tallyClerks(size(names)))
+    else
+      allocate(self % tallyClerks(0))
 
-    ! Load clerks into slots and clerk names into map
-    do i= 1, size(names)
-      call self % tallyClerks(i) % init(dict % getDictPtr(names(i)), names(i))
-      call self % clerksNameMap % add(names(i),i)
-
-    end do
-
-    ! Register all clerks to recive their reports
-    do i= 1, size(self % tallyClerks)
-      associate( reports => self % tallyClerks(i) % validReports() )
-        do j= 1, size(reports)
-          call self % addToReports(reports(j), i)
-
-        end do
-      end associate
-    end do
-
-    ! Obtain names of clerks to display
-    if (dict % isPresent('display')) then
-      call dict % get(names,'display')
-
-      ! Register all clerks to display
-      do i= 1, size(names)
-        call self % displayList % add( self % clerksNameMap % get(names(i)))
-      end do
     end if
 
     ! Read batching size
@@ -215,31 +185,73 @@ contains
 
     ! Initialise score memory
     ! Calculate required size.
-    memSize = sum( self % tallyClerks % getSize() )
+    memSize = sum(self % tallyClerks % getSize())
     call self % mem % init(memSize, 1, batchSize = cyclesPerBatch)
 
     ! Assign memory locations to the clerks
     memLoc = 1
-    do i= 1, size(self % tallyClerks)
+    do i = 1, size(self % tallyClerks)
       call self % tallyClerks(i) % setMemAddress(memLoc)
       memLoc = memLoc + self % tallyClerks(i) % getSize()
 
     end do
 
     ! Verify that final memLoc and memSize are consistant
-    if (memLoc - 1 /= memSize) then
-      call fatalError(Here, 'Memory addressing failed.')
-    end if
+    if (memLoc - 1 /= memSize) call fatalError(Here, 'Memory addressing failed.')
 
     ! Read name of normalisation clerks if present
-    if (dict % isPresent('norm')) then
-      call dict % get(self % normClerkName,'norm')
-      call dict % get(self % normValue,'normVal')
-      i = self % clerksNameMap % get(self % normClerkName)
-      self % normBinAddr = self % tallyClerks(i) % getMemAddress()
-    end if
+    if (dict % isPresent('normalisationMethod')) &
+    allocate(self % normalisation, source = newNormalisationMethod(dict % getDictPtr('normalisationMethod')))
 
   end subroutine init
+
+  !!
+  !!
+  !!
+  subroutine initClerks(self, dict)
+    class(tallyAdmin), intent(inout)              :: self
+    class(dictionary), intent(in)                 :: dict
+    character(nameLen), dimension(:), allocatable :: names
+    integer(shortInt)                             :: i, j, nClerks
+
+    call dict % keys(names, 'dict')
+
+    ! Allocate space for clerks
+    nClerks = size(names)
+    allocate(self % tallyClerks(nClerks))
+
+    ! Load clerks into slots and clerk names into map
+    do i = 1, nClerks
+      call self % tallyClerks(i) % init(dict % getDictPtr(names(i)), names(i))
+      call self % clerksNameMap % add(names(i),i)
+
+    end do
+
+    ! Register all clerks to recive their reports
+    do i = 1, nClerks
+      associate(reports => self % tallyClerks(i) % validReports())
+        do j = 1, size(reports)
+          call self % addToReports(reports(j), i)
+
+        end do
+
+      end associate
+
+    end do
+
+    ! Obtain names of clerks to display
+    if (dict % isPresent('display')) then
+      call dict % get(names, 'display')
+
+      ! Register all clerks to display
+      do i = 1, size(names)
+        call self % displayList % add(self % clerksNameMap % get(names(i)))
+
+      end do
+
+    end if
+
+  end subroutine initClerks
 
   !!
   !! Deallocates all content, returns to default values
@@ -251,7 +263,6 @@ contains
     if (associated(self % atch)) call self % atch % kill()
 
     ! Return parameters to default
-    self % normBinAddr = NO_NORM
     self % atch => null()
 
     ! Kill clerks slots
@@ -274,6 +285,13 @@ contains
 
     ! Kill score memory
     call self % mem % kill()
+
+    ! Kill normalisation method.
+    if (allocated(self % normalisation)) then
+      call self % normalisation % kill()
+      deallocate(self % normalisation)
+
+    end if
 
   end subroutine kill
 
@@ -720,34 +738,28 @@ contains
     class(particleDungeon), intent(in) :: end
     integer(shortInt)                  :: i
     integer(shortInt), save            :: idx
-    real(defReal)                      :: normFactor, normScore
-    character(100), parameter :: Here ='reportCycleEnd (tallyAdmin)class.f90)'
+    real(defReal)                      :: normFactor
+    character(*), parameter            :: Here = 'reportCycleEnd (tallyAdmin)class.f90)'
     !$omp threadprivate(idx)
 
     ! Call attachment
-    if (associated(self % atch)) then
-      call reportCycleEnd(self % atch, end)
-    end if
+    if (associated(self % atch)) call reportCycleEnd(self % atch, end)
 
     ! Go through all clerks that request the report
     !$omp parallel do
-    do i= 1, self % cycleEndClerks % getSize()
+    do i = 1, self % cycleEndClerks % getSize()
       idx = self % cycleEndClerks % get(i)
       call self % tallyClerks(idx) % reportCycleEnd(end, self % mem)
+
     end do
     !$omp end parallel do
 
-    ! Calculate normalisation factor
-    if (self % normBInAddr /= NO_NORM) then
-      normScore  = self % mem % getScore(self % normBinAddr)
-      if (normScore == ZERO) then
-        call fatalError(Here, 'Normalisation score from clerk:' // self % normClerkName // 'is 0')
+    ! Calculate normalisation factor.
+    normFactor = ONE
+    if (allocated(self % normalisation)) then
+      i = self % clerksNameMap % get(self % normalisation % getNormalisationClerkName())
+      normFactor = self % normalisation % computeNormalisationFactor(self % mem, self % tallyClerks(i))
 
-      end if
-      normFactor = self % normValue / normScore
-
-    else
-      normFactor = ONE
     end if
 
     ! Close cycle multipling all scores by multiplication factor

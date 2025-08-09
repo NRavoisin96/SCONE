@@ -21,10 +21,12 @@ module unstructuredMeshMap_class
     private
     integer(shortInt)                            :: nBins = 0
     integer(shortInt), dimension(:), allocatable :: parentElementBinsToIdxs
+    real(defReal), dimension(:), allocatable     :: binVolumes
     type(intMap)                                 :: activeElementIdxsToParentElementBinsMap
   contains
     procedure :: bins
     procedure :: getAxisName
+    procedure :: getBinVolume
     procedure :: init
     procedure :: kill
     procedure :: map
@@ -55,6 +57,18 @@ contains
     name = 'UnstructuredMeshElement'
 
   end function getAxisName
+
+  !!
+  !!
+  !!
+  elemental function getBinVolume(self, idx) result(binVolume)
+    class(unstructuredMeshMap), intent(in) :: self
+    integer(shortInt), intent(in)          :: idx
+    real(defReal)                          :: binVolume
+
+    binVolume = self % binVolumes(idx)
+
+  end function getBinVolume
 
   !!
   !!
@@ -101,7 +115,7 @@ contains
     self % nBins = nParentElements
 
     ! Allocate memory then begin assigning indices.
-    allocate(self % parentElementBinsToIdxs(nParentElements))
+    allocate(self % binVolumes(nParentElements), self % parentElementBinsToIdxs(nParentElements))
     call self % activeElementIdxsToParentElementBinsMap % init(nActiveElements)
     call parentElementIdxToBinMap % init(nParentElements)
 
@@ -115,6 +129,7 @@ contains
       if (parentElementIdx == 0) then
         nParentElements = nParentElements + 1
         call parentElementIdxToBinMap % add(elementIdx, nParentElements)
+        self % binVolumes(nParentElements) = element % ptr % getVolume()
         self % parentElementBinsToIdxs(nParentElements) = elementIdx
 
       end if
@@ -144,6 +159,7 @@ contains
     ! Local.
     self % nBins = 0
     if (allocated(self % parentElementBinsToIdxs)) deallocate(self % parentElementBinsToIdxs)
+    if (allocated(self % binVolumes)) deallocate(self % binVolumes)
     call self % activeElementIdxsToParentElementBinsMap % kill()
 
   end subroutine kill

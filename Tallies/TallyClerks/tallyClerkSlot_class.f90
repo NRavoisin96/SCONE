@@ -41,6 +41,7 @@ module tallyClerkSlot_class
     procedure :: setName
 
     ! File reports and check status -> run-time procedures
+    procedure :: computeVolumeWeightedSum
     procedure :: reportInColl
     procedure :: reportOutColl
     procedure :: reportPath
@@ -65,6 +66,18 @@ module tallyClerkSlot_class
   end type tallyClerkSlot
 
 contains
+  !!
+  !!
+  !!
+  function computeVolumeWeightedSum(self, memory) result(volumeWeightedSum)
+    class(tallyClerkSlot), intent(in) :: self
+    type(scoreMemory), intent(in)     :: memory
+    real(defReal)                     :: volumeWeightedSum
+
+    volumeWeightedSum = self % slot % computeVolumeWeightedSum(memory)
+
+  end function computeVolumeWeightedSum
+
   !!
   !! Initialise from dictionary and name
   !! Build an instance in tallyClerkFactory and store it in the slot

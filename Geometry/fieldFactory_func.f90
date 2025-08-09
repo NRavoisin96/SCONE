@@ -4,28 +4,30 @@
 module fieldFactory_func
 
   use numPrecision
-  use genericProcedures, only : fatalError
-  use dictionary_class,  only : dictionary
+  use genericProcedures,         only : fatalError
+  use dictionary_class,          only : dictionary
 
   ! Fields
-  use field_inter,              only : field
-  use uniformScalarField_class, only : uniformScalarField
-  use uniformVectorField_class, only : uniformVectorField
-  use uniFissSitesField_class,  only : uniFissSitesField
-  use weightWindowsField_class, only : weightWindowsField
+  use field_inter,               only : field
+  use OpenFOAMScalarField_class, only : OpenFOAMScalarField
+  use uniFissSitesField_class,   only : uniFissSitesField
+  use uniformScalarField_class,  only : uniformScalarField
+  use uniformVectorField_class,  only : uniformVectorField
+  use weightWindowsField_class,  only : weightWindowsField
 
   ! Geometry
-  use geometryReg_mod,          only : gr_addField => addField
+  use geometryReg_mod,           only : gr_addField => addField
 
   implicit none
   private
 
 
   !! Parameters
-  character(nameLen), dimension(*), parameter :: AVAILABLE_FIELDS = ['uniformScalarField',&
-                                                                     'uniformVectorField',&
-                                                                     'uniFissSitesField ',&
-                                                                     'weightWindowsField']
+  character(nameLen), dimension(*), parameter :: AVAILABLE_FIELDS = ['OpenFOAMScalarField', &
+                                                                     'uniFissSitesField  ', &
+                                                                     'uniformScalarField ', &
+                                                                     'uniformVectorField ', &
+                                                                     'weightWindowsField ']
 
    ! Public interface
    public :: new_field
@@ -48,23 +50,26 @@ contains
     character(nameLen), intent(in) :: name
     class(field), allocatable      :: kentta
     character(nameLen)             :: type
-    character(*), parameter :: Here = 'new_field (fieldFactory_func.f90) '
+    character(*), parameter        :: Here = 'new_field (fieldFactory_func.f90) '
 
     ! Get type
     call dict % get(type, 'type')
 
     ! Build Field
-    select case (type)
-      case ('uniformScalarField')
-        allocate(uniformScalarField :: kentta)
+    select case(type)
+      case('OpenFOAMScalarField')
+        allocate(OpenFOAMScalarField :: kentta)
 
-      case ('uniformVectorField')
-        allocate(uniformVectorField :: kentta)
-
-      case ('uniFissSitesField')
+      case('uniFissSitesField')
         allocate(uniFissSitesField :: kentta)
 
-      case ('weightWindowsField')
+      case('uniformScalarField')
+        allocate(uniformScalarField :: kentta)
+
+      case('uniformVectorField')
+        allocate(uniformVectorField :: kentta)
+
+      case('weightWindowsField')
         allocate(weightWindowsField :: kentta)
 
       case default

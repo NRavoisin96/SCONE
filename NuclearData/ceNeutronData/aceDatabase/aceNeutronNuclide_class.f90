@@ -47,6 +47,7 @@ module aceNeutronNuclide_class
   integer(shortInt), parameter :: CAPTURE_XS    = 4
   integer(shortInt), parameter :: FISSION_XS    = 5
   integer(shortInt), parameter :: NU_FISSION    = 6
+  integer(shortInt), parameter :: HEATING       = 7
 
 
   !!
@@ -60,9 +61,8 @@ module aceNeutronNuclide_class
   !!     particle distributions
   !!
   type, public :: reactionMT
-    integer(shortInt)                         :: MT       = 0
-    integer(shortInt)                         :: firstIdx = 0
-    real(defReal), dimension(:), allocatable    :: xs
+    integer(shortInt)                          :: firstIdx = 0, MT = 0
+    real(defReal), dimension(:), allocatable   :: xs
     class(uncorrelatedReactionCE), allocatable :: kinematics
   end type reactionMT
 
@@ -176,7 +176,7 @@ contains
     class(RNG), intent(inout)            :: rand
     integer(shortInt)                    :: MT
     integer(shortInt)                    :: idx, i, idxT
-    real(defReal)                        :: f, XS, topXS, bottomXS, randomNumber
+    real(defReal)                        :: f, oneLessF, XS, topXS, bottomXS, randomNumber
     character(*), parameter :: Here = 'invertInelastic (aceNeutronNuclide_class.f90)'
 
     ! Check if it's thermal inelastic scattering or not
@@ -188,9 +188,10 @@ contains
     ! Normal (without S(a,b)) inelastic scattering
     ! Obtain bin index and interpolation factor
     call self % search(idx, f, E)
+    oneLessF = ONE - f
 
     ! Get inelastic XS
-    XS = self % mainData(IESCATTER_XS, idx+1) * f + (ONE-f) * self % mainData(IESCATTER_XS, idx)
+    XS = self % mainData(IESCATTER_XS, idx + 1) * f + oneLessF * self % mainData(IESCATTER_XS, idx)
 
     ! Invert
     call rand % generate(randomNumber)
@@ -198,18 +199,20 @@ contains
     do i = 1,self % nMT
       ! Get index in MT reaction grid
       idxT = idx - self % MTdata(i) % firstIdx + 1
-      if (idxT < 1 ) cycle
+      if (idxT < 1) cycle
 
       ! Get top and bottom XS
       topXS = self % MTdata(i) % xs(idxT+1)
       bottomXS = self % MTdata(i) % xs(idxT)
 
       ! Decrement total inelastic and exit if sampling is finished
-      XS = XS - topXS * f - (ONE-f) * bottomXS
+      XS = XS - topXS * f - oneLessF * bottomXS
       if (XS <= ZERO) then
         MT = self % MTdata(i) % MT
         return
+
       end if
+
     end do
 
     ! Sampling must have failed. Throw fatalError
@@ -272,7 +275,7 @@ contains
       bottomXS = self % mainData(idxMT, idx)
     end if
 
-    xs = topXS * f + (1-f) * bottomXS
+    xs = topXS * f + (ONE - f) * bottomXS
 
   end function xsOf
 
@@ -392,7 +395,7 @@ contains
     real(defReal), intent(in)            :: f
     real(defReal)                        :: xs
 
-    xs = self % mainData(TOTAL_XS, idx+1) * f + (ONE-f) * self % mainData(TOTAL_XS, idx)
+    xs = self % mainData(TOTAL_XS, idx + 1) * f + (ONE-f) * self % mainData(TOTAL_XS, idx)
 
   end function totalXS
 
@@ -441,21 +444,29 @@ contains
     type(neutronMicroXSs), intent(out)   :: xss
     integer(shortInt), intent(in)        :: idx
     real(defReal), intent(in)            :: f
+    real(defReal)                        :: oneLessF
 
-    associate (data => self % mainData(:,idx:idx+1))
+    oneLessF = ONE - f
 
-      xss % total            = data(TOTAL_XS, 2)  * f + (ONE-f) * data(TOTAL_XS, 1)
-      xss % elasticScatter   = data(ESCATTER_XS, 2)  * f + (ONE-f) * data(ESCATTER_XS, 1)
-      xss % inelasticScatter = data(IESCATTER_XS, 2) * f + (ONE-f) * data(IESCATTER_XS, 1)
-      xss % capture          = data(CAPTURE_XS, 2)   * f + (ONE-f) * data(CAPTURE_XS, 1)
+    associate (data => self % mainData(:, idx:idx + 1))
+
+      xss % total = data(TOTAL_XS, 2) * f + oneLessF * data(TOTAL_XS, 1)
+      xss % elasticScatter = data(ESCATTER_XS, 2) * f + oneLessF * data(ESCATTER_XS, 1)
+      xss % inelasticScatter = data(IESCATTER_XS, 2) * f + oneLessF * data(IESCATTER_XS, 1)
+      xss % capture = data(CAPTURE_XS, 2) * f + oneLessF * data(CAPTURE_XS, 1)
 
       if (self % isFissile()) then
-        xss % fission   = data(FISSION_XS, 2) * f + (ONE-f) * data(FISSION_XS, 1)
-        xss % nuFission = data(NU_FISSION, 2) * f + (ONE-f) * data(NU_FISSION, 1)
+        xss % fission = data(FISSION_XS, 2) * f + oneLessF * data(FISSION_XS, 1)
+        xss % nuFission = data(NU_FISSION, 2) * f + oneLessF * data(NU_FISSION, 1)
+        xss % heating = xss % fission * self % fission % getQFission()
+
       else
-        xss % fission   = ZERO
+        xss % fission = ZERO
         xss % nuFission = ZERO
+        xss % heating = ZERO
+
       end if
+
     end associate
 
   end subroutine microXSs
@@ -490,18 +501,24 @@ contains
     real(defReal), intent(in)            :: kT
     type(thermalData), pointer           :: sabPtr
     integer(shortInt)                    :: sabIdx
+    real(defReal)                        :: oneLessF
 
-    associate (data => self % mainData(:,idx:idx+1))
+    oneLessF = ONE - f
+    associate (data => self % mainData(:, idx:idx + 1))
 
       ! Retrieve capture and fission cross sections as usual
-      xss % capture = data(CAPTURE_XS, 2) * f + (ONE-f) * data(CAPTURE_XS, 1)
+      xss % capture = data(CAPTURE_XS, 2) * f + oneLessF * data(CAPTURE_XS, 1)
 
       if (self % isFissile()) then
-        xss % fission   = data(FISSION_XS, 2) * f + (ONE-f) * data(FISSION_XS, 1)
-        xss % nuFission = data(NU_FISSION, 2) * f + (ONE-f) * data(NU_FISSION, 1)
+        xss % fission = data(FISSION_XS, 2) * f + oneLessF * data(FISSION_XS, 1)
+        xss % nuFission = data(NU_FISSION, 2) * f + oneLessF * data(NU_FISSION, 1)
+        xss % heating = xss % fission * self % fission % getQFission()
+
       else
         xss % fission   = ZERO
         xss % nuFission = ZERO
+        xss % heating = ZERO
+
       end if
 
       ! Read S(a,b) tables for elastic scatter: return zero if elastic scatter is off.
@@ -519,7 +536,7 @@ contains
       if (self % needsSabInel(E)) then
         xss % inelasticScatter = sabPtr % getInelXS(E)
       else
-        xss % inelasticScatter = data(IESCATTER_XS, 2) * f + (ONE-f) * data(IESCATTER_XS, 1)
+        xss % inelasticScatter = data(IESCATTER_XS, 2) * f + oneLessF * data(IESCATTER_XS, 1)
       end if
 
     end associate
@@ -560,8 +577,11 @@ contains
     real(defReal), intent(in)            :: f
     real(defReal), intent(in)            :: E
     real(defReal), intent(in)            :: xi
+    real(defReal)                        :: oneLessF
     real(defReal), dimension(3)          :: val
 
+    oneLessF = ONE - f
+    
     ! Read table values for elastic scattering, capture and fission
     call self % probTab % sampleXSs(E, xi, val)
 
@@ -569,8 +589,8 @@ contains
 
       ! Retrieve fission related cross sections as usual
       if (self % isFissile()) then
-        xss % fission   = data(FISSION_XS, 2) * f + (ONE-f) * data(FISSION_XS, 1)
-        xss % nuFission = data(NU_FISSION, 2) * f + (ONE-f) * data(NU_FISSION, 1)
+        xss % fission   = data(FISSION_XS, 2) * f + oneLessF * data(FISSION_XS, 1)
+        xss % nuFission = data(NU_FISSION, 2) * f + oneLessF * data(NU_FISSION, 1)
       else
         xss % fission   = ZERO
         xss % nuFission = ZERO
@@ -579,8 +599,8 @@ contains
       ! Check if flag for multiplication factor (IFF) is true, and apply it to elastic scattering,
       ! capture and fission
       if (self % IFF == 1) then
-        xss % elasticScatter   = data(ESCATTER_XS, 2)  * f + (ONE-f) * data(ESCATTER_XS, 1)
-        xss % capture          = data(CAPTURE_XS, 2)   * f + (ONE-f) * data(CAPTURE_XS, 1)
+        xss % elasticScatter   = data(ESCATTER_XS, 2)  * f + oneLessF * data(ESCATTER_XS, 1)
+        xss % capture          = data(CAPTURE_XS, 2)   * f + oneLessF * data(CAPTURE_XS, 1)
 
         val(1) = xss % elasticScatter * val(1)
         val(2) = xss % capture * val(2)
@@ -592,7 +612,7 @@ contains
       if (self % probTab % ILF < 0) then
         xss % inelasticScatter = ZERO
       else
-        xss % inelasticScatter = data(IESCATTER_XS, 2) * f + (ONE-f) * data(IESCATTER_XS, 1)
+        xss % inelasticScatter = data(IESCATTER_XS, 2) * f + oneLessF * data(IESCATTER_XS, 1)
       end if
 
     end associate
@@ -748,30 +768,26 @@ contains
     self % ZAID = ACE % ZAID
 
     ! Read key data into the superclass
-    call self % set( fissile  = ACE % isFissile(), &
-                     mass     = ACE % AW,          &
-                     kT       = ACE % TZ,          &
-                     nucIdx   = nucIdx,            &
-                     database = database )
+    call self % set(fissile  = ACE % isFissile(), &
+                    mass     = ACE % AW,          &
+                    kT       = ACE % TZ,          &
+                    nucIdx   = nucIdx,            &
+                    database = database)
 
     ! Get size of the grid
     Ngrid = ACE % gridSize()
 
     ! Allocate space for main XSs
-    if (self % isFissile()) then
-      N = 6
-    else
-      N = 4
-    end if
+    N = merge(6, 4, self % isFissile())
     allocate(self % mainData(N, Ngrid))
 
     self % mainData = ZERO
 
     ! Load Main XSs
     self % eGrid =  ACE % ESZ_XS('energyGrid')
-    self % mainData(TOTAL_XS,:)     = ACE % ESZ_XS('totalXS')
-    self % mainData(ESCATTER_XS,:)  = ACE % ESZ_XS('elasticXS')
-    self % mainData(CAPTURE_XS,:)   = ACE % ESZ_XS('absorptionXS')
+    self % mainData(TOTAL_XS, :)     = ACE % ESZ_XS('totalXS')
+    self % mainData(ESCATTER_XS, :)  = ACE % ESZ_XS('elasticXS')
+    self % mainData(CAPTURE_XS, :)   = ACE % ESZ_XS('absorptionXS')
 
     ! Get elastic kinematics
     call self % elasticScatter % init(ACE, N_N_ELASTIC)

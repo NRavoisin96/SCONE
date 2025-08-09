@@ -279,15 +279,15 @@ contains
 
       case('absorptionXS')
         ! Set pointer to approperiate place in XSS
-        ptr = self % JXS(1) + 2*N
+        ptr = self % JXS(1) + 2 * N
 
       case('elasticXS')
         ! Set pointer to approperiate place in XSS
-        ptr = self % JXS(1) + 3*N
+        ptr = self % JXS(1) + 3 * N
 
       case('heatingNumber')
         ! Set pointer to approperiate place in XSS
-        ptr = self % JXS(1) + 4*N
+        ptr = self % JXS(1) + 4 * N
 
       case default
         call fatalError(Here,'Unrecognised request string: |' // request //'|')
@@ -295,7 +295,7 @@ contains
       end select
 
       ! Return data
-      xs = self % XSS(ptr : ptr + N-1)
+      xs = self % XSS(ptr:ptr + N - 1)
 
   end function ESZ_XS
 

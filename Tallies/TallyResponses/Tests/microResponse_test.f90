@@ -19,6 +19,7 @@ module microResponse_test
     type(microResponse)       :: response_capture
     type(microResponse)       :: response_fission
     type(microResponse)       :: response_absorption
+    type(microResponse)       :: response_heating
     type(testNeutronDatabase) :: xsData
   contains
     procedure :: setUp
@@ -36,8 +37,8 @@ contains
     type(dictionary)                         :: tempDict, dictMat1, dictMat2, dictMat3
 
     ! Allocate and initialise test nuclearData
-    ! Cross-sections:         Total        eScatering   IeScatter  Capture     Fission       nuFission
-    call this % xsData % build(6.0_defReal, 3.0_defReal, ZERO,     2.0_defReal, 1.0_defReal, 1.5_defReal)
+    ! Cross-sections:          Total        eScatering   IeScatter Capture     Fission       nuFission    Heating
+    call this % xsData % build(6.0_defReal, 3.0_defReal, ZERO,     2.0_defReal, 1.0_defReal, 1.5_defReal, 9.0_defReal)
 
     ! Set dictionaries to initialise material
     call dictMat1 % init(1)
@@ -95,6 +96,14 @@ contains
     call this % response_absorption % init(tempDict)
     call tempDict % kill()
 
+    ! Heating.
+    call tempDict % init(3)
+    call tempDict % store('type', 'microResponse')
+    call tempDict % store('MT', N_heating)
+    call tempDict % store('material', 'Xenon')
+    call this % response_heating % init(tempDict)
+    call tempDict % kill()
+
   end subroutine setUp
 
   !!
@@ -140,6 +149,9 @@ contains
 
     call this % response_absorption % get(p, result, this % xsData)
     @assertEqual(1.5_defReal, result, tol)
+
+    call this % response_heating % get(p, result, this % xsData)
+    @assertEqual(4.5_defReal, result, tol)
 
   end subroutine testGettingResponse
 

@@ -2,13 +2,12 @@ type eigenPhysicsPackage;
 
 //pop      200000;
 pop 20000;
-active   500;
+cycles   500;
 inactive 300;
 XSdata   ce;
 dataType ce;
 
 collisionOperator { neutronCE {type neutronCEstd;}
-                    neutronMG {type neutronMGstd;}
                   }
 
 transportOperator { type transportOperatorST;
@@ -82,7 +81,6 @@ materials {
         94239.03  0.036697;
         94240.03  0.0018700;
         94241.03  0.00011639;
-        31000.03  0.0014755;
       }
     }
 

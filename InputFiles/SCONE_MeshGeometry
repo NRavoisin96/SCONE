@@ -1,7 +1,7 @@
 type eigenPhysicsPackage;
 
 pop      200;
-active   200;
+cycles   200;
 inactive 100;
 XSdata ce;
 dataType ce;
@@ -10,13 +10,25 @@ seed 3;
 collisionOperator { neutronCE {type neutronCEstd;}
                     neutronMG {type neutronMGstd;} }
 
-transportOperator { type transportOperatorDT; }
+transportOperator { type transportOperatorDT; cache 0; }
 
 inactiveTally {}
 
 activeTally {
 	display (k_eff);
-        k_eff { type keffAnalogClerk;}
+    k_eff {type keffAnalogClerk;}
+    fissionPowerClerk {
+        type collisionClerk;
+        map {
+            type unstructuredMeshMap;
+            meshId 1;
+        }
+        response (fissionPower);
+        fissionPower {
+            type macroResponse;
+            MT -80;
+        }
+    }
 }
 
 geometry {
@@ -33,21 +45,28 @@ geometry {
   	}
 
 	meshes { 
-		testMesh {id 1; type OpenFOAMMesh; path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/StanfordBunny_LowPoly/; accelerationMethod octree; maxDepth 10; bucketSize 4;}
+		testMesh {
+		    id 1;
+		    type OpenFOAMMesh;
+		    path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/StanfordBunny_LowPoly/;
+		    accelerationMethod {
+		        type octree;
+		        maxDepth 10;
+		        bucketSize 4;
+		    }
+		}
 	}
 
 	universes {
-    		root { id 1; type rootUniverse; border 1; fill u<2>; }
+    	root { id 1; type rootUniverse; border 1; fill u<2>; }
 		mesh { id 2; type meshUniverse; origin (0.0 0.0 0.0); rotation (0.0 0.0 0.0); cell 1; mesh 1; fills (fuel); }
   	}
 
 }
 
-
-
 nuclearData {
 	handles {
-    		ce {type aceNeutronDatabase; aceLibrary $SCONE_ACE;}
+    	ce {type aceNeutronDatabase; aceLibrary $SCONE_ACE;}
   	}
   
 	materials {
@@ -61,16 +80,15 @@ nuclearData {
       				8016.03    3.350E-002;
       				5010.03    5.560E-006;
       				5011.03    2.224E-005; 
-			}
+			    }
       		}
 
-    		fuel {
-      			temp 87476;
-       			composition {
-      				92235.03  1.450E-003;
-      				92238.03  4.690E-002;
+    	fuel {
+      		temp 87476;
+       		composition {
+      			92235.03  1.450E-003;
+      			92238.03  4.690E-002;
 			}
-      		}
-
+      	}
 	}
 }

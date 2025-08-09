@@ -200,8 +200,7 @@ contains
     class(field), allocatable, intent(inout) :: kentta
     character(nameLen), intent(in)           :: name
     integer(shortInt)                        :: idx
-    integer(shortInt), parameter             :: NOT_PRESENT = -7
-    character(100), parameter                :: Here = 'addField (geometryReg_mod.f90)'
+    character(*), parameter                  :: Here = 'addField (geometryReg_mod.f90)'
 
     ! Get free index
     idx = fieldNameMap % getOrDefault(name, NOT_PRESENT)

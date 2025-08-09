@@ -19,7 +19,6 @@ module fissionCE_class
   use releaseLawENDFfactory_func,   only : new_totalNu, new_delayedNu
   use energyLawENDFfactory_func,    only : new_energyLawENDF
 
-
   implicit none
   private
 
@@ -61,11 +60,11 @@ module fissionCE_class
   !!
   type, public, extends(uncorrelatedReactionCE) :: fissionCE
     private
-    class(releaseLawENDF), allocatable        :: nuBarTotal
-    class(energyLawENDF), allocatable        :: eLawPrompt
-    class(releaseLawENDF), allocatable        :: nuBarDelayed
+    class(releaseLawENDF), allocatable         :: nuBarTotal
+    class(energyLawENDF), allocatable          :: eLawPrompt
+    class(releaseLawENDF), allocatable         :: nuBarDelayed
+    real(defReal)                              :: QFission = ZERO
     type(precursor), dimension(:), allocatable :: delayed
-
   contains
     ! Superclass procedures
     procedure :: init
@@ -79,9 +78,20 @@ module fissionCE_class
 
     ! Type specific procedures
     procedure :: buildFromACE
+    procedure :: getQFission
   end type fissionCE
 
 contains
+  !!
+  !!
+  !!
+  elemental function getQFission(self) result(QFission)
+    class(fissionCE), intent(in) :: self
+    real(defReal)                :: QFission
+
+    QFission = self % QFission
+
+  end function getQFission
 
   !!
   !! Initialsie
@@ -95,11 +105,10 @@ contains
     class(fissioNCE), intent(inout) :: self
     class(dataDeck), intent(inout)  :: data
     integer(shortInt), intent(in)   :: MT
-    character(100), parameter :: Here ='init (fissionCE_class.f90)'
+    character(*), parameter         :: Here = 'init (fissionCE_class.f90)'
 
-    if (MT /= N_FISSION .and. MT /= N_f) then
-      call fatalError(Here,'fissionCE suports only MT=18,19. Was given: '//numToChar(MT))
-    end if
+    if (.not. any([N_FISSION, N_f] == MT)) &
+    call fatalError(Here, 'fissionCE suports only MT = {18, 19}. Was given: '//numToChar(MT)//'.')
 
     ! Select buld procedure approperiate for given dataDeck
     select type(data)
@@ -147,6 +156,8 @@ contains
       end do
       deallocate(self % delayed)
     end if
+
+    self % QFission = ZERO
 
   end subroutine kill
 
@@ -350,6 +361,7 @@ contains
     ! Read basic data
     call new_totalNU(self % nuBarTotal, ACE)
     call new_energyLawENDF(self % eLawPrompt, ACE, MT)
+    self % QFission = ACE % QforMT(MT)
 
     ! Read Delayed Data
     if (withDelayed) then
@@ -376,7 +388,7 @@ contains
 
         if (nr == 0) then ! Single interpolation region lin-lin
           N = ACE % readInt()
-          associate ( dat => ACE % readRealArray(2*N))
+          associate (dat => ACE % readRealArray(2*N))
             call self % delayed(i) % prob % init(dat(1:N), dat(N+1:2*N))
           end associate
 
@@ -385,15 +397,19 @@ contains
           N = ACE % readInt()
           associate (dat => ACE % readRealArray(2*N))
             call self % delayed(i) % prob % init(dat(1:N), dat(N+1:2*N), nrDat(1:NR), nrDat(NR+1:2*NR))
+
           end associate
 
         end if
+
       end do
 
       ! Read Energy distributions
       do i= 1, size(self % delayed)
         call new_energyLawENDF(self % delayed(i) % eLaw, ACE, i, delayed = .true.)
+
       end do
+
     end if
 
   end subroutine buildFromACE

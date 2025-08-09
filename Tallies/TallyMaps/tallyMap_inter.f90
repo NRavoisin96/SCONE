@@ -29,6 +29,7 @@ module tallyMap_inter
     procedure(bins), deferred        :: bins
     procedure(dimensions), deferred  :: dimensions
     procedure(getAxisName), deferred :: getAxisName
+    procedure                        :: getBinVolume
     procedure                        :: binArrayShape
     procedure(map), deferred         :: map
     procedure(print), deferred       :: print
@@ -169,6 +170,18 @@ contains
     end do
 
   end function binArrayShape
+
+  !!
+  !!
+  !!
+  elemental function getBinVolume(self, idx) result(binVolume)
+    class(tallyMap), intent(in)   :: self
+    integer(shortInt), intent(in) :: idx
+    real(defReal)                 :: binVolume
+
+    binVolume = ONE
+
+  end function getBinVolume
 
   !!
   !! Return to uninitialised state

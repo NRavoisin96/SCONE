@@ -64,24 +64,26 @@ contains
   !! Build testNeutronDatabase from the individual XSs Values
   !!
   !! Args:
-  !!   xsVal [in]       -> Default Value of all XSs
-  !!   eScatterXS [in]  -> Optional. Value of Elastic Scatter XS
-  !!   ieScatterXS [in] -> Oprional. Value of Inelastic Scatter XS
-  !!   captureXS [in]   -> Optional. Value of Capture XS
-  !!   fissionXS [in]   -> Optional. Value of Fission XS
-  !!   nuFissionXS [in] -> Optional Value of nuFission
+  !!   xsVal [in]       -> Default value of all XSs
+  !!   eScatterXS [in]  -> Optional value of Elastic Scatter XS
+  !!   ieScatterXS [in] -> Oprional value of Inelastic Scatter XS
+  !!   captureXS [in]   -> Optional value of Capture XS
+  !!   fissionXS [in]   -> Optional value of Fission XS
+  !!   nuFissionXS [in] -> Optional value of nuFission
+  !!   heating [in]     -> Optional value for heating (fissionXS * QFission)
   !!
   !! Errors:
   !!   None
   !!
-  subroutine build(self, xsVal, eScatterXS, ieScatterXS ,captureXS, fissionXS, nuFissionXS)
+  subroutine build(self, xsVal, eScatterXS, ieScatterXS ,captureXS, fissionXS, nuFissionXS, heating)
     class(testNeutroNDatabase), intent(inout) :: self
     real(defReal), intent(in)                 :: xsVal
-    real(defReal), intent(in),optional        :: eScatterXS
-    real(defReal), intent(in),optional        :: ieScatterXS
-    real(defReal), intent(in),optional        :: captureXS
-    real(defReal), intent(in),optional        :: fissionXS
-    real(defReal), intent(in),optional        :: nuFissionXS
+    real(defReal), intent(in), optional       :: eScatterXS
+    real(defReal), intent(in), optional       :: ieScatterXS
+    real(defReal), intent(in), optional       :: captureXS
+    real(defReal), intent(in), optional       :: fissionXS
+    real(defReal), intent(in), optional       :: nuFissionXS
+    real(defReal), intent(in), optional       :: heating
 
     self % xsVal = xsVal
 
@@ -124,6 +126,15 @@ contains
       self % mat % xss % nuFission = nuFissionXS
     else
       self % mat % xss % nuFission = xsVal
+    end if
+
+    ! Heating.
+    if (present(heating)) then
+      self % mat % xss % heating = heating
+
+    else
+      self % mat % xss % heating = ZERO
+
     end if
 
   end subroutine build

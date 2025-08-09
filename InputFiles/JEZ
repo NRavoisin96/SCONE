@@ -6,7 +6,7 @@
 type eigenPhysicsPackage;
 
 pop      20000;
-active   500;
+cycles   500;
 inactive 200;
 XSdata   ceData;
 dataType ce;
@@ -25,8 +25,7 @@ collisionOperator { neutronCE {type neutronCEstd;}
                     neutronMG {type neutronMGstd;}
                   }
 
-transportOperator { type transportOperatorST;
-                  }
+transportOperator { type transportOperatorST; cache 0; }
 
 inactiveTally {
               }

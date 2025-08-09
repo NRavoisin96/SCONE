@@ -182,9 +182,9 @@ contains
   subroutine init(self, payload)
     class(eigenPhysicsPackage), intent(inout)    :: self
     class(initPhysicsPackagePayload), intent(in) :: payload
+    class(field), pointer                        :: f
+    type(dictionary)                             :: attachmentDict, clerksDict, clerksSubdict
     type(initParticlePhysicsPackagePayload)      :: initPayload
-    type(dictionary)                             :: locDict1, locDict2
-    class(field), pointer                        :: field
     character(*), parameter                      :: Here = 'init (eigenPhysicsPackage_class.f90)'
 
     ! Create payload from input.
@@ -201,14 +201,14 @@ contains
     ! Initial k_effective guess
     call payload % dict % getOrDefault(self % k_eff, 'keff_0', ONE)
 
-    ! Read uniform fission site option as a geometry field
+    ! Read uniform fission site option as a class-specific field
     if (payload % dict % isPresent('uniformFissionSites')) then
       self % ufs = .true.
       ! Build and initialise
       call new_field(payload % dict % getDictPtr('uniformFissionSites'), nameUFS)
       ! Save UFS field
-      field => gr_fieldPtr(gr_fieldIdx(nameUFS))
-      self % ufsField => uniFissSitesField_TptrCast(field)
+      f => gr_fieldPtr(gr_fieldIdx(nameUFS))
+      self % ufsField => uniFissSitesField_TptrCast(f)
       ! Initialise
       call self % ufsField % estimateVol(payload % geometry, self % getParticleType(), self % getRNGPtr())
 
@@ -223,32 +223,36 @@ contains
 
     ! Initialise active and inactive tally attachments
     ! Inactive tally attachment
-    call locDict1 % init(2)
-    call locDict2 % init(2)
+    call attachmentDict % init(1)
+    call clerksDict % init(2)
+    call clerksSubdict % init(1)
 
-    call locDict2 % store('type','keffAnalogClerk')
-    call locDict1 % store('keff', locDict2)
-    call locDict1 % store('display',['keff'])
+    call clerksSubdict % store('type', 'keffAnalogClerk')
+    call clerksDict % store('keff', clerksSubdict)
+    call clerksDict % store('display', ['keff'])
+    call attachmentDict % store('clerks', clerksDict)
 
     allocate(self % inactiveAtch)
-    call self % inactiveAtch % init(locDict1)
-
-    call locDict2 % kill()
-    call locDict1 % kill()
+    call self % inactiveAtch % init(attachmentDict)
+    call clerksSubdict % kill()
+    call clerksDict % kill()
+    call attachmentDict % kill()
 
     ! Active tally attachment
-    call locDict1 % init(2)
-    call locDict2 % init(2)
+    call attachmentDict % init(1)
+    call clerksDict % init(2)
+    call clerksSubdict % init(1)
 
-    call locDict2 % store('type','keffImplicitClerk')
-    call locDict1 % store('keff', locDict2)
-    call locDict1 % store('display',['keff'])
+    call clerksSubdict % store('type', 'keffImplicitClerk')
+    call clerksDict % store('keff', clerksSubdict)
+    call clerksDict % store('display', ['keff'])
+    call attachmentDict % store('clerks', clerksDict)
 
     allocate(self % activeAtch)
-    call self % activeAtch % init(locDict1)
-
-    call locDict2 % kill()
-    call locDict1 % kill()
+    call self % activeAtch % init(attachmentDict)
+    call clerksSubdict % kill()
+    call clerksDict % kill()
+    call attachmentDict % kill()
 
     ! Attach attachments to result tallies
     call self % inactiveTally % push(self % inactiveAtch)

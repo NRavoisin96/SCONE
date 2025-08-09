@@ -1,6 +1,7 @@
 module fissionPowerResponse_class
 
   use dictionary_class,        only : dictionary
+  use endfConstants
   use genericProcedures,       only : fatalError
   use neutronMaterial_inter,   only : neutronMaterial, neutronMaterial_CptrCast
   use neutronXsPackages_class, only : neutronMacroXSs
@@ -54,7 +55,7 @@ contains
     if (.not. associated(mat)) return
 
     call mat % getMacroXSs(p, xss)
-    val = xss % get(-6)
+    val = xss % get(macroFission)
 
     ! Multiply by energy per fission and convert from MeV to J.
     val = val * energyPerFission * joulesPerMeV

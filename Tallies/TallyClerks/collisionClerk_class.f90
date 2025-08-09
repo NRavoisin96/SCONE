@@ -66,21 +66,45 @@ module collisionClerk_class
 
   contains
     ! Procedures used during build
-    procedure  :: init
-    procedure  :: kill
-    procedure  :: validReports
-    procedure  :: getSize
+    procedure :: init
+    procedure :: kill
+    procedure :: validReports
+    procedure :: getSize
 
     ! File reports and check status -> run-time procedures
-    procedure  :: reportInColl
+    procedure :: computeVolumeWeightedSum
+    procedure :: reportInColl
 
     ! Output procedures
-    procedure  :: display
-    procedure  :: print
+    procedure :: display
+    procedure :: print
 
   end type collisionClerk
 
 contains
+  !!
+  !!
+  !!
+  function computeVolumeWeightedSum(self, memory) result(volumeWeightedSum)
+    class(collisionClerk), intent(in) :: self
+    type(scoreMemory), intent(in)     :: memory
+    integer(longInt)                  :: address, baseAddress
+    integer(shortInt)                 :: i
+    real(defReal)                     :: volumeWeightedSum
+
+    ! Initialise volumeWeightedSum = ZERO.
+    volumeWeightedSum = ZERO
+
+    ! Accumulate sum.
+    baseAddress = self % getMemAddress()
+    do i = 1, self % map % bins(0)
+      ! Calculate bin address
+      address = baseAddress + self % width * (i - 1)
+      volumeWeightedSum = volumeWeightedSum + memory % getScore(address) * self % map % getBinVolume(i)
+
+    end do
+
+  end function computeVolumeWeightedSum
 
   !!
   !! Initialise clerk from dictionary and name
@@ -203,13 +227,16 @@ contains
     ! Check if within filter
     if (allocated(self % filter)) then
       if (self % filter % isFail(state)) return
+
     end if
 
     ! Find bin index
     if (allocated(self % map)) then
       binIdx = self % map % map(state)
+
     else
       binIdx = 1
+
     end if
 
     ! Return if invalid bin index
@@ -218,8 +245,10 @@ contains
     ! Calculate flux with the right cross section according to virtual collision handling
     if (self % handleVirtual) then
       flux = p % w / xsData % getTrackingXS(p, p % getMatIdx(), TRACKING_XS)
+
     else
       flux = p % w / xsData % getTotalMatXS(p, p % getMatIdx())
+
     end if
 
     ! Calculate bin address

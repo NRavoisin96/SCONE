@@ -2,12 +2,14 @@ module physicsPackage_inter
 
   use coordList_class,    only : coordList
   use dictionary_class,   only : dictionary
+  use fieldFactory_func,  only : new_field
   use geometry_inter,     only : distCache, geometry
   use hashFunctions_func, only : FNV_1
   use numPrecision
   use outputFile_class,   only : outputFile
   use timer_mod,          only : registerTimer
   use visualiser_class,   only : visualiser
+  use universalVariables
 
   implicit none
   private
@@ -212,11 +214,16 @@ contains
   !! Initialise Physics Package from dictionary
   !!
   subroutine init(self, payload)
-    class(physicsPackage), intent(inout)         :: self
-    class(initPhysicsPackagePayload), intent(in) :: payload
-    type(outputFile)                             :: test_out
-    character(8)                                 :: date
-    character(10)                                :: time
+    class(physicsPackage), intent(inout)          :: self
+    class(initPhysicsPackagePayload), intent(in)  :: payload
+    character(8)                                  :: date
+    character(10)                                 :: time
+    character(nameLen)                            :: fieldName
+    character(:), allocatable                     :: trimmedFieldName
+    character(nameLen), dimension(:), allocatable :: fieldNames
+    class(dictionary), pointer                    :: fieldsDict
+    integer(shortInt)                             :: i
+    type(outputFile)                              :: test_out
 
     ! Initialise CPU time.
     call cpu_time(self % CPU_time_start)
@@ -247,6 +254,27 @@ contains
     else
       call date_and_time(date, time)
       call FNV_1(date // time, self % seed)
+
+    end if
+
+    ! Build fields.
+    if (payload % dict % isPresent('fields')) then
+      fieldsDict => payload % dict % getDictPtr('fields')
+      call fieldsDict % keys(fieldNames, 'dict')
+      
+      do i = 1, size(fieldNames)
+        trimmedFieldName = trim(fieldNames(i))
+        select case(trimmedFieldName)
+          case('T', 'temp', 'Temp', 'temperature', 'Temperature')
+            fieldName = nameTemperature
+
+          case default
+            fieldName = fieldNames(i)
+
+        end select
+        call new_field(fieldsDict % getDictPtr(trimmedFieldName), fieldName)
+
+      end do
 
     end if
 

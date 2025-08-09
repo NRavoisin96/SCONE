@@ -87,6 +87,7 @@ module tallyClerk_inter
     procedure, non_overridable :: getName
 
     ! File reports and check status -> run-time procedures
+    procedure :: computeVolumeWeightedSum
     procedure :: reportInColl
     procedure :: reportOutColl
     procedure :: reportPath
@@ -214,6 +215,20 @@ module tallyClerk_inter
   end interface
 
 contains
+  !!
+  !!
+  !!
+  function computeVolumeWeightedSum(self, memory) result(volumeWeightedSum)
+    class(tallyClerk), intent(in) :: self
+    type(scoreMemory), intent(in) :: memory
+    real(defReal)                 :: volumeWeightedSum
+    character(*), parameter       :: here = 'computeVolumeWeightedSum (tallyClerk_inter.f90)'
+
+    ! Call fatalError.
+    call fatalError(here, 'Unsupported procedure.')
+    volumeWeightedSum = ZERO
+
+  end function computeVolumeWeightedSum
 
   !!
   !! Process incoming collision report

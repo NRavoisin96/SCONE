@@ -76,7 +76,6 @@ program scone
     end if
 
   else
-    
     ! Assemble payload then initialise physics package.
     physicsPackagePayload % dict => input
     physicsPackagePayload % geometryIdx = geometryIdx

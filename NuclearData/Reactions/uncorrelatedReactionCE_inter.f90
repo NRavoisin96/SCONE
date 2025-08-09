@@ -13,10 +13,10 @@ module uncorrelatedReactionCE_inter
   public :: uncorrelatedReactionCE_CptrCast
 
   !!
-  !! Reaction that produces secendary reaction that are uncorreleated with each other
+  !! Reaction that produces secondary reaction that are uncorreleated with each other
   !!
   !! This means that all particles produced are sampled from the same distribution.
-  !! They are Independent and Identically Distributed.
+  !! They are independent and identically distributed.
   !!
   !! Interface:
   !!   inCMframe       -> returns true if reaction is in Centre-Of-Mass frame
@@ -29,12 +29,12 @@ module uncorrelatedReactionCE_inter
   type, public, abstract, extends(reactionHandle) :: uncorrelatedReactionCE
     private
   contains
-    procedure(inCMframe),deferred       :: inCMframe
-    procedure(release),deferred         :: release
-    procedure(releasePrompt),deferred   :: releasePrompt
-    procedure(releaseDelayed),deferred  :: releaseDelayed
+    procedure(inCMframe), deferred      :: inCMframe
+    procedure(release), deferred        :: release
+    procedure(releasePrompt), deferred  :: releasePrompt
+    procedure(releaseDelayed), deferred :: releaseDelayed
     procedure(sampleOut), deferred      :: sampleOut
-    procedure(probOf),deferred          :: probOf
+    procedure(probOf) ,deferred         :: probOf
   end type uncorrelatedReactionCE
 
 

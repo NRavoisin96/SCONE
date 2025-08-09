@@ -33,7 +33,7 @@ module fissionMG_class
   !!   buildFromDict -> builds fissionMG from a SCONE dictionary
   !!
   type, public, extends(reactionMG) :: fissionMG
-    real(defReal), dimension(:,:), allocatable :: data
+    real(defReal), dimension(:, :), allocatable :: data
   contains
     ! Superclass procedures
     procedure :: init
@@ -46,13 +46,14 @@ module fissionMG_class
 
     ! Local procedures
     procedure :: buildFromDict
+    procedure :: getQFission
 
   end type fissionMG
 
   !!
   !! Reaction indices
   !!
-  integer(shortInt), parameter :: NU_DAT = 1, CHI_DAT = 2
+  integer(shortInt), parameter :: NU_DAT = 1, CHI_DAT = 2, QFISSION_DAT = 3
 
 contains
 
@@ -69,12 +70,10 @@ contains
     class(fissionMG), intent(inout) :: self
     class(dataDeck), intent(inout)  :: data
     integer(shortInt), intent(in)   :: MT
-    character(*), parameter :: Here = 'init (fissionMG_class.f90)'
+    character(*), parameter         :: Here = 'init (fissionMG_class.f90)'
 
     ! Verify that MT is OK
-    if (MT /= macroFission) then
-      call fatalError(Here,'Unsupported MT number: '//numToChar(MT)//' only macroFission is allowed')
-    end if
+    if (MT /= macroFission) call fatalError(Here,'Unsupported MT number: '//numToChar(MT)//' only macroFission is allowed.')
 
     ! Select approperiate build procedure for a
     select type(data)
@@ -82,7 +81,8 @@ contains
         call self % buildFromDict(data % dict)
 
       class default
-        call fatalError(Here, 'fissionMG cannot be build from: '//data % myType())
+        call fatalError(Here, 'fissionMG cannot be built from: '//data % myType()//'.')
+
     end select
 
   end subroutine init
@@ -179,7 +179,7 @@ contains
     integer(shortInt), intent(in)  :: G_in
     class(RNG), intent(inout)      :: rand
     real(defReal)                  :: randomNumber
-    character(*), parameter :: Here = 'sampleOut (fissionMG_class.f90)'
+    character(*), parameter        :: Here = 'sampleOut (fissionMG_class.f90)'
 
     ! Sample mu and phi -> isotropic
     call rand % generateMu(mu)
@@ -208,44 +208,75 @@ contains
   !!   FatalError if chi is not normalised to 1.0 within FP_REL_TOL
   !!
   subroutine buildFromDict(self, dict)
-    class(fissionMG), intent(inout)        :: self
-    class(dictionary), intent(in)          :: dict
-    integer(shortInt)                      :: nG
-    real(defReal)                          :: S
+    class(fissionMG), intent(inout)          :: self
+    class(dictionary), intent(in)            :: dict
+    integer(shortInt)                        :: nG
+    real(defReal)                            :: absSLessOne, S
     real(defReal), dimension(:), allocatable :: temp
-    character(*), parameter :: Here = 'buildFromDict (fissionMG_class.f90)'
+    character(*), parameter                  :: Here = 'buildFromDict (fissionMG_class.f90)'
 
     ! Get number of groups
     call dict % get(nG, 'numberOfGroups')
 
     ! Allocate space
-    allocate(self % data(nG, 2))
+    allocate(self % data(nG, 3))
 
     ! Get nu
     call dict % get(temp, 'nu')
-    if (size(temp) /= ng) then
+    if (size(temp) /= nG) then
       call fatalError(Here, 'Invalid number of values of nu. Given: '// numToChar(size(temp)) // &
                             ' Expected: ' // numToChar(nG))
     end if
-    self % data(:,NU_DAT) = temp
+    self % data(:, NU_DAT) = temp
 
     ! Get Chi
     call dict % get(temp, 'chi')
-    if (size(temp) /= ng) then
+    if (size(temp) /= nG) then
       call fatalError(Here, 'Invalid number of values of chi. Given: '// numToChar(size(temp)) // &
                             ' Expected: ' // numToChar(nG))
     end if
-    self % data(:,CHI_DAT) = temp
+    self % data(:, CHI_DAT) = temp
+
+    ! Get energy releases.
+    self % data(:, QFISSION_DAT) = ZERO
+    if (dict % isPresent('QFission')) then
+      call dict % get(temp, 'QFission')
+      if (size(temp) /= nG) &
+      call fatalError(Here, 'Invalid number of values of fission energy releases. Given: '//numToChar(size(temp))//&
+                            '. Expected: ' // numToChar(nG)//'.')
+      self % data(:, QFISSION_DAT) = temp
+
+    end if
 
     ! Check normalisation of chi
-    S = sum(self % data(:,CHI_DAT))
-    if (abs(S-ONE) > 0.01 * FP_REL_TOL) then
-      print *,'Chi is not normalised. Relative error wrt ONE:'// numToChar(abs(S-ONE))//&
+    S = sum(self % data(:, CHI_DAT))
+    absSLessOne = abs(S - ONE)
+    if (0.01_defReal * FP_REL_TOL < absSLessOne) then
+      print *,'Chi is not normalised. Relative error wrt ONE:'// numToChar(absSLessOne)//&
               ' The normalisation has been adjusted automatically'
       self % data(:,CHI_DAT) = self % data(:,CHI_DAT) / S
+
     end if
 
   end subroutine buildFromDict
+
+  !!
+  !!
+  !!
+  elemental function getQFission(self, G) result(QFission)
+    class(fissionMG), intent(in)  :: self
+    integer(shortInt), intent(in) :: G
+    real(defReal)                 :: QFission
+
+    if (0 < G .and. G <= size(self % data, 1)) then
+      QFission = self % data(G, QFISSION_DAT)
+
+    else
+      QFission = ZERO
+
+    end if
+
+  end function getQFission
 
   !!
   !! Cast reactionHandle pointer to fissionMG pointer

@@ -41,7 +41,7 @@ module scalarField_inter
     function at(self, p) result(val)
       import :: scalarField, particle, defReal
       class(scalarField), intent(in) :: self
-    class(particle), intent(inout)   :: p
+      class(particle), intent(inout) :: p
       real(defReal)                  :: val
     end function at
 
