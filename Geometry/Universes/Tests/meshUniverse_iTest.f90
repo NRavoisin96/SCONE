@@ -23,7 +23,8 @@ module meshUniverse_iTest
   " cell1 {id 1; type simpleCell; surfaces (-1); filltype mat; material water;}"
   
   character(*), parameter :: MESH_DEF = &
-  " testMesh {id 8; type OpenFOAMMesh; path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/testMesh/;}"
+  " testMesh {id 8; type OpenFOAMMesh; path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/testMesh/;&
+  & localIds {assignmentMethod cellZones;}}"
   ! 
   ! Note that rotation is such that following axis transformation applies:
   !   x -> z

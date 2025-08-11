@@ -3,7 +3,7 @@ module aceNeutronNuclide_class
   use numPrecision
   use endfConstants
   use universalVariables
-  use genericProcedures, only : fatalError, numToChar, binarySearch
+  use genericProcedures, only : fatalError, numToChar, floorBinarySearch
   use RNG_class,         only : RNG
   use aceCard_class,     only : aceCard
   use aceSabCard_class,  only : aceSabCard
@@ -361,7 +361,7 @@ contains
     real(defReal), intent(in)            :: E
     character(*), parameter :: Here = 'search (aceNeutronNuclide_class.f90)'
 
-    idx = binarySearch(self % eGrid, E)
+    idx = floorBinarySearch(self % eGrid, E)
     if (idx <= 0) then
       call fatalError(Here,'Failed to find energy: '//numToChar(E)//&
                            ' for nuclide '// trim(self % ZAID))

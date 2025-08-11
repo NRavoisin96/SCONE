@@ -27,7 +27,7 @@ contains
     character(pathLen)                        :: path
     character(256)                            :: buffer
     character(:), allocatable                 :: dataString, trimmedPath
-    integer(shortInt)                         :: idx, nValues
+    integer(shortInt)                         :: i, idx, nValues
     logical(defBool)                          :: exists
     real(defReal)                             :: uniformValue
     real(defReal), dimension(:), allocatable  :: values
@@ -57,7 +57,7 @@ contains
     ! Handle logic based on whether the field is uniform or not.
     select case(trim(fieldType))
       case('uniform')
-        read(buffer(index(buffer, 'uniform') + 7:), *) uniformValue
+        read(buffer(index(buffer, 'uniform') + 7:index(buffer, ';') - 1), *) uniformValue
         allocate(values(self % getValuesNumber()))
         values = uniformValue
 
@@ -67,38 +67,35 @@ contains
           ! Single-line format.
           read(buffer(index(buffer, 'List<scalar>') + 12:idx - 1), *) nValues
           dataString = trim(buffer(idx + 1:index(buffer, ')') - 1))
+          if (0 < len_trim(dataString)) then
+            allocate(values(nValues))
+            read(dataString, *) values
+
+          else
+            call fatalError(here, 'Unable to parse internal field data.')
+
+          end if
 
         else
           ! Multi-line format. Move onto the next line to get the number of values.
           read(unit, '(a)') buffer
           read(buffer, *) nValues
+          allocate(values(nValues))
 
           ! Move onto the next line, which should contain the opening parenthesis.
           read(unit, '(a)') buffer
 
-          ! Initialise dataString and parse.
-          dataString = ''
-          do
+          ! Parse line-by-line.
+          do i = 1, nValues
             read(unit, '(a)') buffer
-            if (0 < index(buffer, ')')) exit
-            dataString = dataString//' '//trim(buffer)
+            read(buffer, *) values(i)
 
           end do
 
         end if
 
-        ! Check that the number of values matches the number of values in the field.
-        if (0 < len_trim(dataString)) then
-          allocate(values(nValues))
-          read(dataString, *) values
-
-        else
-          call fatalError(here, 'Unable to parse internal field data.')
-
-        end if
-
       case default
-        call fatalError(here, 'Unknown internal scalar field type: '//trim(fieldType)//'.')
+        call fatalError(here, 'Unknown OpenFOAM internal scalar field type: '//trim(fieldType)//'.')
 
     end select
 

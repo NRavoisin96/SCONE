@@ -385,13 +385,7 @@ contains
       if (abs(offsetCoord) <= halfwidth - surfTol) cycle
 
       ! Retrieve appropriate BC based on whether offsetCoord < ZERO and apply it.
-      if (offsetCoord < ZERO) then
-        bc = self % BCs(2 * i - 1)
-
-      else
-        bc = self % BCs(2 * i)
-
-      end if
+      bc = self % BCs(merge(2 * i - 1, 2 * i, offsetCoord < ZERO))
       if (bc == REFLECTIVE_BC) then
         u(dim) = -u(dim)
         cycle
@@ -440,13 +434,7 @@ contains
         offsetCoord = r(dim) - originComponent
 
         ! Retrieve appropriate BC based on whether offsetCoord < ZERO and apply it.
-        if (offsetCoord < ZERO) then
-          bc = self % BCs(2 * i - 1)
-
-        else
-          bc = self % BCs(2 * i)
-
-        end if
+        bc = self % BCs(merge(2 * i - 1, 2 * i, offsetCoord < ZERO))
         if (bc == REFLECTIVE_BC) then
           ! Perform reflection based on distance to the closest plane to offsetCoord.
           r(dim) = -r(dim) + TWO * (sign(halfwidth, offsetCoord) + originComponent)

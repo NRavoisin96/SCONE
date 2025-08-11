@@ -154,7 +154,7 @@ contains
     class(ceNeutronMaterial), pointer    :: matCE
     type(fissionCE), pointer             :: fissCE
     type(fissionMG), pointer             :: fissMG
-    real(defReal), dimension(3)          :: r, randomNumbers
+    real(defReal), dimension(3)          :: r
     real(defReal)                        :: mu, phi, E_out, E_up, E_down
     integer(shortInt)                    :: matIdx, uniqueID, nucIdx, i, G_out
     character(*), parameter :: Here = 'sampleParticle (fissionSource_class.f90)'
@@ -170,18 +170,14 @@ contains
     i = 0
     rejection : do
       ! Protect against infinite loop
-      i = i +1
+      i = i + 1
       if (i > self % attempts) then
         call fatalError(Here, "Failed to find a fissile material in: "// numToChar(self % attempts) // " attempts.&
                               & Increase the number of maximum attempts or verify that fissile materials are present.")
       end if
 
-      ! Sample Position
-      call rand % generate(randomNumbers)
-      r = (self % top - self % bottom) * randomNumbers + self % bottom
-
-      ! Find material under position
-      call self % geom % whatIsAt(matIdx, uniqueID, r)
+      ! Sample initial position.
+      call self % geom % sampleInitialPosition(self % bottom, self % top, rand, matIdx, uniqueID, r)
 
       ! Reject if there is no material
       if (matIdx == VOID_MAT .or. matIdx == OUTSIDE_MAT) cycle rejection

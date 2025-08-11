@@ -2,7 +2,7 @@ module urrProbabilityTables_class
 
   use numPrecision
   use endfConstants
-  use genericProcedures,            only : fatalError, numToChar, binarySearch, &
+  use genericProcedures,            only : fatalError, numToChar, floorBinarySearch, &
                                            endfInterpolate, isSorted
   use RNG_class,                    only : RNG
   use dataDeck_inter,               only : dataDeck
@@ -143,7 +143,7 @@ contains
     real(defReal), dimension(self % nTable +1) :: tmpCDF
 
     ! Get energy indexes
-    enIdx1 = binarySearch(self % eGrid, E)
+    enIdx1 = floorBinarySearch(self % eGrid, E)
     enIdx2 = enIdx1 + 1
 
     ! Get energy values
@@ -153,9 +153,9 @@ contains
     ! Add zero to CDF and get indexes
     tmpCDF(1) = ZERO
     tmpCDF(2:self % nTable +1) = self % table(enIdx1) % CDF
-    idx1 = binarySearch(tmpCDF, xi)
+    idx1 = floorBinarySearch(tmpCDF, xi)
     tmpCDF(2:self % nTable +1) = self % table(enIdx2) % CDF
-    idx2 = binarySearch(tmpCDF, xi)
+    idx2 = floorBinarySearch(tmpCDF, xi)
 
     ! Interpolate to get elastic cross section
     res1 = self % table(enIdx1) % el(idx1)

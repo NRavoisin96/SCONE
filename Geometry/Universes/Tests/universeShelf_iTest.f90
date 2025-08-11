@@ -20,7 +20,8 @@ module universeShelf_iTest
   character(*), parameter :: CELLS_DEF = " meshCell {id 9; type simpleCell; surfaces (-1); &
                                            &filltype mat; material water;}"
   character(*), parameter :: MESHES_DEF = &
-  " testMesh {id 10; type OpenFOAMMesh; path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/testMesh/;}"
+  " testMesh {id 10; type OpenFOAMMesh; path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/testMesh/;&
+  & localIds {assignmentMethod cellZones;}}"
   character(*), parameter :: UNIS_DEF = &
   " root {id 1; type rootUniverse; border 1; fill u<10>;} &
   & lat { id 10; type latUniverse; shape (2 2 0); pitch (2.0 2.0 0.0); padMat void; map (20 2 2 3);} &

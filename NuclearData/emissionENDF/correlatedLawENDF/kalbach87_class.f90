@@ -1,7 +1,7 @@
 module kalbach87_class
 
   use numPrecision
-  use genericProcedures,       only : fatalError, binarySearch, searchError, interpolate, isSorted
+  use genericProcedures,       only : fatalError, floorBinarySearch, searchError, interpolate, isSorted
   use aceCard_class,           only : aceCard
   use RNG_class,               only : RNG
   use kalbachPdf_class,        only : kalbachPdf
@@ -55,7 +55,7 @@ contains
     character(100), parameter      :: Here='sample (kalbach87_class.f90)'
 
     ! Find Interval index
-    idx = binarySearch(self % eGrid,E_in)
+    idx = floorBinarySearch(self % eGrid,E_in)
     call searchError(idx,Here)
 
     ! Calculate threshold and sample random number
@@ -106,7 +106,7 @@ contains
     character(100), parameter     :: Here='probabilityOf (kalbach87_class.f90)'
 
     ! Find interval index
-    idx = binarySearch(self % eGrid,E_in)
+    idx = floorBinarySearch(self % eGrid,E_in)
     call searchError(idx,Here)
 
     ! Obtain probabilities & energies at boundaries of the interval

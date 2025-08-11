@@ -11,6 +11,7 @@ module geometryStd_class
   use mesh_inter,        only : mesh
   use numPrecision
   use publicObjects,     only : coordData, newCoordData
+  use RNG_class,         only : RNG
   use universalVariables
 
   implicit none
@@ -50,24 +51,227 @@ module geometryStd_class
     type(csg)                     :: geom
   contains
     ! Superclass procedures
-    procedure          :: init
-    procedure          :: kill
-    procedure          :: placeCoord
-    procedure          :: whatIsAt
-    procedure          :: bounds
-    procedure          :: move
-    procedure          :: moveGlobal
-    procedure          :: teleport
     procedure          :: activeMats
-
+    procedure          :: bounds
+    procedure, private :: closestDist
+    procedure, private :: diveToMat
     procedure          :: getCellIdx
     procedure          :: getMeshPtr
-    ! Private procedures
-    procedure, private :: diveToMat
-    procedure, private :: closestDist
+    procedure          :: init
+    procedure          :: kill
+    procedure          :: move
+    procedure          :: moveGlobal
+    procedure          :: placeCoord
+    procedure          :: sampleInitialPosition
+    procedure          :: teleport
+    procedure          :: whatIsAt
   end type geometryStd
 
 contains
+  !!
+  !! Returns the list of active materials used in the geometry
+  !!
+  !! See geometry_inter for details
+  !!
+  pure function activeMats(self) result(matList)
+    class(geometryStd), intent(in)               :: self
+    integer(shortInt), dimension(:), allocatable :: matList
+
+    matList = self % geom % getActiveMaterialIdxs()
+
+  end function activeMats
+
+  !!
+  !! Return Axis Aligned Bounding Box encompassing the geometry
+  !!
+  !! See geometry_inter for details
+  !!
+  function bounds(self)
+    class(geometryStd), intent(in) :: self
+    real(defReal), dimension(6)    :: bounds
+    integer(shortInt)              :: i
+
+    ! Get boundary surface
+    bounds = self % geom % getSurfaceBounds(self % geom % getBorderIdx())
+
+    ! Change infinite dimensions to ZERO
+    do i = 1, 3
+      if (bounds(i) <= -INF .and. bounds(i + 3) >= INF) bounds([i, i + 3]) = ZERO
+
+    end do
+
+  end function bounds
+
+  !!
+  !! Return distance to the closest surface
+  !!
+  !! Searches through all geometry levels. In addition to distance return level
+  !! and surfIdx for crossing surface
+  !!
+  !! Args:
+  !!   coords [inout] -> Current coordinates of a particle
+  !!   maxDist [in]   -> Maximum distance of travel
+  !!   dist [out]     -> Value of closest distance
+  !!   surfIdx [out]  -> Surface index for the crossing returned from the universe
+  !!   lvl     [out]  -> Level at which crossing is closest
+  !!
+  subroutine closestDist(self, maxDist, coords, updateData, cache)
+    class(geometryStd), intent(in)           :: self
+    real(defReal), intent(in)                :: maxDist
+    type(coordList), intent(in)              :: coords
+    type(coordData), intent(out)             :: updateData
+    type(distCache), intent(inout), optional :: cache
+    integer(shortInt)                        :: l, testIdx
+    logical(defBool)                         :: update
+    real(defReal)                            :: testDistance
+    type(coordData)                          :: levelData
+
+    ! Loop over all geometry levels.
+    do l = 1, coords % getNesting()
+      ! Check if cache is present and valid.
+      update = .true.
+      if (present(cache)) then
+        if (l <= cache % lvl) update = .false.
+
+      end if
+
+      if (update) then
+        ! Get universe and compute distance.
+        levelData = coords % getCoordinatesData(l)
+        levelData % dMax = min(maxDist, testDistance)
+        call self % geom % distanceUniverse(levelData)
+        testDistance = levelData % d
+        testIdx = levelData % surfaceIdx
+
+        if (present(cache)) then
+          ! Update cache and mark this level as valid.
+          cache % dist(l) = testDistance
+          cache % surf(l) = testIdx
+          cache % lvl = l
+
+        end if
+
+      else
+        testDistance = cache % dist(l)
+        testIdx = cache % surf(l)
+
+      end if
+
+      ! Save distance, surfIdx & level coresponding to shortest distance
+      ! Take FP precision into account
+      if (updateData % d * FP_REL_TOL <= updateData % d - testDistance) then
+        updateData = levelData
+        updateData % surfaceIdx = testIdx
+        updateData % updateLevel = l
+
+      end if
+
+    end do
+
+  end subroutine closestDist
+
+  !!
+  !! Descend down the geometry structure until material is reached
+  !!
+  !! Requires starting level to be specified.
+  !! It is a private procedure common to all movement types in geometry.
+  !!
+  !! Args:
+  !!   coords [inout] -> CoordList of a particle. Assume that coords are already valid for all
+  !!     levels above and including start
+  !!   start [in] -> Starting level for material search
+  !!
+  !! Errors:
+  !!   fatalError if material cell is not found until maximum nesting is reached
+  !!
+  subroutine diveToMat(self, coords, start)
+    class(geometryStd), intent(in) :: self
+    type(coordList), intent(inout) :: coords
+    integer(shortInt), intent(in)  :: start
+    integer(shortInt)              :: fill, uniqueId, i
+    type(coordData)                :: data
+    character(*), parameter        :: Here = 'diveToMat (geometryStd_class.f90)'
+
+    do i = start, HARDCODED_MAX_NEST
+      ! Find cell fill
+      call self % geom % getFill(coords % getUniRootId(i), coords % getLocalId(i), fill, uniqueId)
+
+      if (0 <= fill) then ! Found material cell
+        call coords % setMatIdx(fill)
+        call coords % setUniqueId(uniqueId)
+        return
+
+      end if
+
+      ! If reached here we have a universe fill and we descend a level
+      if (i == HARDCODED_MAX_NEST) exit ! If there is nested universe at the lowest level
+
+      ! Get current universe
+      data = newCoordData(coords % getPosition(i) - &
+                          self % geom % getUniverseCellOffset(coords % getUniIdx(i), coords % getLocalId(i)), &
+                          coords % getDirection(i), universeRootId = uniqueId)
+
+      ! Enter nested universe
+      call self % geom % enterUniverse(abs(fill), data)
+
+      ! Set new % uniRootId and place into coordList.
+      call coords % addLevel()
+      call coords % updateCoordinatesFromData(i + 1, data)
+
+    end do
+
+    call fatalError(Here, 'Failed to find material cell.')
+
+  end subroutine diveToMat
+
+  !!
+  !! Cast geometry pointer to geometryStd class pointer
+  !!
+  !! Args:
+  !!   source [in]    -> source pointer of class geometry
+  !!
+  !! Result:
+  !!   Null if source is not of geometryStd class
+  !!   Target points to source if source is geometryStd class
+  !!
+  pure function geometryStd_CptrCast(source) result(ptr)
+    class(geometry), pointer, intent(in) :: source
+    class(geometryStd), pointer          :: ptr
+
+    select type(source)
+      class is (geometryStd)
+        ptr => source
+
+      class default
+        ptr => null()
+
+    end select
+
+  end function geometryStd_CptrCast
+
+  !!
+  !!
+  !!
+  function getCellIdx(self, cellId) result(cellIdx)
+    class(geometryStd), intent(in) :: self
+    integer(shortInt), intent(in)  :: cellId
+    integer(shortInt)              :: cellIdx
+
+    cellIdx = self % geom % getCellIdx(cellId)
+
+  end function getCellIdx
+
+  !!
+  !!
+  !!
+  function getMeshPtr(self, id) result(meshPtr)
+    class(geometryStd), intent(in) :: self
+    integer(shortInt), intent(in)  :: id
+    class(mesh), pointer           :: meshPtr
+
+    meshPtr => self % geom % getMeshPtr(id)
+
+  end function getMeshPtr
 
   !!
   !! Initialise geometry
@@ -95,88 +299,7 @@ contains
 
   end subroutine kill
 
-  !!
-  !! Place coordinate list into geometry
-  !!
-  !! See geometry_inter for details
-  !!
-  subroutine placeCoord(self, coords)
-    class(geometryStd), intent(in) :: self
-    type(coordList), intent(inout) :: coords
-    integer(shortInt)              :: nesting
-    type(coordData)                :: data
-    character(*), parameter        :: Here = 'placeCoord (geometryStd_class.f90)'
-
-    ! Check that coordList is initialised.
-    nesting = coords % getNesting()
-    if (nesting < 1) call fatalError(Here, 'CoordList is not initialised. Nesting is: '//numToChar(nesting)//'.')
-
-    ! Place coordinates above geometry (in case they were placed)
-    call coords % takeAboveGeom()
-
-    ! Enter root universe.
-    data = newCoordData(coords % getPosition(1), coords % getDirection(1), universeRootId = 1)
-    call self % geom % enterUniverse(self % geom % getRootIdx(), data)
-
-    ! Set new coordinates in the list.
-    call coords % updateCoordinatesFromData(1, data)
-
-    ! Dive to material
-    call self % diveToMat(coords, 1)
-
-  end subroutine placeCoord
-
-  !!
-  !! Find material and unique cell at a given location
-  !!
-  !! See geometry_inter for details
-  !!
-  subroutine whatIsAt(self, matIdx, uniqueID, r, u)
-    class(geometryStd), intent(in)                    :: self
-    integer(shortInt), intent(out)                    :: matIdx, uniqueID
-    real(defReal), dimension(3), intent(in)           :: r
-    real(defReal), dimension(3), optional, intent(in) :: u
-    type(coordList)                                   :: coords
-    real(defReal), dimension(3)                       :: u_l
-
-    ! If a direction is supplied, update u_l
-    u_l = [ONE, ZERO, ZERO]
-    if (present(u)) u_l = u
-
-    ! Initialise coordinates
-    call coords % init(r, u_l)
-
-    ! Place coordinates
-    call self % placeCoord(coords)
-
-    ! Return material & uniqueID
-    matIdx = coords % getMatIdx()
-    uniqueID = coords % getUniqueId()
-
-  end subroutine whatIsAt
-
-  !!
-  !! Return Axis Aligned Bounding Box encompassing the geometry
-  !!
-  !! See geometry_inter for details
-  !!
-  function bounds(self)
-    class(geometryStd), intent(in) :: self
-    real(defReal), dimension(6)    :: bounds
-    integer(shortInt)              :: i
-
-    ! Get boundary surface
-    bounds = self % geom % getSurfaceBounds(self % geom % getBorderIdx())
-
-    ! Change infinite dimensions to ZERO
-    do i = 1, 3
-      if (bounds(i) <= -INF .and. bounds(i + 3) >= INF) bounds([i, i + 3]) = ZERO
-
-    end do
-
-  end function bounds
-
-  !!
+!!
   !! Given coordinates placed in the geometry move point through the geometry
   !!
   !! See geometry_inter for details
@@ -292,6 +415,57 @@ contains
   end subroutine moveGlobal
 
   !!
+  !! Place coordinate list into geometry
+  !!
+  !! See geometry_inter for details
+  !!
+  subroutine placeCoord(self, coords)
+    class(geometryStd), intent(in) :: self
+    type(coordList), intent(inout) :: coords
+    integer(shortInt)              :: nesting
+    type(coordData)                :: data
+    character(*), parameter        :: Here = 'placeCoord (geometryStd_class.f90)'
+
+    ! Check that coordList is initialised.
+    nesting = coords % getNesting()
+    if (nesting < 1) call fatalError(Here, 'CoordList is not initialised. Nesting is: '//numToChar(nesting)//'.')
+
+    ! Place coordinates above geometry (in case they were placed)
+    call coords % takeAboveGeom()
+
+    ! Enter root universe.
+    data = newCoordData(coords % getPosition(1), coords % getDirection(1), universeRootId = 1)
+    call self % geom % enterUniverse(self % geom % getRootIdx(), data)
+
+    ! Set new coordinates in the list.
+    call coords % updateCoordinatesFromData(1, data)
+
+    ! Dive to material
+    call self % diveToMat(coords, 1)
+
+  end subroutine placeCoord
+
+  !!
+  !!
+  !!
+  subroutine sampleInitialPosition(self, bottom, top, rand, materialIdx, uniqueId, r)
+    class(geometryStd), intent(in)           :: self
+    real(defReal), dimension(3), intent(in)  :: bottom, top
+    class(RNG), intent(inout)                :: rand
+    integer(shortInt), intent(out)           :: materialIdx, uniqueId
+    real(defReal), dimension(3), intent(out) :: r
+    real(defReal), dimension(3)              :: randomNumbers
+
+    ! Sample position.
+    call rand % generate(randomNumbers)
+    r = (top - bottom) * randomNumbers + bottom
+
+    ! Find material under position.
+    call self % whatIsAt(materialIdx, uniqueId, r)
+
+  end subroutine sampleInitialPosition
+
+  !!
   !! Move a particle in the top level without stopping
   !!
   !! See geometry_inter for details
@@ -324,187 +498,32 @@ contains
   end subroutine teleport
 
   !!
-  !! Returns the list of active materials used in the geometry
+  !! Find material and unique cell at a given location
   !!
   !! See geometry_inter for details
   !!
-  pure function activeMats(self) result(matList)
-    class(geometryStd), intent(in)               :: self
-    integer(shortInt), dimension(:), allocatable :: matList
+  subroutine whatIsAt(self, matIdx, uniqueID, r, u)
+    class(geometryStd), intent(in)                    :: self
+    integer(shortInt), intent(out)                    :: matIdx, uniqueID
+    real(defReal), dimension(3), intent(in)           :: r
+    real(defReal), dimension(3), optional, intent(in) :: u
+    type(coordList)                                   :: coords
+    real(defReal), dimension(3)                       :: u_l
 
-    matList = self % geom % getActiveMaterialIdxs()
+    ! If a direction is supplied, update u_l
+    u_l = [ONE, ZERO, ZERO]
+    if (present(u)) u_l = u
 
-  end function activeMats
+    ! Initialise coordinates
+    call coords % init(r, u_l)
 
-  !!
-  !!
-  !!
-  function getCellIdx(self, cellId) result(cellIdx)
-    class(geometryStd), intent(in) :: self
-    integer(shortInt), intent(in)  :: cellId
-    integer(shortInt)              :: cellIdx
+    ! Place coordinates
+    call self % placeCoord(coords)
 
-    cellIdx = self % geom % getCellIdx(cellId)
+    ! Return material & uniqueID
+    matIdx = coords % getMatIdx()
+    uniqueID = coords % getUniqueId()
 
-  end function getCellIdx
-
-  !!
-  !!
-  !!
-  function getMeshPtr(self, id) result(meshPtr)
-    class(geometryStd), intent(in) :: self
-    integer(shortInt), intent(in)  :: id
-    class(mesh), pointer           :: meshPtr
-
-    meshPtr => self % geom % getMeshPtr(id)
-
-  end function getMeshPtr
-
-  !!
-  !! Descend down the geometry structure until material is reached
-  !!
-  !! Requires starting level to be specified.
-  !! It is a private procedure common to all movement types in geometry.
-  !!
-  !! Args:
-  !!   coords [inout] -> CoordList of a particle. Assume that coords are already valid for all
-  !!     levels above and including start
-  !!   start [in] -> Starting level for material search
-  !!
-  !! Errors:
-  !!   fatalError if material cell is not found until maximum nesting is reached
-  !!
-  subroutine diveToMat(self, coords, start)
-    class(geometryStd), intent(in) :: self
-    type(coordList), intent(inout) :: coords
-    integer(shortInt), intent(in)  :: start
-    integer(shortInt)              :: fill, uniqueId, i
-    type(coordData)                :: data
-    character(*), parameter        :: Here = 'diveToMat (geometryStd_class.f90)'
-
-    do i = start, HARDCODED_MAX_NEST
-      ! Find cell fill
-      call self % geom % getFill(coords % getUniRootId(i), coords % getLocalId(i), fill, uniqueId)
-
-      if (0 <= fill) then ! Found material cell
-        call coords % setMatIdx(fill)
-        call coords % setUniqueId(uniqueId)
-        return
-
-      end if
-
-      ! If reached here we have a universe fill and we descend a level
-      if (i == HARDCODED_MAX_NEST) exit ! If there is nested universe at the lowest level
-
-      ! Get current universe
-      data = newCoordData(coords % getPosition(i) - &
-                          self % geom % getUniverseCellOffset(coords % getUniIdx(i), coords % getLocalId(i)), &
-                          coords % getDirection(i), universeRootId = uniqueId)
-
-      ! Enter nested universe
-      call self % geom % enterUniverse(abs(fill), data)
-
-      ! Set new % uniRootId and place into coordList.
-      call coords % addLevel()
-      call coords % updateCoordinatesFromData(i + 1, data)
-
-    end do
-
-    call fatalError(Here, 'Failed to find material cell.')
-
-  end subroutine diveToMat
-
-  !!
-  !! Return distance to the closest surface
-  !!
-  !! Searches through all geometry levels. In addition to distance return level
-  !! and surfIdx for crossing surface
-  !!
-  !! Args:
-  !!   coords [inout] -> Current coordinates of a particle
-  !!   maxDist [in]   -> Maximum distance of travel
-  !!   dist [out]     -> Value of closest distance
-  !!   surfIdx [out]  -> Surface index for the crossing returned from the universe
-  !!   lvl     [out]  -> Level at which crossing is closest
-  !!
-  subroutine closestDist(self, maxDist, coords, updateData, cache)
-    class(geometryStd), intent(in)           :: self
-    real(defReal), intent(in)                :: maxDist
-    type(coordList), intent(in)              :: coords
-    type(coordData), intent(out)             :: updateData
-    type(distCache), intent(inout), optional :: cache
-    integer(shortInt)                        :: l, testIdx
-    logical(defBool)                         :: update
-    real(defReal)                            :: testDistance
-    type(coordData)                          :: levelData
-
-    ! Loop over all geometry levels.
-    do l = 1, coords % getNesting()
-      ! Check if cache is present and valid.
-      update = .true.
-      if (present(cache)) then
-        if (l <= cache % lvl) update = .false.
-
-      end if
-
-      if (update) then
-        ! Get universe and compute distance.
-        levelData = coords % getCoordinatesData(l)
-        levelData % dMax = min(maxDist, testDistance)
-        call self % geom % distanceUniverse(levelData)
-        testDistance = levelData % d
-        testIdx = levelData % surfaceIdx
-
-        if (present(cache)) then
-          ! Update cache and mark this level as valid.
-          cache % dist(l) = testDistance
-          cache % surf(l) = testIdx
-          cache % lvl = l
-
-        end if
-
-      else
-        testDistance = cache % dist(l)
-        testIdx = cache % surf(l)
-
-      end if
-
-      ! Save distance, surfIdx & level coresponding to shortest distance
-      ! Take FP precision into account
-      if (updateData % d * FP_REL_TOL <= updateData % d - testDistance) then
-        updateData = levelData
-        updateData % surfaceIdx = testIdx
-        updateData % updateLevel = l
-
-      end if
-
-    end do
-
-  end subroutine closestDist
-
-  !!
-  !! Cast geometry pointer to geometryStd class pointer
-  !!
-  !! Args:
-  !!   source [in]    -> source pointer of class geometry
-  !!
-  !! Result:
-  !!   Null if source is not of geometryStd class
-  !!   Target points to source if source is geometryStd class
-  !!
-  pure function geometryStd_CptrCast(source) result(ptr)
-    class(geometry), pointer, intent(in) :: source
-    class(geometryStd), pointer          :: ptr
-
-    select type(source)
-      class is (geometryStd)
-        ptr => source
-
-      class default
-        ptr => null()
-
-    end select
-
-  end function geometryStd_CptrCast
+  end subroutine whatIsAt
 
 end module geometryStd_class

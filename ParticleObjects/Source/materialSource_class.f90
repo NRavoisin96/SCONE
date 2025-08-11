@@ -135,7 +135,7 @@ contains
     type(particleState)                  :: p
     class(nuclearDatabase), pointer      :: nucData
     class(neutronMaterial), pointer      :: mat
-    real(defReal), dimension(3)          :: r, randomNumbers
+    real(defReal), dimension(3)          :: r
     real(defReal)                        :: mu, phi
     integer(shortInt)                    :: matIdx, uniqueID, i
     character(*), parameter :: Here = 'sampleParticle (materialSource_class.f90)'
@@ -151,18 +151,14 @@ contains
     i = 0
     rejection : do
       ! Protect against infinite loop
-      i = i +1
+      i = i + 1
       if (i > 200) then
         call fatalError(Here, 'Infinite loop in sampling source. Please check that'//&
                               ' defined volume contains source material.')
       end if
 
-      ! Sample position
-      call rand % generate(randomNumbers)
-      r = (self % top - self % bottom) * randomNumbers + self % bottom
-
-      ! Find material under position
-      call self % geom % whatIsAt(matIdx, uniqueID, r)
+      ! Sample initial position.
+      call self % geom % sampleInitialPosition(self % bottom, self % top, rand, matIdx, uniqueID, r)
 
       ! Reject if there is no material
       if (matIdx == OUTSIDE_MAT) cycle rejection

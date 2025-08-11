@@ -15,6 +15,7 @@ module unstructuredMesh_inter
   use publicObjects,                     only : basicEdgeInfo, basicElementInfo, basicFaceInfo, basicVertexInfo, &
                                                 coordData, intersectionTestPayload, intersectionTestResult, &
                                                 meshLocalIdInfo, newCoordData, newIntersectionTestPayload
+  use RNG_class,                         only : RNG
   use topologicalObject_inter,           only : topologicalObjectBox
   use topologicalObjectShelf_class,      only : topologicalObjectShelf
   use triangulationFactory_func,         only : newTriangulationPtr
@@ -58,39 +59,56 @@ module unstructuredMesh_inter
   !!
   type, public, abstract, extends(mesh)   :: unstructuredMesh
     private
-    integer(shortInt)                     :: nVertices = 0, nFaces = 0, nEdges = 0, &
-                                             nInternalFaces = 0
-    class(accelerationStructure), pointer :: acceleration
-    type(topologicalObjectShelf)          :: edges, elements, faces, vertices
-    class(triangulationMethod), pointer   :: triangulation
+    class(accelerationStructure), pointer        :: acceleration
+    class(triangulationMethod), pointer          :: triangulation
+    integer(shortInt)                            :: nVertices = 0, nFaces = 0, nEdges = 0, nInternalFaces = 0
+    type(topologicalObjectShelf)                 :: edges, elements, faces, vertices
   contains
     ! Build procedures.
-    procedure                       :: assignLocalIds
-    procedure(importMesh), deferred :: importMesh
-    procedure                       :: init
-    procedure                       :: initEdgeShelf
-    procedure                       :: initElementShelf
-    procedure                       :: initFaceShelf
-    procedure                       :: initVertexShelf
-    procedure                       :: kill
-    procedure, non_overridable      :: printComposition
-    procedure                       :: setEdgesNumber
-    procedure                       :: setFacesNumber
-    procedure                       :: setInternalFacesNumber
-    procedure                       :: setVerticesNumber
+    procedure                              :: assignLocalIds
+    procedure(buildLocalIdInfos), deferred :: buildLocalIdInfos
+    procedure                              :: importLocalIdsFromFile
+    procedure(importMesh), deferred        :: importMesh
+    procedure                              :: init
+    procedure                              :: initEdgeShelf
+    procedure                              :: initElementShelf
+    procedure                              :: initFaceShelf
+    procedure                              :: initVertexShelf
+    procedure                              :: kill
+    procedure, non_overridable             :: printComposition
+    procedure                              :: setEdgesNumber
+    procedure                              :: setFacesNumber
+    procedure                              :: setInternalFacesNumber
+    procedure                              :: setVerticesNumber
     ! Runtime procedures.
-    procedure                       :: distanceToBoundary
-    procedure                       :: distanceToNextFace
-    procedure                       :: findHostElement
-    procedure                       :: getEdgesNumber
-    procedure                       :: getElementBox
-    procedure                       :: getElementsNumber
-    procedure                       :: getFacesNumber
-    procedure                       :: getInternalFacesNumber
-    procedure                       :: getVerticesNumber
+    procedure                              :: distanceToBoundary
+    procedure                              :: distanceToNextFace
+    procedure                              :: explicitBoundaryConditions
+    procedure                              :: findHostElement
+    procedure                              :: getEdgesNumber
+    procedure                              :: getElementBox
+    procedure                              :: getElementIsActive
+    procedure                              :: getElementsNumber
+    procedure                              :: getElementVolume
+    procedure                              :: getFaceBoundaryConditions
+    procedure                              :: getFaceIsBoundary
+    procedure                              :: getFacesNumber
+    procedure                              :: getInternalFacesNumber
+    procedure                              :: getUniqueIdOffset
+    procedure                              :: getVerticesNumber
+    procedure                              :: sampleInitialPosition
   end type unstructuredMesh
 
   abstract interface
+    !!
+    !!
+    !!
+    function buildLocalIdInfos(self, assignmentMethod) result(localIdInfos)
+      import                                           :: meshLocalIdInfo, nameLen, unstructuredMesh
+      class(unstructuredMesh), intent(in)              :: self
+      character(nameLen), intent(in)                   :: assignmentMethod
+      type(meshLocalIdInfo), dimension(:), allocatable :: localIdInfos
+    end function buildLocalIdInfos
 
     !! Subroutine 'distanceToNextFace'
     !!
@@ -113,11 +131,40 @@ contains
   !!
   !!
   !!
-  subroutine assignLocalIds(self, localIdInfos)
-    class(unstructuredMesh), intent(inout)          :: self
-    type(meshLocalIdInfo), dimension(:), intent(in) :: localIdInfos
-    integer(shortInt)                               :: i, j, nLocalIds
-    type(elementBox)                                :: element
+  subroutine assignLocalIds(self, dict)
+    class(unstructuredMesh), intent(inout)           :: self
+    class(dictionary), intent(in)                    :: dict
+    character(nameLen)                               :: assignmentMethod
+    character(pathLen)                               :: path
+    class(dictionary), pointer                       :: localIdsDict
+    integer(shortInt)                                :: i, j, nLocalIds
+    type(elementBox)                                 :: element
+    type(meshLocalIdInfo), dimension(:), allocatable :: localIdInfos
+
+    ! Check if localIdsDict is present. Assign only one localIdInfos if not.
+    assignmentMethod = 'all'
+    if (dict % isPresent('localIds')) then
+      localIdsDict => dict % getDictPtr('localIds')
+      call localIdsDict % get(assignmentMethod, 'assignmentMethod')
+
+    end if
+
+    ! Apply logic depending on specific assignment method.
+    select case(assignmentMethod)
+      case('all')
+        ! Assign one localIdInfos.
+        allocate(localIdInfos(1))
+        localIdInfos(1) % localId = 1
+        localIdInfos(1) % elementIdxs = [(i, i = 1, self % elements % getObjectsNumber())]
+
+      case('fileBased')
+        call localIdsDict % get(path, 'path')
+        localIdInfos = self % importLocalIdsFromFile(path)
+
+      case default
+        localIdInfos = self % buildLocalIdInfos(assignmentMethod)
+
+    end select
 
     nLocalIds = size(localIdInfos)
     call self % setLocalIdsNumber(nLocalIds)
@@ -173,6 +220,7 @@ contains
         testResult = ptr % isPointInside(endData % r)
         if (testResult % status == INSIDE_ELEMENT) then
           data % elementIdx = ptr % getIdx()
+          data % faceIdx = boundaryFace % ptr % getIdx()
           data % localId = ptr % getLocalId()
 
         else
@@ -220,11 +268,12 @@ contains
                                            intersectionResult)
     if (.not. intersectionResult % intersects) return
     data % d = intersectionResult % d
+    data % faceIdx = intersectionResult % intersectedFace % ptr % getIdx()
     
     ! If the intersected face is a boundary face then the particle is leaving the mesh.
     if (intersectionResult % intersectedFace % ptr % getIsBoundary()) then
       data % elementIdx = 0
-      data % localId = 1
+      data % localId = 0
 
     else
       ! Else, retrieve the elements sharing the intersected face from mesh connectivity then
@@ -256,6 +305,20 @@ contains
     end if
 
   end subroutine distanceToNextFace
+
+  !!
+  !!
+  !!
+  subroutine explicitBoundaryConditions(self, idx, boundaryConditionType, r, u)
+    class(unstructuredMesh), intent(in)        :: self
+    integer(shortInt), intent(in)              :: idx, boundaryConditionType
+    real(defReal), dimension(3), intent(inout) :: r, u
+    type(faceBox)                              :: box
+
+    box = self % faces % getFaceBox(idx)
+    call box % ptr % explicitBoundaryConditions(boundaryConditionType, r, u)
+
+  end subroutine explicitBoundaryConditions
 
   !! Subroutine 'findElementAndParentIdxs'
   !!
@@ -327,6 +390,20 @@ contains
   !!
   !!
   !!
+  function getElementIsActive(self, idx) result(isActive)
+    class(unstructuredMesh), intent(in) :: self
+    integer(shortInt), intent(in)       :: idx
+    logical(defBool)                    :: isActive
+    type(elementBox)                    :: box
+    
+    box = self % elements % getElementBox(idx)
+    isActive = box % ptr % getIsActive()
+
+  end function getElementIsActive
+
+  !!
+  !!
+  !!
   function getElementsNumber(self, activeOnly) result(nElements)
     class(unstructuredMesh), intent(in)    :: self
     logical(defBool), intent(in), optional :: activeOnly
@@ -335,6 +412,48 @@ contains
     nElements = self % elements % getObjectsNumber(activeOnly)
 
   end function getElementsNumber
+
+  !!
+  !!
+  !!
+  function getElementVolume(self, idx) result(volume)
+    class(unstructuredMesh), intent(in) :: self
+    integer(shortInt), intent(in)       :: idx
+    real(defReal)                       :: volume
+    type(elementBox)                    :: box
+
+    box = self % elements % getElementBox(idx)
+    volume = box % ptr % getVolume()
+
+  end function getElementVolume
+
+  !!
+  !!
+  !!
+  function getFaceBoundaryConditions(self, idx) result(boundaryConditions)
+    class(unstructuredMesh), intent(in)      :: self
+    integer(shortInt), intent(in)            :: idx
+    integer(shortInt), dimension(N_BC_TYPES) :: boundaryConditions
+    type(faceBox)                            :: box
+
+    box = self % faces % getFaceBox(idx)
+    boundaryConditions = box % ptr % getBoundaryConditions()
+
+  end function getFaceBoundaryConditions
+
+  !!
+  !!
+  !!
+  function getFaceIsBoundary(self, idx) result(isBoundary)
+    class(unstructuredMesh), intent(in) :: self
+    integer(shortInt), intent(in)       :: idx
+    logical(defBool)                    :: isBoundary
+    type(faceBox)                       :: box
+
+    box = self % faces % getFaceBox(idx)
+    isBoundary = box % ptr % getIsBoundary()
+
+  end function getFaceIsBoundary
 
   !!
   !!
@@ -361,6 +480,17 @@ contains
   !!
   !!
   !!
+  function getUniqueIdOffset(self) result(uniqueIdOffset)
+    class(unstructuredMesh), intent(in) :: self
+    integer(shortInt)                   :: uniqueIdOffset
+
+    uniqueIdOffset = self % getElementsNumber()
+
+  end function getUniqueIdOffset
+
+  !!
+  !!
+  !!
   elemental function getVerticesNumber(self) result(nVertices)
     class(unstructuredMesh), intent(in) :: self
     integer(shortInt)                   :: nVertices
@@ -372,12 +502,25 @@ contains
   !!
   !!
   !!
+  function importLocalIdsFromFile(self, path) result(localIdInfos)
+    class(unstructuredMesh), intent(in)              :: self
+    character(pathLen), intent(in)                   :: path
+    type(meshLocalIdInfo), dimension(:), allocatable :: localIdInfos
+    character(*), parameter                          :: here = 'importLocalIdsFromFile (unstructuredMesh_inter.f90)'
+
+    ! Call fatalError for now.
+    call fatalError(here, 'STOP.')
+
+  end function importLocalIdsFromFile
+
+  !!
+  !!
+  !!
   subroutine init(self, folderPath, dict)
     class(unstructuredMesh), intent(inout) :: self
     character(*), intent(in)               :: folderPath
     class(dictionary), intent(in)          :: dict
     integer(shortInt)                      :: i
-    type(elementBox)                       :: element
     type(faceBox)                          :: face
 
     ! Set up base components.
@@ -385,6 +528,9 @@ contains
     
     ! Import mesh from files.
     call self % importMesh(folderPath)
+
+    ! Assign localIds.
+    call self % assignLocalIds(dict)
 
     ! Initialise triangulation method from dictionary then triangulate mesh.
     call newTriangulationPtr(dict, self % triangulation)
@@ -639,12 +785,12 @@ contains
     call kill_super(self)
     
     ! Local.
+    call self % acceleration % kill()
+    deallocate(self % acceleration)
     self % nVertices = 0
     self % nFaces = 0
     self % nInternalFaces = 0
     self % nEdges = 0
-    call self % acceleration % kill()
-    deallocate(self % acceleration)
     call self % elements % kill()
     call self % faces % kill()
     call self % edges % kill()
@@ -701,6 +847,22 @@ contains
     print *, '  Number of other polyhedra: '//numToChar(nOthers)//'.'
 
   end subroutine printComposition
+
+  !!
+  !!
+  !!
+  subroutine sampleInitialPosition(self, elementIdx, rand, localId, r)
+    class(unstructuredMesh), intent(in)      :: self
+    integer(shortInt), intent(in)            :: elementIdx
+    class(RNG), intent(inout)                :: rand
+    integer(shortInt), intent(out)           :: localId
+    real(defReal), dimension(3), intent(out) :: r
+    type(elementBox)                         :: box
+
+    box = self % elements % getElementBox(elementIdx)
+    call box % ptr % sampleInitialPosition(rand, localId, r)
+
+  end subroutine sampleInitialPosition
 
   !!
   !!

@@ -1,7 +1,7 @@
 module tabularAngle_class
 
   use numPrecision
-  use genericProcedures,   only : binarySearch, searchError, interpolate, fatalError, isSorted
+  use genericProcedures,   only : floorBinarySearch, searchError, interpolate, fatalError, isSorted
   use aceCard_class,       only : aceCard
   use RNG_class,           only : RNG
   use angleLawENDF_inter,  only : angleLawENDF
@@ -95,7 +95,7 @@ contains
     real(defReal)                     :: randomNumber, eps
     character(100), parameter          :: Here='sample (tabularAngle_class.f90)'
 
-    idx = binarySearch(self % eGrid,E)
+    idx = floorBinarySearch(self % eGrid,E)
     call searchError(idx,Here)
 
     eps = (E - self % eGrid(idx)) / (self % eGrid(idx+1) - self % eGrid(idx))
@@ -121,7 +121,7 @@ contains
     real(defReal)                     :: prob_1, prob_0, E_1, E_0
     character(100), parameter          :: Here='probabilityOf (tabularAngle_class.f90)'
 
-    idx = binarySearch(self % eGrid,E)
+    idx = floorBinarySearch(self % eGrid,E)
     call searchError(idx,Here)
 
     prob_0 = self % muEndfPdfs(idx)   % probabilityOf(mu)

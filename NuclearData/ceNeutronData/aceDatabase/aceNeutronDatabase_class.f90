@@ -4,7 +4,7 @@ module aceNeutronDatabase_class
   use endfConstants
   use universalVariables
   use errors_mod,         only : fatalError
-  use genericProcedures,  only : numToChar, removeDuplicatesSorted, binarySearch
+  use genericProcedures,  only : numToChar, removeDuplicatesSorted, floorBinarySearch
   use dictionary_class,   only : dictionary
   use RNG_class,          only : RNG
   use charMap_class,      only : charMap
@@ -331,7 +331,7 @@ contains
 
       ! Get majorant via the precomputed unionised cross section
       if (self % hasMajorant) then
-        idx = binarySearch(self % eGridUnion, E)
+        idx = floorBinarySearch(self % eGridUnion, E)
 
         if (idx <= 0) then
           call fatalError(Here,'Failed to find energy: '//numToChar(E)//&
@@ -1434,7 +1434,7 @@ contains
             if (nuc % needsUrr(E)) then
 
               ! Find maximum URR table total XS
-              urrIdx = binarySearch(nuc % probTab % eGrid, E)
+              urrIdx = floorBinarySearch(nuc % probTab % eGrid, E)
               urrMaj = nuc % probTab % majorant(urrIdx)
 
               ! Check if URR tables contain xs or multiplicative factor

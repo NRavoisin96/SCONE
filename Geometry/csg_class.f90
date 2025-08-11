@@ -269,7 +269,7 @@ contains
     class(universe), pointer                     :: uni_ptr
     class(surface), pointer                      :: surf_ptr
     integer(shortInt), dimension(:), allocatable :: BC
-    character(100), parameter                    :: Here = 'init (csg_class.f90)'
+    character(*), parameter                      :: Here = 'init (csg_class.f90)'
 
     ! Choose whether to display messages
     loud = .true.
@@ -377,6 +377,7 @@ contains
       print '(2X, 2A)', "Boundary Conditions: ", numToChar(BC)
       print *, "\/\/ FINISHED READING GEOMETRY \/\/"
       print *, repeat('<>', MAX_COL/2)
+
     end if
 
   end subroutine init

@@ -16,6 +16,10 @@ module genericProcedures
     module procedure append_shortIntArray
   end interface
 
+  interface ceilingBinarySearch
+    module procedure binaryCeilingIdxClosed_Real
+  end interface
+
   interface countCharacters
     module procedure countCharacters_shortInt
     module procedure countCharacters_longInt
@@ -79,7 +83,7 @@ module genericProcedures
     module procedure findDuplicatesSorted_Real
   end interface
 
-  interface binarySearch
+  interface floorBinarySearch
     module procedure binaryFloorIdxClosed_Real
   end interface
 
@@ -242,6 +246,42 @@ contains
     array = [array, value]
 
   end subroutine append_defReal
+
+  !!
+  !!
+  !!
+  pure function binaryCeilingIdxClosed_Real(array, value) result(idx)
+    real(defReal), dimension(:), intent(in) :: array
+    real(defReal), intent(in)               :: value
+    integer(shortInt)                       :: bottom, idx, mid, top
+
+    ! Find Top and Bottom Index Array
+    bottom = 1
+    top = size(array)
+    idx = top
+
+    ! Check if the element is in array bounds
+    if (array(top) < value) then
+      idx = valueOutsideArray
+      return
+
+    end if
+
+    do while (bottom <= top)
+      mid = bottom + (top - bottom) / 2
+
+      if (value <= array(mid)) then
+        idx = mid
+        top = mid - 1
+
+      else
+        bottom = mid + 1
+
+      end if
+
+    end do
+
+  end function binaryCeilingIdxClosed_Real
 
   !! Function 'countCharacters_shortInt'
   !!

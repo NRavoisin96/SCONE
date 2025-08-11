@@ -6,26 +6,127 @@ module OpenFOAMMesh_class
   use numPrecision
   use publicObjects,                only : basicEdgeInfo, basicElementInfo, basicFaceInfo, basicVertexInfo, &
                                            meshLocalIdInfo
-  use universalVariables,           only : NOT_PRESENT
-  use unstructuredMesh_inter,       only : unstructuredMesh
+  use universalVariables,           only : centimetresPerMetre, NOT_PRESENT
+  use unstructuredMesh_inter,       only : kill_super => kill, unstructuredMesh
 
   implicit none
   private
 
   type, public, extends(unstructuredMesh) :: OpenFOAMMesh
     private
+    character(:), allocatable :: directoryPath
   contains
     ! Local procedures.
+    procedure :: buildLocalIdInfos
     procedure :: checkFiles
     procedure :: getMeshInfo
     procedure :: importElements
-    procedure :: importElementZones
     procedure :: importFacesAndEdges
     procedure :: importMesh
     procedure :: importVertices
+    procedure :: kill
   end type OpenFOAMMesh
 
 contains
+  !!
+  !!
+  !!
+  function buildLocalIdInfos(self, assignmentMethod) result(localIdInfos)
+    class(OpenFOAMMesh), intent(in)                  :: self
+    character(nameLen), intent(in)                   :: assignmentMethod
+    character(256)                                   :: buffer
+    integer(shortInt)                                :: i, j, nElementsInZone, nElementZones
+    logical(defBool)                                 :: hasCellZonesFile, singleLine
+    type(meshLocalIdInfo), dimension(:), allocatable :: localIdInfos
+    character(*), parameter                          :: here = 'buildLocalIdInfos (OpenFOAMMesh_class.f90)'
+    integer(shortInt), parameter                     :: unit = 10
+
+    ! Check if assignmentMethod is 'cellZones' and call fatalError if not.
+    if (assignmentMethod /= 'cellZones') call fatalError(here, 'Unknown localId build method.')
+
+    ! Check that the 'cellZones' file exists and call fatalError if not.
+    inquire(file = self % directoryPath//'cellZones', exist = hasCellZonesFile)
+    if (.not. hasCellZonesFile) call fatalError(here, 'Missing "cellZones" file.')
+
+    ! Open the 'cellZones' data file and read it. Skip lines until a blank line is encountered.
+    call openToRead(unit, self % directoryPath//'cellZones')
+    read(unit, "(a)") buffer
+    do while (len_trim(buffer) > 0)
+      read(unit, "(a)") buffer
+    end do
+    
+    ! Read the current line and copy the number of cell zones into the variable 'nCellZones'.
+    read(unit, "(a)") buffer
+    read(buffer, *) nElementZones
+    
+    ! Allocate memory and loop through all cell zones.
+    allocate(localIdInfos(nElementZones))
+    do i = 1, nElementZones
+      localIdInfos(i) % localId = i
+      ! Initialise singleLine = .false. and skip lines until a '{' is encountered.
+      singleLine = .false.
+      do while (index(buffer, "{") == 0)
+        read(unit, "(a)") buffer
+
+      end do
+
+      ! Go back to the previous line and read the name of the current cell zone.
+      backspace(unit)
+      read(unit, "(a)") buffer
+      
+      ! Skip lines until the word 'cellLabels' is encoutered.
+      do while (index(buffer, "cellLabels") == 0)
+        read(unit, "(a)") buffer
+
+      end do
+
+      ! If the line contains a ')' then all the elements contained in the current cell zones are
+      ! written on the same line.
+      if (index(buffer, ")") > 0) singleLine = .true.
+
+      ! Read the number of elements in the current cell zone depending on whether they are all
+      ! written a single line or not.
+      if (singleLine) then
+        read(buffer(index(buffer, ">") + 2:index(buffer, "(") - 1), *) nElementsInZone
+
+      else
+        ! Skip one line and retrieve the number of elements in the cell zone..
+        read(unit, "(a)") buffer
+        read(buffer, *) nElementsInZone
+
+      end if
+
+      ! Allocate memory.
+      allocate(localIdInfos(i) % elementIdxs(nElementsInZone))
+
+      ! Now read the indices of the elements in the current cell zone. Again this depends on
+      ! whether they are all written on a single line or not.
+      if (singleLine) then
+        ! Retrieve the element indices.
+        read(buffer(index(buffer, "(") + 1:index(buffer, ")") - 1), *) localIdInfos(i) % elementIdxs
+
+      else
+        ! Skip two lines and retrieve the index of each element in the cell zone line by line..
+        do j = 1, 2
+          read(unit, "(a)") buffer
+
+        end do
+        do j = 1, nElementsInZone
+          read(buffer, *) localIdInfos(i) % elementIdxs(j)
+          read(unit, "(a)") buffer
+
+        end do
+
+      end if
+      localIdInfos(i) % elementIdxs = localIdInfos(i) % elementIdxs + 1
+
+    end do
+    
+    ! Close the 'cellZones' file.
+    close(unit)
+
+  end function buildLocalIdInfos
+
   !! Subroutine 'checkFiles'
   !!
   !! Basic description:
@@ -46,11 +147,10 @@ contains
   !! Notes:
   !!   The existence of the 'owner' file is checked in 'getMeshInfo'.
   !!
-  subroutine checkFiles(self, folderPath, nInternalFaces, cellZonesFile)
+  subroutine checkFiles(self, folderPath, nInternalFaces)
     class(OpenFOAMMesh), intent(inout) :: self
     character(*), intent(in)           :: folderPath
     integer(shortInt), intent(in)      :: nInternalFaces
-    logical(defBool), intent(out)      :: cellZonesFile
     logical(defBool)                   :: pointsFile, facesFile, neighbourFile
     character(*), parameter            :: Here = 'checkFiles (OpenFOAMMesh_class.f90)'
 
@@ -70,9 +170,6 @@ contains
 
     end if
 
-    ! Check that the 'cellZones' file exists.
-    inquire(file = folderPath//'cellZones', exist = cellZonesFile)
-
   end subroutine checkFiles
 
   !! Subroutine 'getMeshInfo'
@@ -89,11 +186,10 @@ contains
   !! Arguments:
   !!   folderPath [in] -> Path of the folder containing the files of the mesh.
   !!
-  subroutine getMeshInfo(self, folderPath, nVertices, nFaces, nInternalFaces, nElements, hasCellZones)
+  subroutine getMeshInfo(self, folderPath, nVertices, nFaces, nInternalFaces, nElements)
     class(OpenFOAMMesh), intent(inout) :: self
     character(*), intent(in)           :: folderPath
     integer(shortInt), intent(out)     :: nVertices, nFaces, nInternalFaces, nElements
-    logical(defBool), intent(out)      :: hasCellZones
     logical(defBool)                   :: ownerFile
     integer(shortInt)                  :: position
     integer(shortInt), parameter       :: unit = 10
@@ -136,7 +232,7 @@ contains
     
     ! Close 'owner' file and check existence of remaining mesh files.
     close(unit)
-    call self % checkFiles(folderPath, nInternalFaces, hasCellZones)
+    call self % checkFiles(folderPath, nInternalFaces)
 
   end subroutine getMeshInfo
 
@@ -261,120 +357,6 @@ contains
     call self % initElementShelf(elementInfos)
 
   end subroutine importElements
-
-  !! Subroutine 'initCellZoneShelf'
-  !!
-  !! Basic description:
-  !!   Initialises the shelf from the cellZones file.
-  !!
-  !! Notes:
-  !!   Due to the structure of the cellZones file the subroutine first scans the file a first time
-  !!   to obtain the name of each cell zone and then rewinds it to read the indices of the elements
-  !!   contained in each zone.
-  !!
-  !! Arguments:
-  !!   folderPath [in] -> Path of the folder containing the OpenFOAM mesh files.
-  !!
-  subroutine importElementZones(self, folderPath, hasCellZones, nElements)
-    class(OpenFOAMMesh), intent(inout)               :: self
-    character(*), intent(in)                         :: folderPath
-    logical(defBool), intent(in)                     :: hasCellZones
-    integer(shortInt), intent(in)                    :: nElements
-    integer(shortInt)                                :: i, j, nElementsInZone, nElementZones
-    integer(shortInt), parameter                     :: unit = 10
-    character(256)                                   :: buffer
-    logical(defBool)                                 :: singleLine
-    type(meshLocalIdInfo), dimension(:), allocatable :: localIdInfos
-
-    ! Check if there are element zones. If not, simply allocate one element zone and set all elements to it.
-    if (.not. hasCellZones) then
-      allocate(localIdInfos(1))
-      localIdInfos(1) % localId = 2
-      localIdInfos(1) % elementIdxs = [(i, i = 1, nElements)]
-
-    else
-      ! Open the 'cellZones' data file and read it. Skip lines until a blank line is encountered.
-      call openToRead(unit, folderPath//'cellZones')
-      read(unit, "(a)") buffer
-      do while (len_trim(buffer) > 0)
-        read(unit, "(a)") buffer
-      end do
-      
-      ! Read the current line and copy the number of cell zones into the variable 'nCellZones'.
-      read(unit, "(a)") buffer
-      read(buffer, *) nElementZones
-      
-      ! Allocate memory and loop through all cell zones.
-      allocate(localIdInfos(nElementZones))
-      do i = 1, nElementZones
-        localIdInfos(i) % localId = i + 1
-        ! Initialise singleLine = .false. and skip lines until a '{' is encountered.
-        singleLine = .false.
-        do while (index(buffer, "{") == 0)
-          read(unit, "(a)") buffer
-
-        end do
-
-        ! Go back to the previous line and read the name of the current cell zone.
-        backspace(unit)
-        read(unit, "(a)") buffer
-        
-        ! Skip lines until the word 'cellLabels' is encoutered.
-        do while (index(buffer, "cellLabels") == 0)
-          read(unit, "(a)") buffer
-
-        end do
-
-        ! If the line contains a ')' then all the elements contained in the current cell zones are
-        ! written on the same line.
-        if (index(buffer, ")") > 0) singleLine = .true.
-
-        ! Read the number of elements in the current cell zone depending on whether they are all
-        ! written a single line or not.
-        if (singleLine) then
-          read(buffer(index(buffer, ">") + 2:index(buffer, "(") - 1), *) nElementsInZone
-
-        else
-          ! Skip one line and retrieve the number of elements in the cell zone..
-          read(unit, "(a)") buffer
-          read(buffer, *) nElementsInZone
-
-        end if
-
-        ! Allocate memory.
-        allocate(localIdInfos(i) % elementIdxs(nElementsInZone))
-
-        ! Now read the indices of the elements in the current cell zone. Again this depends on
-        ! whether they are all written on a single line or not.
-        if (singleLine) then
-          ! Retrieve the element indices.
-          read(buffer(index(buffer, "(") + 1:index(buffer, ")") - 1), *) localIdInfos(i) % elementIdxs
-
-        else
-          ! Skip two lines and retrieve the index of each element in the cell zone line by line..
-          do j = 1, 2
-            read(unit, "(a)") buffer
-
-          end do
-          do j = 1, nElementsInZone
-            read(buffer, *) localIdInfos(i) % elementIdxs(j)
-            read(unit, "(a)") buffer
-
-          end do
-
-        end if
-        localIdInfos(i) % elementIdxs = localIdInfos(i) % elementIdxs + 1
-
-      end do
-      
-      ! Close the 'cellZones' file.
-      close(unit)
-
-    end if
-
-    call self % assignLocalIds(localIdInfos)
-
-  end subroutine importElementZones
 
   !! Subroutine 'initFaceShelf'
   !!
@@ -553,10 +535,10 @@ contains
     class(OpenFOAMMesh), intent(inout) :: self
     character(*), intent(in)           :: folderPath
     integer(shortInt)                  :: nElements, nFaces, nInternalFaces, nVertices
-    logical(defBool)                   :: hasCellZones
     
     ! Retrieve preliminary information about the mesh and set global properties.
-    call self % getMeshInfo(folderPath, nVertices, nFaces, nInternalFaces, nElements, hasCellZones)
+    call self % getMeshInfo(folderPath, nVertices, nFaces, nInternalFaces, nElements)
+    self % directoryPath = folderPath
     call self % setVerticesNumber(nVertices)
     call self % setFacesNumber(nFaces)
     call self % setInternalFacesNumber(nInternalFaces)
@@ -569,9 +551,6 @@ contains
     
     ! Import elements.
     call self % importElements(folderPath, nVertices, nFaces, nInternalFaces, nElements)
-
-    ! Import element zones.
-    call self % importElementZones(folderPath, hasCellZones, nElements)
 
   end subroutine importMesh
 
@@ -635,7 +614,8 @@ contains
 
     close(unit)
 
-    ! Create all infos.
+    ! Create all infos. Convert metres (from OpenFOAM) to centimetres.
+    coords = coords * centimetresPerMetre
     do i = 1, nVertices
       vertexInfos(i) % idx = i
       vertexInfos(i) % coordinates = coords(:, i)
@@ -646,5 +626,19 @@ contains
     call self % initVertexShelf(vertexInfos)
 
   end subroutine importVertices
+
+  !!
+  !!
+  !!
+  subroutine kill(self)
+    class(OpenFOAMMesh), intent(inout) :: self
+
+    ! Superclass.
+    call kill_super(self)
+
+    ! Local.
+    if (allocated(self % directoryPath)) deallocate(self % directoryPath)
+
+  end subroutine kill
 
 end module OpenFOAMMesh_class

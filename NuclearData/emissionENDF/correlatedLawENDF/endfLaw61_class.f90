@@ -2,7 +2,7 @@ module endfLaw61_class
 
   use numPrecision
   use endfConstants
-  use genericProcedures,        only : fatalError, binarySearch, searchError, interpolate, isSorted
+  use genericProcedures,        only : fatalError, floorBinarySearch, searchError, interpolate, isSorted
   use RNG_class,                only : RNG
   use aceCard_class,            only : aceCard
   use correlatedLawENDF_inter,  only : correlatedLawENDF
@@ -56,7 +56,7 @@ contains
     character(100), parameter     :: Here='sample (kendfLaw61_class.f90)'
 
     ! Find Interval index
-    idx = binarySearch(self % eGrid, E_in)
+    idx = floorBinarySearch(self % eGrid, E_in)
     call searchError(idx,Here)
 
     ! Calculate threshold and sample random number
@@ -106,7 +106,7 @@ contains
     character(100), parameter     :: Here='probabilityOf (endfLaw61_class.f90)'
 
     ! Find interval index
-    idx = binarySearch(self % eGrid,E_in)
+    idx = floorBinarySearch(self % eGrid,E_in)
     call searchError(idx,Here)
 
     ! Obtain probabilities & energies at boundaries of the interval

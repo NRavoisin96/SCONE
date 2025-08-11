@@ -2,7 +2,7 @@ module energyGrid_class
 
   use numPrecision
   use universalVariables
-  use genericProcedures, only : fatalError, isDescending, binarySearch
+  use genericProcedures, only : fatalError, isDescending, floorBinarySearch
 
   implicit none
   private
@@ -176,7 +176,7 @@ contains
         idx = floor(log(value/self % bins(1))/self % step) + 1
 
       case(UNSTRUCT)
-        idx = binarySearch(self % bins, value)
+        idx = floorBinarySearch(self % bins, value)
 
     end select
 

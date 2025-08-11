@@ -37,7 +37,7 @@ module coord_class
     real(defReal), dimension(3)   :: r = ZERO, dir = ZERO
     logical(defBool)              :: isRotated = .false.
     real(defReal), dimension(3,3) :: rotMat = ZERO
-    integer(shortInt)             :: cellIdx = 0, elementIdx = 0, localId = 0, uniIdx = 0, uniRootId = 0
+    integer(shortInt)             :: cellIdx = 0, elementIdx = 0, localId = 0, meshIdx = 0, uniIdx = 0, uniRootId = 0
   contains
     procedure :: display
     procedure :: getCellIdx
@@ -46,6 +46,7 @@ module coord_class
     procedure :: getElementIdx
     procedure :: getIsRotated
     procedure :: getLocalId
+    procedure :: getMeshIdx
     procedure :: getPosition
     procedure :: getRotationMatrix
     procedure :: getUniIdx
@@ -102,8 +103,9 @@ contains
     data % r = self % r
     data % u = self % dir
     data % cellIdx = self % cellIdx
-    data % localId = self % localId
     data % elementIdx = self % elementIdx
+    data % localId = self % localId
+    data % meshIdx = self % meshIdx
     data % universeIdx = self % uniIdx
     data % universeRootId = self % uniRootId
 
@@ -157,6 +159,17 @@ contains
     localId = self % localId
 
   end function getLocalId
+
+  !!
+  !!
+  !!
+  elemental function getMeshIdx(self) result(meshIdx)
+    class(coord), intent(in) :: self
+    integer(shortInt)        :: meshIdx
+
+    meshIdx = self % meshIdx
+
+  end function getMeshIdx
 
   !! Function 'getPosition'
   !!
@@ -242,6 +255,7 @@ contains
     self % uniIdx = 0
     self % uniRootId = 0
     self % localId = 0
+    self % meshIdx = 0
     self % cellIdx = 0
     self % elementIdx = 0
 
@@ -391,9 +405,10 @@ contains
     self % dir = data % u
     self % uniIdx = data % universeIdx
     self % uniRootId = data % universeRootId
-    self % localId = data % localId
     self % cellIdx = data % cellIdx
     self % elementIdx = data % elementIdx
+    self % meshIdx = data % meshIdx
+    self % localId = data % localId
     self % isRotated = data % isRotated
     self % rotMat = data % rotationMatrix
 

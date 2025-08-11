@@ -1,13 +1,9 @@
 module meshFactory_func
   
-  use numPrecision
-  use genericProcedures,     only : fatalError
   use dictionary_class,      only : dictionary
-  
-  ! Interface mesh.
+  use genericProcedures,     only : fatalError
   use mesh_inter,            only : mesh
-  
-  ! Meshes.
+  use numPrecision
   use OpenFOAMMesh_class,    only : OpenFOAMMesh
   
   implicit none
@@ -45,17 +41,21 @@ module meshFactory_func
     character(pathLen)            :: path
     character(:), allocatable     :: trimmedPath
     logical(defBool)              :: pathExists
-    character(100), parameter     :: Here = 'new_mesh_ptr (meshFactory_func.f90)'
+    character(*), parameter       :: Here = 'new_mesh_ptr (meshFactory_func.f90)'
     
-    ! Retrieve type of the mesh.
-    call dict % get(type, 'type')
     ! Retrieve path to the mesh folder.
     call dict % get(path, 'path')
+    
     ! Check that the folder corresponding to path exists.
     trimmedPath = trim(path)
     inquire(file = trimmedPath, exist = pathExists)
+    
     ! If the provided mesh folder path does not exist call fatalError.
     if (.not. pathExists) call fatalError(Here, 'The provided mesh folder path does not exist.')
+    
+    ! Retrieve type of the mesh.
+    call dict % get(type, 'type')
+    
     ! Allocate appropriate mesh.
     ! ** FOR NEW MESH ADD CASE STATEMENT HERE ** !
     select case(type)

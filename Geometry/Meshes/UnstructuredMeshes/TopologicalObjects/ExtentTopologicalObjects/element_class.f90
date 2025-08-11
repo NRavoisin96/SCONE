@@ -9,6 +9,7 @@ module element_class
   use numPrecision
   use publicObjects,                 only : basicElementInfo, intersectionTestPayload, intersectionTestResult, &
                                             resetIntersectionTestResult
+  use RNG_class,                     only : RNG
   use topologicalObject_inter,       only : buildTopologicalObjectPayload, kill_super => kill, topologicalObjectBox
   use universalVariables,            only : FOURTH, INSIDE_ELEMENT, INF, NUDGE, ON_BOUNDARY_ELEMENT, ONE, OUTSIDE_ELEMENT, &
                                             SIXTH, ZERO
@@ -87,6 +88,7 @@ module element_class
     procedure          :: isPointInside
     procedure          :: kill
     procedure          :: pushFromBoundary
+    procedure          :: sampleInitialPosition
   end type element
 
   !!
@@ -820,6 +822,66 @@ contains
     r = r + nudgeDirection * NUDGE
 
   end subroutine pushFromBoundary
+
+  !!
+  !!
+  !!
+  subroutine sampleInitialPosition(self, rand, localId, r)
+    class(element), intent(in)               :: self
+    class(RNG), intent(inout)                :: rand
+    integer(shortInt), intent(out)           :: localId
+    real(defReal), dimension(3), intent(out) :: r
+    integer(shortInt)                        :: i
+    real(defReal)                            :: factorsProduct, factorsProductTimeRandomNumber3
+    real(defReal), dimension(2)              :: factors
+    real(defReal), dimension(3)              :: randomNumbers
+    real(defReal), dimension(4)              :: barycentricWeights
+    real(defReal), dimension(3, 2)           :: boundingBoxBounds
+    type(inclusionTestResult)                :: inclusionResult
+
+    localId = self % localId
+
+    ! First check if the element is a tetrahedron and perform a direct sampling using barycentric coordinates if yes.
+    if (size(self % vertices) == 4) then
+      ! Sample three random numbers.
+      call rand % generate(randomNumbers)
+
+      ! Apply transformations to ensure uniform volume sampling.
+      factors(1) = randomNumbers(1) ** THIRD
+      factors(2) = sqrt(randomNumbers(2))
+
+      ! Calculate barycentric weights.
+      factorsProduct = product(factors)
+      factorsProductTimeRandomNumber3 = factorsProduct * randomNumbers(3)
+      barycentricWeights(1) = ONE - factors(1)
+      barycentricWeights(2) = factors(1) - factorsProduct
+      barycentricWeights(3) = factorsProduct - factorsProductTimeRandomNumber3
+      barycentricWeights(4) = factorsProductTimeRandomNumber3
+
+      ! Sample initial position.
+      r = ZERO
+      do i = 1, 4
+        r = r + barycentricWeights(i) * self % vertices(i) % ptr % getCoordinates()
+
+      end do
+
+    else
+      ! Retrieve bounds of element bounding box.
+      boundingBoxBounds = self % getBoundingBoxBounds()
+      inclusionResult % status = OUTSIDE_ELEMENT
+
+      ! Sample initial position until the point is inside the element.
+      do while (.not. inclusionResult % status == INSIDE_ELEMENT)
+        ! Sample three random numbers.
+        call rand % generate(randomNumbers)
+        r = (boundingBoxBounds(:, 2) - boundingBoxBounds(:, 1)) * randomNumbers + boundingBoxBounds(:, 1)
+        inclusionResult = self % isPointInside(r)
+
+      end do
+
+    end if
+
+  end subroutine sampleInitialPosition
 
   !!
   !!

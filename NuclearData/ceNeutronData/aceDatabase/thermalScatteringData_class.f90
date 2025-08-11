@@ -2,7 +2,7 @@ module thermalScatteringData_class
 
   use numPrecision
   use endfConstants
-  use genericProcedures,            only : fatalError, numToChar, binarySearch, &
+  use genericProcedures,            only : fatalError, numToChar, floorBinarySearch, &
                                            endfInterpolate, isSorted
   use dataDeck_inter,               only : dataDeck
   use RNG_class,                    only : RNG
@@ -205,7 +205,7 @@ contains
     integer(shortInt)              :: idx
 
     ! Get energy indexes
-    idx = binarySearch(self % inelastic % eGrid, E)
+    idx = floorBinarySearch(self % inelastic % eGrid, E)
 
     associate(E_top => self % inelastic % eGrid(idx + 1), &
               E_low  => self % inelastic % eGrid(idx))
@@ -250,7 +250,7 @@ contains
       if (E > self % elastic % eGrid(N)) then
         val = self % elastic % xs(N)/E
       else
-        idx = binarySearch(self % elastic % eGrid, E)
+        idx = floorBinarySearch(self % elastic % eGrid, E)
         val = self % elastic % xs(idx)/E
       end if
 
@@ -259,7 +259,7 @@ contains
       if (E > self % elastic % eGrid(N)) then
         val = ZERO
       else
-        idx = binarySearch(self % elastic % eGrid, E)
+        idx = floorBinarySearch(self % elastic % eGrid, E)
         associate(E_top => self % elastic % eGrid(idx + 1), &
                   E_low  => self % elastic % eGrid(idx))
           f = (E - E_low) / (E_top - E_low)

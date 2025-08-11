@@ -2,7 +2,7 @@ module contTabularEnergy_class
 
   use numPrecision
   use endfConstants
-  use genericProcedures,   only : binarySearch, fatalError, interpolate, searchError, isSorted,&
+  use genericProcedures,   only : floorBinarySearch, fatalError, interpolate, searchError, isSorted,&
                                   ceilingSearch => linearCeilingIdxOpen_shortInt, numToChar
   use aceCard_class,       only : aceCard
   use tabularEnergy_class, only : tabularEnergy
@@ -71,7 +71,7 @@ contains
     real(defReal)                        :: factor
     character(100), parameter             :: Here = 'sample (contTabularEnergy_class.f90)'
 
-    idx = binarySearch(self % eGrid,E_in)
+    idx = floorBinarySearch(self % eGrid,E_in)
     call searchError(idx,Here)
 
     ! Get interpolation flag

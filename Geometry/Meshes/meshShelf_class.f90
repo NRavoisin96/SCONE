@@ -1,11 +1,13 @@
 module meshShelf_class
   
-  use numPrecision
-  use genericProcedures, only : fatalError, linFind, numToChar
   use dictionary_class,  only : dictionary
+  use genericProcedures, only : fatalError, linFind, numToChar
   use intMap_class,      only : intMap
-  use mesh_inter,        only : mesh
   use meshFactory_func,  only : new_mesh_ptr
+  use mesh_inter,        only : mesh
+  use numPrecision
+  use publicObjects,     only : coordData
+  use universalVariables
   
   implicit none
   private
@@ -17,7 +19,7 @@ module meshShelf_class
   !!   name -> Name of the mesh.
   !!   ptr  -> Pointer to the mesh.
   !!
-  type :: meshBox
+  type, public :: meshBox
     character(:), allocatable :: name
     class(mesh), pointer      :: ptr => null()
   end type meshBox
@@ -34,12 +36,15 @@ module meshShelf_class
     type(meshBox), dimension(:), allocatable :: meshes
     type(intMap)                             :: idMap
   contains
-    procedure                                :: getMeshId
-    procedure                                :: getMeshIdx
-    procedure                                :: getMeshPtr
-    procedure                                :: getSize
-    procedure                                :: init
-    procedure                                :: kill
+    procedure :: findHostMesh
+    procedure :: getMeshBox
+    procedure :: getMeshId
+    procedure :: getMeshIdx
+    procedure :: getMeshPtr
+    procedure :: getOverallBoundingBoxBounds
+    procedure :: getSize
+    procedure :: init
+    procedure :: kill
   end type meshShelf
 
 contains
@@ -58,10 +63,8 @@ contains
   subroutine init(self, dict)
     class(meshShelf), intent(inout)               :: self
     class(dictionary), intent(in)                 :: dict
-    class(dictionary), pointer                    :: tempDict
     character(nameLen), dimension(:), allocatable :: names
     integer(shortInt)                             :: i, id, idx, nMeshes
-    integer(shortInt), parameter                  :: NOT_PRESENT = -7
     character(*), parameter                       :: Here = 'init (meshShelf_class.f90)'
     
     ! Get all keys to subdictionaries.
@@ -72,13 +75,12 @@ contains
     ! Build mesh geometries.
     do i = 1, nMeshes
       self % meshes(i) % name = names(i)
-      tempDict => dict % getDictPtr(names(i))
-      self % meshes(i) % ptr => new_mesh_ptr(tempDict)
+      self % meshes(i) % ptr => new_mesh_ptr(dict % getDictPtr(names(i)))
       id = self % meshes(i) % ptr % getId()
       ! Add Id to the map detecting any conflicts.
       idx = self % idMap % getOrDefault(id, NOT_PRESENT)
-      if (idx /= NOT_PRESENT) call fatalError(Here,'Mesh geometries '//trim(names(i))// ' & '//&
-                                              trim(self % meshes(idx) % name)//' have the same Id: '&
+      if (idx /= NOT_PRESENT) call fatalError(Here,'Mesh geometries '//trim(names(i))//' and '//&
+                                              trim(self % meshes(idx) % name)//' have the same id: '&
                                               //numToChar(id)//'.')
       call self % idMap % add(id, i)
 
@@ -109,6 +111,41 @@ contains
     call self % idMap % kill()
 
   end subroutine kill
+
+  !!
+  !!
+  !!
+  subroutine findHostMesh(self, data)
+    class(meshShelf), intent(in)   :: self
+    type(coordData), intent(inout) :: data
+    integer(shortInt)              :: i
+    character(*), parameter        :: here = 'findHostMesh (meshShelf_class.f90)'
+
+    ! Check if shelf is allocated.
+    if (.not. allocated(self % meshes)) call fatalError(here, 'Unallocated shelf.')
+    do i = 1, size(self % meshes)
+      call self % meshes(i) % ptr % findHostElement(data)
+      if (0 < data % elementIdx) then
+        data % meshIdx = i
+        return
+
+      end if
+
+    end do
+
+  end subroutine findHostMesh
+
+  !!
+  !!
+  !!
+  function getMeshBox(self, idx) result(box)
+    class(meshShelf), intent(in)  :: self
+    integer(shortInt), intent(in) :: idx
+    type(meshBox)                 :: box
+
+    box = self % meshes(idx)
+
+  end function getMeshBox
   
   !! Function 'getId'
   !!
@@ -214,5 +251,27 @@ contains
     ! Check allocation and return size.
     if (.not. allocated(self % meshes)) call fatalError(Here, 'Requested size of unallocated shelf.')
     nMeshes = size(self % meshes)
+
   end function getSize
+
+  !!
+  !!
+  !!
+  function getOverallBoundingBoxBounds(self) result(overallBoundingBoxBounds)
+    class(meshShelf), intent(in)   :: self
+    integer(shortInt)              :: i
+    real(defReal), dimension(3, 2) :: meshBoundingBoxBounds, overallBoundingBoxBounds
+    character(*), parameter        :: here = 'getOverallBoundingBoxBounds (meshShelf_class.f90)'
+
+    overallBoundingBoxBounds = reshape([INF, INF, INF, -INF, -INF, -INF], [3, 2])
+    if (.not. allocated(self % meshes)) call fatalError(here, 'Shelf is unallocated.')
+    do i = 1, size(self % meshes)
+      meshBoundingBoxBounds = self % meshes(i) % ptr % getBoundingBoxBounds()
+      overallBoundingBoxBounds(:, 1) = min(overallBoundingBoxBounds(:, 1), meshBoundingBoxBounds(:, 1))
+      overallBoundingBoxBounds(:, 2) = max(overallBoundingBoxBounds(:, 2), meshBoundingBoxBounds(:, 2))
+
+    end do
+
+  end function getOverallBoundingBoxBounds
+
 end module meshShelf_class

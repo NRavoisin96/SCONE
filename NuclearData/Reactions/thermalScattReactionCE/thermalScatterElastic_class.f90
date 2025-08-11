@@ -2,7 +2,7 @@ module thermalScatterElastic_class
 
   use numPrecision
   use endfConstants
-  use genericProcedures,            only : fatalError, numToChar, binarySearch
+  use genericProcedures,            only : fatalError, numToChar, floorBinarySearch
   use RNG_class,                    only : RNG
   use dataDeck_inter,               only : dataDeck
   use aceSabCard_class,             only : aceSabCard
@@ -186,7 +186,7 @@ contains
       if (E_in > self % eIn(size(self % eIn))) then
         l1 = size(self % eIn) - 1
       else
-        l1 = binarySearch(self % eIn, E_in)
+        l1 = floorBinarySearch(self % eIn, E_in)
       end if
 
       l2 = l1 + 1
@@ -237,7 +237,7 @@ contains
       if (E_in > self % eIn(size(self % eIn))) then
         l1 = size(self % eIn) - 1
       else
-        l1 = binarySearch(self % eIn, E_in)
+        l1 = floorBinarySearch(self % eIn, E_in)
       end if
 
       l2 = l1 + 1
@@ -246,7 +246,7 @@ contains
       prob = self % pValues(1:l2)
       prob(1) = ZERO
       call rand % generate(randomNumber, mult = prob(l2))
-      k = binarySearch(prob, randomNumber)
+      k = floorBinarySearch(prob, randomNumber)
 
       E2 = self % eIn(k)
       ! Compute angle

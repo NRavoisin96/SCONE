@@ -6,7 +6,7 @@ module endfTable_class
                                 fatalError, isSorted, numToChar, &
                                 ceilingSearch => linearCeilingIdxOpen_shortInt, &
                                 floorSearch   =>  linearFloorIdxClosed_Real, &
-                                binarySearch
+                                floorBinarySearch
 
 
   implicit none

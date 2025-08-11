@@ -2,7 +2,7 @@ module grid_class
 
   use numPrecision
   use universalVariables
-  use genericProcedures, only : fatalError, isSorted, binarySearch
+  use genericProcedures, only : fatalError, isSorted, floorBinarySearch
 
   implicit none
   private
@@ -165,7 +165,7 @@ contains
         idx = floor(log(value/self % bins(1))/self % step) + 1
 
       case(UNSTRUCT)
-        idx = binarySearch(self % bins, value)
+        idx = floorBinarySearch(self % bins, value)
 
     end select
 

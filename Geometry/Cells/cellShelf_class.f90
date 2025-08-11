@@ -106,7 +106,6 @@ contains
 
     ! Build cells
     do i = 1, nCells
-    
       !!
       !! Load local copy of dictionary pointer corresponding to the current name.
       !!
@@ -118,13 +117,9 @@ contains
 
       ! Add ID to the map detecting any conflicts
       idx = self % idMap % getOrDefault(id, NOT_PRESENT)
-      if (idx /= NOT_PRESENT) then
-        call fatalError(Here,'Cells '//name//' & '//self % cells(idx) % name//' have the same ID: '//numToChar(id)//'.')
-
-      else
-        call self % idMap % add(id, i)
-
-      end if
+      if (idx /= NOT_PRESENT) &
+      call fatalError(Here,'Cells '//name//' & '//self % cells(idx) % name//' have the same ID: '//numToChar(id)//'.')
+      call self % idMap % add(id, i)
 
       ! Load cell content and type
       call tempDict % get(filling, 'filltype')
@@ -138,23 +133,20 @@ contains
           call tempDict % get(matName, 'material')
           fill = mats % getOrDefault(matName, NOT_PRESENT)
 
-          if (fill == NOT_PRESENT) then
-            call fatalError(Here, 'Material with name '//trim(matName)//' was not found.')
-          end if
+          if (fill == NOT_PRESENT) call fatalError(Here, 'Material with name '//trim(matName)//' was not found.')
           call self % fillMap % add(i, fill)
 
         case ('uni')
           call tempDict % get(fill, 'universe')
 
-          if (fill <= 0) then
-            call fatalError(Here, 'Universe ID must be +ve. Is :'//numToChar(fill))
-          end if
+          if (fill <= 0) call fatalError(Here, 'Universe ID must be +ve. Is :'//numToChar(fill))
           call self % fillMap % add(i, -fill)
 
         case default
           call fatalError(Here, 'Unknown type of cell filling: '//trim(filling))
 
       end select
+
     end do
 
   end subroutine init

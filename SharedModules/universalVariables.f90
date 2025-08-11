@@ -51,10 +51,21 @@ module universalVariables
                                   universeFill = 2, &
                                   latticeFill  = 3
 
-  ! Define integers for boundary condition types
-  integer(shortInt), parameter :: VACUUM_BC     = 0, &
+  ! Number of boundary condition types.
+  integer(shortInt), parameter :: N_BC_TYPES = 2
+
+  ! Define integers for types of boundary conditions (change integer above when adding more types.)
+  integer(shortInt), parameter :: TRANSPORT_BCs = 1, &
+                                  TEMPERATURE_BCs = 2
+
+  ! Define integers for transport boundary condition types
+  integer(shortInt), parameter :: VACUUM_BC = 0, &
                                   REFLECTIVE_BC = 1, &
-                                  PERIODIC_BC   = 2
+                                  PERIODIC_BC = 2
+
+  ! Define integers for temperature boundary condition types.
+  integer(shortInt), parameter :: FIXED_TEMPERATURE_BC = 1, &
+                                  ZERO_TEMPERATURE_GRADIENT_BC = 2
 
   ! Integer indexes of cardinal directions
   integer(shortInt), parameter :: X_AXIS = 1 ,&
@@ -86,8 +97,9 @@ module universalVariables
                               energyPerFission = 200.0_defReal       ! MeV
 
   ! Unit conversion
-  real(defReal), parameter :: joulesPerMeV = 1.60218e-13  ,&   ! Convert MeV to J
-                              shakesPerS   = 1.0e-8            ! Convert shakes to s
+  real(defReal), parameter :: centimetresPerMetre = 1.0e2_defReal, & ! Convert metres to centimetres
+                              joulesPerMeV = 1.60218e-13_defReal, &  ! Convert MeV to J
+                              shakesPerS = 1.0e+8_defReal            ! Convert shakes to s
 
   ! Global name variables used to define specific geometry or field types
   character(nameLen), parameter :: nameTemperature = 'temperature', nameUFS = 'uniFissSites', nameWW = 'WeightWindows'

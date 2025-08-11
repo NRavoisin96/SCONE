@@ -4,7 +4,6 @@ module unstructuredMeshMap_class
   use element_class,           only : elementBox
   use genericProcedures,       only : fatalError, numToChar
   use geometry_inter,          only : geometry
-  use geometryStd_class,       only : geometryStd, geometryStd_CptrCast
   use geometryReg_mod,         only : geomNum, geomPtr
   use intMap_class,            only : intMap
   use mesh_inter,              only : mesh
@@ -79,7 +78,6 @@ contains
     integer(shortInt)                         :: elementIdx, i, meshId, nActiveElements, nElements, nGeometries, &
                                                  nParentElements, parentElementIdx
     class(geometry), pointer                  :: geom
-    class(geometryStd), pointer               :: geomStd
     class(mesh), pointer                      :: meshPtr
     class(unstructuredMesh), pointer          :: unstructuredMeshPtr
     type(elementBox)                          :: element
@@ -92,14 +90,10 @@ contains
     nGeometries = geomNum()
     if (nGeometries /= 1) call fatalError(here, 'Geometry registry contains: '//numToChar(nGeometries)//'. Should be 1.')
 
-    geom => geomPtr(1)
-    geomStd => geometryStd_CptrCast(geom)
-
-    if (.not. associated(geomStd)) call fatalError(here, 'Geometry is not of type geometryStd.')
-
     ! Get pointer to unstructured mesh geometry.
+    geom => geomPtr(1)
     call dict % get(meshId, 'meshId')
-    meshPtr => geomStd % getMeshPtr(meshId)
+    meshPtr => geom % getMeshPtr(meshId)
     unstructuredMeshPtr => getCastUnstructuredMeshPtr(meshPtr)
 
     ! Loop through all elements in the mesh and begin active and parent counts.

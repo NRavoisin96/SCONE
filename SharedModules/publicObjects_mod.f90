@@ -47,8 +47,8 @@ module publicObjects
     real(defReal)                  :: d = INF, dMax = ZERO
     real(defReal), dimension(3)    :: r = ZERO, u = ZERO
     real(defReal), dimension(3, 3) :: rotationMatrix = ZERO
-    integer(shortInt)              :: cellIdx = 0, elementIdx = 0, localId = 1, surfaceIdx = 0, &
-                                      universeIdx = 0, universeRootId = 0, updateLevel = 0
+    integer(shortInt)              :: cellIdx = 0, elementIdx = 0, faceIdx = 0, localId = 1, meshIdx = 0, &
+                                      surfaceIdx = 0, universeIdx = 0, universeRootId = 0, updateLevel = 0
     logical(defBool)               :: isInside = .false., isRotated = .false.
   end type coordData
 

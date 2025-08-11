@@ -8,7 +8,7 @@ module face_class
   use numPrecision
   use publicObjects,                 only : intersectionTestPayload, intersectionTestResult, resetIntersectionTestResult
   use topologicalObject_inter,       only : buildTopologicalObjectPayload, kill_super => kill, topologicalObjectBox
-  use universalVariables,            only : HALF, INF, ONE, SURF_TOL, THIRD, ZERO
+  use universalVariables
   use vertex_class,                  only : vertexBox
   
   implicit none
@@ -18,10 +18,11 @@ module face_class
   !!
   !!
   type, public, extends(buildExtentTopologicalObjectPayload) :: buildFacePayload
-    integer(shortInt)                                        :: parentIdx = 0
-    logical(defBool)                                         :: isBoundary = .false., testNormal = .false.
-    type(edgeBox), dimension(:), allocatable                 :: edges
-    real(defReal), dimension(3)                              :: testCentroid = ZERO
+    integer(shortInt)                        :: parentIdx = 0
+    integer(shortInt), dimension(N_BC_TYPES) :: boundaryConditions = 1
+    logical(defBool)                         :: isBoundary = .false., testNormal = .false.
+    real(defReal), dimension(3)              :: testCentroid = ZERO
+    type(edgeBox), dimension(:), allocatable :: edges
   end type buildFacePayload
 
   !!
@@ -59,15 +60,16 @@ module face_class
   !!
   type, public, extends(extentTopologicalObject)          :: face
     private
+    character(:), allocatable                             :: type
     integer(shortInt)                                     :: parentIdx = 0
-    type(edgeBox), dimension(:), allocatable              :: edges
-    type(vertexBox), dimension(:), allocatable            :: vertices
-    type(topologicalObjectBox), dimension(:), allocatable :: sharingElements
+    integer(shortInt), dimension(N_BC_TYPES)              :: boundaryConditions = 1
     integer(shortInt), dimension(:), allocatable          :: childrenIdxs
     logical(defBool)                                      :: isBoundary = .false.
     real(defReal)                                         :: area = ZERO
     real(defReal), dimension(3)                           :: normal = ZERO
-    character(:), allocatable                             :: type
+    type(edgeBox), dimension(:), allocatable              :: edges
+    type(topologicalObjectBox), dimension(:), allocatable :: sharingElements
+    type(vertexBox), dimension(:), allocatable            :: vertices
   contains
     procedure          :: addChildIdx
     procedure          :: addEdge
@@ -77,7 +79,10 @@ module face_class
     procedure, private :: buildComponents
     procedure          :: connectComponents
     procedure          :: distanceSquared
+    procedure          :: explicitBoundaryConditions
+    procedure, private :: flipDirection
     procedure          :: getArea
+    procedure          :: getBoundaryConditions
     procedure          :: getChildrenIdxs
     procedure          :: getEdges
     procedure          :: getSharingElements
@@ -236,6 +241,7 @@ contains
     ! Set everything from payload.
     self % parentIdx = payloadPtr % parentIdx
     self % isBoundary = payloadPtr % isBoundary
+    self % boundaryConditions = payloadPtr % boundaryConditions
     self % vertices = payloadPtr % vertices
     self % edges = payloadPtr % edges
 
@@ -374,6 +380,53 @@ contains
     end do
 
   end function distanceSquared
+
+  !!
+  !!
+  !!
+  subroutine explicitBoundaryConditions(self, boundaryConditionType, r, u)
+    class(face), intent(in)                    :: self
+    integer(shortInt), intent(in)              :: boundaryConditionType
+    real(defReal), dimension(3), intent(inout) :: r, u
+    character(*), parameter                    :: here = 'explicitBoundaryConditions (face_class.f90)'
+    
+    ! Select logic to use based on specific boundary condition.
+    select case(boundaryConditionType)
+      case(TRANSPORT_BCs)
+        select case(self % boundaryConditions(TRANSPORT_BCs))
+          case(REFLECTIVE_BC)
+            call self % flipDirection(u)
+
+          case default
+            call fatalError(here, &
+            'Unsupported transport boundary condition: '//numToChar(self % boundaryConditions(TRANSPORT_BCs))//'.')
+
+        end select
+
+      case(TEMPERATURE_BCs)
+        ! Do nothing for now.
+
+      case default
+        call fatalError(here, 'Invalid boundary condition type: '//numToChar(boundaryConditionType)//'.')
+
+    end select
+
+  end subroutine explicitBoundaryConditions
+
+  !!
+  !!
+  !!
+  subroutine flipDirection(self, u)
+    class(face), intent(in)                    :: self
+    real(defReal), dimension(3), intent(inout) :: u
+    integer(shortInt)                          :: i
+
+    do i = 1, 3
+      if (ZERO < u(i) * self % normal(i)) u(i) = -u(i)
+
+    end do
+
+  end subroutine flipDirection
   
   !! Function 'getArea'
   !!
@@ -390,6 +443,17 @@ contains
     area = self % area
 
   end function getArea
+
+  !!
+  !!
+  !!
+  pure function getBoundaryConditions(self) result(boundaryConditions)
+    class(face), intent(in)                  :: self
+    integer(shortInt), dimension(N_BC_TYPES) :: boundaryConditions
+
+    boundaryConditions = self % boundaryConditions
+
+  end function getBoundaryConditions
 
   !! Function 'getTriangleIdxs'
   !!
@@ -707,6 +771,7 @@ contains
     self % isBoundary = .false.
     self % area = ZERO
     self % normal = ZERO
+    self % boundaryConditions = 0
     if (allocated(self % childrenIdxs)) deallocate(self % childrenIdxs)
     if (allocated(self % edges)) then
       do i = 1, size(self % edges)

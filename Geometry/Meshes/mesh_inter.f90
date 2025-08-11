@@ -5,7 +5,8 @@ module mesh_inter
   use genericProcedures,            only : fatalError, numToChar, openToRead
   use numPrecision
   use publicObjects,                only : coordData
-  use universalVariables,           only : INF, NUDGE
+  use RNG_class,                    only : RNG
+  use universalVariables
   
   implicit none
   private
@@ -47,20 +48,29 @@ module mesh_inter
     type(axisAlignedBoundingBox) :: boundingBox
   contains
     ! Build procedures.
-    procedure(init), deferred               :: init
-    procedure, non_overridable              :: initBoundingBox
-    procedure                               :: kill
-    procedure, non_overridable              :: setId
-    procedure, non_overridable              :: setLocalIdsNumber
-    procedure, non_overridable              :: setupBase
+    procedure(init), deferred                       :: init
+    procedure, non_overridable                      :: initBoundingBox
+    procedure                                       :: kill
+    procedure, non_overridable                      :: setId
+    procedure, non_overridable                      :: setLocalIdsNumber
+    procedure, non_overridable                      :: setupBase
     ! Runtime procedures.
-    procedure                               :: distance
-    procedure(distanceToBoundary), deferred :: distanceToBoundary
-    procedure(distanceToNextFace), deferred :: distanceToNextFace
-    procedure(findHostElement), deferred    :: findHostElement
-    procedure, non_overridable              :: getBoundingBoxPtr
-    procedure, non_overridable              :: getId
-    procedure, non_overridable              :: getLocalIdsNumber
+    procedure                                       :: distance
+    procedure(distanceToBoundary), deferred         :: distanceToBoundary
+    procedure(distanceToNextFace), deferred         :: distanceToNextFace
+    procedure(explicitBoundaryConditions), deferred :: explicitBoundaryConditions
+    procedure(findHostElement), deferred            :: findHostElement
+    procedure, non_overridable                      :: getBoundingBoxBounds
+    procedure, non_overridable                      :: getBoundingBoxPtr
+    procedure(getFaceBoundaryConditions), deferred  :: getFaceBoundaryConditions
+    procedure(getFaceIsBoundary), deferred          :: getFaceIsBoundary
+    procedure(getElementIsActive), deferred         :: getElementIsActive
+    procedure(getElementsNumber), deferred          :: getElementsNumber
+    procedure(getElementVolume), deferred           :: getElementVolume
+    procedure, non_overridable                      :: getId
+    procedure, non_overridable                      :: getLocalIdsNumber
+    procedure(getUniqueIdOffset), deferred          :: getUniqueIdOffset
+    procedure(sampleInitialPosition), deferred      :: sampleInitialPosition
   end type mesh
   
   abstract interface
@@ -95,6 +105,16 @@ module mesh_inter
       type(coordData), intent(inout) :: data
     end subroutine distanceToNextFace
 
+    !!
+    !!
+    !!
+    subroutine explicitBoundaryConditions(self, idx, boundaryConditionType, r, u)
+      import                                     :: defReal, mesh, shortInt
+      class(mesh), intent(in)                    :: self
+      integer(shortInt), intent(in)              :: idx, boundaryConditionType
+      real(defReal), dimension(3), intent(inout) :: r, u
+    end subroutine explicitBoundaryConditions
+
     !! Subroutine 'findOccupiedElementIdx'
     !!
     !! Basic description:
@@ -112,6 +132,65 @@ module mesh_inter
       type(coordData), intent(inout) :: data
     end subroutine findHostElement
 
+    !!
+    !!
+    !!
+    function getFaceBoundaryConditions(self, idx) result(boundaryConditions)
+      import                                   :: mesh, N_BC_TYPES, shortInt
+      class(mesh), intent(in)                  :: self
+      integer(shortInt), intent(in)            :: idx
+      integer(shortInt), dimension(N_BC_TYPES) :: boundaryConditions
+    end function getFaceBoundaryConditions
+
+    !!
+    !!
+    !!
+    function getFaceIsBoundary(self, idx) result(isBoundary)
+      import                        :: defBool, mesh, shortInt
+      class(mesh), intent(in)       :: self
+      integer(shortInt), intent(in) :: idx
+      logical(defBool)              :: isBoundary
+    end function getFaceIsBoundary
+
+    !!
+    !!
+    !!
+    function getElementIsActive(self, idx) result(isActive)
+      import                        :: defBool, mesh, shortInt
+      class(mesh), intent(in)       :: self
+      integer(shortInt), intent(in) :: idx
+      logical(defBool)              :: isActive
+    end function getElementIsActive
+
+    !!
+    !!
+    !!
+    function getElementsNumber(self, activeOnly) result(nElements)
+      import                                 :: defBool, mesh, shortInt
+      class(mesh), intent(in)                :: self
+      logical(defBool), intent(in), optional :: activeOnly
+      integer(shortInt)                      :: nElements
+    end function getElementsNumber
+
+    !!
+    !!
+    !!
+    function getElementVolume(self, idx) result(volume)
+      import                        :: defReal, mesh, shortInt
+      class(mesh), intent(in)       :: self
+      integer(shortInt), intent(in) :: idx
+      real(defReal)                 :: volume
+    end function getElementVolume
+
+    !!
+    !!
+    !!
+    function getUniqueIdOffset(self) result(uniqueIdOffset)
+      import                  :: mesh, shortInt
+      class(mesh), intent(in) :: self
+      integer(shortInt)       :: uniqueIdOffset
+    end function getUniqueIdOffset
+
     !! Subroutine 'init'
     !!
     !! Basic description:
@@ -123,11 +202,23 @@ module mesh_inter
     !!   dict [in]       -> Dictionary with the mesh definition.
     !!
     subroutine init(self, folderPath, dict)
-      import                        :: mesh, shortInt, dictionary
+      import                        :: dictionary, mesh, shortInt
       class(mesh), intent(inout)    :: self
       character(*), intent(in)      :: folderPath
       class(dictionary), intent(in) :: dict
     end subroutine init
+
+    !!
+    !!
+    !!
+    subroutine sampleInitialPosition(self, elementIdx, rand, localId, r)
+      import                                   :: defReal, mesh, RNG, shortInt
+      class(mesh), intent(in)                  :: self
+      integer(shortInt), intent(in)            :: elementIdx
+      class(RNG), intent(inout)                :: rand
+      integer(shortInt), intent(out)           :: localId
+      real(defReal), dimension(3), intent(out) :: r
+    end subroutine sampleInitialPosition
 
   end interface
 
@@ -150,7 +241,7 @@ contains
     data % isInside = .true.
     
     ! If particle is already inside an element, simply compute the distance to the next mesh face and return.
-    if (data % elementIdx > 0) then
+    if (0 < data % elementIdx) then
       call self % distanceToNextFace(data)
 
     else
@@ -161,6 +252,17 @@ contains
     end if
 
   end subroutine distance
+
+  !!
+  !!
+  !!
+  pure function getBoundingBoxBounds(self) result(boundingBoxBounds)
+    class(mesh), intent(in)        :: self
+    real(defReal), dimension(3, 2) :: boundingBoxBounds
+
+    boundingBoxBounds = self % boundingBox % getBounds()
+
+  end function getBoundingBoxBounds
 
   !! Function 'getBoundingBox'
   !!

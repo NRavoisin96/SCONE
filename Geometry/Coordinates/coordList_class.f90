@@ -70,6 +70,7 @@ module coordList_class
     procedure :: getLowestCellIdx
     procedure :: getLowestElementIdx
     procedure :: getMatIdx
+    procedure :: getMeshIdx
     procedure :: getNesting
     procedure :: getPosition
     procedure :: getUniIdx
@@ -264,6 +265,18 @@ contains
     matIdx = self % matIdx
 
   end function getMatIdx
+
+  !!
+  !!
+  !!
+  elemental function getMeshIdx(self, lvl) result(meshIdx)
+    class(coordList), intent(in)  :: self
+    integer(shortInt), intent(in) :: lvl
+    integer(shortInt)             :: meshIdx
+
+    meshIdx = self % lvl(lvl) % getMeshIdx()
+
+  end function getMeshIdx
 
   !!
   !!

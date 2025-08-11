@@ -4,7 +4,9 @@ module geometry_inter
   use coordList_class,    only : coordList
   use dictionary_class,   only : dictionary
   use genericProcedures,  only : fatalError
+  use mesh_inter,         only : mesh
   use numPrecision
+  use RNG_class,          only : RNG
   use universalVariables, only : X_AXIS, Y_AXIS, Z_AXIS, HARDCODED_MAX_NEST
 
   implicit none
@@ -31,15 +33,17 @@ module geometry_inter
     private
   contains
     ! Deferred procedures
-    procedure(init), deferred       :: init
-    procedure(kill), deferred       :: kill
-    procedure(placeCoord), deferred :: placeCoord
-    procedure(whatIsAt), deferred   :: whatIsAt
-    procedure(bounds), deferred     :: bounds
-    procedure(move), deferred       :: move
-    procedure(moveGlobal), deferred :: moveGlobal
-    procedure(teleport), deferred   :: teleport
-    procedure(activeMats), deferred :: activeMats
+    procedure(activeMats), deferred            :: activeMats
+    procedure(bounds), deferred                :: bounds
+    procedure(getMeshPtr), deferred            :: getMeshPtr
+    procedure(init), deferred                  :: init
+    procedure(kill), deferred                  :: kill
+    procedure(move), deferred                  :: move
+    procedure(moveGlobal), deferred            :: moveGlobal
+    procedure(placeCoord), deferred            :: placeCoord
+    procedure(sampleInitialPosition), deferred :: sampleInitialPosition
+    procedure(teleport), deferred              :: teleport
+    procedure(whatIsAt), deferred              :: whatIsAt
 
     ! Common procedures
     procedure :: slicePlot
@@ -47,6 +51,50 @@ module geometry_inter
   end type geometry
 
   abstract interface
+    !!
+    !! Returns the list of active materials used in the geometry.
+    !!
+    !! Args:
+    !!   None
+    !!
+    !! Result:
+    !!   matList -> Integer list with the IDs of the active materials. Void is not considered as an
+    !!              active material, even if it is present in the geometry.
+    !!
+    function activeMats(self) result(matList)
+      import :: geometry, shortInt
+      class(geometry), intent(in)                  :: self
+      integer(shortInt), dimension(:), allocatable :: matList
+    end function activeMats
+
+    !!
+    !! Return Axis Aligned Bounding Box encompassing the geometry.
+    !!
+    !! Provides with bounds of the geometry.
+    !!
+    !! Args:
+    !!   None
+    !!
+    !! Result:
+    !!   Size 6 array [x_min, y_min, z_min, x_max, y_max, z_max] with locations of
+    !!   the lower and the high corner of the axis aligned bounding box.
+    !!   If geometry is infinite in a given axis direction * then *_min = *_max = ZERO
+    !!
+    function bounds(self)
+      import :: geometry, defReal
+      class(geometry), intent(in) :: self
+      real(defReal), dimension(6) :: bounds
+    end function bounds
+
+    !!
+    !!
+    !!
+    function getMeshPtr(self, id) result(meshPtr)
+      import                        :: geometry, mesh, shortInt
+      class(geometry), intent(in)   :: self
+      integer(shortInt), intent(in) :: id
+      class(mesh), pointer          :: meshPtr
+    end function getMeshPtr
 
     !!
     !! Initialise geometry
@@ -71,61 +119,6 @@ module geometry_inter
       import :: geometry
       class(geometry), intent(inout) :: self
     end subroutine kill
-
-    !!
-    !! Places coordinate list into geometry.
-    !!
-    !! Finds unique cell and material as well as location at all intermediate levels.
-    !!
-    !! Args:
-    !!   coords [inout] -> Initialised coordinate list. This means that location in tope level must
-    !!     be valid and direction normalised to 1.0.
-    !!
-    !! Errors:
-    !!   fatalError if coordList is not initialised
-    !!
-    subroutine placeCoord(self, coords)
-      import :: geometry, coordList
-      class(geometry), intent(in)    :: self
-      type(coordList), intent(inout) :: coords
-    end subroutine placeCoord
-
-    !!
-    !! Finds material and unique cell at a given location.
-    !!
-    !! Args:
-    !!   matIdx [out] -> material index at the location
-    !!   uniqueID [out] -> Unique Id at the location
-    !!   r [in] -> Position in the geometry
-    !!   u [in] -> Optional. Normalised direction (norm2(u) = 1.0) (default = [1, 0, 0])
-    !!
-    subroutine whatIsAt(self, matIdx, uniqueID, r, u)
-      import :: geometry, shortInt, defReal
-      class(geometry), intent(in)                       :: self
-      integer(shortInt), intent(out)                    :: matIdx
-      integer(shortInt), intent(out)                    :: uniqueID
-      real(defReal), dimension(3), intent(in)           :: r
-      real(defReal), dimension(3), optional, intent(in) :: u
-    end subroutine whatIsAt
-
-    !!
-    !! Return Axis Aligned Bounding Box encompassing the geometry.
-    !!
-    !! Provides with bounds of the geometry.
-    !!
-    !! Args:
-    !!   None
-    !!
-    !! Result:
-    !!   Size 6 array [x_min, y_min, z_min, x_max, y_max, z_max] with locations of
-    !!   the lower and the high corner of the axis aligned bounding box.
-    !!   If geometry is infinite in a given axis direction * then *_min = *_max = ZERO
-    !!
-    function bounds(self)
-      import :: geometry, defReal
-      class(geometry), intent(in) :: self
-      real(defReal), dimension(6) :: bounds
-    end function bounds
 
     !!
     !! Given coordinates placed in the geometry move point through the geometry
@@ -192,6 +185,36 @@ module geometry_inter
     end subroutine moveGlobal
 
     !!
+    !! Places coordinate list into geometry.
+    !!
+    !! Finds unique cell and material as well as location at all intermediate levels.
+    !!
+    !! Args:
+    !!   coords [inout] -> Initialised coordinate list. This means that location in tope level must
+    !!     be valid and direction normalised to 1.0.
+    !!
+    !! Errors:
+    !!   fatalError if coordList is not initialised
+    !!
+    subroutine placeCoord(self, coords)
+      import :: geometry, coordList
+      class(geometry), intent(in)    :: self
+      type(coordList), intent(inout) :: coords
+    end subroutine placeCoord
+
+    !!
+    !!
+    !!
+    subroutine sampleInitialPosition(self, bottom, top, rand, materialIdx, uniqueId, r)
+      import                                   :: defReal, geometry, RNG, shortInt
+      class(geometry), intent(in)              :: self
+      real(defReal), dimension(3), intent(in)  :: bottom, top
+      class(RNG), intent(inout)                :: rand
+      integer(shortInt), intent(out)           :: materialIdx, uniqueId
+      real(defReal), dimension(3), intent(out) :: r
+    end subroutine sampleInitialPosition
+
+    !!
     !! Move a particle in the top level without stopping
     !!
     !! Moves exactly by a given distance. If domain boundary is hit, boundary conditions are
@@ -213,20 +236,22 @@ module geometry_inter
     end subroutine teleport
 
     !!
-    !! Returns the list of active materials used in the geometry.
+    !! Finds material and unique cell at a given location.
     !!
     !! Args:
-    !!   None
+    !!   matIdx [out] -> material index at the location
+    !!   uniqueID [out] -> Unique Id at the location
+    !!   r [in] -> Position in the geometry
+    !!   u [in] -> Optional. Normalised direction (norm2(u) = 1.0) (default = [1, 0, 0])
     !!
-    !! Result:
-    !!   matList -> Integer list with the IDs of the active materials. Void is not considered as an
-    !!              active material, even if it is present in the geometry.
-    !!
-    function activeMats(self) result(matList)
-      import :: geometry, shortInt
-      class(geometry), intent(in)                  :: self
-      integer(shortInt), dimension(:), allocatable :: matList
-    end function activeMats
+    subroutine whatIsAt(self, matIdx, uniqueID, r, u)
+      import :: geometry, shortInt, defReal
+      class(geometry), intent(in)                       :: self
+      integer(shortInt), intent(out)                    :: matIdx
+      integer(shortInt), intent(out)                    :: uniqueID
+      real(defReal), dimension(3), intent(in)           :: r
+      real(defReal), dimension(3), optional, intent(in) :: u
+    end subroutine whatIsAt
 
   end interface
 
@@ -390,6 +415,5 @@ contains
     end do
 
   end subroutine voxelPlot
-
 
 end module geometry_inter

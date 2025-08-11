@@ -2,7 +2,7 @@ module thermalScatterInelastic_class
 
   use numPrecision
   use endfConstants
-  use genericProcedures,            only : binarySearch, fatalError, numToChar, endfInterpolate, searchError
+  use genericProcedures,            only : floorBinarySearch, fatalError, numToChar, endfInterpolate, searchError
   use RNG_class,                    only : RNG
   use dataDeck_inter,               only : dataDeck
   use aceSabCard_class,             only : aceSabCard
@@ -216,7 +216,7 @@ contains
     character(*), parameter :: Here = 'sampleOut(thermalScatterInelastic_class)'
 
     ! Get energy indexes
-    l1 = binarySearch(self % eIn, E_in)
+    l1 = floorBinarySearch(self % eIn, E_in)
     l2 = l1 + 1
 
     ! Get energy values
@@ -228,7 +228,7 @@ contains
     if (.not. self % isInelContinuous) then
       ! Discrete treatment
       call rand % generate(randomNumber)
-      j = binarySearch(self % CDF, randomNumber)
+      j = floorBinarySearch(self % CDF, randomNumber)
       E_min = self % eOut(l1) % array(j)
       E_max = self % eOut(l2) % array(j)
 

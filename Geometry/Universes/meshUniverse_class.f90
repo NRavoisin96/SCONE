@@ -128,7 +128,7 @@ contains
     call dict % get(fillNames, 'fills')
     nFills = size(fillNames)
     if (self % mesh % ptr % getLocalIdsNumber() /= nFills) call fatalError(Here, &
-    'The number of fills does not match the number of element zones in mesh geometry with id: '//numToChar(meshId)//'.')
+    'The number of fills does not match the number of local ids in mesh geometry with id: '//numToChar(meshId)//'.')
     
     ! Create fill array. First entry is fill of the CSG cell, remaining entries are the fills for 
     ! the pseudo-cells.
@@ -153,6 +153,7 @@ contains
     ! Set cellIdx to the index of the CSG cell, then find elementIdx and localId within mesh.
     data % cellIdx = self % cell % idx
     call self % mesh % ptr % findHostElement(data)
+    data % localId = merge(data % localId + 1, data % localId, 0 < data % elementIdx)
 
   end subroutine findCell
   
@@ -168,6 +169,7 @@ contains
     ! Initialise surfIdx = 0 and compute distance to next mesh crossing. Also check if particle is
     ! inside the mesh.
     call self % mesh % ptr % distance(data)
+    data % localId = merge(data % localId + 1, data % localId, 0 < data % elementIdx)
     
     ! If particle is outside the mesh then compute distance to the next CSG surface crossing.
     if (.not. data % isInside) call self % cell % ptr % distance(data % d, data % surfaceIdx, data % r, data % u)
@@ -202,8 +204,8 @@ contains
     ! Local.
     self % cell % idx = 0
     self % mesh % idx = 0
-    if (associated(self % cell % ptr)) nullify(self % cell % ptr)
-    if (associated(self % mesh % ptr)) nullify(self % mesh % ptr)
+    self % cell % ptr => null()
+    self % mesh % ptr => null()
 
   end subroutine kill
   
@@ -260,10 +262,6 @@ contains
                       ' crops the bounding box of the mesh geometry with id: '//numToChar(self % mesh % ptr % getId())//'.')
 
     end if
-
-    ! Nullify pointers.
-    nullify(cellPtr)
-    nullify(surfPtr)
 
   end subroutine checkForCropping
   
