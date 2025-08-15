@@ -2,7 +2,7 @@ module publicObjects
 
   use numPrecision
   use RNG_class,               only : RNG
-  use universalVariables,      only : INF, ZERO
+  use universalVariables
 
   implicit none
   public
@@ -67,6 +67,14 @@ module publicObjects
     logical(defBool) :: intersects = .false.
     real(defReal)    :: d = INF
   end type intersectionTestResult
+
+  !!
+  !!
+  !!
+  type :: meshBoundaryConditionInfo
+    integer(shortInt), dimension(N_BC_TYPES)     :: boundaryConditions = [INTERNAL_TRANSPORT_BC, INTERNAL_TEMPERATURE_BC]
+    integer(shortInt), dimension(:), allocatable :: faceIdxs
+  end type meshBoundaryConditionInfo
 
   !!
   !!

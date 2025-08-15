@@ -9,6 +9,7 @@ module fieldFactory_func
 
   ! Fields
   use field_inter,               only : field
+  use mixedScalarField_class,    only : mixedScalarField
   use OpenFOAMScalarField_class, only : OpenFOAMScalarField
   use uniFissSitesField_class,   only : uniFissSitesField
   use uniformScalarField_class,  only : uniformScalarField
@@ -23,7 +24,8 @@ module fieldFactory_func
 
 
   !! Parameters
-  character(nameLen), dimension(*), parameter :: AVAILABLE_FIELDS = ['OpenFOAMScalarField', &
+  character(nameLen), dimension(*), parameter :: AVAILABLE_FIELDS = ['mixedScalarField   ', &
+                                                                     'OpenFOAMScalarField', &
                                                                      'uniFissSitesField  ', &
                                                                      'uniformScalarField ', &
                                                                      'uniformVectorField ', &
@@ -57,6 +59,9 @@ contains
 
     ! Build Field
     select case(type)
+      case('mixedScalarField')
+        allocate(mixedScalarField :: kentta)
+
       case('OpenFOAMScalarField')
         allocate(OpenFOAMScalarField :: kentta)
 
@@ -86,6 +91,5 @@ contains
     call gr_addField(kentta, name)
 
   end subroutine new_field
-
 
 end module fieldFactory_func

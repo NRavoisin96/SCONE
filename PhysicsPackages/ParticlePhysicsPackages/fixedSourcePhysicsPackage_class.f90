@@ -267,7 +267,7 @@ contains
         call transOp % transport(p, tally)
         if (p % isDead) exit history
 
-        call collOp % collide(p, tally, buffer, buffer)
+        call collOp % collide(self % getScalarFieldValueByName(nameTemperature, p % coords), p, tally, buffer, buffer)
         if (p % isDead) exit history
 
       end do history

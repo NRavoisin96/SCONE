@@ -54,7 +54,7 @@ module ceNeutronMaterial_class
   type, public, extends(neutronMaterial) :: ceNeutronMaterial
     character(nameLen)                           :: name = ''
     integer(shortInt)                            :: matIdx = 0
-    real(defReal)                                :: kT     = ZERO
+    real(defReal)                                :: kT = ZERO
     class(ceNeutronDatabase), pointer            :: data => null()
     real(defReal), dimension(:), allocatable     :: dens
     integer(shortInt), dimension(:), allocatable :: nuclides
@@ -70,16 +70,16 @@ module ceNeutronMaterial_class
     procedure :: getMacroXSs_byP
 
     ! Local procedures
-    procedure, non_overridable :: set
-    procedure, non_overridable :: setComposition
     procedure, non_overridable :: getMacroXSs_byE
     procedure                  :: isFissile
-    procedure                  :: useTMS
-    procedure, non_overridable :: sampleNuclide
     procedure, non_overridable :: sampleFission
+    procedure, non_overridable :: sampleNuclide
     procedure, non_overridable :: sampleScatter
     procedure, non_overridable :: sampleScatterWithFission
-
+    procedure, non_overridable :: set
+    procedure, non_overridable :: setComposition
+    procedure                  :: setTemperature
+    procedure                  :: useTMS
   end type ceNeutronMaterial
 
 contains
@@ -90,13 +90,13 @@ contains
   elemental subroutine kill(self)
     class(ceNeutronMaterial), intent(inout) :: self
 
-    self % matIdx  = 0
-    self % kT      = ZERO
-    self % data    => null()
-    if (allocated(self % dens))     deallocate(self % dens)
+    self % matIdx = 0
+    self % kT = ZERO
+    self % data => null()
+    if (allocated(self % dens)) deallocate(self % dens)
     if (allocated(self % nuclides)) deallocate (self % nuclides)
     self % fissile = .false.
-    self % hasTMS  = .false.
+    self % hasTMS = .false.
     self % eUpperSab = ZERO
     self % eLowerURR = ZERO
 
@@ -160,6 +160,22 @@ contains
   end subroutine setComposition
 
   !!
+  !!
+  !!
+  subroutine setTemperature(self, E, temperature, rand)
+    class(ceNeutronMaterial), intent(inout) :: self
+    real(defReal), intent(in)               :: E, temperature
+    class(RNG), intent(inout)               :: rand
+
+    if (self % useTMS(E)) then
+      self % kT = kBoltzmann * temperature / joulesPerMeV
+
+    end if
+    call self % data % updateTrackMatXS(E, self % matIdx, rand)
+
+  end subroutine setTemperature
+
+  !!
   !! Set matIdx, pointer to a database and fissile flag
   !!
   !! All arguments are optional. Use with keyword association e.g.
@@ -194,12 +210,12 @@ contains
     real(defReal), intent(in), optional                     :: eLowerURR
     character(*), parameter :: Here = 'set (ceNeutronMaterial_class.f90)'
 
-    if (present(name))      self % name    = name
-    if (present(database))  self % data    => database
-    if (present(fissile))   self % fissile = fissile
-    if (present(matIdx))    self % matIdx  = matIdx
-    if (present(hasTMS))    self % hasTMS  = hasTMS
-    if (present(temp))      self % kT      = (kBoltzmann * temp) / joulesPerMeV
+    if (present(name)) self % name    = name
+    if (present(database)) self % data    => database
+    if (present(fissile)) self % fissile = fissile
+    if (present(matIdx)) self % matIdx  = matIdx
+    if (present(hasTMS)) self % hasTMS  = hasTMS
+    if (present(temp)) self % kT = kBoltzmann * temp / joulesPerMeV
 
     if (present(eUpperSab)) then
       if (eUpperSab < ZERO) call fatalError (Here, 'Upper Sab energy limit of material '&
@@ -217,7 +233,7 @@ contains
     ! Possible in principle, but would be quite strange...
     if (present(eLowerURR) .and. present(eUpperSab)) then
       if (eUpperSab > eLowerUrr) call fatalError(Here,self % name//&
-              ' has an overlap in URR and S(alpha,beta) energy ranges. Dodgy data?')
+              ' has an overlap in URR and S(alpha, beta) energy ranges. Dodgy data?')
     end if
 
   end subroutine set
@@ -314,17 +330,19 @@ contains
     real(defReal), intent(out)           :: eOut
     class(ceNeutronNuclide), pointer     :: nuc
     integer(shortInt)                    :: i
-    real(defReal)                        :: P_acc, eMin, eMax, A, eRel, &
+    real(defReal)                        :: P_acc, eMin, eMax, eRel, &
                                             trackMatXS, totNucXS, dens, randomNumber
     character(*), parameter :: Here = 'sampleNuclide (ceNeutronMaterial_class.f90)'
 
     ! Get material tracking XS
-    if (E /= materialCache(self % matIdx) % E_track) call self % data % updateTrackMatXS(E, self % matIdx, rand)
+    if (E /= materialCache(self % matIdx) % E_track) then
+      call self % data % updateTrackMatXS(E, self % matIdx, rand)
+
+    end if
 
     call rand % generate(trackMatXS, mult = materialCache(self % matIdx) % trackXS)
     ! Loop over nuclides
-    do i = 1,size(self % nuclides)
-
+    do i = 1, size(self % nuclides)
       nucIdx = self % nuclides(i)
       dens = self % dens(i)
 
@@ -332,46 +350,37 @@ contains
 
         ! Retrieve nuclide XS from cache
         if (self % useTMS(E)) then
-
           ! If the material is using TMS, the nuclide temperature majorant is needed
           ! The check for the right values stored in cache happens inside the subroutine
           call self % data % updateTotalTempNucXS(E, self % kT, nucIdx)
-
           totNucXS = nucCache % tempMajXS * nucCache % doppCorr
 
         else
-
           ! Update nuclide cache if needed
           if (E /= nucCache % E_tot) call self % data % updateTotalNucXS(E, nucIdx, self % kT, rand)
           totNucXS = nucCache % xss % total
 
         end if
-
         trackMatXS = trackMatXS - totNucXS * dens
 
         ! Nuclide temporarily accepted: check TMS condition
         if (trackMatXS < ZERO) then
-
           ! Save energy to be used to sample reaction
           eOut = E
 
           if (self % useTMS(E)) then
-
             ! If the material is using TMS, retrieve nuclide and nuclide information
             nuc => ceNeutronNuclide_CptrCast(self % data % getNuclide(nucIdx))
             if (.not. associated(nuc)) call fatalError(Here, 'Failed to retrieve CE Neutron Nuclide')
 
-            A = nuc % getMass()
-
             ! Sample relative energy
-            eRel = relativeEnergy_constXS(E, A, nucCache % deltakT, rand)
+            eRel = relativeEnergy_constXS(E, nuc % getMass(), nucCache % deltakT, rand)
 
             ! Call through system minimum and maximum energies
             call self % data % energyBounds(eMin, eMax)
 
             ! Ensure relative energy is within energy bounds
-            if (eRel < eMin) eRel = eMin
-            if (eMax < eRel) eRel = eMax
+            eRel = min(max(eRel, eMin), eMax)
 
             ! Get relative energy nuclide cross section
             call self % data % updateTotalNucXS(eRel, nucIdx, self % kT, rand)

@@ -107,37 +107,29 @@ contains
   !!
   !! Determine type of the particle and call approperiate collisionProcessor
   !!
-  subroutine collide(self, p, tally, thisCycle, nextCycle)
+  subroutine collide(self, temperature, p, tally, thisCycle, nextCycle)
     class(collisionOperator), intent(inout) :: self
-    class(particle), intent(inout)           :: p
-    type(tallyAdmin), intent(inout)          :: tally
-    class(particleDungeon), intent(inout)     :: thisCycle
-    class(particleDungeon), intent(inout)     :: nextCycle
-    integer(shortInt)                        :: idx, procType
+    real(defReal), intent(in)               :: temperature
+    class(particle), intent(inout)          :: p
+    type(tallyAdmin), intent(inout)         :: tally
+    class(particleDungeon), intent(inout)   :: thisCycle, nextCycle
+    integer(shortInt)                       :: idx, procType
     character(*), parameter :: Here = 'collide (collisionOperator_class.f90)'
 
     ! Select processing index with ternary expression
-    if (p % isMG) then
-      procType = P_MG
-    else
-      procType = P_CE
-    end if
+    procType = merge(P_MG, P_CE, p % isMG)
 
     ! Varify that type is valid
-    if (p % type <= 0 .or. p % type > MAX_P_ID) then
-      call fatalError(Here, 'Type of the particle is invalid: ' // numToChar(p % type))
-    end if
+    if (p % type < 1 .or. p % type > MAX_P_ID) call fatalError(Here, 'Invalid particle type: '//numToChar(p % type)//'.')
 
     ! Get index
     idx = self % lookupTable(procType, p % type)
 
     ! Verify index
-    if (idx == UNDEF_PHYSICS) then
-      call fatalError(Here,'Physics is not defined for particle of type : '// p % typeToChar())
-    end if
+    if (idx == UNDEF_PHYSICS) call fatalError(Here,'Physics are not defined for particle of type: '//p % typeToChar()//'.')
 
     ! Call physics
-    call self % physicsTable(idx) % proc % collide(p, tally, thisCycle, nextCycle)
+    call self % physicsTable(idx) % proc % collide(temperature, p, tally, thisCycle, nextCycle)
 
   end subroutine collide
 

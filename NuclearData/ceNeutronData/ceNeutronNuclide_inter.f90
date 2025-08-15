@@ -339,31 +339,31 @@ contains
 
   end function hasDBRC
 
-    !!
-    !! Return a mass of the nuclide
-    !!
-    !! See nuclideHandle documentation
-    !!
-    pure function getMass(self) result(M)
-      class(ceNeutronNuclide), intent(in) :: self
-      real(defReal)                       :: M
+  !!
+  !! Return a mass of the nuclide
+  !!
+  !! See nuclideHandle documentation
+  !!
+  pure function getMass(self) result(M)
+    class(ceNeutronNuclide), intent(in) :: self
+    real(defReal)                       :: M
 
-      M = self % mass
+    M = self % mass
 
-    end function getMass
+  end function getMass
 
-    !!
-    !! Return nuclide temperature
-    !!
-    !! See nuclideHandle documentation
-    !!
-    pure function getkT(self) result(kT)
-      class(ceNeutronNuclide), intent(in) :: self
-      real(defReal)                       :: kT
+  !!
+  !! Return nuclide temperature
+  !!
+  !! See nuclideHandle documentation
+  !!
+  pure function getkT(self) result(kT)
+    class(ceNeutronNuclide), intent(in) :: self
+    real(defReal)                       :: kT
 
-      kT = self % kT
+    kT = self % kT
 
-    end function getkT
+  end function getkT
 
   !!
   !! Cast nuclideHandle pointer to ceNeutronNuclide pointer

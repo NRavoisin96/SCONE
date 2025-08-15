@@ -1,7 +1,8 @@
 module field_inter
 
-  use numPrecision
   use dictionary_class, only : dictionary
+  use numPrecision
+  use particle_class,   only : particle
 
   implicit none
   private
@@ -22,7 +23,6 @@ module field_inter
   end type field
 
   abstract interface
-
     !!
     !! Initialise field from dictionary
     !!

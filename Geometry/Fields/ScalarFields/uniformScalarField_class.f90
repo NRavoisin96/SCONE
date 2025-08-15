@@ -1,10 +1,11 @@
 module uniformScalarField_class
 
-  use numPrecision
+  use coordList_class,   only : coordList
   use dictionary_class,  only : dictionary
-  use particle_class,    only : particle
   use field_inter,       only : field
-  use scalarField_inter, only : scalarField
+  use materialMenu_mod,  only : nMat
+  use numPrecision
+  use scalarField_inter, only : kill_super => kill, scalarField
 
   implicit none
   private
@@ -47,9 +48,15 @@ contains
   subroutine init(self, dict)
     class(uniformScalarField), intent(inout) :: self
     class(dictionary), intent(in)            :: dict
+    real(defReal), dimension(:), allocatable :: maximumMaterialValues
 
     ! Load value
     call dict % get(self % val, 'value')
+
+    ! Set maximum value for all materials.
+    allocate(maximumMaterialValues(nMat()))
+    maximumMaterialValues = self % val
+    call self % setMaximumMaterialValues(maximumMaterialValues)
 
   end subroutine init
 
@@ -59,6 +66,10 @@ contains
   elemental subroutine kill(self)
     class(uniformScalarField), intent(inout) :: self
 
+    ! Superclass.
+    call kill_super(self)
+
+    ! Local.
     self % val = ZERO
 
   end subroutine kill
@@ -68,9 +79,9 @@ contains
   !!
   !! See scalarField_inter for details
   !!
-  function at(self, p) result(val)
+  function at(self, coords) result(val)
     class(uniformScalarField), intent(in) :: self
-    class(particle), intent(inout)        :: p
+    class(coordList), intent(in)          :: coords
     real(defReal)                         :: val
 
     val = self % val

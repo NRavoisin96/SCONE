@@ -13,14 +13,14 @@ module OpenFOAMScalarField_class
   !!
   type, public, extends(unstructuredPiecewiseConstantScalarField) :: OpenFOAMScalarField
   contains
-    procedure :: init
+    procedure :: retrieveValues
   end type OpenFOAMScalarField
 
 contains
   !!
   !!
   !!
-  subroutine init(self, dict)
+  subroutine retrieveValues(self, dict)
     class(OpenFOAMScalarField), intent(inout) :: self
     class(dictionary), intent(in)             :: dict
     character(10)                             :: fieldType
@@ -33,9 +33,6 @@ contains
     real(defReal), dimension(:), allocatable  :: values
     integer(shortInt), parameter              :: unit = 10
     character(*), parameter                   :: here = 'init (OpenFOAMScalarField_class.f90)'
-
-    ! Initialise superclass.
-    call init_super(self, dict)
 
     ! Open the source file specified in the dictionary.
     call dict % get(path, 'path')
@@ -103,6 +100,6 @@ contains
     close(unit)
     call self % setValues(values)
 
-  end subroutine init
+  end subroutine retrieveValues
 
 end module OpenFOAMScalarField_class

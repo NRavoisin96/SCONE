@@ -1,5 +1,6 @@
 module OpenFOAMMesh_tetrahedral_iTest
 
+  use charMap_class,      only : charMap
   use coord_class,        only : coord
   use dictionary_class,   only : dictionary
   use dictParser_func,    only : charToDict
@@ -12,8 +13,10 @@ module OpenFOAMMesh_tetrahedral_iTest
   
   ! Parameters.
   character(*), parameter :: MESH_DEF = &
-  "id 15; type OpenFOAMMesh; path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/StanfordBunny_LowPoly/;"
+  "id 15; type OpenFOAMMesh; path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/StanfordBunny_LowPoly/; fills (water);"
+  
   ! Variables.
+  type(charMap)      :: mats
   type(OpenFOAMMesh) :: mesh
 
 contains
@@ -24,11 +27,15 @@ contains
 @Before
   subroutine setUp()
     type(dictionary)   :: dict
+    character(nameLen) :: name
     character(pathLen) :: path
+
+    name = 'water'
+    call mats % add(name, 1)
     
     call charToDict(dict, MESH_DEF)
     call dict % get(path, 'path')
-    call mesh % init(trim(path), dict)
+    call mesh % init(trim(path), dict, mats)
   
   end subroutine setUp
   
@@ -37,6 +44,8 @@ contains
   !!
 @After
   subroutine cleanUp()
+
+    call mats % kill()
     call mesh % kill()
 
   end subroutine cleanUp

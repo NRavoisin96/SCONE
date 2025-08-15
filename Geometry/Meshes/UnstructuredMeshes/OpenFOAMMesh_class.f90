@@ -5,7 +5,7 @@ module OpenFOAMMesh_class
   use longIntMap_class,             only : longIntMap
   use numPrecision
   use publicObjects,                only : basicEdgeInfo, basicElementInfo, basicFaceInfo, basicVertexInfo, &
-                                           meshLocalIdInfo
+                                           meshBoundaryConditionInfo, meshLocalIdInfo
   use universalVariables,           only : centimetresPerMetre, NOT_PRESENT
   use unstructuredMesh_inter,       only : kill_super => kill, unstructuredMesh
 
@@ -17,6 +17,7 @@ module OpenFOAMMesh_class
     character(:), allocatable :: directoryPath
   contains
     ! Local procedures.
+    procedure :: buildBoundaryConditionInfos
     procedure :: buildLocalIdInfos
     procedure :: checkFiles
     procedure :: getMeshInfo
@@ -28,6 +29,75 @@ module OpenFOAMMesh_class
   end type OpenFOAMMesh
 
 contains
+  !!
+  !!
+  !!
+  function buildBoundaryConditionInfos(self, assignmentMethod) result(boundaryConditionInfos)
+    class(OpenFOAMMesh), intent(in)                            :: self
+    character(nameLen), intent(in)                             :: assignmentMethod
+    character(256)                                             :: buffer
+    integer(shortInt)                                          :: firstFaceIdx, i, nBoundaries, nFacesIdx, &
+                                                                  nFacesInBoundary, startFaceIdx
+    logical(defBool)                                           :: hasBoundaryFile
+    type(meshBoundaryConditionInfo), dimension(:), allocatable :: boundaryConditionInfos
+    character(*), parameter :: here = 'buildBoundaryConditionInfos (OpenFOAMMesh_class.f90)'
+    integer(shortInt), parameter                               :: unit = 10
+
+    ! Check if assignmentMethod is 'boundary' and call fatalError if not.
+    if (assignmentMethod /= 'boundary') call fatalError(here, 'Unknown boundary condition build method.')
+
+    ! Check that the 'cellZones' file exists and call fatalError if not.
+    inquire(file = self % directoryPath//'boundary', exist = hasBoundaryFile)
+    if (.not. hasBoundaryFile) call fatalError(here, 'Missing "boundary" file.')
+
+    ! Open the 'cellZones' data file and read it. Skip lines until a blank line is encountered.
+    call openToRead(unit, self % directoryPath//'boundary')
+    read(unit, "(a)") buffer
+    do while (len_trim(buffer) > 0)
+      read(unit, "(a)") buffer
+    end do
+    
+    ! Read the current line and copy the number of cell zones into the variable 'nCellZones'.
+    read(unit, "(a)") buffer
+    read(buffer, *) nBoundaries
+    
+    ! Allocate memory and loop through all cell zones.
+    allocate(boundaryConditionInfos(nBoundaries))
+    do i = 1, nBoundaries
+      ! Move onto the opening of the current boundary.
+      do while(index(buffer, '{') == 0)
+        read(unit, '(a)') buffer
+
+      end do
+
+      ! Parse.
+      do
+        ! We have found the end of the current boundary so exit.
+        if (0 < index(buffer, '}')) exit
+        read(unit, '(a)') buffer
+
+        nFacesIdx = index(buffer, 'nFaces')
+        startFaceIdx = index(buffer, 'startFace')
+        if (0 < nFacesIdx) then
+          read(buffer(nFacesIdx + 6:len_trim(buffer) - 1), *) nFacesInBoundary
+
+        elseif (0 < startFaceIdx) then
+          read(buffer(startFaceIdx + 9:len_trim(buffer) - 1), *) firstFaceIdx
+
+        end if
+        
+      end do
+
+      ! Now assign indices of faces in the current boundaryInfo.
+      boundaryConditionInfos(i) % faceIdxs = [(i, i = firstFaceIdx + 1, firstFaceIdx + nFacesInBoundary)]
+
+    end do
+    
+    ! Close the 'cellZones' file.
+    close(unit)
+
+  end function buildBoundaryConditionInfos
+
   !!
   !!
   !!
@@ -540,7 +610,6 @@ contains
     call self % getMeshInfo(folderPath, nVertices, nFaces, nInternalFaces, nElements)
     self % directoryPath = folderPath
     call self % setVerticesNumber(nVertices)
-    call self % setFacesNumber(nFaces)
     call self % setInternalFacesNumber(nInternalFaces)
     
     ! Import vertices.

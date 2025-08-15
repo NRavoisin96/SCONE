@@ -68,6 +68,7 @@ module csg_class
     procedure :: getActiveMaterialIdxs
     procedure :: getBorderIdx
     procedure :: getCellIdx
+    procedure :: getMeshIdxByName
     procedure :: getMeshPtr
     procedure :: getFill
     procedure :: getRootIdx
@@ -186,6 +187,18 @@ contains
   !!
   !!
   !!
+  function getMeshIdxByName(self, name) result(idx)
+    class(csg), intent(in)         :: self
+    character(nameLen), intent(in) :: name
+    integer(shortInt)              :: idx
+
+    idx = self % meshes % getMeshIdxByName(name)
+
+  end function getMeshIdxByName
+
+  !!
+  !!
+  !!
   function getMeshPtr(self, id) result(meshPtr)
     class(csg), intent(in)        :: self
     integer(shortInt), intent(in) :: id
@@ -294,7 +307,7 @@ contains
     ! Build Meshes if present.
     if (dict % isPresent('meshes')) then
       if (loud) print *, "Building Meshes"
-      call self % meshes % init(dict % getDictPtr('meshes'))
+      call self % meshes % init(dict % getDictPtr('meshes'), mats)
       if (loud) print *, "DONE!"
 
     end if

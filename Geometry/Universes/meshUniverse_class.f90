@@ -16,7 +16,7 @@ module meshUniverse_class
   use surface_inter,                only : surface
   use surfaceShelf_class,           only : surfaceShelf
   use universalVariables,           only : NUDGE, ZERO, ONE, INF, nameLen
-  use universe_inter,               only : universe, kill_super => kill, charToFill
+  use universe_inter,               only : universe, kill_super => kill
   
   implicit none
   private
@@ -103,7 +103,6 @@ contains
     type(surfaceShelf), intent(inout)                         :: surfs
     type(meshShelf), intent(inout)                            :: meshes
     integer(shortInt)                                         :: cellId, i, meshId, nFills
-    character(nameLen), dimension(:), allocatable             :: fillNames
     character(*), parameter                                   :: Here = 'init (meshUniverse_class.f90)'
     
     ! Setup the base class
@@ -123,21 +122,12 @@ contains
     ! Check that the CSG cell does not crop the mesh.
     call self % checkForCropping(surfs)
     
-    ! Retrieve fills in the dict and get local pointer to the mesh. Call fatalError if the number 
-    ! of fills does not match the number of element zones in the mesh.
-    call dict % get(fillNames, 'fills')
-    nFills = size(fillNames)
-    if (self % mesh % ptr % getLocalIdsNumber() /= nFills) call fatalError(Here, &
-    'The number of fills does not match the number of local ids in mesh geometry with id: '//numToChar(meshId)//'.')
-    
     ! Create fill array. First entry is fill of the CSG cell, remaining entries are the fills for 
     ! the pseudo-cells.
-    allocate(fills(nFills + 1))
+    nFills = self % mesh % ptr % getLocalIdsNumber() + 1
+    allocate(fills(nFills))
     fills(1) = cells % getFill(self % cell % idx)
-    do i = 1, nFills
-      fills(1 + i) = charToFill(fillNames(i), mats, Here)
-
-    end do
+    fills(2:nFills) = self % mesh % ptr % getLocalIdsToMaterialIdxs()
 
   end subroutine init
   

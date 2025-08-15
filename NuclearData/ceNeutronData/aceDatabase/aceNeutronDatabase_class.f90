@@ -5,10 +5,12 @@ module aceNeutronDatabase_class
   use universalVariables
   use errors_mod,         only : fatalError
   use genericProcedures,  only : numToChar, removeDuplicatesSorted, floorBinarySearch
+  use geometryReg_mod,    only : fieldPtrByName
   use dictionary_class,   only : dictionary
   use RNG_class,          only : RNG
   use charMap_class,      only : charMap
   use intMap_class,       only : intMap
+  use scalarField_inter,  only : getTemperatureFieldPtr, scalarField
 
   ! Nuclear Data Interfaces
   use nuclearDatabase_inter,        only : nuclearDatabase
@@ -102,6 +104,7 @@ module aceNeutronDatabase_class
     procedure :: getReaction
     procedure :: init
     procedure :: activate
+    procedure :: updateMaterialsProperties
 
     ! ceNeutronDatabase Procedures
     procedure :: energyBounds
@@ -769,6 +772,7 @@ contains
     class(dictionary), intent(in)                    :: dict
     class(nuclearDatabase), pointer, intent(in)      :: ptr
     logical(defBool), optional, intent(in)           :: silent
+    class(scalarField), pointer                      :: temperatureFieldPtr
     logical(defBool)                                 :: loud
     type(materialItem), pointer                      :: mat
     class(ceNeutronDatabase), pointer                :: ptr_ceDatabase
@@ -779,30 +783,26 @@ contains
     character(nameLen)                               :: name, name_file1, name_file2, nucDBRC_temp
     integer(shortInt)                                :: i, idx, idx1, idx2, j, envFlag, maxNuc, nucIdx
     logical(defBool)                                 :: isFissileMat
-    integer(shortInt), dimension(:), allocatable       :: nucIdxs, zaidDBRC
-    character(nameLen), dimension(:), allocatable      :: nucDBRC
-    real(defReal)                                    :: A, nuckT, eUpSab, eUpSabNuc, &
-                                                        eLowURR, eLowUrrNuc, alpha, &
-                                                        deltakT, eUpper, eLower, kT
+    integer(shortInt), dimension(:), allocatable     :: nucIdxs, zaidDBRC
+    character(nameLen), dimension(:), allocatable    :: nucDBRC
+    real(defReal)                                    :: A, nuckT, eUpSab, eUpSabNuc, eLowURR, eLowUrrNuc, alpha, &
+                                                        eUpper, eLower, max_deltakT, min_deltakT, &
+                                                        max_kT, min_kT, kBoltzmannPerJoulesPerMeV, onePlusAlpha, &
+                                                        oneLessAlpha
     real(defReal), dimension(2)                      :: sabT
     integer(shortInt), parameter :: IN_SET = 1, NOT_PRESENT = 0
     character(*), parameter :: Here = 'init (aceNeutronDatabase_class.f90)'
 
     ! Set build console output flag
-    if (present(silent)) then
-      loud = .not.silent
-    else
-      loud = .true.
-    end if
+    loud = .true.
+    if (present(silent)) loud = .not. silent
 
     ! Verify pointer
-    if (.not.associated(ptr, self)) then
-      call fatalError(Here,"Pointer needs to be associated with the self")
-    end if
+    if (.not. associated(ptr, self)) call fatalError(Here,"Pointer needs to be associated with the self")
 
     ! Cast pointer to ceNeutronDatabase
     ptr_ceDatabase => ceNeutronDatabase_CptrCast(ptr)
-    if (.not.associated(ptr_ceDatabase)) call fatalError(Here,"Should not happen. WTF?!")
+    if (.not. associated(ptr_ceDatabase)) call fatalError(Here,"Should not happen. WTF?!")
 
     ! Create list of all nuclides. Loop over materials
     ! Find maximum number of nuclides: maxNuc
@@ -939,6 +939,7 @@ contains
     ! Build Material definitions
     allocate(self % materials(mm_nMat()))
     allocate(nucIdxs(maxNuc))
+    temperatureFieldPtr => getTemperatureFieldPtr()
     do i = 1, mm_nMat()
       mat => mm_getMatPtr(i)
 
@@ -946,6 +947,14 @@ contains
       ! Find if material is fissile and if stochastic
       ! mixing temperature bounds are respected
       isFissileMat = .false.
+      kBoltzmannPerJoulesPerMeV = kBoltzmann / joulesPerMeV
+      max_kT = kBoltzmannPerJoulesPerMeV * mat % T 
+      min_kt = max_kT
+      if (associated(temperatureFieldPtr)) then
+        max_kT = max(max_kT, kBoltzmannPerJoulesPerMeV * temperatureFieldPtr % getMaximumMaterialValue(mat % matIdx))
+        min_kT = min(min_kT, kBoltzmannPerJoulesPerMeV * temperatureFieldPtr % getMinimumMaterialValue(mat % matIdx))
+
+      end if
       ! Loop over nuclides
       do j = 1, size(mat % nuclides)
         name = self % makeNuclideName(mat % nuclides(j))
@@ -959,65 +968,66 @@ contains
         ! is bounded by Sab temperatures
         if (mat % nuclides(j) % sabMix) then
           sabT = self % nuclides(nucIdxs(j)) % getSabTBounds()
-          kT = mat % T * kBoltzmann / joulesPerMeV
-          if ((kT < sabT(1)) .or. (kT > sabT(2))) call fatalError(Here,&
-                'Material temperature must be bounded by the provided S(alpha,beta) data. '//&
-                'The material temperature is '//numToChar(kT * joulesPerMeV / kBoltzmann)//&
-                'K while the data bounds are '//numToChar(sabT(1) * joulesPerMeV / kBoltzmann)//&
-                'K and '//numToChar(sabT(2) * joulesPerMeV / kBoltzmann)//'K.')
+          if (min_kT < sabT(1) .or. sabT(2) < max_kT) call fatalError(Here,&
+            'Material temperature must be bounded by the provided S(alpha,beta) data. '//&
+            'The minimum material temperature is: '//numToChar(min_kT * joulesPerMeV / kBoltzmann)//&
+            'K and the maximum material temperature is: '//numToChar(max_kT * joulesPerMeV / kBoltzmann)//&
+            'K. The data bounds are '//numToChar(sabT(1) * joulesPerMeV / kBoltzmann)//&
+            'K and '//numToChar(sabT(2) * joulesPerMeV / kBoltzmann)//'K.')
+
         end if
 
       end do
 
       ! Load data into material
-      call self % materials(i) % set( name     = mat % name,     &
-                                      matIdx   = i,              &
-                                      database = ptr_ceDatabase, &
-                                      temp     = mat % T,        &
-                                      hasTMS   = mat % hasTMS,   &
-                                      fissile  = isFissileMat )
-      call self % materials(i) % setComposition( mat % dens, nucIdxs(1:size(mat % nuclides)))
+      call self % materials(i) % set(name     = mat % name,     &
+                                     matIdx   = i,              &
+                                     database = ptr_ceDatabase, &
+                                     temp     = mat % T,        &
+                                     hasTMS   = mat % hasTMS,   &
+                                     fissile  = isFissileMat)
+      call self % materials(i) % setComposition(mat % dens, nucIdxs(1:size(mat % nuclides)))
 
       eUpSab  = self % eBounds(1)
       eLowURR = self % eBounds(2)
 
       if (mat % hasTMS) then
-
         ! Loop again to find energy limits of S(a,b) and URES for TMS applicability
         do j = 1, size(mat % nuclides)
-
           ! Find nuclide information
           idx     = nucIdxs(j)
           nuckT   = self % nuclides(idx) % getkT()
           A       = self % nuclides(idx) % getMass()
-          deltakT = self % materials(i) % kT - nuckT
+          max_deltakT = max_kT - nuckT
+          min_deltakT = min_kT - nuckT
 
           ! Call fatal error if material temperature is lower then base nuclide temperature
-          if (deltakT < ZERO) then
-            call fatalError(Here, "Material temperature must be greater than the nuclear data temperature.")
-          end if
+          if (min_deltakT < ZERO) &
+          call fatalError(Here, 'Minimum material kT: '//numToChar(min_kT)//&
+                                ' must be greater than nuclear data kT: '//numToChar(nuckT)//'.')
 
           ! Find nuclide upper S(a,b) energy
           eUpSabNuc = max(self % nuclides(idx) % SabEl(2), self % nuclides(idx) % SabInel(2))
 
           ! Find energy limits to define majorant calculation range
-          if (eUpSabNuc > ZERO) then
-            alpha = 4.0_defReal * sqrt( deltakT / (eUpSabNuc * A) )
-            eUpper = eUpSabNuc * (ONE + alpha) * (ONE + alpha)
-          else
-            eUpper = ZERO
+          eUpper = ZERO
+          if (ZERO < eUpSabNuc) then
+            alpha = 4.0_defReal * sqrt(max_deltakT / (eUpSabNuc * A))
+            onePlusAlpha = ONE + alpha
+            eUpper = eUpSabNuc * onePlusAlpha * onePlusAlpha
+
           end if
+          eUpSab  = max(eUpSab, eUpper)
 
           eLowUrrNuc = self % nuclides(idx) % urrE(1)
 
+          eLower = self % eBounds(2)
           if (eLowUrrNuc /= ZERO) then
-            alpha = 4.0_defReal * sqrt( deltakT / (eLowUrrNuc * A) )
-            eLower = eLowUrrNuc * (ONE - alpha) * (ONE - alpha)
-          else
-            eLower = self % eBounds(2)
-          end if
+            alpha = 4.0_defReal * sqrt(max_deltakT / (eLowUrrNuc * A))
+            oneLessAlpha = max(ONE - alpha, ZERO)
+            eLower = eLowUrrNuc * oneLessAlpha * oneLessAlpha
 
-          eUpSab  = max(eUpSab, eUpper)
+          end if
           eLowURR = min(eLowURR, eLower)
 
         end do
@@ -1033,14 +1043,10 @@ contains
     call dict % getOrDefault(self % hasMajorant, 'majorant', .true.)
 
     ! If on, initialise probability tables for ures
-    if (self % hasUrr) then
-       call self % initUrr()
-    end if
+    if (self % hasUrr) call self % initUrr()
 
     ! If on, initialise DBRC
-    if (self % hasDBRC) then
-      call self % initDBRC(nucDBRC, nucSet, self % mapDBRCnuc)
-    end if
+    if (self % hasDBRC) call self % initDBRC(nucDBRC, nucSet, self % mapDBRCnuc)
 
     !! Clean up
     call aceLib_kill()
@@ -1205,6 +1211,15 @@ contains
     end if
 
   end subroutine activate
+
+  !!
+  !!
+  !!
+  subroutine updateMaterialsProperties(self)
+    class(aceNeutronDatabase), intent(inout) :: self
+
+
+  end subroutine updateMaterialsProperties
 
   !!
   !! Precomputes majorant cross section

@@ -1,26 +1,23 @@
 module fissionSource_class
 
-  use numPrecision
-  use endfConstants
-  use universalVariables,      only : OUTSIDE_MAT, VOID_MAT
-  use genericProcedures,       only : rotateVector, numToChar
-  use errors_mod,              only : fatalError
-  use dictionary_class,        only : dictionary
-  use RNG_class,               only : RNG
-
-  use particle_class,          only : particleState, P_NEUTRON
-  use source_inter,            only : source, kill_super => kill
-
-  use geometry_inter,          only : geometry
-  use neutronMaterial_inter,   only : neutronMaterial, neutronMaterial_CptrCast
+  use ceNeutronDatabase_inter, only : ceNeutronDatabase
   use ceNeutronMaterial_class, only : ceNeutronMaterial, ceNeutronMaterial_CptrCast
+  use dictionary_class,        only : dictionary
+  use endfConstants
+  use errors_mod,              only : fatalError
   use fissionCE_class,         only : fissionCE, fissionCE_TptrCast
   use fissionMG_class,         only : fissionMG, fissionMG_TptrCast
-  use nuclearDataReg_mod,      only : ndReg_getNeutronCE => getNeutronCE, &
-                                      ndReg_getNeutronMG => getNeutronMG
-  use nuclearDatabase_inter,   only : nuclearDatabase
-  use ceNeutronDatabase_inter, only : ceNeutronDatabase
+  use genericProcedures,       only : rotateVector, numToChar
+  use geometry_inter,          only : geometry
   use mgNeutronDatabase_inter, only : mgNeutronDatabase
+  use neutronMaterial_inter,   only : neutronMaterial, neutronMaterial_CptrCast
+  use nuclearDatabase_inter,   only : nuclearDatabase
+  use nuclearDataReg_mod,      only : ndReg_getNeutronCE => getNeutronCE, ndReg_getNeutronMG => getNeutronMG
+  use numPrecision
+  use particle_class,          only : particleState, P_NEUTRON
+  use RNG_class,               only : RNG
+  use source_inter,            only : source, kill_super => kill
+  use universalVariables,      only : joulesPerMeV, kBoltzmann, OUTSIDE_MAT, VOID_MAT
 
   implicit none
   private
@@ -155,7 +152,7 @@ contains
     type(fissionCE), pointer             :: fissCE
     type(fissionMG), pointer             :: fissMG
     real(defReal), dimension(3)          :: r
-    real(defReal)                        :: mu, phi, E_out, E_up, E_down
+    real(defReal)                        :: kT, mu, phi, E_out, E_up, E_down, temperature
     integer(shortInt)                    :: matIdx, uniqueID, nucIdx, i, G_out
     character(*), parameter :: Here = 'sampleParticle (fissionSource_class.f90)'
 
@@ -177,16 +174,16 @@ contains
       end if
 
       ! Sample initial position.
-      call self % geom % sampleInitialPosition(self % bottom, self % top, rand, matIdx, uniqueID, r)
+      call self % geom % sampleInitialPosition(self % bottom, self % top, rand, matIdx, uniqueID, r, temperature)
 
       ! Reject if there is no material
       if (matIdx == VOID_MAT .or. matIdx == OUTSIDE_MAT) cycle rejection
 
       mat => neutronMaterial_CptrCast(nucData % getMaterial(matIdx))
-      if (.not.associated(mat)) call fatalError(Here, "Nuclear data did not return neutron material.")
+      if (.not. associated(mat)) call fatalError(Here, "Nuclear data did not return neutron material.")
 
       ! Resample position if material is not fissile
-      if (.not.mat % isFissile()) cycle
+      if (.not. mat % isFissile()) cycle
 
       ! Assign basic phase-space coordinates
       p % matIdx   = matIdx
@@ -204,18 +201,16 @@ contains
 
           ! Get material
           matCE => ceNeutronMaterial_CptrCast(nucData % getMaterial(matIdx))
-          if (.not.associated(mat)) then
-            call fatalError(Here, 'Failed to get ceNeutronMaterial from ceDatabase.')
-          end if
+          if (.not. associated(mat)) call fatalError(Here, 'Failed to get ceNeutronMaterial from ceDatabase.')
 
-          ! Get Nuclide
+          ! Get Nuclide.
+          kT = merge(kBoltzmann * temperature / joulesPerMeV, matCE % kT, ZERO < temperature)
+          call matCE % setTemperature(self % E, temperature, rand)
           nucIdx = matCE % sampleFission(self % E, rand)
 
           ! Get reaction object
           fissCE => fissionCE_TptrCast(nucData % getReaction(N_FISSION, nucIdx))
-          if (.not.associated(fissCE)) then
-            call fatalError(Here, "Failed to get CE Fission Reaction Object")
-          end if
+          if (.not. associated(fissCE)) call fatalError(Here, "Failed to get CE Fission Reaction Object")
 
           ! Get mu, phi, E_out
           call fissCE % sampleOut(mu, phi, E_out, self % E, rand)
@@ -226,12 +221,12 @@ contains
           p % dir  = rotateVector([ONE, ZERO, ZERO], mu, phi)
 
           ! Apply upper energy cut-off
-          if (p % E > E_up) p % E = E_up
+          p % E = min(p % E, E_up)
 
         class is (mgNeutronDatabase)
           ! Get reaction object
           fissMG => fissionMG_TptrCast(nucData % getReaction(macroFission, matIdx))
-          if (.not.associated(fissMG)) then
+          if (.not. associated(fissMG)) then
             call fatalError(Here, "Failed to get MG Fission Reaction Object")
           end if
 

@@ -4,6 +4,7 @@
 module geometryFactory_func
 
   use numPrecision
+  use fieldFactory_func,  only : new_field
   use genericProcedures,  only : fatalError
   use dictionary_class,   only : dictionary
   use charMap_class,      only : charMap
@@ -44,20 +45,20 @@ contains
   !!   fatalError is type of geometry is unknown
   !!
   subroutine new_geometry(dict, name, silent)
-    class(dictionary), intent(in)          :: dict
-    character(nameLen), intent(in)         :: name
-    logical(defBool), optional, intent(in) :: silent
-    class(geometry), allocatable           :: geom
-    logical(defBool)                       :: silent_l
-    character(nameLen)                     :: type
-    character(*), parameter :: Here = 'new_geometry (geometryFactory_func.f90)'
+    class(dictionary), intent(in)                 :: dict
+    character(nameLen), intent(in)                :: name
+    logical(defBool), optional, intent(in)        :: silent
+    class(dictionary), pointer                    :: fieldsDict
+    class(geometry), allocatable                  :: geom
+    character(nameLen)                            :: type
+    character(nameLen), dimension(:), allocatable :: fieldNames
+    integer(shortInt)                             :: i
+    logical(defBool)                              :: silent_l
+    character(*), parameter                       :: Here = 'new_geometry (geometryFactory_func.f90)'
 
     ! Get silent flag
-    if (present(silent)) then
-      silent_l = silent
-    else
-      silent_l = .false.
-    end if
+    silent_l = .false.
+    if (present(silent)) silent_l = silent
 
     ! Get type
     call dict % get(type, 'type')
@@ -82,6 +83,17 @@ contains
 
     ! Call geometry registry to add geometry
     call gr_addGeom(geom, name)
+
+    ! Build fields associated with the current geometry.
+    if (dict % isPresent('fields')) then
+      fieldsDict => dict % getDictPtr('fields')
+      call fieldsDict % keys(fieldNames, 'dict')
+      do i = 1, size(fieldNames)
+        call new_field(fieldsDict % getDictPtr(fieldNames(i)), fieldNames(i))
+
+      end do
+
+    end if
 
   end subroutine new_geometry
 

@@ -115,16 +115,14 @@ contains
   !!
   !! Samples collision without any implicit treatment
   !!
-  subroutine sampleCollision(self, p, tally, collDat, thisCycle, nextCycle)
+  subroutine sampleCollision(self, temperature, p, collDat)
     class(neutronMGimp), intent(inout)   :: self
+    real(defReal), intent(in)            :: temperature
     class(particle), intent(inout)       :: p
-    type(tallyAdmin), intent(inout)      :: tally
     type(collisionData), intent(inout)   :: collDat
-    class(particleDungeon), intent(inout) :: thisCycle
-    class(particleDungeon), intent(inout) :: nextCycle
     type(neutronMacroXSs)                :: macroXSs
     real(defReal)                        :: randomNumber
-    character(100), parameter :: Here =' sampleCollision (neutronMGimp_class.f90)'
+    character(*), parameter              :: Here =' sampleCollision (neutronMGimp_class.f90)'
 
     ! Verify that particle is MG neutron
     if (.not. p % isMG .or. p % type /= P_NEUTRON) then

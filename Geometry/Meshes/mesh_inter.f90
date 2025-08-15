@@ -1,6 +1,7 @@
 module mesh_inter
   
   use axisAlignedBoundingBox_class, only : axisAlignedBoundingBox
+  use charMap_class,                only : charMap
   use dictionary_class,             only : dictionary
   use genericProcedures,            only : fatalError, numToChar, openToRead
   use numPrecision
@@ -44,8 +45,9 @@ module mesh_inter
   !!
   type, public, abstract         :: mesh
     private
-    integer(shortInt)            :: id = 0, nLocalIds = 0
-    type(axisAlignedBoundingBox) :: boundingBox
+    integer(shortInt)                            :: id = 0, nLocalIds = 0
+    integer(shortInt), dimension(:), allocatable :: localIdsToMaterialIdxs
+    type(axisAlignedBoundingBox)                 :: boundingBox
   contains
     ! Build procedures.
     procedure(init), deferred                       :: init
@@ -53,6 +55,7 @@ module mesh_inter
     procedure                                       :: kill
     procedure, non_overridable                      :: setId
     procedure, non_overridable                      :: setLocalIdsNumber
+    procedure, non_overridable                      :: setLocalIdsToMaterialIdxs
     procedure, non_overridable                      :: setupBase
     ! Runtime procedures.
     procedure                                       :: distance
@@ -64,11 +67,13 @@ module mesh_inter
     procedure, non_overridable                      :: getBoundingBoxPtr
     procedure(getFaceBoundaryConditions), deferred  :: getFaceBoundaryConditions
     procedure(getFaceIsBoundary), deferred          :: getFaceIsBoundary
+    procedure(getFacesNumber), deferred             :: getFacesNumber
     procedure(getElementIsActive), deferred         :: getElementIsActive
     procedure(getElementsNumber), deferred          :: getElementsNumber
     procedure(getElementVolume), deferred           :: getElementVolume
     procedure, non_overridable                      :: getId
     procedure, non_overridable                      :: getLocalIdsNumber
+    procedure, non_overridable                      :: getLocalIdsToMaterialIdxs
     procedure(getUniqueIdOffset), deferred          :: getUniqueIdOffset
     procedure(sampleInitialPosition), deferred      :: sampleInitialPosition
   end type mesh
@@ -108,11 +113,11 @@ module mesh_inter
     !!
     !!
     !!
-    subroutine explicitBoundaryConditions(self, idx, boundaryConditionType, r, u)
-      import                                     :: defReal, mesh, shortInt
-      class(mesh), intent(in)                    :: self
-      integer(shortInt), intent(in)              :: idx, boundaryConditionType
-      real(defReal), dimension(3), intent(inout) :: r, u
+    subroutine explicitBoundaryConditions(self, idx, boundaryConditionType, data)
+      import                         :: coordData, mesh, shortInt
+      class(mesh), intent(in)        :: self
+      integer(shortInt), intent(in)  :: idx, boundaryConditionType
+      type(coordData), intent(inout) :: data
     end subroutine explicitBoundaryConditions
 
     !! Subroutine 'findOccupiedElementIdx'
@@ -151,6 +156,16 @@ module mesh_inter
       integer(shortInt), intent(in) :: idx
       logical(defBool)              :: isBoundary
     end function getFaceIsBoundary
+
+    !!
+    !!
+    !!
+    function getFacesNumber(self, activeOnly) result(nFaces)
+      import                                 :: defBool, mesh, shortInt
+      class(mesh), intent(in)                :: self
+      logical(defBool), intent(in), optional :: activeOnly
+      integer(shortInt)                      :: nFaces
+    end function getFacesNumber
 
     !!
     !!
@@ -201,11 +216,12 @@ module mesh_inter
     !!   name [in]       -> Name of the mesh.
     !!   dict [in]       -> Dictionary with the mesh definition.
     !!
-    subroutine init(self, folderPath, dict)
-      import                        :: dictionary, mesh, shortInt
+    subroutine init(self, folderPath, dict, materialsMap)
+      import                        :: charMap, dictionary, mesh, shortInt
       class(mesh), intent(inout)    :: self
       character(*), intent(in)      :: folderPath
       class(dictionary), intent(in) :: dict
+      type(charMap), intent(in)     :: materialsMap
     end subroutine init
 
     !!
@@ -307,6 +323,17 @@ contains
 
   end function getLocalIdsNumber
 
+  !!
+  !!
+  !!
+  pure function getLocalIdsToMaterialIdxs(self) result(localIdsToMaterialIdxs)
+    class(mesh), intent(in)                      :: self
+    integer(shortInt), dimension(:), allocatable :: localIdsToMaterialIdxs
+
+    localIdsToMaterialIdxs = self % localIdsToMaterialIdxs
+
+  end function getLocalIdsToMaterialIdxs
+
   !! Subroutine 'setBoundingBox'
   !!
   !! Basic description:
@@ -336,6 +363,7 @@ contains
    
     self % id = 0
     self % nLocalIds = 0
+    if (allocated(self % localIdsToMaterialIdxs)) deallocate(self % localIdsToMaterialIdxs)
     call self % boundingBox % kill()
 
   end subroutine kill
@@ -372,6 +400,17 @@ contains
     self % nLocalIds = nLocalIds
 
   end subroutine
+
+  !!
+  !!
+  !!
+  pure subroutine setLocalIdsToMaterialIdxs(self, localIdsToMaterialIdxs)
+    class(mesh), intent(inout)                  :: self
+    integer(shortInt), dimension(:), intent(in) :: localIdsToMaterialIdxs
+
+    self % localIdsToMaterialIdxs = localIdsToMaterialIdxs
+
+  end subroutine setLocalIdsToMaterialIdxs
 
   !! Subroutine 'setupBase'
   !!

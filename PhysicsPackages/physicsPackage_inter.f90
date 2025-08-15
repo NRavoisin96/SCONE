@@ -2,11 +2,15 @@ module physicsPackage_inter
 
   use coordList_class,    only : coordList
   use dictionary_class,   only : dictionary
+  use field_inter,        only : field
   use fieldFactory_func,  only : new_field
+  use genericProcedures,  only : fatalError
   use geometry_inter,     only : distCache, geometry
+  use geometryReg_mod,    only : fieldPtrByName
   use hashFunctions_func, only : FNV_1
   use numPrecision
   use outputFile_class,   only : outputFile
+  use scalarField_inter,  only : scalarField, scalarField_CptrCast
   use timer_mod,          only : registerTimer
   use visualiser_class,   only : visualiser
   use universalVariables
@@ -40,6 +44,7 @@ module physicsPackage_inter
     procedure                                   :: getInitialSeed
     procedure                                   :: getOutputFile
     procedure                                   :: getParticlesNumber
+    procedure                                   :: getScalarFieldValueByName
     procedure                                   :: getTimerMain
     procedure                                   :: init
     procedure                                   :: kill
@@ -202,6 +207,31 @@ contains
   !!
   !!
   !!
+  function getScalarFieldValueByName(self, name, coords) result(value)
+    class(physicsPackage), intent(in) :: self
+    character(nameLen), intent(in)    :: name
+    class(coordList), intent(in)      :: coords
+    class(field), pointer             :: fieldPtr
+    class(scalarField), pointer       :: scalarFieldPtr
+    real(defReal)                     :: value
+    character(*), parameter           :: here = 'getScalarFieldValueByName (physicsPackage_inter.f90)'
+
+    ! Initialise value = ZERO
+    value = ZERO
+    fieldPtr => fieldPtrByName(name)
+
+    if (associated(fieldPtr)) then
+      scalarFieldPtr => scalarField_CptrCast(fieldPtr)
+      if (.not. associated(scalarFieldPtr)) call fatalError(here, 'Field: '//name//' is not a scalar field.')
+      value = scalarFieldPtr % at(coords)
+
+    end if
+
+  end function getScalarFieldValueByName
+
+  !!
+  !!
+  !!
   elemental function getTimerMain(self) result(timerMain)
     class(physicsPackage), intent(in) :: self
     integer(shortInt)                 :: timerMain
@@ -263,16 +293,7 @@ contains
       call fieldsDict % keys(fieldNames, 'dict')
       
       do i = 1, size(fieldNames)
-        trimmedFieldName = trim(fieldNames(i))
-        select case(trimmedFieldName)
-          case('T', 'temp', 'Temp', 'temperature', 'Temperature')
-            fieldName = nameTemperature
-
-          case default
-            fieldName = fieldNames(i)
-
-        end select
-        call new_field(fieldsDict % getDictPtr(trimmedFieldName), fieldName)
+        call new_field(fieldsDict % getDictPtr(fieldNames(i)), fieldNames(i))
 
       end do
 

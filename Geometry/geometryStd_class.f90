@@ -12,6 +12,7 @@ module geometryStd_class
   use numPrecision
   use publicObjects,     only : coordData, newCoordData
   use RNG_class,         only : RNG
+  use scalarField_inter, only : getTemperatureFieldPtr, scalarField
   use universalVariables
 
   implicit none
@@ -56,6 +57,7 @@ module geometryStd_class
     procedure, private :: closestDist
     procedure, private :: diveToMat
     procedure          :: getCellIdx
+    procedure          :: getMeshIdxByName
     procedure          :: getMeshPtr
     procedure          :: init
     procedure          :: kill
@@ -264,6 +266,18 @@ contains
   !!
   !!
   !!
+  function getMeshIdxByName(self, name) result(idx)
+    class(geometryStd), intent(in) :: self
+    character(nameLen), intent(in) :: name
+    integer(shortInt)              :: idx
+
+    idx = self % geom % getMeshIdxByName(name)
+
+  end function getMeshIdxByName
+
+  !!
+  !!
+  !!
   function getMeshPtr(self, id) result(meshPtr)
     class(geometryStd), intent(in) :: self
     integer(shortInt), intent(in)  :: id
@@ -448,12 +462,13 @@ contains
   !!
   !!
   !!
-  subroutine sampleInitialPosition(self, bottom, top, rand, materialIdx, uniqueId, r)
+  subroutine sampleInitialPosition(self, bottom, top, rand, materialIdx, uniqueId, r, temperature)
     class(geometryStd), intent(in)           :: self
     real(defReal), dimension(3), intent(in)  :: bottom, top
     class(RNG), intent(inout)                :: rand
     integer(shortInt), intent(out)           :: materialIdx, uniqueId
     real(defReal), dimension(3), intent(out) :: r
+    real(defReal), intent(out), optional     :: temperature
     real(defReal), dimension(3)              :: randomNumbers
 
     ! Sample position.
@@ -461,7 +476,7 @@ contains
     r = (top - bottom) * randomNumbers + bottom
 
     ! Find material under position.
-    call self % whatIsAt(materialIdx, uniqueId, r)
+    call self % whatIsAt(materialIdx, uniqueId, r, temperature = temperature)
 
   end subroutine sampleInitialPosition
 
@@ -502,13 +517,15 @@ contains
   !!
   !! See geometry_inter for details
   !!
-  subroutine whatIsAt(self, matIdx, uniqueID, r, u)
+  subroutine whatIsAt(self, matIdx, uniqueID, r, u, temperature)
     class(geometryStd), intent(in)                    :: self
     integer(shortInt), intent(out)                    :: matIdx, uniqueID
     real(defReal), dimension(3), intent(in)           :: r
     real(defReal), dimension(3), optional, intent(in) :: u
-    type(coordList)                                   :: coords
+    real(defReal), intent(out), optional              :: temperature
+    class(scalarField), pointer                       :: temperatureFieldPtr
     real(defReal), dimension(3)                       :: u_l
+    type(coordList)                                   :: coords
 
     ! If a direction is supplied, update u_l
     u_l = [ONE, ZERO, ZERO]
@@ -523,6 +540,14 @@ contains
     ! Return material & uniqueID
     matIdx = coords % getMatIdx()
     uniqueID = coords % getUniqueId()
+
+    ! Get temperature if requested.
+    if (present(temperature)) then
+      temperature = ZERO
+      temperatureFieldPtr => getTemperatureFieldPtr()
+      if (associated(temperatureFieldPtr)) temperature = temperatureFieldPtr % at(coords)
+
+    end if
 
   end subroutine whatIsAt
 

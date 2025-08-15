@@ -21,14 +21,14 @@ module universeShelf_iTest
                                            &filltype mat; material water;}"
   character(*), parameter :: MESHES_DEF = &
   " testMesh {id 10; type OpenFOAMMesh; path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/testMesh/;&
-  & localIds {assignmentMethod cellZones;}}"
+  & localIds {assignmentMethod cellZones;} fills (fuel fuel fuel fuel);}"
   character(*), parameter :: UNIS_DEF = &
   " root {id 1; type rootUniverse; border 1; fill u<10>;} &
   & lat { id 10; type latUniverse; shape (2 2 0); pitch (2.0 2.0 0.0); padMat void; map (20 2 2 3);} &
   & pin { id 2; type pinUniverse; radii (1.0 0.0); fills (fuel water);} &
   & pin2 {id 20; type pinUniverse; radii (1.0 1.5 0.0); fills (u<21> fuel water);} &
   & fuel {id 21; type pinUniverse; radii (999.0 0.0); fills (fuel fuel);} &
-  & mesh {id 3; type meshUniverse; cell 9; mesh 10; fills (fuel fuel fuel fuel);}"
+  & mesh {id 3; type meshUniverse; cell 9; mesh 10;}"
   
   ! Variables
   type(charMap)       :: mats
@@ -68,7 +68,7 @@ contains
     
     ! Build meshes
     call charToDict(dict, MESHES_DEF)
-    call meshes % init(dict)
+    call meshes % init(dict, mats)
     call dict % kill()
     
     ! Build universes

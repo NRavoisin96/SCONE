@@ -1,11 +1,11 @@
 module particle_class
 
-  use numPrecision
-  use universalVariables
-  use genericProcedures
   use coordList_class,   only : coordList
-  use RNG_class,         only : RNG
   use errors_mod,        only : fatalError
+  use genericProcedures
+  use numPrecision
+  use RNG_class,         only : RNG
+  use universalVariables
 
   implicit none
   private
@@ -13,8 +13,7 @@ module particle_class
   !!
   !! Particle types paramethers
   !!
-  integer(shortInt), parameter, public :: P_NEUTRON = 1, &
-                                         P_PHOTON  = 2
+  integer(shortInt), parameter, public :: P_NEUTRON = 1, P_PHOTON  = 2
 
   !!
   !! Public particle type procedures
@@ -132,12 +131,16 @@ module particle_class
     procedure                  :: dirGlobal
     procedure                  :: nesting
     procedure                  :: getCellIdx
+    procedure                  :: getMeshIdx
     procedure                  :: getUniIdx
     procedure                  :: getMatIdx
     procedure, non_overridable :: getType
 
     ! Enquiry about physical state
     procedure :: getSpeed
+
+    ! Enquiries about fields.
+    procedure :: getFieldValue
 
     ! Operations on coordinates
     procedure :: moveGlobal
@@ -380,6 +383,25 @@ contains
   end function getCellIdx
 
   !!
+  !!
+  !!
+  elemental function getMeshIdx(self, level) result(idx)
+    class(particle), intent(in)             :: self
+    integer(shortInt), intent(in), optional :: level
+    integer(shortInt)                       :: idx, n
+
+    if (present(level)) then
+      n = level
+
+    else
+      n = self % coords % getNesting()
+
+    end if
+    idx = self % coords % getMeshIdx(n)
+
+  end function getMeshIdx
+
+  !!
   !! Return universe index at a given nesting level n
   !!
   pure function getUniIdx(self,n) result(idx)
@@ -476,6 +498,16 @@ contains
     end if
 
   end function getSpeed
+
+  !!
+  !!
+  !!
+  function getFieldValue(self, variable) result(value)
+    class(particle), intent(in) :: self
+    character(*), intent(in)    :: variable
+    real(defReal)               :: value
+
+  end function getFieldValue
 
 !!<><><><><><><>><><><><><><><><><><><>><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 !! Particle operations on coordinates procedures

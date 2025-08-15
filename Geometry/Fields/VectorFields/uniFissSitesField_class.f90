@@ -135,14 +135,14 @@ contains
     class(RNG), intent(inout), optional     :: rand
     real(defReal), dimension(6)             :: bounds
     real(defReal), dimension(3)             :: bottom, top
-    real(defReal), dimension(3), save       :: randomNumbers, r
+    real(defReal), dimension(3), save       :: r
     type(particleState), save               :: state
     integer(shortInt)                       :: i
     integer(shortInt), save                 :: j, binIdx, matIdx, uniqueID
     class(nuclearDatabase), pointer         :: nucData
     class(neutronMaterial), pointer, save   :: mat
     character(*), parameter                 :: Here = 'estimateVol (uniFissSitesField_class.f90)'
-    !$omp threadprivate(randomNumbers, r, state, j, binIdx, matIdx, uniqueID, mat)
+    !$omp threadprivate(r, state, j, binIdx, matIdx, uniqueID, mat)
 
     allocate(self % volFraction(self % N))
 
@@ -187,12 +187,8 @@ contains
                                   & defined volume contains fissile material.')
           end if
 
-          ! Sample Position
-          call rand % generate(randomNumbers)
-          r = (top - bottom) * randomNumbers + bottom
-
-          ! Find material under position
-          call geom % whatIsAt(matIdx, uniqueID, r)
+          ! Sample initial positionm.
+          call geom % sampleInitialPosition(bottom, top, rand, matIdx, uniqueID, r)
 
           ! Reject if there is no material
           if (matIdx == VOID_MAT .or. matIdx == OUTSIDE_MAT) cycle rejection
@@ -256,11 +252,9 @@ contains
     if (binIdx == 0) then
       val = ONE
       return
-    end if
 
-    val(1) = self % volFraction(binIdx)
-    val(2) = self % sourceFraction(binIdx)
-    val(3) = ZERO
+    end if
+    val = [self % volFraction(binIdx), self % sourceFraction(binIdx), ZERO]
 
   end function at
 

@@ -35,6 +35,7 @@ module geometry_inter
     ! Deferred procedures
     procedure(activeMats), deferred            :: activeMats
     procedure(bounds), deferred                :: bounds
+    procedure(getMeshIdxByName), deferred      :: getMeshIdxByName
     procedure(getMeshPtr), deferred            :: getMeshPtr
     procedure(init), deferred                  :: init
     procedure(kill), deferred                  :: kill
@@ -85,6 +86,16 @@ module geometry_inter
       class(geometry), intent(in) :: self
       real(defReal), dimension(6) :: bounds
     end function bounds
+
+    !!
+    !!
+    !!
+    function getMeshIdxByName(self, name) result(idx)
+      import                         :: geometry, nameLen, shortInt
+      class(geometry), intent(in)    :: self
+      character(nameLen), intent(in) :: name
+      integer(shortInt)              :: idx
+    end function getMeshIdxByName
 
     !!
     !!
@@ -205,13 +216,14 @@ module geometry_inter
     !!
     !!
     !!
-    subroutine sampleInitialPosition(self, bottom, top, rand, materialIdx, uniqueId, r)
+    subroutine sampleInitialPosition(self, bottom, top, rand, materialIdx, uniqueId, r, temperature)
       import                                   :: defReal, geometry, RNG, shortInt
       class(geometry), intent(in)              :: self
       real(defReal), dimension(3), intent(in)  :: bottom, top
       class(RNG), intent(inout)                :: rand
       integer(shortInt), intent(out)           :: materialIdx, uniqueId
       real(defReal), dimension(3), intent(out) :: r
+      real(defReal), intent(out), optional     :: temperature
     end subroutine sampleInitialPosition
 
     !!
@@ -244,13 +256,14 @@ module geometry_inter
     !!   r [in] -> Position in the geometry
     !!   u [in] -> Optional. Normalised direction (norm2(u) = 1.0) (default = [1, 0, 0])
     !!
-    subroutine whatIsAt(self, matIdx, uniqueID, r, u)
+    subroutine whatIsAt(self, matIdx, uniqueID, r, u, temperature)
       import :: geometry, shortInt, defReal
       class(geometry), intent(in)                       :: self
       integer(shortInt), intent(out)                    :: matIdx
       integer(shortInt), intent(out)                    :: uniqueID
       real(defReal), dimension(3), intent(in)           :: r
       real(defReal), dimension(3), optional, intent(in) :: u
+      real(defReal), intent(out), optional              :: temperature
     end subroutine whatIsAt
 
   end interface

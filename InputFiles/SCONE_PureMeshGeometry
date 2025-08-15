@@ -1,0 +1,101 @@
+type eigenPhysicsPackage;
+
+pop      2000;
+cycles   200;
+inactive 100;
+XSdata ce;
+dataType ce;
+seed 1;
+
+collisionOperator { neutronCE {type neutronCEstd;} }
+
+transportOperator { type transportOperatorST; cache 0; }
+
+inactiveTally {}
+
+activeTally {
+    clerks {
+        display (k_eff);
+        k_eff {type keffAnalogClerk;}
+        fissionPowerClerk {
+            type collisionClerk;
+            map {
+                type unstructuredMeshMap;
+                meshId 1;
+            }
+            response (fissionPower);
+            fissionPower {
+                type macroResponse;
+                MT -80;
+            }
+        }
+    }
+}
+
+geometry {
+	type geometryMesh;
+	
+	fields {
+        T
+        {
+            type mixedScalarField;
+            meshFields {
+                testMesh {
+                    type OpenFOAMScalarField;
+                    meshId 1;
+                    path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/testMesh/Fields/ScalarFields/T;
+                }
+            }
+        }
+    }
+
+	meshes { 
+		testMesh {
+		    id 1;
+		    type OpenFOAMMesh;
+		    path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/testMesh/;
+		    triangulationMethod centroidBased;
+		    localIds {
+		        assignmentMethod cellZones;
+		    }
+		    boundaryConditions {
+		        assignmentMethod boundary;
+		        transportBCs (1);
+		        temperatureBCs (1);
+		    }
+		    fills (fuel water fuel water);
+		}
+	}
+
+}
+
+nuclearData {
+	handles {
+    	ce {type aceNeutronDatabase; aceLibrary $SCONE_ACE;}
+  	}
+  
+	materials {
+
+		water {
+      			tms 1;
+      			temp 300;
+      			rgb (0 0 139); // Colour of water is dark blue
+      			moder { 1001.03 (hh2o.03); }
+      			composition {
+      				1001.03    6.700E-002;
+      				8016.03    3.350E-002;
+      				5010.03    5.560E-006;
+      				5011.03    2.224E-005; 
+			    }
+      		}
+
+    	fuel {
+    	    tms 1;
+    	    temp 300;
+       		composition {
+      			92235.03  1.450E-003;
+      			92238.03  4.690E-002;
+			}
+      	}
+	}
+}

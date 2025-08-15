@@ -1,5 +1,6 @@
 module centroidTriangulationMethod_iTest
 
+  use charMap_class,      only : charMap
   use dictionary_class,   only : dictionary
   use dictParser_func,    only : charToDict
   use funit
@@ -12,8 +13,11 @@ module centroidTriangulationMethod_iTest
   
   ! Parameters.
   character(*), parameter :: MESH_DEF = &
-  " id 2; type OpenFOAMMesh; path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/testMesh/; triangulationMethod centroidBased;"
+  " id 2; type OpenFOAMMesh; path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/testMesh/; triangulationMethod centroidBased;&
+  & fills (water);"
+  
   ! Variables.
+  type(charMap)      :: mats
   type(OpenFOAMMesh) :: mesh
 
 contains
@@ -24,11 +28,15 @@ contains
 @Before
   subroutine setUp()
     type(dictionary)   :: dict
+    character(nameLen) :: name
     character(pathLen) :: path
+
+    name = 'water'
+    call mats % add(name, 1)
     
     call charToDict(dict, MESH_DEF)
     call dict % get(path, 'path')
-    call mesh % init(trim(path), dict)
+    call mesh % init(trim(path), dict, mats)
   
   end subroutine setUp
   
@@ -37,6 +45,8 @@ contains
   !!
 @After
   subroutine cleanUp()
+
+    call mats % kill()
     call mesh % kill()
 
   end subroutine cleanUp

@@ -1,5 +1,6 @@
 module meshShelf_class
   
+  use charMap_class,     only : charMap
   use dictionary_class,  only : dictionary
   use genericProcedures, only : fatalError, linFind, numToChar
   use intMap_class,      only : intMap
@@ -33,13 +34,15 @@ module meshShelf_class
   !!
   type, public :: meshShelf
     private
-    type(meshBox), dimension(:), allocatable :: meshes
+    type(charMap)                            :: namesMap
     type(intMap)                             :: idMap
+    type(meshBox), dimension(:), allocatable :: meshes
   contains
     procedure :: findHostMesh
     procedure :: getMeshBox
     procedure :: getMeshId
     procedure :: getMeshIdx
+    procedure :: getMeshIdxByName
     procedure :: getMeshPtr
     procedure :: getOverallBoundingBoxBounds
     procedure :: getSize
@@ -60,9 +63,10 @@ contains
   !! Errors:
   !!   fatalError if multiple meshes have the same Id.
   !!
-  subroutine init(self, dict)
+  subroutine init(self, dict, materialsMap)
     class(meshShelf), intent(inout)               :: self
     class(dictionary), intent(in)                 :: dict
+    type(charMap), intent(in)                     :: materialsMap
     character(nameLen), dimension(:), allocatable :: names
     integer(shortInt)                             :: i, id, idx, nMeshes
     character(*), parameter                       :: Here = 'init (meshShelf_class.f90)'
@@ -72,16 +76,20 @@ contains
     ! Allocate space.
     nMeshes = size(names)
     allocate(self % meshes(nMeshes))
+    call self % namesMap % init(nMeshes)
+    call self % idMap % init(nMeshes)
+
     ! Build mesh geometries.
     do i = 1, nMeshes
       self % meshes(i) % name = names(i)
-      self % meshes(i) % ptr => new_mesh_ptr(dict % getDictPtr(names(i)))
+      self % meshes(i) % ptr => new_mesh_ptr(dict % getDictPtr(names(i)), materialsMap)
       id = self % meshes(i) % ptr % getId()
       ! Add Id to the map detecting any conflicts.
       idx = self % idMap % getOrDefault(id, NOT_PRESENT)
       if (idx /= NOT_PRESENT) call fatalError(Here,'Mesh geometries '//trim(names(i))//' and '//&
                                               trim(self % meshes(idx) % name)//' have the same id: '&
                                               //numToChar(id)//'.')
+      call self % namesMap % add(names(i), i)
       call self % idMap % add(id, i)
 
     end do
@@ -108,6 +116,7 @@ contains
         deallocate(self % meshes)
         
     end if
+    call self % namesMap % kill()
     call self % idMap % kill()
 
   end subroutine kill
@@ -193,13 +202,26 @@ contains
     class(meshShelf), intent(in)  :: self
     integer(shortInt), intent(in) :: id
     integer(shortInt)             :: idx
-    integer(shortInt), parameter  :: NOT_PRESENT = -7
-    character(*), parameter       :: Here = 'getIdx (meshShelf_class.f90)'
+    character(*), parameter       :: Here = 'getMeshIdx (meshShelf_class.f90)'
     
     idx = self % idMap % getOrDefault(id, NOT_PRESENT)
     if (idx == NOT_PRESENT) call fatalError(Here, 'There is no mesh with Id: '//numToChar(id)//'.')
 
   end function getMeshIdx
+
+  !!
+  !!
+  !!
+  function getMeshIdxByName(self, name) result(idx)
+    class(meshShelf), intent(in)   :: self
+    character(nameLen), intent(in) :: name
+    integer(shortInt)              :: idx
+    character(*), parameter        :: here = 'getMeshIdxByName (meshShelf_class.f90)'
+
+    idx = self % namesMap % getOrDefault(name, NOT_PRESENT)
+    if (idx == NOT_PRESENT) call fatalError(here, 'Unable to retrieve mesh with name: '//trim(name)//'.')
+
+  end function getMeshIdxByName
   
   !! Function 'getPtr'
   !!

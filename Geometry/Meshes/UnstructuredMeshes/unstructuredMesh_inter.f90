@@ -3,6 +3,7 @@ module unstructuredMesh_inter
   use accelerationStructure_inter,       only : accelerationStructure
   use accelerationStructureFactory_func, only : newAccelerationStructurePtr
   use axisAlignedBoundingBox_class,      only : axisAlignedBoundingBox
+  use charMap_class,                     only : charMap
   use dictionary_class,                  only : dictionary
   use edge_class,                        only : edgeBox
   use element_class,                     only : buildElementPayload, element, elementBox, inclusionTestResult, &
@@ -14,7 +15,8 @@ module unstructuredMesh_inter
   use numPrecision
   use publicObjects,                     only : basicEdgeInfo, basicElementInfo, basicFaceInfo, basicVertexInfo, &
                                                 coordData, intersectionTestPayload, intersectionTestResult, &
-                                                meshLocalIdInfo, newCoordData, newIntersectionTestPayload
+                                                meshBoundaryConditionInfo, meshLocalIdInfo, newCoordData, &
+                                                newIntersectionTestPayload
   use RNG_class,                         only : RNG
   use topologicalObject_inter,           only : topologicalObjectBox
   use topologicalObjectShelf_class,      only : topologicalObjectShelf
@@ -59,47 +61,59 @@ module unstructuredMesh_inter
   !!
   type, public, abstract, extends(mesh)   :: unstructuredMesh
     private
-    class(accelerationStructure), pointer        :: acceleration
-    class(triangulationMethod), pointer          :: triangulation
-    integer(shortInt)                            :: nVertices = 0, nFaces = 0, nEdges = 0, nInternalFaces = 0
-    type(topologicalObjectShelf)                 :: edges, elements, faces, vertices
+    class(accelerationStructure), pointer :: acceleration
+    class(triangulationMethod), pointer   :: triangulation
+    integer(shortInt)                     :: nVertices = 0, nEdges = 0, nInternalFaces = 0
+    type(topologicalObjectShelf)          :: edges, elements, faces, vertices
   contains
     ! Build procedures.
-    procedure                              :: assignLocalIds
-    procedure(buildLocalIdInfos), deferred :: buildLocalIdInfos
-    procedure                              :: importLocalIdsFromFile
-    procedure(importMesh), deferred        :: importMesh
-    procedure                              :: init
-    procedure                              :: initEdgeShelf
-    procedure                              :: initElementShelf
-    procedure                              :: initFaceShelf
-    procedure                              :: initVertexShelf
-    procedure                              :: kill
-    procedure, non_overridable             :: printComposition
-    procedure                              :: setEdgesNumber
-    procedure                              :: setFacesNumber
-    procedure                              :: setInternalFacesNumber
-    procedure                              :: setVerticesNumber
+    procedure                                        :: assignBoundaryConditions
+    procedure                                        :: assignLocalIds
+    procedure(buildBoundaryConditionInfos), deferred :: buildBoundaryConditionInfos
+    procedure(buildLocalIdInfos), deferred           :: buildLocalIdInfos
+    procedure                                        :: importBoundaryConditionsFromFile
+    procedure                                        :: importLocalIdsFromFile
+    procedure(importMesh), deferred                  :: importMesh
+    procedure                                        :: init
+    procedure                                        :: initEdgeShelf
+    procedure                                        :: initElementShelf
+    procedure                                        :: initFaceShelf
+    procedure                                        :: initVertexShelf
+    procedure                                        :: kill
+    procedure, non_overridable                       :: printComposition
+    procedure                                        :: setEdgesNumber
+    procedure                                        :: setInternalFacesNumber
+    procedure                                        :: setVerticesNumber
     ! Runtime procedures.
-    procedure                              :: distanceToBoundary
-    procedure                              :: distanceToNextFace
-    procedure                              :: explicitBoundaryConditions
-    procedure                              :: findHostElement
-    procedure                              :: getEdgesNumber
-    procedure                              :: getElementBox
-    procedure                              :: getElementIsActive
-    procedure                              :: getElementsNumber
-    procedure                              :: getElementVolume
-    procedure                              :: getFaceBoundaryConditions
-    procedure                              :: getFaceIsBoundary
-    procedure                              :: getFacesNumber
-    procedure                              :: getInternalFacesNumber
-    procedure                              :: getUniqueIdOffset
-    procedure                              :: getVerticesNumber
-    procedure                              :: sampleInitialPosition
+    procedure                                        :: distanceToBoundary
+    procedure                                        :: distanceToNextFace
+    procedure                                        :: explicitBoundaryConditions
+    procedure                                        :: findHostElement
+    procedure                                        :: getEdgesNumber
+    procedure                                        :: getElementBox
+    procedure                                        :: getElementIsActive
+    procedure                                        :: getElementsNumber
+    procedure                                        :: getElementVolume
+    procedure                                        :: getFaceBoundaryConditions
+    procedure                                        :: getFaceIsBoundary
+    procedure                                        :: getFacesNumber
+    procedure                                        :: getInternalFacesNumber
+    procedure                                        :: getUniqueIdOffset
+    procedure                                        :: getVerticesNumber
+    procedure                                        :: sampleInitialPosition
   end type unstructuredMesh
 
   abstract interface
+    !!
+    !!
+    !!
+    function buildBoundaryConditionInfos(self, assignmentMethod) result(boundaryConditionInfos)
+      import                                                     :: meshBoundaryConditionInfo, nameLen, unstructuredMesh
+      class(unstructuredMesh), intent(in)                        :: self
+      character(nameLen), intent(in)                             :: assignmentMethod
+      type(meshBoundaryConditionInfo), dimension(:), allocatable :: boundaryConditionInfos
+    end function buildBoundaryConditionInfos
+
     !!
     !!
     !!
@@ -131,15 +145,120 @@ contains
   !!
   !!
   !!
-  subroutine assignLocalIds(self, dict)
+  subroutine assignBoundaryConditions(self, dict)
+    class(unstructuredMesh), intent(inout)                     :: self
+    class(dictionary), intent(in)                              :: dict
+    character(nameLen)                                         :: assignmentMethod
+    character(pathLen)                                         :: path
+    integer(shortInt)                                          :: i, j, nBoundaryInfos, nBoundaryFaces, nFaces, &
+                                                                  nTemperatureBoundaryConditions, nTransportBoundaryConditions
+    integer(shortInt), dimension(:), allocatable               :: temperatureBoundaryConditions, tempFaceIdxs, &
+                                                                  transportBoundaryConditions
+    type(faceBox)                                              :: box
+    type(meshBoundaryConditionInfo), dimension(:), allocatable :: boundaryConditionInfos
+    character(*), parameter                                    :: here = 'assignBoundaryConditions (unstructuredMesh_inter.f90)'
+
+    ! Get assignment method from dictionary.
+    call dict % get(assignmentMethod, 'assignmentMethod')
+
+    ! Apply logic depending on specific assignment method.
+    select case(assignmentMethod)
+      case('all')
+        allocate(boundaryConditionInfos(1))
+        if (dict % isPresent('transportBCs')) &
+        call dict % get(boundaryConditionInfos(1) % boundaryConditions(TRANSPORT_BCs), 'transportBCs')
+        
+        if (dict % isPresent('temperatureBCs')) &
+        call dict % get(boundaryConditionInfos(1) % boundaryConditions(TEMPERATURE_BCs), 'temperatureBCs')
+
+        ! Count the number of boundary faces in the mesh.
+        nBoundaryFaces = 0
+        nFaces = self % faces % getObjectsNumber()
+        allocate(boundaryConditionInfos(1) % faceIdxs(nFaces))
+        do i =  1, nFaces
+          box = self % faces % getFaceBox(i)
+          if (box % ptr % getIsBoundary()) then
+            nBoundaryFaces = nBoundaryFaces + 1
+            boundaryConditionInfos(1) % faceIdxs(nBoundaryFaces) = box % ptr % getIdx()
+
+          end if
+
+        end do
+        
+        ! Resize.
+        allocate(tempFaceIdxs(nBoundaryFaces))
+        tempFaceIdxs = boundaryConditionInfos(1) % faceIdxs(1:nBoundaryFaces)
+        call move_alloc(tempFaceIdxs, boundaryConditionInfos(1) % faceIdxs)
+
+      case('fileBased')
+        call dict % get(path, 'path')
+        boundaryConditionInfos = self % importBoundaryConditionsFromFile(path)
+
+      case default
+        boundaryConditionInfos = self % buildBoundaryConditionInfos(assignmentMethod)
+        nBoundaryInfos = size(boundaryConditionInfos)
+        
+        ! Get boundary from dictionary.
+        if (dict % isPresent('transportBCs')) then
+          call dict % get(transportBoundaryConditions, 'transportBCs')
+          nTransportBoundaryConditions = size(transportBoundaryConditions)
+
+          if (nTransportBoundaryConditions /= nBoundaryInfos) &
+          call fatalError(here, 'Number of transport boundary conditions: '//numToChar(nTransportBoundaryConditions)//&
+                                ' does not match the number of boundaries: '//numToChar(nBoundaryInfos)//'.')
+
+          do i = 1, nBoundaryInfos
+            boundaryConditionInfos(i) % boundaryConditions(TRANSPORT_BCs) = transportBoundaryConditions(i)
+
+          end do
+
+        end if
+
+        if (dict % isPresent('temperatureBCs')) then
+          call dict % get(temperatureBoundaryConditions, 'temperatureBCs')
+          nTemperatureBoundaryConditions = size(temperatureBoundaryConditions)
+
+          if (nTemperatureBoundaryConditions /= nBoundaryInfos) &
+          call fatalError(here, 'Number of temperature boundary conditions: '//numToChar(nTemperatureBoundaryConditions)//&
+                                ' does not match the number of boundaries: '//numToChar(nBoundaryInfos)//'.')
+
+          do i = 1, nBoundaryInfos
+            boundaryConditionInfos(i) % boundaryConditions(TEMPERATURE_BCs) = temperatureBoundaryConditions(i)
+
+          end do
+
+        end if
+
+    end select
+
+    ! Set boundary conditions for all faces in the shelf.
+    do i = 1, size(boundaryConditionInfos)
+      do j = 1, size(boundaryConditionInfos(i) % faceIdxs)
+        box = self % faces % getFaceBox(boundaryConditionInfos(i) % faceIdxs(j))
+        call box % ptr % setBoundaryConditions(boundaryConditionInfos(i) % boundaryConditions)
+
+      end do
+
+    end do
+
+  end subroutine assignBoundaryConditions
+
+  !!
+  !!
+  !!
+  subroutine assignLocalIds(self, dict, materialsMap)
     class(unstructuredMesh), intent(inout)           :: self
     class(dictionary), intent(in)                    :: dict
+    type(charMap), intent(in)                        :: materialsMap
     character(nameLen)                               :: assignmentMethod
+    character(nameLen), dimension(:), allocatable    :: fillNames
     character(pathLen)                               :: path
     class(dictionary), pointer                       :: localIdsDict
-    integer(shortInt)                                :: i, j, nLocalIds
+    integer(shortInt)                                :: i, j, materialIdx, nLocalIds
+    integer(shortInt), dimension(:), allocatable     :: localIdsToMaterialIdxs
     type(elementBox)                                 :: element
     type(meshLocalIdInfo), dimension(:), allocatable :: localIdInfos
+    character(*), parameter                          :: here = 'assignLocalIds (unstructuredMesh_inter.f90)'
 
     ! Check if localIdsDict is present. Assign only one localIdInfos if not.
     assignmentMethod = 'all'
@@ -166,6 +285,7 @@ contains
 
     end select
 
+    ! Assign localIds to all elements in the mesh.
     nLocalIds = size(localIdInfos)
     call self % setLocalIdsNumber(nLocalIds)
     do i = 1, nLocalIds
@@ -176,6 +296,20 @@ contains
       end do
 
     end do
+
+    ! Now create map linking each global id to a material fill.
+    if (.not. dict % isPresent('fills')) call fatalError(here, 'Missing fills.')
+    call dict % get(fillNames, 'fills')
+    if (size(fillNames) /= nLocalIds) call fatalError(here, 'Mismatch between number of localIds and material fills.')
+    allocate(localIdsToMaterialIdxs(nLocalIds))
+    
+    do i = 1, nLocalIds
+      materialIdx = materialsMap % getOrDefault(fillNames(i), NOT_PRESENT)
+      if (materialIdx == NOT_PRESENT) call fatalError(here, 'Unknown materal: '//trim(fillNames(i))//'.')
+      localIdsToMaterialIdxs(i) = materialIdx
+
+    end do
+    call self % setLocalIdsToMaterialIdxs(localIdsToMaterialIdxs)
 
   end subroutine assignLocalIds
 
@@ -309,14 +443,51 @@ contains
   !!
   !!
   !!
-  subroutine explicitBoundaryConditions(self, idx, boundaryConditionType, r, u)
-    class(unstructuredMesh), intent(in)        :: self
-    integer(shortInt), intent(in)              :: idx, boundaryConditionType
-    real(defReal), dimension(3), intent(inout) :: r, u
-    type(faceBox)                              :: box
+  subroutine explicitBoundaryConditions(self, idx, boundaryConditionType, data)
+    class(unstructuredMesh), intent(in)                   :: self
+    integer(shortInt), intent(in)                         :: idx, boundaryConditionType
+    type(coordData), intent(inout)                        :: data
+    integer(shortInt), dimension(N_BC_TYPES)              :: faceBoundaryConditions
+    type(faceBox)                                         :: box
+    type(topologicalObjectBox), dimension(:), allocatable :: sharingElements
+    character(*), parameter                               :: here = 'explicitBoundaryConditions (unstructuredMesh_inter.f90)'
 
+    ! Select logic to use based on specific boundary condition.
     box = self % faces % getFaceBox(idx)
-    call box % ptr % explicitBoundaryConditions(boundaryConditionType, r, u)
+    faceBoundaryConditions = box % ptr % getBoundaryConditions()
+    select case(boundaryConditionType)
+      case(TRANSPORT_BCs)
+        select case(faceBoundaryConditions(TRANSPORT_BCs))
+          case(REFLECTIVE_BC)
+            call box % ptr % flipDirection(data % u)
+            sharingElements = box % ptr % getSharingElements()
+            if (1 < size(sharingElements)) call fatalError(here, 'Boundary face is associated with more than one element.')
+
+            ! Downcast pointer to correct type.
+            select type(ptr => sharingElements(1) % ptr)
+              type is(element)
+                ! Set index and localId.
+                data % elementIdx = ptr % getIdx()
+                data % localId = ptr % getLocalId()
+
+              class default
+                call fatalError(here, 'Element with index: '//numToChar(ptr % getIdx())//' is not an element.')
+
+            end select
+
+          case default
+            call fatalError(here, &
+            'Unsupported transport boundary condition: '//numToChar(faceBoundaryConditions(TRANSPORT_BCs))//'.')
+
+        end select
+
+      case(TEMPERATURE_BCs)
+        ! Do nothing for now.
+
+      case default
+        call fatalError(here, 'Invalid boundary condition type: '//numToChar(boundaryConditionType)//'.')
+
+    end select
 
   end subroutine explicitBoundaryConditions
 
@@ -458,11 +629,12 @@ contains
   !!
   !!
   !!
-  elemental function getFacesNumber(self) result(nFaces)
-    class(unstructuredMesh), intent(in) :: self
-    integer(shortInt)                   :: nFaces
+  function getFacesNumber(self, activeOnly) result(nFaces)
+    class(unstructuredMesh), intent(in)    :: self
+    logical(defBool), intent(in), optional :: activeOnly
+    integer(shortInt)                      :: nFaces
 
-    nFaces = self % nFaces
+    nFaces = self % faces % getObjectsNumber(activeOnly)
 
   end function getFacesNumber
 
@@ -502,6 +674,20 @@ contains
   !!
   !!
   !!
+  function importBoundaryConditionsFromFile(self, path) result(boundaryConditionInfos)
+    class(unstructuredMesh), intent(in)                        :: self
+    character(pathLen), intent(in)                             :: path
+    type(meshBoundaryConditionInfo), dimension(:), allocatable :: boundaryConditionInfos
+    character(*), parameter :: here = 'importBoundaryConditionsFromFile (unstructuredMesh_inter.f90)'
+
+    ! Call fatalError for now.
+    call fatalError(here, 'STOP.')
+
+  end function importBoundaryConditionsFromFile
+
+  !!
+  !!
+  !!
   function importLocalIdsFromFile(self, path) result(localIdInfos)
     class(unstructuredMesh), intent(in)              :: self
     character(pathLen), intent(in)                   :: path
@@ -516,11 +702,11 @@ contains
   !!
   !!
   !!
-  subroutine init(self, folderPath, dict)
+  subroutine init(self, folderPath, dict, materialsMap)
     class(unstructuredMesh), intent(inout) :: self
     character(*), intent(in)               :: folderPath
     class(dictionary), intent(in)          :: dict
-    integer(shortInt)                      :: i
+    type(charMap), intent(in)              :: materialsMap
     type(faceBox)                          :: face
 
     ! Set up base components.
@@ -530,7 +716,10 @@ contains
     call self % importMesh(folderPath)
 
     ! Assign localIds.
-    call self % assignLocalIds(dict)
+    call self % assignLocalIds(dict, materialsMap)
+
+    ! Assign boundary conditions.
+    if (dict % isPresent('boundaryConditions')) call self % assignBoundaryConditions(dict % getDictPtr('boundaryConditions'))
 
     ! Initialise triangulation method from dictionary then triangulate mesh.
     call newTriangulationPtr(dict, self % triangulation)
@@ -545,18 +734,6 @@ contains
     ! Update number of edges, elements, faces, internal faces, and vertices.
     self % nEdges = self % edges % getObjectsNumber()
     self % nVertices = self % vertices % getObjectsNumber()
-
-    self % nFaces = 0
-    self % nInternalFaces = 0
-    do i = 1, self % faces % getObjectsNumber()
-      face = self % faces % getFaceBox(i)
-      if (face % ptr % getIsActive()) then
-        self % nFaces = self % nFaces + 1
-        if (.not. face % ptr % getIsBoundary()) self % nInternalFaces = self % nInternalFaces + 1
-
-      end if
-
-    end do
 
     ! Initialise acceleration method from dictionary.
     call newAccelerationStructurePtr(dict, self % edges, self % elements, self % faces, self % vertices, self % acceleration)
@@ -733,7 +910,6 @@ contains
     integer(shortInt)                                  :: i, nFaces
 
     nFaces = size(faceInfos)
-    self % nFaces = nFaces
     do i = 1, nFaces
       payloads(i) % idx = faceInfos(i) % idx
       payloads(i) % parentIdx = faceInfos(i) % parentIdx
@@ -788,7 +964,6 @@ contains
     call self % acceleration % kill()
     deallocate(self % acceleration)
     self % nVertices = 0
-    self % nFaces = 0
     self % nInternalFaces = 0
     self % nEdges = 0
     call self % elements % kill()
@@ -874,17 +1049,6 @@ contains
     self % nEdges = nEdges
 
   end subroutine setEdgesNumber
-
-  !!
-  !!
-  !!
-  elemental subroutine setFacesNumber(self, nFaces)
-    class(unstructuredMesh), intent(inout) :: self
-    integer(shortInt), intent(in)          :: nFaces
-
-    self % nFaces = nFaces
-
-  end subroutine setFacesNumber
 
   !!
   !!

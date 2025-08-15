@@ -19,7 +19,7 @@ module face_class
   !!
   type, public, extends(buildExtentTopologicalObjectPayload) :: buildFacePayload
     integer(shortInt)                        :: parentIdx = 0
-    integer(shortInt), dimension(N_BC_TYPES) :: boundaryConditions = 1
+    integer(shortInt), dimension(N_BC_TYPES) :: boundaryConditions = [INTERNAL_TRANSPORT_BC, INTERNAL_TEMPERATURE_BC]
     logical(defBool)                         :: isBoundary = .false., testNormal = .false.
     real(defReal), dimension(3)              :: testCentroid = ZERO
     type(edgeBox), dimension(:), allocatable :: edges
@@ -62,7 +62,7 @@ module face_class
     private
     character(:), allocatable                             :: type
     integer(shortInt)                                     :: parentIdx = 0
-    integer(shortInt), dimension(N_BC_TYPES)              :: boundaryConditions = 1
+    integer(shortInt), dimension(N_BC_TYPES)              :: boundaryConditions = [INTERNAL_TRANSPORT_BC, INTERNAL_TEMPERATURE_BC]
     integer(shortInt), dimension(:), allocatable          :: childrenIdxs
     logical(defBool)                                      :: isBoundary = .false.
     real(defReal)                                         :: area = ZERO
@@ -79,8 +79,7 @@ module face_class
     procedure, private :: buildComponents
     procedure          :: connectComponents
     procedure          :: distanceSquared
-    procedure          :: explicitBoundaryConditions
-    procedure, private :: flipDirection
+    procedure          :: flipDirection
     procedure          :: getArea
     procedure          :: getBoundaryConditions
     procedure          :: getChildrenIdxs
@@ -96,6 +95,7 @@ module face_class
     procedure          :: isPointInside
     procedure          :: kill
     procedure          :: setArea
+    procedure          :: setBoundaryConditions
     procedure          :: setIsBoundary
     procedure          :: setNormal
     procedure          :: setVertices
@@ -384,47 +384,12 @@ contains
   !!
   !!
   !!
-  subroutine explicitBoundaryConditions(self, boundaryConditionType, r, u)
-    class(face), intent(in)                    :: self
-    integer(shortInt), intent(in)              :: boundaryConditionType
-    real(defReal), dimension(3), intent(inout) :: r, u
-    character(*), parameter                    :: here = 'explicitBoundaryConditions (face_class.f90)'
-    
-    ! Select logic to use based on specific boundary condition.
-    select case(boundaryConditionType)
-      case(TRANSPORT_BCs)
-        select case(self % boundaryConditions(TRANSPORT_BCs))
-          case(REFLECTIVE_BC)
-            call self % flipDirection(u)
-
-          case default
-            call fatalError(here, &
-            'Unsupported transport boundary condition: '//numToChar(self % boundaryConditions(TRANSPORT_BCs))//'.')
-
-        end select
-
-      case(TEMPERATURE_BCs)
-        ! Do nothing for now.
-
-      case default
-        call fatalError(here, 'Invalid boundary condition type: '//numToChar(boundaryConditionType)//'.')
-
-    end select
-
-  end subroutine explicitBoundaryConditions
-
-  !!
-  !!
-  !!
   subroutine flipDirection(self, u)
     class(face), intent(in)                    :: self
     real(defReal), dimension(3), intent(inout) :: u
     integer(shortInt)                          :: i
 
-    do i = 1, 3
-      if (ZERO < u(i) * self % normal(i)) u(i) = -u(i)
-
-    end do
+    u = u - TWO * dot_product(u, self % normal) * self % normal
 
   end subroutine flipDirection
   
@@ -771,7 +736,7 @@ contains
     self % isBoundary = .false.
     self % area = ZERO
     self % normal = ZERO
-    self % boundaryConditions = 0
+    self % boundaryConditions = [INTERNAL_TRANSPORT_BC, INTERNAL_TEMPERATURE_BC]
     if (allocated(self % childrenIdxs)) deallocate(self % childrenIdxs)
     if (allocated(self % edges)) then
       do i = 1, size(self % edges)
@@ -817,6 +782,17 @@ contains
     self % area = area
 
   end subroutine setArea
+
+  !!
+  !!
+  !!
+  pure subroutine setBoundaryConditions(self, boundaryConditions)
+    class(face), intent(inout)                           :: self
+    integer(shortInt), dimension(N_BC_TYPES), intent(in) :: boundaryConditions
+
+    self % boundaryConditions = boundaryConditions
+
+  end subroutine setBoundaryConditions
   
   !! Subroutine 'setBoundaryFace'
   !!

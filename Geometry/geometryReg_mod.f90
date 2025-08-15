@@ -38,7 +38,7 @@ module geometryReg_mod
   ! Fields
   use field_inter,        only : field
 
-  use universalVariables, only : NOT_PRESENT
+  use universalVariables, only : nameTemperature, NOT_PRESENT
 
   implicit none
   private
@@ -68,6 +68,7 @@ module geometryReg_mod
   public :: addField
   public :: fieldIdx
   public :: fieldPtr
+  public :: fieldPtrByName
   public :: kill
 
   integer(shortInt), parameter :: START_SIZE = 5
@@ -199,21 +200,34 @@ contains
   subroutine addField(kentta, name)
     class(field), allocatable, intent(inout) :: kentta
     character(nameLen), intent(in)           :: name
+    character(nameLen)                       :: fieldName
+    character(:), allocatable                :: trimmedFieldName
     integer(shortInt)                        :: idx
     character(*), parameter                  :: Here = 'addField (geometryReg_mod.f90)'
+    
+    ! Set default name for specific fields.
+    trimmedFieldName = trim(name)
+    select case(trimmedFieldName)
+      case('T', 'temp', 'Temp', 'temperature', 'Temperature')
+        fieldName = nameTemperature
+
+      case default
+        fieldName = name
+
+    end select
 
     ! Get free index
-    idx = fieldNameMap % getOrDefault(name, NOT_PRESENT)
+    idx = fieldNameMap % getOrDefault(fieldName, NOT_PRESENT)
 
-    if (idx /= NOT_PRESENT) call fatalError(Here, 'Field with name: '//trim(name)//' has already been defined with &
+    if (idx /= NOT_PRESENT) call fatalError(Here, 'Field with name: '//trimmedFieldName//' has already been defined with &
                                             &idx: '//numToChar(idx))
 
     idx = freeFieldIdx()
     fieldTop = fieldTop + 1 ! Increment counter
 
     ! Initialise & store index
-    call fieldNameMap % add(name, idx)
-    fields(idx) % name = name
+    call fieldNameMap % add(fieldName, idx)
+    fields(idx) % name = fieldName
 
     ! Point field
     call move_alloc(kentta, fields(idx) % kentta)
@@ -235,7 +249,6 @@ contains
   function fieldIdx(name) result(idx)
     character(nameLen), intent(in) :: name
     integer(shortInt)              :: idx
-    integer(shortInt), parameter   :: NOT_PRESENT = -8
     character(*), parameter        :: Here = 'fieldIdx (geometryReg_mod.f90)'
 
     idx = fieldNameMap % getOrDefault(name, NOT_PRESENT)
@@ -267,6 +280,20 @@ contains
     ptr => fields(idx) % kentta
 
   end function fieldPtr
+
+  !!
+  !!
+  !!
+  function fieldPtrByName(name) result(ptr)
+    character(nameLen), intent(in) :: name
+    class(field), pointer          :: ptr
+    integer(shortInt)              :: idx
+
+    ptr => null()
+    idx = fieldNameMap % getOrDefault(name, NOT_PRESENT)
+    if (idx /= NOT_PRESENT) ptr => fields(idx) % kentta
+
+  end function fieldPtrByName
 
   !!
   !! Return to uninitialised state

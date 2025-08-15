@@ -64,17 +64,17 @@ module collisionProcessor_inter
     ! Master non-overridable procedures
     procedure, non_overridable :: collide
 
-    ! Extendable initialisation procedure
+    ! Extendable procedures
     procedure :: init
 
     ! Customisable deffered procedures
-    procedure(collisionAction), deferred  :: sampleCollision
-    procedure(collisionAction), deferred  :: implicit
-    procedure(collisionAction), deferred  :: elastic
-    procedure(collisionAction), deferred  :: inelastic
-    procedure(collisionAction), deferred  :: capture
-    procedure(collisionAction), deferred  :: fission
-    procedure(collisionAction), deferred  :: cutoffs
+    procedure(sampleCollision), deferred :: sampleCollision
+    procedure(collisionAction), deferred :: implicit
+    procedure(collisionAction), deferred :: elastic
+    procedure(collisionAction), deferred :: inelastic
+    procedure(collisionAction), deferred :: capture
+    procedure(collisionAction), deferred :: fission
+    procedure(collisionAction), deferred :: cutoffs
 
   end type collisionProcessor
 
@@ -88,18 +88,25 @@ module collisionProcessor_inter
     !! processing of sollision event (scatter, fission etc.)
     !!
     subroutine collisionAction(self, p, tally, collDat, thisCycle, nextCycle)
-      import :: collisionProcessor, &
-                collisionData, &
-                tallyAdmin, &
-                particle,&
-                particleDungeon
+      import :: collisionProcessor, collisionData, tallyAdmin, particle, particleDungeon
       class(collisionProcessor), intent(inout) :: self
       class(particle), intent(inout)           :: p
       type(tallyAdmin), intent(inout)          :: tally
       type(collisionData), intent(inout)       :: collDat
-      class(particleDungeon), intent(inout)     :: thisCycle
-      class(particleDungeon), intent(inout)     :: nextCycle
+      class(particleDungeon), intent(inout)    :: thisCycle, nextCycle
     end subroutine collisionAction
+
+    !!
+    !!
+    !!
+    subroutine sampleCollision(self, temperature, p, collDat)
+      import :: collisionProcessor, collisionData, defReal, particle
+      class(collisionProcessor), intent(inout) :: self
+      real(defReal), intent(in)                :: temperature
+      class(particle), intent(inout)           :: p
+      type(collisionData), intent(inout)       :: collDat
+    end subroutine sampleCollision
+    
   end interface
 
 contains
@@ -107,22 +114,22 @@ contains
   !!
   !! Generic flow of collision processing
   !!
-  subroutine collide(self, p, tally, thisCycle, nextCycle)
+  subroutine collide(self, temperature, p, tally, thisCycle, nextCycle)
     class(collisionProcessor), intent(inout) :: self
+    real(defReal), intent(in)                :: temperature
     class(particle), intent(inout)           :: p
     type(tallyAdmin), intent(inout)          :: tally
-    class(particleDungeon), intent(inout)     :: thisCycle
-    class(particleDungeon), intent(inout)     :: nextCycle
+    class(particleDungeon), intent(inout)    :: thisCycle, nextCycle
     type(collisionData)                      :: collDat
     logical(defBool)                         :: virtual
     integer(shortInt)                        :: addCollision
-    character(100), parameter                 :: Here = 'collide (collisionProcessor.f90)'
+    character(*), parameter                  :: Here = 'collide (collisionProcessor.f90)'
 
     ! Load material index into data package
     collDat % matIdx = p % getMatIdx()
 
     ! Choose collision nuclide and general type (Scatter, Capture or Fission)
-    call self % sampleCollision(p, tally, collDat, thisCycle, nextCycle)
+    call self % sampleCollision(temperature, p, collDat)
 
     ! In case of a TMS rejection, set collision as virtual
     if (collDat % MT == noInteraction) then

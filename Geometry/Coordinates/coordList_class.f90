@@ -68,6 +68,7 @@ module coordList_class
     procedure :: getDirection
     procedure :: getLocalId
     procedure :: getLowestCellIdx
+    procedure :: getLowestMeshIdx
     procedure :: getLowestElementIdx
     procedure :: getMatIdx
     procedure :: getMeshIdx
@@ -82,9 +83,11 @@ module coordList_class
     procedure :: setCellIdx
     procedure :: setCoordinates
     procedure :: setDirection
+    procedure :: setElementIdx
     procedure :: setIsRotated
     procedure :: setLocalId
     procedure :: setMatIdx
+    procedure :: setMeshIdx
     procedure :: setNesting
     procedure :: setPosition
     procedure :: setPositionAndDirection
@@ -243,6 +246,17 @@ contains
     cellIdx = self % lvl(max(self % nesting, 1)) % getCellIdx()
 
   end function getLowestCellIdx
+
+  !!
+  !!
+  !!
+  elemental function getLowestMeshIdx(self) result(meshIdx)
+    class(coordList), intent(in) :: self
+    integer(shortInt)            :: meshIdx
+
+    meshIdx = self % lvl(max(self % nesting, 1)) % getMeshIdx()
+
+  end function getLowestMeshIdx
 
   !!
   !!
@@ -556,6 +570,17 @@ contains
   !!
   !!
   !!
+  elemental subroutine setElementIdx(self, elementIdx, lvl)
+    class(coordList), intent(inout) :: self
+    integer(shortInt), intent(in)   :: elementIdx, lvl
+
+    call self % lvl(lvl) % setElementIdx(elementIdx)
+
+  end subroutine setElementIdx
+
+  !!
+  !!
+  !!
   elemental subroutine setIsRotated(self, isRotated, lvl)
     class(coordList), intent(inout) :: self
     logical(defBool), intent(in)    :: isRotated
@@ -586,6 +611,17 @@ contains
     self % matIdx = matIdx
 
   end subroutine setMatIdx
+
+  !!
+  !!
+  !!
+  elemental subroutine setMeshIdx(self, meshIdx, lvl)
+    class(coordList), intent(inout) :: self
+    integer(shortInt), intent(in)   :: meshIdx, lvl
+
+    call self % lvl(lvl) % setMeshIdx(meshIdx)
+
+  end subroutine setMeshIdx
 
   !!
   !!

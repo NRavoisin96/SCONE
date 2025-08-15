@@ -24,7 +24,7 @@ module meshUniverse_iTest
   
   character(*), parameter :: MESH_DEF = &
   " testMesh {id 8; type OpenFOAMMesh; path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/testMesh/;&
-  & localIds {assignmentMethod cellZones;}}"
+  & localIds {assignmentMethod cellZones;} fills (fuel water fuel water);}"
   ! 
   ! Note that rotation is such that following axis transformation applies:
   !   x -> z
@@ -32,8 +32,7 @@ module meshUniverse_iTest
   !   z -> x
   ! 
   character(*), parameter :: UNI_DEF = &
-  "id 1; type meshUniverse; origin (2.0 0.0 0.0); rotation (90.0 90.0 90.0); cell 1; mesh 8;&
-   & fills (fuel water fuel water);"
+  "id 1; type meshUniverse; origin (2.0 0.0 0.0); rotation (90.0 90.0 90.0); cell 1; mesh 8;"
   ! Variables.
   type(surfaceShelf) :: surfs
   type(meshShelf)    :: meshes
@@ -56,10 +55,12 @@ contains
     call mats % add(name, 1)
     name = 'fuel'
     call mats % add(name, 2)
+    
     ! Build surfaces.
     call charToDict(dict, SURFS_DEF)
     call surfs % init(dict)
     call dict % kill()
+    
     ! Build cells.
     call charToDict(dict, CELL_DEF)
     call cells % init(dict, surfs, mats)
@@ -67,14 +68,17 @@ contains
     
     ! Build meshes.
     call charToDict(dict, MESH_DEF)
-    call meshes % init(dict)
+    call meshes % init(dict, mats)
     call dict % kill()
+    
     ! Build universe.
     call charToDict(dict, UNI_DEF)
     call uni % init(dict, mats, fill, cells, surfs, meshes)
     call dict % kill()
+    
     ! Set index.
     call uni % setIdx(18)
+    
     ! Verify fills.
     @assertEqual([1, 2, 1, 2, 1], fill)
 

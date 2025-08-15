@@ -2,7 +2,7 @@ module piecewiseConstantScalarField_inter
 
   use genericProcedures, only : fatalError, numToChar
   use numPrecision
-  use scalarField_inter, only : scalarField
+  use scalarField_inter, only : kill_super => kill, scalarField
 
   implicit none
   private
@@ -73,6 +73,9 @@ contains
   !!
   elemental subroutine kill(self)
     class(piecewiseConstantScalarField), intent(inout) :: self
+
+    ! Superclass.
+    call kill_super(self)
 
     ! Local.
     self % nValues = 0

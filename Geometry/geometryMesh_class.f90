@@ -10,6 +10,7 @@ module geometryMesh_class
   use numPrecision
   use publicObjects,     only : coordData, newCoordData
   use RNG_class,         only : RNG
+  use scalarField_inter, only : getTemperatureFieldPtr, scalarField
   use universalVariables
 
   implicit none
@@ -20,7 +21,7 @@ module geometryMesh_class
   !!
   type, public, extends(geometry) :: geometryMesh
     private
-    integer(shortInt), dimension(:), allocatable    :: fills, localIdOffsets, uniqueIdOffsets
+    integer(shortInt), dimension(:), allocatable    :: elementIdOffsets, fills, localIdOffsets
     integer(shortInt), dimension(:, :), allocatable :: cumulativeToActiveElementsMap
     real(defReal)                                   :: totalVolume = ZERO
     real(defReal), dimension(:), allocatable        :: cumulativeVolumes
@@ -28,6 +29,7 @@ module geometryMesh_class
   contains
     procedure :: activeMats
     procedure :: bounds
+    procedure :: getMeshIdxByName
     procedure :: getMeshPtr
     procedure :: init
     procedure :: kill
@@ -61,6 +63,18 @@ contains
     bounds = reshape(self % meshes % getOverallBoundingBoxBounds(), [6])
 
   end function bounds
+
+  !!
+  !!
+  !!
+  function getMeshIdxByName(self, name) result(idx)
+    class(geometryMesh), intent(in) :: self
+    character(nameLen), intent(in)  :: name
+    integer(shortInt)               :: idx
+
+    idx = self % meshes % getMeshIdxByName(name)
+
+  end function getMeshIdxByName
 
   !!
   !!
@@ -99,21 +113,22 @@ contains
     if (loud) then
       print *, repeat('<>', MAX_COL / 2)
       print *, "/\/\ READING GEOMETRY /\/\"
-      print *, "Building Meshes"
+      print *, "Importing Meshes"
 
     end if
 
     ! Build meshes.
     meshesDict => dict % getDictPtr('meshes')
-    call self % meshes % init(meshesDict)
-    nMeshes = self % meshes % getSize()
-    allocate(self % localIdOffsets(nMeshes), self % uniqueIdOffsets(nMeshes))
+    call self % meshes % init(meshesDict, mats)
+    if (loud) print *, "DONE!"
 
     ! Loop through all meshes and count the number of localIds in each.
+    nMeshes = self % meshes % getSize()
+    allocate(self % elementIdOffsets(nMeshes), self % localIdOffsets(nMeshes))
     nActiveElements = 0
     nLocalIds = 0
+    self % elementIdOffsets(1) = 0
     self % localIdOffsets(1) = 0
-    self % uniqueIdOffsets(1) = 0
     do i = 1, nMeshes
       box = self % meshes % getMeshBox(i)
       nActiveElements = nActiveElements + box % ptr % getElementsNumber(.true.)
@@ -122,16 +137,17 @@ contains
       
       if (1 < i) then
         iLessOne = i - 1
+        self % elementIdOffsets(i) = self % elementIdOffsets(iLessOne) + box % ptr % getElementsNumber()
         self % localIdOffsets(i) = self % localIdOffsets(iLessOne) + nLocalIdsInMesh
-        self % uniqueIdOffsets(i) = self % uniqueIdOffsets(iLessOne) + box % ptr % getUniqueIdOffset()
 
       end if
 
     end do
-    allocate(self % fills(nLocalIds), self % cumulativeVolumes(nActiveElements), &
-             self % cumulativeToActiveElementsMap(2, nActiveElements))
+    allocate(self % cumulativeToActiveElementsMap(2, nActiveElements), self % cumulativeVolumes(nActiveElements), &
+             self % fills(nLocalIds))
 
-    ! Loop through all mesh subdictionaries and build fills.
+    ! Loop through all mesh subdictionaries and build fills and boundary conditions.
+    if (loud) print *, 'Building fills.'
     cumulativeVolumeIdx = 0
     fillIdx = 0
     do i = 1, nMeshes
@@ -171,7 +187,7 @@ contains
 
     end do
 
-    if (loud) print *, "DONE!"
+    if (loud) print *, 'DONE!'
 
     ! Print geometry information and end
     if (loud) then
@@ -191,9 +207,9 @@ contains
     class(geometryMesh), intent(inout) :: self
 
     ! Local.
+    if (allocated(self % elementIdOffsets)) deallocate(self % elementIdOffsets)
     if (allocated(self % fills)) deallocate(self % fills)
     if (allocated(self % localIdOffsets)) deallocate(self % localIdOffsets)
-    if (allocated(self % uniqueIdOffsets)) deallocate(self % uniqueIdOffsets)
     self % totalVolume = ZERO
     if (allocated(self % cumulativeVolumes)) deallocate(self % cumulativeVolumes)
     call self % meshes % kill()
@@ -247,11 +263,9 @@ contains
         call coords % setUniqueId(0)
 
       else
-        faceIdx = updateData % faceIdx
-        updateData = newCoordData(coords % getPosition(1), coords % getDirection(1))
-        call meshPtr % explicitBoundaryConditions(faceIdx, TRANSPORT_BCs, updateData % r, updateData % u)
-        call coords % setPositionAndDirection(updateData % r, updateData % u, 1)
-        call self % placeCoord(coords)
+        updateData % r = coords % getPosition(1)
+        call meshPtr % explicitBoundaryConditions(updateData % faceIdx, TRANSPORT_BCs, updateData)
+        call coords % updateCoordinatesFromData(1, updateData)
 
       end if
 
@@ -261,7 +275,7 @@ contains
       updateData % r = coords % getPosition(1)
       call coords % updateCoordinatesFromData(1, updateData)
       call coords % setMatIdx(self % fills(self % localIdOffsets(updateData % meshIdx) + updateData % localId))
-      call coords % setUniqueId(self % uniqueIdOffsets(updateData % meshIdx) + updateData % elementIdx)
+      call coords % setUniqueId(self % elementIdOffsets(updateData % meshIdx) + updateData % elementIdx)
 
     end if
 
@@ -308,7 +322,7 @@ contains
     ! Get material corresponding to localId in mesh.
     if (0 < data % meshIdx) then
       call coords % setMatIdx(self % fills(self % localIdOffsets(data % meshIdx) + data % localId))
-      call coords % setUniqueId(self % uniqueIdOffsets(data % meshIdx) + data % elementIdx)
+      call coords % setUniqueId(self % elementIdOffsets(data % meshIdx) + data % elementIdx)
 
     end if
 
@@ -317,15 +331,18 @@ contains
   !!
   !!
   !!
-  subroutine sampleInitialPosition(self, bottom, top, rand, materialIdx, uniqueId, r)
+  subroutine sampleInitialPosition(self, bottom, top, rand, materialIdx, uniqueId, r, temperature)
     class(geometryMesh), intent(in)          :: self
     real(defReal), dimension(3), intent(in)  :: bottom, top
     class(RNG), intent(inout)                :: rand
     integer(shortInt), intent(out)           :: materialIdx, uniqueId
     real(defReal), dimension(3), intent(out) :: r
+    real(defReal), intent(out), optional     :: temperature
     class(mesh), pointer                     :: meshPtr
+    class(scalarField), pointer              :: temperatureFieldPtr
     integer(shortInt)                        :: cumulativeIdx, elementIdx, localId, meshIdx
     real(defReal)                            :: randomNumber
+    type(coordList)                          :: coords
 
     ! First sample an element at random. Use cumulative volumes for sampling.
     call rand % generate(randomNumber, self % totalVolume)
@@ -341,7 +358,20 @@ contains
 
     ! Return materialIdx and uniqueId.
     materialIdx = self % fills(self % localIdOffsets(meshIdx) + localId)
-    uniqueId = self % uniqueIdOffsets(meshIdx) + elementIdx
+    uniqueId = self % elementIdOffsets(meshIdx) + elementIdx
+
+    ! Get temperature if requested.
+    if (present(temperature)) then
+      temperature = ZERO
+      temperatureFieldPtr => getTemperatureFieldPtr()
+      if (associated(temperatureFieldPtr)) then
+        call coords % setElementIdx(elementIdx, 1)
+        call coords % setMeshIdx(meshIdx, 1)
+        temperature = temperatureFieldPtr % at(coords)
+
+      end if
+
+    end if
 
   end subroutine sampleInitialPosition
 
@@ -361,11 +391,12 @@ contains
   !!
   !!
   !!
-  subroutine whatIsAt(self, matIdx, uniqueId, r, u)
+  subroutine whatIsAt(self, matIdx, uniqueId, r, u, temperature)
     class(geometryMesh), intent(in)                   :: self
     integer(shortInt), intent(out)                    :: matIdx, uniqueID
     real(defReal), dimension(3), intent(in)           :: r
     real(defReal), dimension(3), optional, intent(in) :: u
+    real(defReal), intent(out), optional              :: temperature
     type(coordList)                                   :: coords
     real(defReal), dimension(3)                       :: u_l
 

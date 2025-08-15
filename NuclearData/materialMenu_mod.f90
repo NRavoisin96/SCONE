@@ -114,13 +114,13 @@ module materialMenu_mod
   !!       stochastic interpolation between the two data libraries.
   !!
   type, public :: materialItem
-    character(nameLen)                         :: name   = ''
-    integer(shortInt)                          :: matIdx = 0
-    real(defReal)                              :: T      = ZERO
+    character(nameLen)                           :: name   = ''
+    integer(shortInt)                            :: matIdx = 0
+    real(defReal)                                :: T = ZERO
     real(defReal), dimension(:), allocatable     :: dens
     type(nuclideInfo), dimension(:), allocatable :: nuclides
-    type(dictionary)                           :: extraInfo
-    logical(defBool)                           :: hasTMS = .false.
+    type(dictionary)                             :: extraInfo
+    logical(defBool)                             :: hasTMS = .false.
   contains
     procedure :: init    => init_materialItem
     procedure :: kill    => kill_materialItem
@@ -317,14 +317,9 @@ contains
 
     ! Check TMS flag and read temperature
     call dict % getOrDefault(self % hasTMS, 'tms', .false.)
-
-    if (self % hasTMS .and. .not. dict % isPresent('temp')) then
-      call fatalError(Here, 'The material temperature must be specified when TMS is on')
-    end if
-
     call dict % getOrDefault(self % T, 'temp', ZERO)
-    if (self % T < ZERO) call fatalError(Here, 'The temperature of material '//numToChar(idx)//&
-                                                ' is negative: '//numToChar(self % T))
+    if (self % T < ZERO) &
+    call fatalError(Here, 'Temperature of material: '//numToChar(idx)//' is negative: '//numToChar(self % T)//'.')
 
     ! Get composition dictionary and load composition
     compDict => dict % getDictPtr('composition')
@@ -339,8 +334,10 @@ contains
       moderDict => dict % getDictPtr('moder')
       call moderDict % keys(moderKeys)
       nSab = size(moderKeys)
+
     else
       nSab = 0
+      
     end if
 
     ! Load definitions

@@ -1,12 +1,12 @@
 module uniformScalarField_test
 
-  use numPrecision
+  use coordList_class,          only : coordList
   use dictionary_class,         only : dictionary
-  use particle_class,           only : particle
   use field_inter,              only : field
+  use funit
+  use numPrecision
   use scalarField_inter,        only : scalarField, scalarField_CptrCast
   use uniformScalarField_class, only : uniformScalarField, uniformScalarField_TptrCast
-  use funit
 
   implicit none
 
@@ -22,7 +22,7 @@ contains
     class(scalarField), pointer       :: ptr
     type(uniformScalarField), pointer :: ptr2
     type(dictionary)                  :: dict
-    type(particle)                    :: p
+    type(coordList)                   :: coords
     real(defReal), parameter :: TOL = 1.0E-7_defReal
 
     ! Test invalid pointers
@@ -50,7 +50,7 @@ contains
     call fieldT % init(dict)
 
     ! Check value
-    @assertEqual(9.6_defReal, fieldT % at(p), TOL)
+    @assertEqual(9.6_defReal, fieldT % at(coords), TOL)
 
     ! Kill
     call fieldT % kill()

@@ -1,10 +1,11 @@
 module meshFactory_func
   
-  use dictionary_class,      only : dictionary
-  use genericProcedures,     only : fatalError
-  use mesh_inter,            only : mesh
+  use charMap_class,      only : charMap
+  use dictionary_class,   only : dictionary
+  use genericProcedures,  only : fatalError
+  use mesh_inter,         only : mesh
   use numPrecision
-  use OpenFOAMMesh_class,    only : OpenFOAMMesh
+  use OpenFOAMMesh_class, only : OpenFOAMMesh
   
   implicit none
   private
@@ -34,8 +35,9 @@ module meshFactory_func
   !!   - fatalError if mesh folder path does not exist;
   !!   - fatalError if type of mesh is unknown.
   !!
-  function new_mesh_ptr(dict) result(new)
+  function new_mesh_ptr(dict, materialsMap) result(new)
     class(dictionary), intent(in) :: dict
+    type(charMap), intent(in)     :: materialsMap
     class(mesh), pointer          :: new
     character(nameLen)            :: type
     character(pathLen)            :: path
@@ -69,7 +71,7 @@ module meshFactory_func
     end select
 
     ! Initialise the mesh geometry.
-    call new % init(trimmedPath, dict)
+    call new % init(trimmedPath, dict, materialsMap)
     
   end function new_mesh_ptr
 

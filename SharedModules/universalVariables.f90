@@ -61,11 +61,13 @@ module universalVariables
   ! Define integers for transport boundary condition types
   integer(shortInt), parameter :: VACUUM_BC = 0, &
                                   REFLECTIVE_BC = 1, &
-                                  PERIODIC_BC = 2
+                                  PERIODIC_BC = 2, &
+                                  INTERNAL_TRANSPORT_BC = 3
 
   ! Define integers for temperature boundary condition types.
   integer(shortInt), parameter :: FIXED_TEMPERATURE_BC = 1, &
-                                  ZERO_TEMPERATURE_GRADIENT_BC = 2
+                                  ZERO_TEMPERATURE_GRADIENT_BC = 2, &
+                                  INTERNAL_TEMPERATURE_BC = 3
 
   ! Integer indexes of cardinal directions
   integer(shortInt), parameter :: X_AXIS = 1 ,&

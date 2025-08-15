@@ -1,13 +1,12 @@
 module nuclearDatabase_inter
 
-  use numPrecision
-  use dictionary_class, only : dictionary
-  use particle_class,   only : particle
-  use charMap_class,    only : charMap
-
-  ! Nuclear Data Handles
-  use nuclideHandle_inter,  only : nuclideHandle
+  use charMap_class,        only : charMap
+  use dictionary_class,     only : dictionary
+  use errors_mod,           only : fatalError
   use materialHandle_inter, only : materialHandle
+  use nuclideHandle_inter,  only : nuclideHandle
+  use numPrecision
+  use particle_class,       only : particle
   use reactionHandle_inter, only : reactionHandle
 
   implicit none
@@ -31,7 +30,7 @@ module nuclearDatabase_inter
   !!   getReaction   -> returns a pointer to a reaction for given matidx or nucIdx and MT number
   !!   kill          -> return to uninitialised state, clean memory
   !!
-  type, public,abstract :: nuclearDatabase
+  type, public, abstract :: nuclearDatabase
   contains
     procedure(init), deferred          :: init
     procedure(activate), deferred      :: activate
@@ -44,6 +43,7 @@ module nuclearDatabase_inter
     procedure(getNuclide), deferred    :: getNuclide
     procedure(getReaction), deferred   :: getReaction
     procedure(kill), deferred          :: kill
+    procedure                          :: updateMaterialsProperties
   end type nuclearDatabase
 
   abstract interface
@@ -287,6 +287,20 @@ module nuclearDatabase_inter
       import :: nuclearDatabase
       class(nuclearDatabase), intent(inout) :: self
     end subroutine kill
+
   end interface
+
+contains
+  !!
+  !!
+  !!
+  subroutine updateMaterialsProperties(self)
+    class(nuclearDatabase), intent(inout) :: self
+    character(*), parameter               :: here = 'updateMaterialsProperties (nuclearDatabase_inter.f90)'
+
+    ! Call fatalError by default.
+    call fatalError(here, 'Unsupported procedure.')
+
+  end subroutine updateMaterialsProperties
 
 end module nuclearDatabase_inter

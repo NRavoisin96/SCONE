@@ -1,23 +1,25 @@
 module unstructuredPiecewiseConstantScalarField_inter
 
+  use coordList_class,                    only : coordList
   use dictionary_class,                   only : dictionary
   use element_class,                      only : elementBox
+  use field_inter,                        only : field
   use genericProcedures,                  only : fatalError, numToChar
   use geometry_inter,                     only : geometry
   use geometryReg_mod,                    only : geomNum, geomPtr
-  use geometryStd_class,                  only : geometryStd, geometryStd_CptrCast
   use intMap_class,                       only : intMap
+  use materialMenu_mod,                   only : nMat
   use mesh_inter,                         only : mesh
   use numPrecision
-  use particle_class,                     only : particle
   use piecewiseConstantScalarField_inter, only : kill_super => kill, piecewiseConstantScalarField
+  use universalVariables,                 only : INF
   use unstructuredMesh_inter,             only : getCastUnstructuredMeshPtr, unstructuredMesh
 
   implicit none
   private
 
   ! Public procedures.
-  public :: init
+  public :: getCastUnstructuredPiecewiseConstantScalarField, init
   
   !!
   !!
@@ -27,18 +29,31 @@ module unstructuredPiecewiseConstantScalarField_inter
     class(unstructuredMesh), pointer :: meshPtr => null()
     type(intMap)                     :: activeElementIdxToParentElementIdxMap
   contains
-    procedure :: at
-    procedure :: init
-    procedure :: kill
+    procedure                           :: at
+    procedure                           :: init
+    procedure                           :: kill
+    procedure(retrieveValues), deferred :: retrieveValues
   end type unstructuredPiecewiseConstantScalarField
+
+  abstract interface
+    !!
+    !!
+    !!
+    subroutine retrieveValues(self, dict)
+      import                                                         :: dictionary, unstructuredPiecewiseConstantScalarField
+      class(unstructuredPiecewiseConstantScalarField), intent(inout) :: self
+      class(dictionary), intent(in)                                  :: dict
+    end subroutine retrieveValues
+
+  end interface
 
 contains
   !!
   !!
   !!
-  function at(self, p) result(val)
+  function at(self, coords) result(val)
     class(unstructuredPiecewiseConstantScalarField), intent(in) :: self
-    class(particle), intent(inout)                              :: p
+    class(coordList), intent(in)                                :: coords
     integer(shortInt)                                           :: elementIdx
     real(defReal)                                               :: val
     character(*), parameter                                     :: here = 'at (unstructuredPiecewiseConstantScalarField_inter.f90)'
@@ -46,7 +61,7 @@ contains
     val = ZERO
     if (.not. associated(self % meshPtr)) call fatalError(here, 'Unassociated mesh pointer.')
     ! First retrieve the element containing the particle.
-    elementIdx = p % coords % getLowestElementIdx()
+    elementIdx = coords % getLowestElementIdx()
     if (elementIdx == 0) return
     val = self % getValue(self % activeElementIdxToParentElementIdxMap % get(elementIdx))
 
@@ -55,15 +70,34 @@ contains
   !!
   !!
   !!
+  function getCastUnstructuredPiecewiseConstantScalarField(source) result(ptr)
+    class(field), intent(in)                                 :: source
+    class(unstructuredPiecewiseConstantScalarField), pointer :: ptr
+
+    select type(temp => source)
+      class is(unstructuredPiecewiseConstantScalarField)
+        ptr => temp
+
+      class default
+        ptr => null()
+
+    end select
+
+  end function getCastUnstructuredPiecewiseConstantScalarField
+
+  !!
+  !!
+  !!
   subroutine init(self, dict)
     class(unstructuredPiecewiseConstantScalarField), intent(inout) :: self
     class(dictionary), intent(in)                                  :: dict
     class(geometry), pointer                                       :: geom
-    class(geometryStd), pointer                                    :: geomStd
     class(mesh), pointer                                           :: meshPtr
-    class(unstructuredMesh), pointer                               :: unstructuredMeshPtr
-    integer(shortInt)                                              :: elementIdx, i, meshId, nActiveElements, nElements, &
-                                                                      nGeometries, nParentElements, parentElementIdx
+    integer(shortInt)                                              :: elementIdx, i, materialIdx, meshId, nActiveElements, &
+                                                                      nElements, nGeometries, nMaterials, nParentElements, &
+                                                                      parentElementIdx
+    integer(shortInt), dimension(:), allocatable                   :: localIdsToMaterialIdxs
+    real(defReal), dimension(:), allocatable                       :: maximumMaterialValues, minimumMaterialValues
     type(elementBox)                                               :: element
     character(*), parameter :: here = 'init (unstructuredPiecewiseConstantScalarField_inter.f90)'
 
@@ -73,22 +107,19 @@ contains
     nGeometries = geomNum()
     if (nGeometries /= 1) call fatalError(here, 'Geometry registry contains: '//numToChar(nGeometries)//'. Should be 1.')
 
-    geom => geomPtr(1)
-    geomStd => geometryStd_CptrCast(geom)
-
-    if (.not. associated(geomStd)) call fatalError(here, 'Geometry is not of type geometryStd.')
-
     ! Get pointer to unstructured mesh geometry.
+    geom => geomPtr(1)
     call dict % get(meshId, 'meshId')
-    meshPtr => geomStd % getMeshPtr(meshId)
-    unstructuredMeshPtr => getCastUnstructuredMeshPtr(meshPtr)
+    meshPtr => geom % getMeshPtr(meshId)
+    self % meshPtr => getCastUnstructuredMeshPtr(meshPtr)
+    if (.not. associated(self % meshPtr)) call fatalError(here, 'Unable to retrieve unstructured mesh pointer.')
 
     ! Loop through all elements in the mesh and begin active and parent counts.
-    nElements = unstructuredMeshPtr % getElementsNumber()
+    nElements = self % meshPtr % getElementsNumber()
     nActiveElements = 0
     nParentElements = 0
     do i = 1, nElements
-      element = unstructuredMeshPtr % getElementBox(i)
+      element = self % meshPtr % getElementBox(i)
       if (element % ptr % getIsActive()) nActiveElements = nActiveElements + 1
       if (element % ptr % getParentIdx() == 0) nParentElements = nParentElements + 1
 
@@ -98,7 +129,7 @@ contains
 
     ! Loop through all elements and build internal map.
     do i = 1, nElements
-      element = unstructuredMeshPtr % getElementBox(i)
+      element = self % meshPtr % getElementBox(i)
       if (element % ptr % getIsActive()) then
         elementIdx = element % ptr % getIdx()
         parentElementIdx = element % ptr % getParentIdx()
@@ -108,6 +139,29 @@ contains
       end if
 
     end do
+
+    ! Retrieve field values.
+    call self % retrieveValues(dict)
+
+    ! Loop through all parent elements and find maximum field value for all materials.
+    localIdsToMaterialIdxs = self % meshPtr % getLocalIdsToMaterialIdxs()
+    nMaterials = nMat()
+    allocate(maximumMaterialValues(nMaterials), minimumMaterialValues(nMaterials))
+    maximumMaterialValues = -INF
+    minimumMaterialValues = INF
+    do i = 1, nElements
+      element = self % meshPtr % getElementBox(i)
+      if (element % ptr % getParentIdx() == 0) then
+        ! The current element is a parent element. Retrieve its localId and update maximum value for its material.
+        materialIdx = localIdsToMaterialIdxs(element % ptr % getLocalId())
+        maximumMaterialValues(materialIdx) = max(maximumMaterialValues(materialIdx), self % getValue(element % ptr % getIdx()))
+        minimumMaterialValues(materialIdx) = min(minimumMaterialValues(materialIdx), self % getValue(element % ptr % getIdx()))
+
+      end if
+
+    end do
+    call self % setMaximumMaterialValues(maximumMaterialValues)
+    call self % setMinimumMaterialValues(minimumMaterialValues)
 
   end subroutine init
 

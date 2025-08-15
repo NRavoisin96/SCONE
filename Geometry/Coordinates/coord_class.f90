@@ -60,6 +60,7 @@ module coord_class
     procedure :: setElementIdx
     procedure :: setIsRotated
     procedure :: setLocalId
+    procedure :: setMeshIdx
     procedure :: setPosition
     procedure :: setPositionAndDirection
     procedure :: setRotationMatrix
@@ -337,6 +338,17 @@ contains
     self % localId = localId
 
   end subroutine setLocalId
+
+  !!
+  !!
+  !!
+  elemental subroutine setMeshIdx(self, meshIdx)
+    class(coord), intent(inout)   :: self
+    integer(shortInt), intent(in) :: meshIdx
+
+    self % meshIdx = meshIdx
+
+  end subroutine setMeshIdx
 
   !!
   !!

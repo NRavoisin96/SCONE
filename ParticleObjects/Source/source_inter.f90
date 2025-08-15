@@ -72,10 +72,10 @@ module source_inter
     !!   A particle sampled the prescribed source
     !!
     function sampleParticle(self, rand) result(p)
-      import :: source, particleState, RNG
-      class(source), intent(inout)       :: self
-      class(RNG), intent(inout)          :: rand
-      type(particleState)                :: p
+      import                       :: particleState, RNG, source
+      class(source), intent(inout) :: self
+      class(RNG), intent(inout)    :: rand
+      type(particleState)          :: p
     end function sampleParticle
 
   end interface
