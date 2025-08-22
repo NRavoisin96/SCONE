@@ -74,6 +74,7 @@ module mesh_inter
     procedure, non_overridable                      :: getId
     procedure, non_overridable                      :: getLocalIdsNumber
     procedure, non_overridable                      :: getLocalIdsToMaterialIdxs
+    procedure(getParentElementsNumber), deferred    :: getParentElementsNumber
     procedure(getUniqueIdOffset), deferred          :: getUniqueIdOffset
     procedure(sampleInitialPosition), deferred      :: sampleInitialPosition
   end type mesh
@@ -196,6 +197,15 @@ module mesh_inter
       integer(shortInt), intent(in) :: idx
       real(defReal)                 :: volume
     end function getElementVolume
+
+    !!
+    !!
+    !!
+    function getParentElementsNumber(self) result(nParentElements)
+      import                  :: mesh, shortInt
+      class(mesh), intent(in) :: self
+      integer(shortInt)       :: nParentElements
+    end function getParentElementsNumber
 
     !!
     !!

@@ -38,7 +38,7 @@ module geometryReg_mod
   ! Fields
   use field_inter,        only : field
 
-  use universalVariables, only : nameTemperature, NOT_PRESENT
+  use universalVariables, only : nameHeatSource, nameTemperature, NOT_PRESENT
 
   implicit none
   private
@@ -210,6 +210,9 @@ contains
     select case(trimmedFieldName)
       case('T', 'temp', 'Temp', 'temperature', 'Temperature')
         fieldName = nameTemperature
+
+      case('Q', 'fissionPower', 'heatSource')
+        fieldName = nameHeatSource
 
       case default
         fieldName = name

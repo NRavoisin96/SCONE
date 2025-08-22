@@ -92,25 +92,25 @@ module particle_class
   type, public :: particle
     ! Particle phase space data
     type(coordList)            :: coords
-    real(defReal)              :: E         ! Particle Energy
-    integer(shortInt)          :: G         ! Particle Energy Group
-    real(defReal)              :: w         ! Particle Weight
-    real(defReal)              :: time      ! Particle time point
+    real(defReal)              :: E = ZERO    ! Particle Energy
+    integer(shortInt)          :: G = 0       ! Particle Energy Group
+    real(defReal)              :: w = ZERO    ! Particle Weight
+    real(defReal)              :: time = ZERO ! Particle time point
 
     ! Particle flags
-    real(defReal)              :: w0             ! Particle initial weight (for implicit, variance reduction...)
-    logical(defBool)           :: isDead
-    logical(defBool)           :: isMG
-    real(defReal)              :: timeMax = ZERO ! Maximum neutron time before cut-off
-    integer(shortInt)          :: fate = 0       ! Neutron's fate after being subjected to an operator
-    integer(shortInt)          :: type           ! Particle type
-    integer(shortInt)          :: collisionN = 0 ! Index of the number of collisions the particle went through
-    integer(shortInt)          :: broodID = 0    ! ID of the brood (source particle number)
+    real(defReal)              :: w0 = ZERO        ! Particle initial weight (for implicit, variance reduction...)
+    logical(defBool)           :: isDead = .false.
+    logical(defBool)           :: isMG = .false.
+    real(defReal)              :: timeMax = ZERO   ! Maximum neutron time before cut-off
+    integer(shortInt)          :: fate = 0         ! Neutron's fate after being subjected to an operator
+    integer(shortInt)          :: type = P_NEUTRON ! Particle type
+    integer(shortInt)          :: collisionN = 0   ! Index of the number of collisions the particle went through
+    integer(shortInt)          :: broodID = 0      ! ID of the brood (source particle number)
 
     ! Particle processing information
     class(RNG), pointer        :: pRNG  => null()  ! Pointer to RNG associated with the particle
-    real(defReal)              :: k_eff            ! Value of default keff for implicit source generation
-    integer(shortInt)          :: geomIdx          ! Index of the geometry used by the particle
+    real(defReal)              :: k_eff = ONE      ! Value of default keff for implicit source generation
+    integer(shortInt)          :: geomIdx = 0      ! Index of the geometry used by the particle
     integer(shortInt)          :: splitCount = 0   ! Counter of number of splits
 
     ! Archived snapshots of previous states

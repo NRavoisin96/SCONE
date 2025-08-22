@@ -6,7 +6,8 @@ module face_class
   use edge_class,                    only : edgeBox
   use genericProcedures,             only : append, areEqual, crossProduct, fatalError, numToChar
   use numPrecision
-  use publicObjects,                 only : intersectionTestPayload, intersectionTestResult, resetIntersectionTestResult
+  use publicObjects,                 only : intersectionTestPayload, intersectionTestResult, meshBoundaryConditionInfo, &
+                                            resetIntersectionTestResult
   use topologicalObject_inter,       only : buildTopologicalObjectPayload, kill_super => kill, topologicalObjectBox
   use universalVariables
   use vertex_class,                  only : vertexBox
@@ -21,6 +22,7 @@ module face_class
     integer(shortInt)                        :: parentIdx = 0
     integer(shortInt), dimension(N_BC_TYPES) :: boundaryConditions = [INTERNAL_TRANSPORT_BC, INTERNAL_TEMPERATURE_BC]
     logical(defBool)                         :: isBoundary = .false., testNormal = .false.
+    real(defReal), dimension(N_BC_TYPES)     :: boundaryValues = ZERO
     real(defReal), dimension(3)              :: testCentroid = ZERO
     type(edgeBox), dimension(:), allocatable :: edges
   end type buildFacePayload
@@ -66,6 +68,7 @@ module face_class
     integer(shortInt), dimension(:), allocatable          :: childrenIdxs
     logical(defBool)                                      :: isBoundary = .false.
     real(defReal)                                         :: area = ZERO
+    real(defReal), dimension(N_BC_TYPES)                  :: boundaryValues = ZERO
     real(defReal), dimension(3)                           :: normal = ZERO
     type(edgeBox), dimension(:), allocatable              :: edges
     type(topologicalObjectBox), dimension(:), allocatable :: sharingElements
@@ -81,7 +84,10 @@ module face_class
     procedure          :: distanceSquared
     procedure          :: flipDirection
     procedure          :: getArea
+    procedure          :: getBoundaryCondition
     procedure          :: getBoundaryConditions
+    procedure          :: getBoundaryValue
+    procedure          :: getBoundaryValues
     procedure          :: getChildrenIdxs
     procedure          :: getEdges
     procedure          :: getSharingElements
@@ -242,6 +248,7 @@ contains
     self % parentIdx = payloadPtr % parentIdx
     self % isBoundary = payloadPtr % isBoundary
     self % boundaryConditions = payloadPtr % boundaryConditions
+    self % boundaryValues = payloadPtr % boundaryValues
     self % vertices = payloadPtr % vertices
     self % edges = payloadPtr % edges
 
@@ -387,7 +394,6 @@ contains
   subroutine flipDirection(self, u)
     class(face), intent(in)                    :: self
     real(defReal), dimension(3), intent(inout) :: u
-    integer(shortInt)                          :: i
 
     u = u - TWO * dot_product(u, self % normal) * self % normal
 
@@ -412,6 +418,29 @@ contains
   !!
   !!
   !!
+  function getBoundaryCondition(self, boundaryConditionType) result(boundaryCondition)
+    class(face), intent(in)       :: self
+    integer(shortInt), intent(in) :: boundaryConditionType
+    integer(shortInt)             :: boundaryCondition
+    character(*), parameter       :: here = 'getBoundaryCondition (face_class.f90)'
+
+    select case(boundaryConditionType)
+      case(TRANSPORT_BCs)
+        boundaryCondition = self % boundaryConditions(TRANSPORT_BCs)
+
+      case(TEMPERATURE_BCs)
+        boundaryCondition = self % boundaryConditions(TEMPERATURE_BCs)
+
+      case default
+        call fatalError(here, 'Invalid boundary condition type: '//numToChar(boundaryConditionType)//'.')
+
+    end select
+
+  end function getBoundaryCondition
+
+  !!
+  !!
+  !!
   pure function getBoundaryConditions(self) result(boundaryConditions)
     class(face), intent(in)                  :: self
     integer(shortInt), dimension(N_BC_TYPES) :: boundaryConditions
@@ -419,6 +448,40 @@ contains
     boundaryConditions = self % boundaryConditions
 
   end function getBoundaryConditions
+
+  !!
+  !!
+  !!
+  function getBoundaryValue(self, boundaryConditionType) result(boundaryValue)
+    class(face), intent(in)       :: self
+    integer(shortInt), intent(in) :: boundaryConditionType
+    real(defReal)                 :: boundaryValue
+    character(*), parameter       :: here = 'getBoundaryValue (face_class.f90)'
+
+    select case(boundaryConditionType)
+      case(TRANSPORT_BCs)
+        boundaryValue = self % boundaryValues(TRANSPORT_BCs)
+
+      case(TEMPERATURE_BCs)
+        boundaryValue = self % boundaryValues(TEMPERATURE_BCs)
+
+      case default
+        call fatalError(here, 'Invalid boundary condition type: '//numToChar(boundaryConditionType)//'.')
+
+    end select
+
+  end function getBoundaryValue
+
+  !!
+  !!
+  !!
+  pure function getBoundaryValues(self) result(boundaryValues)
+    class(face), intent(in)              :: self
+    real(defReal), dimension(N_BC_TYPES) :: boundaryValues
+
+    boundaryValues = self % boundaryValues
+
+  end function getBoundaryValues
 
   !! Function 'getTriangleIdxs'
   !!
@@ -735,6 +798,7 @@ contains
     self % parentIdx = 0
     self % isBoundary = .false.
     self % area = ZERO
+    self % boundaryValues = ZERO
     self % normal = ZERO
     self % boundaryConditions = [INTERNAL_TRANSPORT_BC, INTERNAL_TEMPERATURE_BC]
     if (allocated(self % childrenIdxs)) deallocate(self % childrenIdxs)
@@ -786,11 +850,12 @@ contains
   !!
   !!
   !!
-  pure subroutine setBoundaryConditions(self, boundaryConditions)
-    class(face), intent(inout)                           :: self
-    integer(shortInt), dimension(N_BC_TYPES), intent(in) :: boundaryConditions
+  elemental subroutine setBoundaryConditions(self, info)
+    class(face), intent(inout)                  :: self
+    type(meshBoundaryConditionInfo), intent(in) :: info
 
-    self % boundaryConditions = boundaryConditions
+    self % boundaryConditions = info % boundaryConditions
+    self % boundaryValues = info % boundaryValues
 
   end subroutine setBoundaryConditions
   

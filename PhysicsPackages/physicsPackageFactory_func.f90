@@ -3,18 +3,15 @@
 !!
 module physicsPackageFactory_func
 
+  use dictionary_class,                 only : dictionary
+  !use dynamPhysicsPackage_class, only : dynamPhysicsPackage
+  use eigenPhysicsPackage_class,        only : eigenPhysicsPackage
+  use fixedSourcePhysicsPackage_class,  only : fixedSourcePhysicsPackage
+  use genericProcedures,                only : fatalError
+  use heatTransferPhysicsPackage_class, only : heatTransferPhysicsPackage
   use numPrecision
-  use genericProcedures,               only : fatalError
-  use dictionary_class,                only : dictionary
-
-  ! Physics Package interface
-  use physicsPackage_inter,            only : initPhysicsPackagePayload, physicsPackage
-
-  ! Implementations
-  use eigenPhysicsPackage_class,       only : eigenPhysicsPackage
-  use fixedSourcePhysicsPackage_class, only : fixedSourcePhysicsPackage
-  use rayVolPhysicsPackage_class,      only : rayVolPhysicsPackage
-!  use dynamPhysicsPackage_class, only : dynamPhysicsPackage
+  use physicsPackage_inter,             only : initPhysicsPackagePayload, physicsPackage
+  use rayVolPhysicsPackage_class,       only : rayVolPhysicsPackage
 
   implicit none
   private
@@ -23,9 +20,10 @@ module physicsPackageFactory_func
   ! It is printed if type was unrecognised
   ! NOTE:
   ! For now  it is necessary to adjust trailing blanks so all enteries have the same length
-  character(nameLen), dimension(*), parameter :: AVAILABLE_physicsPackages = ['eigenPhysicsPackage      ',&
-                                                                              'fixedSourcePhysicsPackage',&
-                                                                              'rayVolPhysicsPackage     ']
+  character(nameLen), dimension(*), parameter :: AVAILABLE_physicsPackages = ['eigenPhysicsPackage       ', &
+                                                                              'fixedSourcePhysicsPackage ', &
+                                                                              'heatTransferPhysicsPackage', &
+                                                                              'rayVolPhysicsPackage      ']
 
   !!
   !! Public interface
@@ -54,6 +52,9 @@ contains
 
       case('fixedSourcePhysicsPackage')
         allocate(fixedSourcePhysicsPackage :: new)
+
+      case('heatTransferPhysicsPackage')
+        allocate(heatTransferPhysicsPackage :: new)
 
       case('rayVolPhysicsPackage')
         allocate(rayVolPhysicsPackage :: new)

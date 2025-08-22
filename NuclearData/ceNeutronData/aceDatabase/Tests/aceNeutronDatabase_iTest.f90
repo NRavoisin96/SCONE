@@ -248,21 +248,21 @@ contains
     !
     ! Water
     mat => ceNeutronMaterial_TptrCast( data % getMaterial(1))
-    call mat % getMacroXSs(3.6E-1_defReal, macroXSs, p % pRNG)
+    call mat % getMacroXSs(3.6E-1_defReal, macroXSs, mat % kT, p % pRNG)
 
     ! Absent XSs
     @assertEqual(ZERO, macroXSs % fission)
     @assertEqual(ZERO, macroXSs % nuFission)
 
-    @assertEqual(ONE, 0.466713100775700_defReal/ macroXSs     % total, TOL)
-    @assertEqual(ONE, 0.466710902790000_defReal/ macroXSs     % elasticScatter, TOL)
+    @assertEqual(ONE, 0.466713100775700_defReal/ macroXSs % total, TOL)
+    @assertEqual(ONE, 0.466710902790000_defReal/ macroXSs % elasticScatter, TOL)
     @assertEqual(ZERO, macroXSs % inelasticScatter, TOL)
     @assertEqual(ONE, 2.198066842597500e-06_defReal/ macroXSs % capture, TOL)
 
     ! Water with some inelastic collisions
-    call mat % getMacroXSs(6.525_defReal, macroXSs, p % pRNG)
+    call mat % getMacroXSs(6.525_defReal, macroXSs, mat % kT, p % pRNG)
 
-    @assertEqual(ONE, macroXSs % inelasticScatter/1.903667536E-04_defReal, TOL)
+    @assertEqual(ONE, macroXSs % inelasticScatter / 1.903667536E-04_defReal, TOL)
 
 
     !<><><><><><><><><><><><><><><><><><><><>
@@ -270,7 +270,7 @@ contains
     !
     call data % energyBounds(t1,t2)
     @assertEqual(1.0E-11_defReal, t1, TOL)
-    @assertEqual(20.0_defReal,    t2, TOL)
+    @assertEqual(20.0_defReal, t2, TOL)
 
   end subroutine test_aceNeutronDatabase
 

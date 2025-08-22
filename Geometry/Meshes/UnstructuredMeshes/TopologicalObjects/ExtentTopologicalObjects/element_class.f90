@@ -58,12 +58,13 @@ module element_class
     type(edgeBox), dimension(:), allocatable           :: edges
     type(orientatedFaceBox), dimension(:), allocatable :: orientatedFaces
     type(vertexBox), dimension(:), allocatable         :: vertices
-    integer(shortInt), dimension(:), allocatable       :: tetrahedronIdxs
+    integer(shortInt), dimension(:), allocatable       :: childrenIdxs
     real(defReal)                                      :: volume = ZERO
     logical(defBool)                                   :: isConvex = .false.
     character(:), allocatable                          :: type
   contains
     ! Build procedures.
+    procedure          :: addChildIdx
     procedure          :: addEdge
     procedure          :: addFace
     procedure          :: addVertex
@@ -74,6 +75,7 @@ module element_class
     procedure          :: setLocalId
     ! Runtime procedures.
     procedure          :: distanceSquared
+    procedure          :: getChildrenIdxs
     procedure          :: getEdges
     procedure          :: getSharingElements
     procedure          :: getIsConvex
@@ -87,6 +89,7 @@ module element_class
     procedure          :: intersects_Ray
     procedure          :: isPointInside
     procedure          :: kill
+    procedure          :: minimumDistance
     procedure          :: pushFromBoundary
     procedure          :: sampleInitialPosition
   end type element
@@ -102,7 +105,7 @@ module element_class
   !!
   !!
   type, public, extends(intersectionTestPayload) :: elementIntersectionTestPayload
-    logical(defBool)                             :: skipBoundingBoxIntersectionTest = .false.
+    logical(defBool)                             :: excludeZeroFaces = .false., skipBoundingBoxIntersectionTest = .false.
   end type elementIntersectionTestPayload
 
   !!
@@ -113,6 +116,29 @@ module element_class
   end type elementIntersectionTestResult
 
 contains
+  !!
+  !!
+  !!
+  subroutine addChildIdx(self, childIdx)
+    class(element), intent(inout)                :: self
+    integer(shortInt), intent(in)                :: childIdx
+    integer(shortInt)                            :: nChildren
+    integer(shortInt), dimension(:), allocatable :: tempChildrenIdxs
+
+    if (allocated(self % childrenIdxs)) then
+      nChildren = size(self % childrenIdxs)
+      allocate(tempChildrenIdxs(nChildren + 1))
+      tempChildrenIdxs(1:nChildren) = self % childrenIdxs
+      tempChildrenIdxs(nChildren + 1) = childIdx
+      call move_alloc(tempChildrenIdxs, self % childrenIdxs)
+
+    else
+      allocate(self % childrenIdxs(1))
+      self % childrenIdxs(1) = childIdx
+
+    end if
+
+  end subroutine addChildIdx
 
   !! Subroutine 'addEdgeIdx'
   !!
@@ -415,6 +441,23 @@ contains
 
   end function distanceSquared
 
+  !!
+  !!
+  !!
+  pure function getChildrenIdxs(self) result(childrenIdxs)
+    class(element), intent(in)                   :: self
+    integer(shortInt), dimension(:), allocatable :: childrenIdxs
+
+    if (allocated(self % childrenIdxs)) then
+      childrenIdxs = self % childrenIdxs
+
+    else
+      allocate(childrenIdxs(0))
+
+    end if
+
+  end function getChildrenIdxs
+
   !! Function 'getEdgeIdxs'
   !!
   !! Basic description:
@@ -626,9 +669,23 @@ contains
           dotProduct = dot_product(rEnd - payload % r, outwardNormal)
           if (areEqual(dotProduct, ZERO)) cycle
           faceLambda = dot_product(faceCentroid - payload % r, outwardNormal) / dotProduct
+          if (payloadPtr % excludeZeroFaces .and. faceLambda <= ZERO) cycle
           if (faceLambda < minLambda) then
             minLambda = faceLambda
             resultPtr % intersectedFace = self % orientatedFaces(i) % face
+
+          end if
+
+        else
+          ! Check if end point is on the place of the current face.
+          if (areEqual(dot_product(rEnd - faceCentroid, outwardNormal), ZERO)) then
+            ! End point is on the plane of the face. Check if it is contained inside it.
+            if (self % orientatedFaces(i) % face % ptr % isPointInside(rEnd)) then
+              resultPtr % intersectedFace = self % orientatedFaces(i) % face
+              minLambda = ONE
+              exit
+
+            end if
 
           end if
 
@@ -737,7 +794,7 @@ contains
     self % localId = 0
     self % volume = ZERO
     self % isConvex = .false.
-    if (allocated(self % tetrahedronIdxs)) deallocate(self % tetrahedronIdxs)
+    if (allocated(self % childrenIdxs)) deallocate(self % childrenIdxs)
     if (allocated(self % type)) deallocate(self % type)
 
     if (allocated(self % edges)) then
@@ -774,16 +831,43 @@ contains
   !!
   !!
   !!
-  pure function newElementIntersectionTestPayload(r, u, dMax, skipBoundingBoxIntersectionTest) result(payload)
+  subroutine minimumDistance(self, r, d, orientatedFace)
+    class(element), intent(in)              :: self
+    real(defReal), dimension(3), intent(in) :: r
+    real(defReal), intent(out)              :: d
+    type(orientatedFaceBox), intent(out)    :: orientatedFace
+    integer(shortInt)                       :: i, minIdx
+    real(defReal)                           :: dFaceSquared, dSquared
+
+    dSquared = INF
+    minIdx = 0
+    do i = 1, size(self % orientatedFaces)
+      dFaceSquared = self % orientatedFaces(i) % face % ptr % distanceSquared(r)
+      minIdx = merge(i, minIdx, dFaceSquared < dSquared)
+      dSquared = min(dSquared, dFaceSquared)
+
+    end do
+    d = sqrt(dSquared)
+    orientatedFace = self % orientatedFaces(minIdx)
+
+  end subroutine minimumDistance
+
+  !!
+  !!
+  !!
+  pure function newElementIntersectionTestPayload(r, u, dMax, skipBoundingBoxIntersectionTest, skipZeroFaces) &
+  result(payload)
     real(defReal), dimension(3), intent(in) :: r, u
     real(defReal), intent(in)               :: dMax
     logical(defBool), intent(in)            :: skipBoundingBoxIntersectionTest
+    logical(defBool), intent(in), optional  :: skipZeroFaces
     type(elementIntersectionTestPayload)    :: payload
 
     payload % r = r
     payload % u = u
     payload % dMax = dMax
     payload % skipBoundingBoxIntersectionTest = skipBoundingBoxIntersectionTest
+    if (present(skipZeroFaces)) payload % excludeZeroFaces = skipZeroFaces
 
   end function newElementIntersectionTestPayload
 

@@ -98,6 +98,7 @@ module unstructuredMesh_inter
     procedure                                        :: getFaceIsBoundary
     procedure                                        :: getFacesNumber
     procedure                                        :: getInternalFacesNumber
+    procedure                                        :: getParentElementsNumber
     procedure                                        :: getUniqueIdOffset
     procedure                                        :: getVerticesNumber
     procedure                                        :: sampleInitialPosition
@@ -150,10 +151,13 @@ contains
     class(dictionary), intent(in)                              :: dict
     character(nameLen)                                         :: assignmentMethod
     character(pathLen)                                         :: path
-    integer(shortInt)                                          :: i, j, nBoundaryInfos, nBoundaryFaces, nFaces, &
-                                                                  nTemperatureBoundaryConditions, nTransportBoundaryConditions
+    integer(shortInt)                                          :: fixedIdx, i, j, nBoundaryInfos, nBoundaryFaces, nFaces, &
+                                                                  nFixedTemperatureBoundaryConditions, &
+                                                                  nFixedTemperatureValues, nTemperatureBoundaryConditions, &
+                                                                  nTransportBoundaryConditions
     integer(shortInt), dimension(:), allocatable               :: temperatureBoundaryConditions, tempFaceIdxs, &
                                                                   transportBoundaryConditions
+    real(defReal), dimension(:), allocatable                   :: fixedTemperatureValues
     type(faceBox)                                              :: box
     type(meshBoundaryConditionInfo), dimension(:), allocatable :: boundaryConditionInfos
     character(*), parameter                                    :: here = 'assignBoundaryConditions (unstructuredMesh_inter.f90)'
@@ -168,8 +172,12 @@ contains
         if (dict % isPresent('transportBCs')) &
         call dict % get(boundaryConditionInfos(1) % boundaryConditions(TRANSPORT_BCs), 'transportBCs')
         
-        if (dict % isPresent('temperatureBCs')) &
-        call dict % get(boundaryConditionInfos(1) % boundaryConditions(TEMPERATURE_BCs), 'temperatureBCs')
+        if (dict % isPresent('temperatureBCs')) then
+          call dict % get(boundaryConditionInfos(1) % boundaryConditions(TEMPERATURE_BCs), 'temperatureBCs')
+          if (boundaryConditionInfos(1) % boundaryConditions(TEMPERATURE_BCs) == FIXED_TEMPERATURE_BC) &
+          call dict % get(boundaryConditionInfos(1) % boundaryValues(TEMPERATURE_BCs), 'fixedTemperatureValues')
+
+        end if
 
         ! Count the number of boundary faces in the mesh.
         nBoundaryFaces = 0
@@ -218,12 +226,33 @@ contains
           call dict % get(temperatureBoundaryConditions, 'temperatureBCs')
           nTemperatureBoundaryConditions = size(temperatureBoundaryConditions)
 
+          if (dict % isPresent('fixedTemperatureValues')) call dict % get(fixedTemperatureValues, 'fixedTemperatureValues')
+          nFixedTemperatureValues = 0
+          if (allocated(fixedTemperatureValues)) nFixedTemperatureValues = size(fixedTemperatureValues)
+
           if (nTemperatureBoundaryConditions /= nBoundaryInfos) &
           call fatalError(here, 'Number of temperature boundary conditions: '//numToChar(nTemperatureBoundaryConditions)//&
                                 ' does not match the number of boundaries: '//numToChar(nBoundaryInfos)//'.')
 
+          nFixedTemperatureBoundaryConditions = 0
           do i = 1, nBoundaryInfos
             boundaryConditionInfos(i) % boundaryConditions(TEMPERATURE_BCs) = temperatureBoundaryConditions(i)
+            if (boundaryConditionInfos(i) % boundaryConditions(TEMPERATURE_BCs) == FIXED_TEMPERATURE_BC) &
+            nFixedTemperatureBoundaryConditions = nFixedTemperatureBoundaryConditions + 1
+
+          end do
+
+          ! Check that the number of Dirichlet boundary conditions matches the number of input values.
+          if (nFixedTemperatureBoundaryConditions /= nFixedTemperatureValues) &
+          call fatalError(here, 'Number of Dirichlet temperature boundary conditions does not match the number of fixed values.')
+
+          fixedIdx = 0
+          do i = 1, nBoundaryInfos
+            if (boundaryConditionInfos(i) % boundaryConditions(TEMPERATURE_BCs) == FIXED_TEMPERATURE_BC) then
+              fixedIdx = fixedIdx + 1
+              boundaryConditionInfos(i) % boundaryValues(TEMPERATURE_BCs) = fixedTemperatureValues(fixedIdx)
+
+            end if
 
           end do
 
@@ -235,7 +264,7 @@ contains
     do i = 1, size(boundaryConditionInfos)
       do j = 1, size(boundaryConditionInfos(i) % faceIdxs)
         box = self % faces % getFaceBox(boundaryConditionInfos(i) % faceIdxs(j))
-        call box % ptr % setBoundaryConditions(boundaryConditionInfos(i) % boundaryConditions)
+        call box % ptr % setBoundaryConditions(boundaryConditionInfos(i))
 
       end do
 
@@ -641,13 +670,42 @@ contains
   !!
   !!
   !!
-  elemental function getInternalFacesNumber(self) result(nInternalFaces)
-    class(unstructuredMesh), intent(in) :: self
-    integer(shortInt)                   :: nInternalFaces
+  function getInternalFacesNumber(self, activeOnly) result(nInternalFaces)
+    class(unstructuredMesh), intent(in)    :: self
+    logical(defBool), intent(in), optional :: activeOnly
+    integer(shortInt)                      :: i, nInternalFaces
+    logical(defBool)                       :: filterActive
+    type(faceBox)                          :: box
 
-    nInternalFaces = self % nInternalFaces
+    filterActive = .false.
+    if (present(activeOnly)) filterActive = activeOnly
+
+    nInternalFaces = 0
+    do i = 1, self % faces % getObjectsNumber()
+      box = self % faces % getFaceBox(i)
+      if (filterActive .and. .not. box % ptr % getIsActive()) cycle
+      if (.not. box % ptr % getIsBoundary()) nInternalFaces = nInternalFaces + 1
+
+    end do
 
   end function getInternalFacesNumber
+
+  !!
+  !!
+  !!
+  function getParentElementsNumber(self) result(nParentElements)
+    class(unstructuredMesh), intent(in) :: self
+    integer(shortInt)                   :: i, nParentElements
+    type(elementBox)                    :: box
+
+    nParentElements = 0
+    do i = 1, self % elements % getObjectsNumber()
+      box = self % elements % getElementBox(i)
+      if (box % ptr % getParentIdx() == 0) nParentElements = nParentElements + 1
+
+    end do
+
+  end function getParentElementsNumber
 
   !!
   !!

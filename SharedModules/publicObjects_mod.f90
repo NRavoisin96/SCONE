@@ -74,6 +74,7 @@ module publicObjects
   type :: meshBoundaryConditionInfo
     integer(shortInt), dimension(N_BC_TYPES)     :: boundaryConditions = [INTERNAL_TRANSPORT_BC, INTERNAL_TEMPERATURE_BC]
     integer(shortInt), dimension(:), allocatable :: faceIdxs
+    real(defReal), dimension(N_BC_TYPES)         :: boundaryValues = ZERO
   end type meshBoundaryConditionInfo
 
   !!

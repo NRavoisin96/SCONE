@@ -104,6 +104,7 @@ module universalVariables
                               shakesPerS = 1.0e+8_defReal            ! Convert shakes to s
 
   ! Global name variables used to define specific geometry or field types
-  character(nameLen), parameter :: nameTemperature = 'temperature', nameUFS = 'uniFissSites', nameWW = 'WeightWindows'
+  character(nameLen), parameter :: nameHeatSource = 'heatSource', nameTemperature = 'temperature', &
+                                   nameUFS = 'uniFissSites', nameWW = 'WeightWindows'
 
 end module universalVariables

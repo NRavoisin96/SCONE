@@ -440,7 +440,7 @@ contains
         if (p % isDead) exit history
 
         ! CRITICAL: Secondaries are sent to self % nextCycle
-        call collOp % collide(self % getScalarFieldValueByName(nameTemperature, p % coords), p, tally, buffer, self % nextCycle)
+        call collOp % collide(p, tally, buffer, self % nextCycle)
         if (p % isDead) exit history
 
       end do history

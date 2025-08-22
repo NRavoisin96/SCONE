@@ -40,7 +40,7 @@ module ceNeutronCache_mod
   !!   xssRel -> Cached effective cross-section values at energy relative to E_rel (for TMS)
   !!
   type, public :: cacheMatDat
-    real(defReal)         :: E_tail = ZERO, E_tot = ZERO, f = ZERO
+    real(defReal)         :: E_tail = ZERO, E_tot = ZERO, f = ZERO, kT = ZERO
     integer(shortInt)     :: idx = 0
     type(neutronMacroXSs) :: xss
 
@@ -89,7 +89,7 @@ module ceNeutronCache_mod
   !!   xs -> value of the cross section
   !!
   type, public :: cacheSingleXS
-    real(defReal) :: E = ZERO, xs = ZERO
+    real(defReal) :: E = ZERO, kT = ZERO, xs = ZERO
   end type cacheSingleXS
 
   !!

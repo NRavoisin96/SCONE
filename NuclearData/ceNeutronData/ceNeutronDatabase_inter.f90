@@ -1,21 +1,18 @@
 module ceNeutronDatabase_inter
 
-  use numPrecision
-  use universalVariables
-  use genericProcedures, only : fatalError
-  use RNG_class,         only : RNG
-  use particle_class,    only : particle, P_NEUTRON, printType
-  use charMap_class,     only : charMap
-  use intMap_class,      only : intMap
-
-  ! Nuclear Data Handles
-  use nuclideHandle_inter,   only : nuclideHandle
-  use materialHandle_inter,  only : materialHandle
-  use reactionHandle_inter,  only : reactionHandle
-  use nuclearDatabase_inter, only : nuclearDatabase
-
-  ! Cache
   use ceNeutronCache_mod,    only : materialCache, majorantCache, trackingCache
+  use charMap_class,         only : charMap
+  use genericProcedures,     only : fatalError
+  use intMap_class,          only : intMap
+  use materialHandle_inter,  only : materialHandle
+  use nuclearDatabase_inter, only : nuclearDatabase
+  use nuclideHandle_inter,   only : nuclideHandle
+  use numPrecision
+  use particle_class,        only : particle, P_NEUTRON, printType
+  use reactionHandle_inter,  only : reactionHandle
+  use RNG_class,             only : RNG
+  use scalarField_inter,     only : getTemperatureFieldPtr, scalarField
+  use universalVariables
 
   implicit none
   private
@@ -54,12 +51,16 @@ module ceNeutronDatabase_inter
   contains
 
     ! nuclearDatabase Interface Implementation
-    procedure :: getTrackingXS
-    procedure :: getTrackMatXS
-    procedure :: getTotalMatXS
-    procedure :: getMajorantXS
+    procedure                                 :: get_kT
+    procedure                                 :: getTrackingXS
+    procedure                                 :: getTrackMatXS
+    procedure                                 :: getTotalMatXS
+    procedure                                 :: getMajorantXS
 
     ! Procedures implemented by a specific CE Neutron Database
+    procedure(energyBounds), deferred         :: energyBounds
+    procedure(getMaterial_kT), deferred       :: getMaterial_kT
+    procedure(getScattMicroMajXS), deferred   :: getScattMicroMajXS
     procedure(updateMajorantXS), deferred     :: updateMajorantXS
     procedure(updateTotalMatXS), deferred     :: updateTrackMatXS
     procedure(updateTotalMatXS), deferred     :: updateTotalMatXS
@@ -67,8 +68,6 @@ module ceNeutronDatabase_inter
     procedure(updateTotalXS), deferred        :: updateTotalNucXS
     procedure(updateMicroXSs), deferred       :: updateMicroXSs
     procedure(updateTotalTempNucXS), deferred :: updateTotalTempNucXS
-    procedure(energyBounds), deferred         :: energyBounds
-    procedure(getScattMicroMajXS), deferred   :: getScattMicroMajXS
   end type ceNeutronDatabase
 
   abstract interface
@@ -91,6 +90,40 @@ module ceNeutronDatabase_inter
       real(defReal), intent(out)           :: eMin
       real(defReal), intent(out)           :: eMax
     end subroutine energyBounds
+
+    !!
+    !!
+    !!
+    function getMaterial_kT(self, matIdx) result(kT)
+      import                               :: ceNeutronDatabase, defReal, shortInt
+      class(ceNeutronDatabase), intent(in) :: self
+      integer(shortInt), intent(in)        :: matIdx
+      real(defReal)                        :: kT
+    end function getMaterial_kT
+
+    !!
+    !! Function to get the elastic scattering majorant cross section in a nuclide
+    !! over a certain energy range, defined as a function of a given temperature
+    !!
+    !! NOTE: This function is called by the collision operator to apply DBRC; nucIdx
+    !!       should correspond to a nuclide with temperature 0K, while kT is the
+    !!       temperature of the target nuclide the neutron is colliding with
+    !!
+    !! Args:
+    !!   A  [in]   -> Nuclide atomic weight ratio
+    !!   kT [in]   -> Thermal energy of nuclide [MeV]
+    !!   E  [in]   -> Energy of neutron incident to target for which majorant needs to be found
+    !!   maj [out] -> Majorant cross section
+    !!
+    function getScattMicroMajXS(self, E, kT, A, nucIdx) result(maj)
+      import :: ceNeutronDatabase, defReal, shortInt
+      class(ceNeutronDatabase), intent(in) :: self
+      real(defReal), intent(in)            :: E
+      real(defReal), intent(in)            :: kT
+      real(defReal), intent(in)            :: A
+      integer(shortInt), intent(in)        :: nucIdx
+      real(defReal)                        :: maj
+    end function getScattMicroMajXS
 
     !!
     !! Make sure that trackXS of material with matIdx is at energy E = E_track
@@ -128,10 +161,10 @@ module ceNeutronDatabase_inter
     !!   matIdx [in]  -> material index that needs to be updated
     !!   rand [inout] -> random number generator
     !!
-    subroutine updateTotalMatXS(self, E, matIdx, rand)
+    subroutine updateTotalMatXS(self, E, kT, matIdx, rand)
       import :: ceNeutronDatabase, defReal, shortInt, RNG
       class(ceNeutronDatabase), intent(in) :: self
-      real(defReal), intent(in)            :: E
+      real(defReal), intent(in)            :: E, kT
       integer(shortInt), intent(in)        :: matIdx
       class(RNG), optional, intent(inout)  :: rand
     end subroutine updateTotalMatXS
@@ -170,10 +203,10 @@ module ceNeutronDatabase_inter
     !!   matIdx [in]  -> material index that needs to be updated
     !!   rand [inout] -> random number generator
     !!
-    subroutine updateMacroXSs(self, E, matIdx, rand)
+    subroutine updateMacroXSs(self, E, kT, matIdx, rand)
       import :: ceNeutronDatabase, defReal, shortInt, RNG
       class(ceNeutronDatabase), intent(in) :: self
-      real(defReal), intent(in)            :: E
+      real(defReal), intent(in)            :: E, kT
       integer(shortInt), intent(in)        :: matIdx
       class(RNG), optional, intent(inout)  :: rand
     end subroutine updateMacroXSs
@@ -251,31 +284,8 @@ module ceNeutronDatabase_inter
       integer(shortInt), intent(in)        :: nucIdx
     end subroutine updateTotalTempNucXS
 
-    !!
-    !! Function to get the elastic scattering majorant cross section in a nuclide
-    !! over a certain energy range, defined as a function of a given temperature
-    !!
-    !! NOTE: This function is called by the collision operator to apply DBRC; nucIdx
-    !!       should correspond to a nuclide with temperature 0K, while kT is the
-    !!       temperature of the target nuclide the neutron is colliding with
-    !!
-    !! Args:
-    !!   A  [in]   -> Nuclide atomic weight ratio
-    !!   kT [in]   -> Thermal energy of nuclide [MeV]
-    !!   E  [in]   -> Energy of neutron incident to target for which majorant needs to be found
-    !!   maj [out] -> Majorant cross section
-    !!
-    function getScattMicroMajXS(self, E, kT, A, nucIdx) result(maj)
-      import :: ceNeutronDatabase, defReal, shortInt
-      class(ceNeutronDatabase), intent(in) :: self
-      real(defReal), intent(in)            :: E
-      real(defReal), intent(in)            :: kT
-      real(defReal), intent(in)            :: A
-      integer(shortInt), intent(in)        :: nucIdx
-      real(defReal)                        :: maj
-    end function getScattMicroMajXS
-
   end interface
+
 contains
 
   !!
@@ -339,19 +349,24 @@ contains
     class(ceNeutronDatabase), intent(inout) :: self
     class(particle), intent(in)             :: p
     integer(shortInt), intent(in)           :: matIdx
-    real(defReal)                           :: xs
-    character(*), parameter :: Here = 'getTrackMatXS (ceNeutronDatabase_inter.f90)'
+    real(defReal)                           :: kT, xs
+    character(*), parameter                 :: Here = 'getTrackMatXS (ceNeutronDatabase_inter.f90)'
 
     ! Check dynamic type of the particle
     if (p % isMG .or. p % type /= P_NEUTRON) then
-      call fatalError(Here, 'Dynamic type of the partcle is not CE Neutron but:'//p % typeToChar())
+      call fatalError(Here, 'Dynamic type of the partcle is not CE Neutron but:'//p % typeToChar()//'.')
+
     end if
 
     ! Check Cache and update if needed
-    if (materialCache(matIdx) % E_track /= p % E) call self % updateTrackMatXS(p % E, matIdx, p % pRNG)
+    associate(matCache => materialCache(matIdx))
+      kT = self % get_kT(p, matIdx)
+      if (matCache % E_track /= p % E .or. matCache % kT /= kT) call self % updateTrackMatXS(p % E, kT, matIdx, p % pRNG)
 
-    ! Return Cross-Section
-    xs = materialCache(matIdx) % trackXS
+      ! Return Cross-Section
+      xs = matCache % trackXS
+
+    end associate
 
   end function getTrackMatXS
 
@@ -367,21 +382,47 @@ contains
     class(ceNeutronDatabase), intent(inout) :: self
     class(particle), intent(in)             :: p
     integer(shortInt), intent(in)           :: matIdx
-    real(defReal)                           :: xs
-    character(*), parameter :: Here = 'getTotalMatXS (ceNeutronDatabase_inter.f90)'
+    real(defReal)                           :: kT, xs
+    character(*), parameter                 :: Here = 'getTotalMatXS (ceNeutronDatabase_inter.f90)'
 
     ! Check dynamic type of the particle
     if (p % isMG .or. p % type /= P_NEUTRON) then
       call fatalError(Here, 'Dynamic type of the partcle is not CE Neutron but:'//p % typeToChar())
+
     end if
 
-    ! Check Cache and update if needed
-    if (materialCache(matIdx) % E_tot /= p % E) call self % updateTotalMatXS(p % E, matIdx, p % pRNG)
+    associate(matCache => materialCache(matIdx))
+      ! Check Cache and update if needed
+      kT = self % get_kT(p, matIdx)
+      if (matCache % E_tot /= p % E .or. matCache % kT /= kT) call self % updateTotalMatXS(p % E, kT, matIdx, p % pRNG)
 
-    ! Return Cross-Section
-    xs = materialCache(matIdx) % xss % total
+      ! Return Cross-Section
+      xs = matCache % xss % total
+
+    end associate
 
   end function getTotalMatXS
+
+  !!
+  !!
+  !!
+  function get_kT(self, p, matIdx) result(kT)
+    class(ceNeutronDatabase), intent(in) :: self
+    class(particle), intent(in)          :: p
+    integer(shortInt), intent(in)        :: matIdx
+    class(scalarField), pointer          :: temperatureFieldPtr
+    real(defReal)                        :: kT, temperature
+
+    ! Retrieve temperature from temperature field.
+    kT = self % getMaterial_kT(matIdx)
+    temperatureFieldPtr => getTemperatureFieldPtr()
+    if (associated(temperatureFieldPtr)) then
+      temperature = temperatureFieldPtr % at(p % coords)
+      if (ZERO < temperature) kT = kBoltzmann * temperature / joulesPerMeV
+
+    end if
+
+  end function get_kT
 
   !!
   !! Return Majorant XS
@@ -402,11 +443,14 @@ contains
       call fatalError(Here, 'Dynamic type of the partcle is not CE Neutron but:'//p % typeToChar())
     end if
 
-    ! Check Cache and update if needed
-    if (majorantCache(1) % E /= p % E) call self % updateMajorantXS(p % E, p % pRNG)
+    associate(majCache => majorantCache(1))
+      ! Check Cache and update if needed
+      if (majorantCache(1) % E /= p % E) call self % updateMajorantXS(p % E, p % pRNG)
 
-    ! Return Cross-Section
-    xs = majorantCache(1) % xs
+      ! Return Cross-Section
+      xs = majorantCache(1) % xs
+
+    end associate
 
   end function getMajorantXS
 

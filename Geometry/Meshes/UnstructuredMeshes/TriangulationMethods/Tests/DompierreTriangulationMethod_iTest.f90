@@ -75,9 +75,9 @@ contains
     ! Test number of vertices.
     @assertEqual(18, mesh % getVerticesNumber())
     ! Test number of faces.
-    @assertEqual(94, mesh % getFacesNumber())
+    @assertEqual(94, mesh % getFacesNumber(.true.))
     ! Test number of internal faces.
-    @assertEqual(62, mesh % getInternalFacesNumber())
+    @assertEqual(62, mesh % getInternalFacesNumber(.true.))
     ! Test number of edges.
     @assertEqual(72, mesh % getEdgesNumber())
     ! Test number of tetrahedra.

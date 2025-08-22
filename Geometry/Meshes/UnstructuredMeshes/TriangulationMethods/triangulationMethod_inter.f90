@@ -64,6 +64,10 @@ contains
     
     ! Loop through all tetrahedra to be generated.
     do i = 1, size(tetrahedraPayloads)
+      ! Add this tetrahedron to its parent.
+      element = elements % getElementBox(tetrahedraPayloads(i) % parentIdx)
+      call element % ptr % addChildIdx(tetrahedraPayloads(i) % idx)
+
       ! Compute centroid of the current tetrahedron.
       facePayload % testCentroid = ZERO
       do j = 1, 4
@@ -127,7 +131,6 @@ contains
 
         else
           ! If triangle already exists, check if the parent element owns it.
-          element = elements % getElementBox(tetrahedraPayloads(i) % parentIdx)
           elementOrientatedFaces = element % ptr % getOrientatedFaces()
           do k = 1, size(elementOrientatedFaces)
             childrenIdxs = elementOrientatedFaces(k) % face % ptr % getChildrenIdxs()

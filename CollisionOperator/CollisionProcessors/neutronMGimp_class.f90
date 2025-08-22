@@ -115,9 +115,8 @@ contains
   !!
   !! Samples collision without any implicit treatment
   !!
-  subroutine sampleCollision(self, temperature, p, collDat)
+  subroutine sampleCollision(self, p, collDat)
     class(neutronMGimp), intent(inout)   :: self
-    real(defReal), intent(in)            :: temperature
     class(particle), intent(inout)       :: p
     type(collisionData), intent(inout)   :: collDat
     type(neutronMacroXSs)                :: macroXSs

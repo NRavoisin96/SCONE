@@ -16,6 +16,9 @@ module geometryMesh_class
   implicit none
   private
 
+  ! Public procedures.
+  public :: getGeometryMeshPtr
+
   !!
   !!
   !!
@@ -63,6 +66,24 @@ contains
     bounds = reshape(self % meshes % getOverallBoundingBoxBounds(), [6])
 
   end function bounds
+
+  !!
+  !!
+  !!
+  function getGeometryMeshPtr(source) result(ptr)
+    class(geometry), intent(in)  :: source
+    class(geometryMesh), pointer :: ptr
+
+    select type(temp => source)
+      class is(geometryMesh)
+        ptr => temp
+
+      class default
+        ptr => null()
+
+    end select
+
+  end function getGeometryMeshPtr
 
   !!
   !!

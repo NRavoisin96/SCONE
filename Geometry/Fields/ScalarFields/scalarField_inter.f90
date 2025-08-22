@@ -6,13 +6,13 @@ module scalarField_inter
   use field_inter,        only : field
   use geometryReg_mod,    only : fieldPtrByName
   use numPrecision
-  use universalVariables, only : nameTemperature
+  use universalVariables, only : nameHeatSource, nameTemperature
 
   implicit none
   private
 
   ! Public procedures.
-  public :: getTemperatureFieldPtr, kill, scalarField_CptrCast
+  public :: getHeatSourceFieldPtr, getTemperatureFieldPtr, kill, scalarField_CptrCast
 
   !!
   !! Simple Real Scalar Field
@@ -58,6 +58,29 @@ module scalarField_inter
   end interface
 
 contains
+  !!
+  !!
+  !!
+  function getHeatSourceFieldPtr() result(heatSourceFieldPtr)
+    class(field), pointer       :: fieldPtr
+    class(scalarField), pointer :: heatSourceFieldPtr
+    character(*), parameter     :: here = 'getHeatSourceFieldPtr (scalarField_inter.f90)'
+
+    heatSourceFieldPtr => null()
+    fieldPtr => fieldPtrByName(nameHeatSource)
+    if (.not. associated(fieldPtr)) return
+
+    select type(ptr => fieldPtr)
+      class is(scalarField)
+        heatSourceFieldPtr => ptr
+
+      class default
+        call fatalError(here, 'Heat source field is not of type scalarField.')
+
+    end select
+
+  end function getHeatSourceFieldPtr
+
   !!
   !!
   !!

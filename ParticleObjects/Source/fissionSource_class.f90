@@ -205,8 +205,7 @@ contains
 
           ! Get Nuclide.
           kT = merge(kBoltzmann * temperature / joulesPerMeV, matCE % kT, ZERO < temperature)
-          call matCE % setTemperature(self % E, temperature, rand)
-          nucIdx = matCE % sampleFission(self % E, rand)
+          nucIdx = matCE % sampleFission(self % E, kT, rand)
 
           ! Get reaction object
           fissCE => fissionCE_TptrCast(nucData % getReaction(N_FISSION, nucIdx))

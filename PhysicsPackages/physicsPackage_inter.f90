@@ -41,10 +41,10 @@ module physicsPackage_inter
     procedure                                   :: getCyclesNumber
     procedure                                   :: getGeometryBounds
     procedure                                   :: getGeometryIdx
+    procedure                                   :: getGeometryPtr
     procedure                                   :: getInitialSeed
     procedure                                   :: getOutputFile
     procedure                                   :: getParticlesNumber
-    procedure                                   :: getScalarFieldValueByName
     procedure                                   :: getTimerMain
     procedure                                   :: init
     procedure                                   :: kill
@@ -174,6 +174,17 @@ contains
   !!
   !!
   !!
+  function getGeometryPtr(self) result(geometryPtr)
+    class(physicsPackage), intent(in) :: self
+    class(geometry), pointer          :: geometryPtr
+
+    geometryPtr => self % geom
+
+  end function getGeometryPtr
+
+  !!
+  !!
+  !!
   elemental function getInitialSeed(self) result(seed)
     class(physicsPackage), intent(in) :: self
     integer(longInt)                  :: seed
@@ -207,31 +218,6 @@ contains
   !!
   !!
   !!
-  function getScalarFieldValueByName(self, name, coords) result(value)
-    class(physicsPackage), intent(in) :: self
-    character(nameLen), intent(in)    :: name
-    class(coordList), intent(in)      :: coords
-    class(field), pointer             :: fieldPtr
-    class(scalarField), pointer       :: scalarFieldPtr
-    real(defReal)                     :: value
-    character(*), parameter           :: here = 'getScalarFieldValueByName (physicsPackage_inter.f90)'
-
-    ! Initialise value = ZERO
-    value = ZERO
-    fieldPtr => fieldPtrByName(name)
-
-    if (associated(fieldPtr)) then
-      scalarFieldPtr => scalarField_CptrCast(fieldPtr)
-      if (.not. associated(scalarFieldPtr)) call fatalError(here, 'Field: '//name//' is not a scalar field.')
-      value = scalarFieldPtr % at(coords)
-
-    end if
-
-  end function getScalarFieldValueByName
-
-  !!
-  !!
-  !!
   elemental function getTimerMain(self) result(timerMain)
     class(physicsPackage), intent(in) :: self
     integer(shortInt)                 :: timerMain
@@ -248,8 +234,6 @@ contains
     class(initPhysicsPackagePayload), intent(in)  :: payload
     character(8)                                  :: date
     character(10)                                 :: time
-    character(nameLen)                            :: fieldName
-    character(:), allocatable                     :: trimmedFieldName
     character(nameLen), dimension(:), allocatable :: fieldNames
     class(dictionary), pointer                    :: fieldsDict
     integer(shortInt)                             :: i
@@ -270,8 +254,8 @@ contains
     call test_out % init(self % outputFormat)
 
     ! Load number of cycles and population from dictionary.
-    call payload % dict % get(self % N_cycles, 'cycles')
-    call payload % dict % get(self % pop, 'pop')
+    call payload % dict % getOrDefault(self % N_cycles, 'cycles', 0)
+    call payload % dict % getOrDefault(self % pop, 'pop', 0)
 
     ! Assign geomIdx and geom pointer.
     self % geomIdx = payload % geometryIdx

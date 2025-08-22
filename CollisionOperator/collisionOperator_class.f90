@@ -107,9 +107,8 @@ contains
   !!
   !! Determine type of the particle and call approperiate collisionProcessor
   !!
-  subroutine collide(self, temperature, p, tally, thisCycle, nextCycle)
+  subroutine collide(self, p, tally, thisCycle, nextCycle)
     class(collisionOperator), intent(inout) :: self
-    real(defReal), intent(in)               :: temperature
     class(particle), intent(inout)          :: p
     type(tallyAdmin), intent(inout)         :: tally
     class(particleDungeon), intent(inout)   :: thisCycle, nextCycle
@@ -129,7 +128,7 @@ contains
     if (idx == UNDEF_PHYSICS) call fatalError(Here,'Physics are not defined for particle of type: '//p % typeToChar()//'.')
 
     ! Call physics
-    call self % physicsTable(idx) % proc % collide(temperature, p, tally, thisCycle, nextCycle)
+    call self % physicsTable(idx) % proc % collide(p, tally, thisCycle, nextCycle)
 
   end subroutine collide
 

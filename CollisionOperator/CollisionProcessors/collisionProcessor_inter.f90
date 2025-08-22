@@ -99,10 +99,9 @@ module collisionProcessor_inter
     !!
     !!
     !!
-    subroutine sampleCollision(self, temperature, p, collDat)
+    subroutine sampleCollision(self, p, collDat)
       import :: collisionProcessor, collisionData, defReal, particle
       class(collisionProcessor), intent(inout) :: self
-      real(defReal), intent(in)                :: temperature
       class(particle), intent(inout)           :: p
       type(collisionData), intent(inout)       :: collDat
     end subroutine sampleCollision
@@ -114,9 +113,8 @@ contains
   !!
   !! Generic flow of collision processing
   !!
-  subroutine collide(self, temperature, p, tally, thisCycle, nextCycle)
+  subroutine collide(self, p, tally, thisCycle, nextCycle)
     class(collisionProcessor), intent(inout) :: self
-    real(defReal), intent(in)                :: temperature
     class(particle), intent(inout)           :: p
     type(tallyAdmin), intent(inout)          :: tally
     class(particleDungeon), intent(inout)    :: thisCycle, nextCycle
@@ -129,7 +127,7 @@ contains
     collDat % matIdx = p % getMatIdx()
 
     ! Choose collision nuclide and general type (Scatter, Capture or Fission)
-    call self % sampleCollision(temperature, p, collDat)
+    call self % sampleCollision(p, collDat)
 
     ! In case of a TMS rejection, set collision as virtual
     if (collDat % MT == noInteraction) then

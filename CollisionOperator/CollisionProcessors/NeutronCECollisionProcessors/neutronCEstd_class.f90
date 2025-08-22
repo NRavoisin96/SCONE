@@ -167,7 +167,7 @@ contains
     class(particleDungeon), intent(inout) :: thisCycle
     class(particleDungeon), intent(inout) :: nextCycle
 
-    p % isDead =.true.
+    p % isDead = .true.
 
   end subroutine fission
 

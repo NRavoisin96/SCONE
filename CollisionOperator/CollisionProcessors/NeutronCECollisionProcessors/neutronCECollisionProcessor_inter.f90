@@ -14,6 +14,7 @@ module neutronCECollisionProcessor_inter
   use particleDungeon_class,        only : particleDungeon
   use reactionHandle_inter,         only : reactionHandle
   use RNG_class,                    only : RNG
+  use scalarField_inter,            only : getTemperatureFieldPtr, scalarField
   use scatteringKernels_func,       only : asymptoticInelasticScatter, asymptoticScatter, targetVelocity_constXS, &
                                            targetVelocity_DBRCXS
   use tallyAdmin_class,             only : tallyAdmin
@@ -153,7 +154,6 @@ contains
     collDat % A =  self % nuc % getMass()
 
     ! Retrieve kT from either material or nuclide
-    collDat % kT = self % mat % kT
     if (.not. self % mat % useTMS(p % E)) collDat % kT = self % nuc % getkT()
 
     ! Check is DBRC is on
@@ -240,13 +240,13 @@ contains
   !!
   !! Samples collision without any implicit treatment
   !!
-  subroutine sampleCollision(self, temperature, p, collDat)
+  subroutine sampleCollision(self, p, collDat)
     class(neutronCECollisionProcessor), intent(inout) :: self
-    real(defReal), intent(in)                         :: temperature
     class(particle), intent(inout)                    :: p
     type(collisionData), intent(inout)                :: collDat
+    class(scalarField), pointer                       :: temperatureFieldPtr
+    real(defReal)                                     :: randomNumber, temperature
     type(neutronMicroXSs)                             :: microXSs
-    real(defReal)                                     :: randomNumber
     character(*), parameter                           :: Here = 'sampleCollision (neutronCECollisionProcessor_inter.f90)'
 
     ! Verify that particle is CE neutron
@@ -261,10 +261,17 @@ contains
     self % mat => ceNeutronMaterial_CptrCast(self % xsData % getMaterial(p % getMatIdx()))
     if (.not. associated(self % mat)) call fatalError(Here, 'Material is not ceNeutronMaterial')
 
-    call self % mat % setTemperature(p % E, temperature, p % pRNG)
+    ! Retrieve material temperature from temperature field.
+    collDat % kT = self % mat % kT
+    temperatureFieldPtr => getTemperatureFieldPtr()
+    if (associated (temperatureFieldPtr)) then
+      temperature = temperatureFieldPtr % at(p % coords)
+      if (ZERO < temperature) collDat % kT = kBoltzmann * temperature / joulesPerMeV
+
+    end if
 
     ! Select collision nuclide
-    call self % mat % sampleNuclide(p % E, p % pRNG, collDat % nucIdx, collDat % E)
+    call self % mat % sampleNuclide(p % E, collDat % kT, p % pRNG, collDat % nucIdx, collDat % E)
 
     ! If nuclide was rejected in TMS loop return to tracking
     if (collDat % nucIdx == REJECTED) then

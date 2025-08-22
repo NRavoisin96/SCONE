@@ -82,6 +82,7 @@ contains
         facePayloads(infoIdx) % parentIdx = faceIdx
         facePayloads(infoIdx) % isBoundary = face % ptr % getIsBoundary()
         facePayloads(infoIdx) % boundaryConditions = face % ptr % getBoundaryConditions()
+        facePayloads(infoIdx) % boundaryValues = face % ptr % getBoundaryValues()
 
         allocate(facePayloads(infoIdx) % vertices(3))
         facePayloads(infoIdx) % vertices = faceVertices([minFaceVertexIdxLoc, &
