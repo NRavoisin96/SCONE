@@ -135,6 +135,7 @@ module tallyAdmin_class
     procedure :: reportCycleEnd
 
     ! Interaction procedures
+    procedure :: flush
     procedure :: getResult
 
     ! Display procedures
@@ -766,6 +767,26 @@ contains
     call self % mem % closeCycle(normFactor)
 
   end subroutine reportCycleEnd
+
+  !!
+  !!
+  !!
+  subroutine flush(self, name)
+    class(tallyAdmin), intent(inout) :: self
+    character(*), intent(in)         :: name
+    character(nameLen)               :: clerkName
+    integer(shortInt)                :: clerkIdx
+    character(*), parameter          :: here = 'flush (tallyAdmin_class.f90)'
+    integer(shortInt), parameter     :: NOT_PRESENT = -3
+
+    ! Copy name then find index of clerk.
+    clerkName = name
+    clerkIdx = self % clerksNameMap % getOrDefault(clerkName, NOT_PRESENT)
+
+    if (clerkIdx == NOT_PRESENT) call fatalError(here, 'Unable to retrieve clerk: '//trim(name)//'.')
+    call self % tallyClerks(clerkIdx) % flush(self % mem)
+
+  end subroutine flush
 
   !!
   !! Get result from the clerk defined by name

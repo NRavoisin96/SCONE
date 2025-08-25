@@ -34,9 +34,11 @@ module mixedScalarField_class
     type(intMap)                                                                  :: meshIdxsToMeshFieldIdxs
   contains
     procedure          :: at
+    procedure, private :: computeMaximumAndMinimumMaterialValues
     procedure          :: init
     procedure, private :: initMeshFields
     procedure          :: kill
+    procedure          :: setValues
   end type mixedScalarField
 
 contains
@@ -65,23 +67,10 @@ contains
   !!
   !!
   !!
-  subroutine init(self, dict)
+  subroutine computeMaximumAndMinimumMaterialValues(self)
     class(mixedScalarField), intent(inout)   :: self
-    class(dictionary), intent(in)            :: dict
-    class(geometry), pointer                 :: geometryPtr
     integer(shortInt)                        :: i, nMaterials
     real(defReal), dimension(:), allocatable :: maximumMaterialValues, minimumMaterialValues
-    character(*), parameter                  :: here = 'init (mixedScalarField_class.f90)'
-
-    ! Check that there is only one geometry and call fatalError if not.
-    if (1 < geomNum()) call fatalError(here, 'More than one geometry.')
-    geometryPtr => geomPtr(1)
-    if (.not. associated(geometryPtr)) call fatalError(here, 'Unable to retrieve geometry pointer.')
-
-    ! Initialise CSG field from dictionary.
-
-    ! Initialise mesh fields from dictionary.
-    if (dict % isPresent('meshFields')) call self % initMeshFields(dict % getDictPtr('meshFields'), geometryPtr)
 
     ! Query all fields and find maximum values for materials.
     nMaterials = nMat()
@@ -102,6 +91,30 @@ contains
     end if
     call self % setMaximumMaterialValues(maximumMaterialValues)
     call self % setMinimumMaterialValues(minimumMaterialValues)
+
+  end subroutine computeMaximumAndMinimumMaterialValues
+
+  !!
+  !!
+  !!
+  subroutine init(self, dict)
+    class(mixedScalarField), intent(inout)   :: self
+    class(dictionary), intent(in)            :: dict
+    class(geometry), pointer                 :: geometryPtr
+    character(*), parameter                  :: here = 'init (mixedScalarField_class.f90)'
+
+    ! Check that there is only one geometry and call fatalError if not.
+    if (1 < geomNum()) call fatalError(here, 'More than one geometry.')
+    geometryPtr => geomPtr(1)
+    if (.not. associated(geometryPtr)) call fatalError(here, 'Unable to retrieve geometry pointer.')
+
+    ! Initialise CSG field from dictionary.
+
+    ! Initialise mesh fields from dictionary.
+    if (dict % isPresent('meshFields')) call self % initMeshFields(dict % getDictPtr('meshFields'), geometryPtr)
+
+    ! Compute maximum and minimum material values.
+    call self % computeMaximumAndMinimumMaterialValues()
 
   end subroutine init
 
@@ -186,5 +199,32 @@ contains
     call self % meshIdxsToMeshFieldIdxs % kill()
 
   end subroutine kill
+
+  !!
+  !!
+  !!
+  subroutine setValues(self, values)
+    class(mixedScalarField), intent(inout)  :: self
+    real(defReal), dimension(:), intent(in) :: values
+    integer(shortInt)                       :: i
+
+    ! Set values in CSG field first.
+    if (associated(self % CSGFieldPtr)) then
+
+    end if
+
+    ! Set values in mesh fields.
+    if (allocated(self % meshFields)) then
+      do i = 1, size(self % meshFields)
+        call self % meshFields(i) % meshFieldPtr % setValues(values)
+
+      end do
+
+    end if
+
+    ! Recompute maximum and minimum material values.
+    call self % computeMaximumAndMinimumMaterialValues()
+
+  end subroutine setValues
 
 end module mixedScalarField_class

@@ -1,4 +1,5 @@
 # Add Source Files to the global list
+add_subdirectory(MultiPhysicsPackages)
 add_subdirectory(ParticlePhysicsPackages)
 add_subdirectory(RandomWalkerPhysicsPackages)
 add_subdirectory(RayPhysicsPackages)

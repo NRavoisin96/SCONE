@@ -169,7 +169,7 @@ contains
   end subroutine reportCycleEnd
 
   !!
-  !! Display convergance progress on the console
+  !! Display convergence progress on the console
   !!
   !! See tallyClerk_inter for details
   !!

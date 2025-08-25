@@ -27,14 +27,15 @@ module scalarField_inter
   type, public, abstract, extends(field)     :: scalarField
     real(defReal), dimension(:), allocatable :: maximumMaterialValues, minimumMaterialValues
   contains
-    procedure(at), deferred :: at
-    procedure               :: getMaximumMaterialValue
-    procedure               :: getMinimumMaterialValue
-    procedure               :: getMaximumMaterialValues
-    procedure               :: getMinimumMaterialValues
-    procedure               :: kill
-    procedure               :: setMaximumMaterialValues
-    procedure               :: setMinimumMaterialValues
+    procedure(at), deferred        :: at
+    procedure                      :: getMaximumMaterialValue
+    procedure                      :: getMinimumMaterialValue
+    procedure                      :: getMaximumMaterialValues
+    procedure                      :: getMinimumMaterialValues
+    procedure                      :: kill
+    procedure                      :: setMaximumMaterialValues
+    procedure                      :: setMinimumMaterialValues
+    procedure(setValues), deferred :: setValues
   end type scalarField
 
   abstract interface
@@ -54,6 +55,15 @@ module scalarField_inter
       class(coordList), intent(in)   :: coords
       real(defReal)                  :: val
     end function at
+
+    !!
+    !!
+    !!
+    subroutine setValues(self, values)
+      import                                  :: defReal, scalarField
+      class(scalarField), intent(inout)       :: self
+      real(defReal), dimension(:), intent(in) :: values
+    end subroutine setValues
 
   end interface
 

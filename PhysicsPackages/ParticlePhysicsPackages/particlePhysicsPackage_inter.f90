@@ -43,21 +43,28 @@ module particlePhysicsPackage_inter
   contains
     procedure                                    :: collectSpecificResults
     procedure(displayCycleProgress), deferred    :: displayCycleProgress
+    procedure                                    :: generateInitialState
     procedure                                    :: generateSource
     procedure                                    :: getBufferSize
+    procedure                                    :: getCollisionOperator
     procedure                                    :: getCurrentCyclePtr
     procedure(getCycleParticlesNumber), deferred :: getCycleParticlesNumber
+    procedure                                    :: getInactiveCyclesNumber
     procedure                                    :: getParticleType
     procedure                                    :: getPrintSource
     procedure                                    :: getRNGPtr
     procedure(getTallyAdminPtr), deferred        :: getTallyAdminPtr
+    procedure                                    :: getTransportOperator
     procedure                                    :: init
     procedure                                    :: initCycle
     procedure                                    :: kill
     procedure(processEndOfCycle), deferred       :: processEndOfCycle
+    procedure                                    :: runCycle
     procedure                                    :: runCycles
     procedure                                    :: setCurrentCyclePtr
+    procedure                                    :: setCyclesActive
     procedure(trackParticleHistory), deferred    :: trackParticleHistory
+    procedure                                    :: updateNuclearData
   end type particlePhysicsPackage
 
   abstract interface
@@ -138,6 +145,16 @@ contains
   !!
   !!
   !!
+  subroutine generateInitialState(self)
+    class(particlePhysicsPackage), intent(inout) :: self
+
+    ! Do nothing.
+
+  end subroutine generateInitialState
+
+  !!
+  !!
+  !!
   subroutine generateSource(self)
     class(particlePhysicsPackage), intent(inout) :: self
 
@@ -159,6 +176,17 @@ contains
   !!
   !!
   !!
+  function getCollisionOperator(self) result(collOp)
+    class(particlePhysicsPackage), intent(in) :: self
+    type(collisionOperator)                   :: collOp
+
+    collOp = self % collOp
+
+  end function getCollisionOperator
+
+  !!
+  !!
+  !!
   function getCurrentCyclePtr(self) result(currentCyclePtr)
     class(particlePhysicsPackage), intent(in) :: self
     type(particleDungeon), pointer            :: currentCyclePtr
@@ -166,6 +194,17 @@ contains
     currentCyclePtr => self % currentCycle
 
   end function getCurrentCyclePtr
+
+  !!
+  !!
+  !!
+  elemental function getInactiveCyclesNumber(self) result(nInactiveCycles)
+    class(particlePhysicsPackage), intent(in) :: self
+    integer(shortInt)                         :: nInactiveCycles
+
+    nInactiveCycles = 0
+
+  end function getInactiveCyclesNumber
 
   !!
   !!
@@ -199,6 +238,17 @@ contains
     pRNGPtr => self % pRNG
 
   end function getRNGPtr
+
+  !!
+  !!
+  !!
+  function getTransportOperator(self) result(transOp)
+    class(particlePhysicsPackage), intent(in) :: self
+    class(transportOperator), allocatable     :: transOp
+
+    allocate(transOp, source = self % transOp)
+
+  end function getTransportOperator
 
   !!
   !!
@@ -335,17 +385,74 @@ contains
   !!
   !!
   !!
+  subroutine runCycle(self, cycleNumber, nCycles, transOp, collOp, buffer, tally)
+    class(particlePhysicsPackage), intent(inout) :: self
+    integer(shortInt), intent(in)                :: cycleNumber, nCycles
+    class(transportOperator), intent(inout)      :: transOp
+    type(collisionOperator), intent(inout)       :: collOp
+    type(particleDungeon), intent(inout)         :: buffer
+    type(tallyAdmin), pointer, intent(inout)     :: tally
+    integer(shortInt)                            :: i, nFinalParticles, nInitialParticles, timerMain
+    real(defReal)                                :: elapsedTime, endTime
+    type(particle)                               :: p
+    type(RNG), target                            :: pRNG
+
+    !$omp master
+    ! Prepare current cycle.
+    call self % initCycle()
+    if (self % printSource) call self % currentCycle % printToFile(trim(self % getOutputFile())//'_source'//numToChar(cycleNumber))
+    nInitialParticles = self % getCycleParticlesNumber()
+    call tally % reportCycleStart(self % currentCycle)
+    !$omp end master
+
+    ! Wait for master thread before launching parallel execution.
+    !$omp barrier
+
+    ! Initialise particle.
+    p % geomIdx = self % getGeometryIdx()
+  
+    !$omp do schedule(dynamic)
+    do i = 1, nInitialParticles
+      ! Create RNG which can be thread private
+      pRNG = self % pRNG
+      p % pRNG => pRNG
+      call p % pRNG % stride(i)
+
+      ! Obtain particle current cycle dungeon and prepare particle.
+      call self % currentCycle % copy(p, i)
+      call self % trackParticleHistory(transOp, collOp, p, buffer, tally)
+
+    end do
+    !$omp end do
+
+    !$omp master
+    ! Process end of cycle results.
+    call self % processEndOfCycle(nFinalParticles)
+    
+    ! Stop timer and display progress so far.
+    timerMain = self % getTimerMain()
+    call timerStop(timerMain)
+    elapsedTime = timerTime(timerMain)
+    self % time_transport = elapsedTime
+    endTime = nCycles * elapsedTime / cycleNumber
+    call self % displayCycleProgress(cycleNumber, nInitialParticles, nFinalParticles, elapsedTime, endTime, &
+                                     max(ZERO, endTime - elapsedTime))
+    call tally % display()
+    !$omp end master
+
+  end subroutine runCycle
+
+  !!
+  !!
+  !!
   subroutine runCycles(self, nCycles)
     class(particlePhysicsPackage), intent(inout) :: self
     integer(shortInt), intent(in)                :: nCycles
-    integer(shortInt)                            :: i, j, nFinalParticles, nInitialParticles, timerMain
+    integer(shortInt)                            :: i, timerMain
     type(tallyAdmin), pointer                    :: tallyAdminPtr
     type(particleDungeon)                        :: buffer
-    type(particle)                               :: p
     type(collisionOperator)                      :: collOp
     class(transportOperator), allocatable        :: transOp
-    type(RNG), target                            :: pRNG
-    real(defReal)                                :: elapsedTime, endTime
 
     ! Reset and start timer.
     timerMain = self % getTimerMain()
@@ -353,58 +460,22 @@ contains
     call timerStart(timerMain)
 
     ! Create parallel region once outside the main loop for performance.
-    !$omp parallel private(p, buffer, pRNG, collOp, transOp, j) &
-    !$omp shared(elapsedTime, nFinalParticles, nInitialParticles, tallyAdminPtr)
+    !$omp parallel private(buffer, collOp, transOp) &
+    !$omp shared(tallyAdminPtr)
 
     ! Create particle buffer and a transport operator which can be made thread private
     call buffer % init(self % bufferSize)
     collOp = self % collOp
     allocate(transOp, source = self % transOp)
 
+    !$omp master
+    tallyAdminPtr => self % getTallyAdminPtr()
+    !$omp end master
+    !$omp barrier
+
     ! Loop through all cycles.
     do i = 1, nCycles
-      !$omp master
-      ! Prepare current cycle.
-      call self % initCycle()
-      if (self % printSource) call self % currentCycle % printToFile(trim(self % getOutputFile())//'_source'//numToChar(i))
-      nInitialParticles = self % getCycleParticlesNumber()
-      tallyAdminPtr => self % getTallyAdminPtr()
-      call tallyAdminPtr % reportCycleStart(self % currentCycle)
-      !$omp end master
-
-      ! Wait for master thread before launching parallel execution.
-      !$omp barrier
-
-      ! Initialise particle.
-      p % geomIdx = self % getGeometryIdx()
-    
-      !$omp do schedule(dynamic)
-      do j = 1, nInitialParticles
-        ! Create RNG which can be thread private
-        pRNG = self % pRNG
-        p % pRNG => pRNG
-        call p % pRNG % stride(j)
-
-        ! Obtain particle current cycle dungeon and prepare particle.
-        call self % currentCycle % copy(p, j)
-        call self % trackParticleHistory(transOp, collOp, p, buffer, tallyAdminPtr)
-
-      end do
-      !$omp end do
-
-      !$omp master
-      ! Process end of cycle results.
-      call self % processEndOfCycle(nFinalParticles)
-
-      ! Stop timer and display progress so far.
-      call timerStop(timerMain)
-      elapsedTime = timerTime(timerMain)
-      self % time_transport = elapsedTime
-      endTime = nCycles * elapsedTime / i
-      call self % displayCycleProgress(i, nInitialParticles, nFinalParticles, elapsedTime, endTime, &
-                                       max(ZERO, endTime - elapsedTime))
-      call tallyAdminPtr % display()
-      !$omp end master
+      call self % runCycle(i, nCycles, transOp, collOp, buffer, tallyAdminPtr)
 
     end do
     !$omp end parallel
@@ -421,5 +492,27 @@ contains
     self % currentCycle => currentCyclePtr
 
   end subroutine setCurrentCyclePtr
+
+  !!
+  !!
+  !!
+  elemental subroutine setCyclesActive(self)
+    class(particlePhysicsPackage), intent(inout) :: self
+
+    ! Do nothing by default.
+
+  end subroutine setCyclesActive
+
+  !!
+  !!
+  !!
+  subroutine updateNuclearData(self)
+    class(particlePhysicsPackage), intent(inout) :: self
+    character(*), parameter                      :: here = 'updateNuclearData (particlePhysicsPackage_inter.f90)'
+
+    if (.not. associated(self % nucData)) call fatalError(here, 'Attempting to update unassociated nuclear data.')
+    call self % nucData % updateMaterialsProperties()
+
+  end subroutine updateNuclearData
 
 end module particlePhysicsPackage_inter

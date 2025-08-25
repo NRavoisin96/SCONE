@@ -10,19 +10,11 @@ module tallyCodes
 
 
   ! List of codes for diffrent reports
-  integer(shortInt), parameter, public :: inColl_CODE     = 1000 ,&
-                                        outColl_CODE    = 1001 ,&
-                                        path_CODE       = 1002 ,&
-                                        trans_CODE      = 1003 ,&
-                                        spawn_CODE      = 1004 ,&
-                                        hist_CODE       = 1005 ,&
-                                        cycleStart_CODE = 1006 ,&
-                                        cycleEnd_CODE   = 1007
+  integer(shortInt), parameter, public :: inColl_CODE = 1000, outColl_CODE = 1001, path_CODE = 1002, trans_CODE = 1003, &
+                                          spawn_CODE = 1004, hist_CODE = 1005, cycleStart_CODE = 1006, cycleEnd_CODE = 1007, &
+                                          temperature_CODE = 1008
 
   ! List of codes for fiffrent particle fates
-  integer(shortInt), parameter, public :: abs_FATE  = 5000 ,&
-                                        leak_FATE = 5001 ,&
-                                        lost_FATE = 5002 ,&
-                                        aged_FATE = 5003
+  integer(shortInt), parameter, public :: abs_FATE = 5000, leak_FATE = 5001, lost_FATE = 5002, aged_FATE = 5003
 
 end module tallyCodes

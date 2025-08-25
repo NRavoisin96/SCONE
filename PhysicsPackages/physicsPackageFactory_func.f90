@@ -9,6 +9,7 @@ module physicsPackageFactory_func
   use fixedSourcePhysicsPackage_class,  only : fixedSourcePhysicsPackage
   use genericProcedures,                only : fatalError
   use heatTransferPhysicsPackage_class, only : heatTransferPhysicsPackage
+  use NTHPackage_class,                 only : NTHPackage
   use numPrecision
   use physicsPackage_inter,             only : initPhysicsPackagePayload, physicsPackage
   use rayVolPhysicsPackage_class,       only : rayVolPhysicsPackage
@@ -23,6 +24,7 @@ module physicsPackageFactory_func
   character(nameLen), dimension(*), parameter :: AVAILABLE_physicsPackages = ['eigenPhysicsPackage       ', &
                                                                               'fixedSourcePhysicsPackage ', &
                                                                               'heatTransferPhysicsPackage', &
+                                                                              'NTHPackage                ', &
                                                                               'rayVolPhysicsPackage      ']
 
   !!
@@ -55,6 +57,9 @@ contains
 
       case('heatTransferPhysicsPackage')
         allocate(heatTransferPhysicsPackage :: new)
+
+      case('NTHPackage')
+        allocate(NTHPackage :: new)
 
       case('rayVolPhysicsPackage')
         allocate(rayVolPhysicsPackage :: new)

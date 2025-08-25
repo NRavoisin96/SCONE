@@ -64,12 +64,14 @@ module eigenPhysicsPackage_class
     procedure :: displayCycleProgress
     procedure :: generateInitialState
     procedure :: getCycleParticlesNumber
+    procedure :: getInactiveCyclesNumber
     procedure :: getTallyAdminPtr
     procedure :: init
     procedure :: kill
     procedure :: printSettings
     procedure :: processEndOfCycle
     procedure :: run
+    procedure :: setCyclesActive
     procedure :: trackParticleHistory
   end type eigenPhysicsPackage
 
@@ -157,6 +159,17 @@ contains
     nParticles = currentCyclePtr % popSize()
 
   end function getCycleParticlesNumber
+
+  !!
+  !!
+  !!
+  elemental function getInactiveCyclesNumber(self) result(nInactiveCycles)
+    class(eigenPhysicsPackage), intent(in) :: self
+    integer(shortInt)                      :: nInactiveCycles
+
+    nInactiveCycles = self % N_inactive
+
+  end function getInactiveCyclesNumber
 
   !!
   !!
@@ -416,6 +429,16 @@ contains
     print *
 
   end subroutine run
+
+  !!
+  !!
+  !!
+  elemental subroutine setCyclesActive(self)
+    class(eigenPhysicsPackage), intent(inout) :: self
+
+    self % inactiveCycles = .false.
+
+  end subroutine setCyclesActive
 
   !!
   !!

@@ -42,6 +42,7 @@ module tallyClerkSlot_class
 
     ! File reports and check status -> run-time procedures
     procedure :: computeVolumeWeightedSum
+    procedure :: flush
     procedure :: reportInColl
     procedure :: reportOutColl
     procedure :: reportPath
@@ -77,6 +78,17 @@ contains
     volumeWeightedSum = self % slot % computeVolumeWeightedSum(memory)
 
   end function computeVolumeWeightedSum
+
+  !!
+  !!
+  !!
+  subroutine flush(self, memory)
+    class(tallyClerkSlot), intent(in) :: self
+    type(scoreMemory), intent(inout)  :: memory
+
+    call self % slot % flush(memory)
+
+  end subroutine flush
 
   !!
   !! Initialise from dictionary and name

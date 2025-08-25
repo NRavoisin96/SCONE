@@ -2,6 +2,7 @@ module uniformScalarField_class
 
   use coordList_class,   only : coordList
   use dictionary_class,  only : dictionary
+  use errors_mod,        only : fatalError
   use field_inter,       only : field
   use materialMenu_mod,  only : nMat
   use numPrecision
@@ -36,6 +37,7 @@ module uniformScalarField_class
     procedure :: init
     procedure :: kill
     procedure :: at
+    procedure :: setValues
   end type uniformScalarField
 
 contains
@@ -89,6 +91,19 @@ contains
   end function at
 
   !!
+  !!
+  !!
+  subroutine setValues(self, values)
+    class(uniformScalarField), intent(inout) :: self
+    real(defReal), dimension(:), intent(in)  :: values
+    character(*), parameter                  :: here = 'setValues (uniformScalarField_class.f90)'
+
+    if (1 < size(values)) call fatalError(here, 'Attempting to set more than one value for a uniform scalar field.')
+    self % val = values(1)
+
+  end subroutine setValues
+
+  !!
   !! Cast field pointer to uniformScalarField pointer
   !!
   !! Args:
@@ -111,6 +126,5 @@ contains
     end select
 
   end function uniformScalarField_TptrCast
-
 
 end module uniformScalarField_class

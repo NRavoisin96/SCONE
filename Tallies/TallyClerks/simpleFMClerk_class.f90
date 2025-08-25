@@ -97,9 +97,9 @@ module simpleFMClerk_class
   !!    dim2 -> orgin bin
   !!    dim3 -> 1 is values; 2 is STDs
   !!
-  type, public, extends( tallyResult) :: FMresult
-    integer(shortInt)                           :: N  = 0 ! Size of FM
-    real(defReal), dimension(:,:,:), allocatable :: FM     ! FM proper
+  type, public, extends(tallyResult)               :: FMresult
+    integer(shortInt)                              :: N = 0 ! Size of FM
+    real(defReal), dimension(:, :, :), allocatable :: FM    ! FM proper
   end type FMResult
 
 contains
@@ -289,7 +289,7 @@ contains
   !!
   pure subroutine getResult(self, res, mem)
     class(simpleFMClerk), intent(in)               :: self
-    class(tallyResult), allocatable, intent(inout)  :: res
+    class(tallyResult), allocatable, intent(inout) :: res
     type(scoreMemory), intent(in)                  :: mem
     integer(shortInt)                              :: i, j
     integer(longInt)                               :: addr
@@ -332,13 +332,15 @@ contains
 
         ! Load entries
         addr = self % getMemAddress() - 1
-        do i = 1,self % N
+        do i = 1, self % N
           do j = 1, self % N
             addr = addr + 1
             call mem % getResult(val, STD, addr)
             res % FM(j, i, 1) = val
             res % FM(j, i, 2) = STD
+
           end do
+
         end do
 
     end select

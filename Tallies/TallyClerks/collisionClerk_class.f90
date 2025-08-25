@@ -1,28 +1,21 @@
 module collisionClerk_class
 
+  use dictionary_class,        only : dictionary
+  use errors_mod,              only : fatalError
+  use nuclearDatabase_inter,   only : nuclearDatabase
   use numPrecision
+  use outputFile_class,        only : outputFile
+  use particle_class,          only : particle, particleState
+  use scoreMemory_class,       only : scoreMemory
   use tallyCodes
+  use tallyClerk_inter,        only : tallyClerk, kill_super => kill
+  use tallyFilter_inter,       only : tallyFilter
+  use tallyFilterFactory_func, only : new_tallyFilter
+  use tallyMap_inter,          only : tallyMap
+  use tallyMapFactory_func,    only : new_tallyMap
+  use tallyResponseSlot_class, only : tallyResponseSlot
+  use tallyResult_class,       only : tallyResult, tallyResultArrays
   use universalVariables
-  use genericProcedures,          only : fatalError
-  use dictionary_class,           only : dictionary
-  use particle_class,             only : particle, particleState
-  use outputFile_class,           only : outputFile
-  use scoreMemory_class,          only : scoreMemory
-  use tallyClerk_inter,           only : tallyClerk, kill_super => kill
-
-  ! Nuclear Data interface
-  use nuclearDatabase_inter,      only : nuclearDatabase
-
-  ! Tally Filters
-  use tallyFilter_inter,          only : tallyFilter
-  use tallyFilterFactory_func,    only : new_tallyFilter
-
-  ! Tally Maps
-  use tallyMap_inter,             only : tallyMap
-  use tallyMapFactory_func,       only : new_tallyMap
-
-  ! Tally Responses
-  use tallyResponseSlot_class,    only : tallyResponseSlot
 
   implicit none
   private
@@ -54,6 +47,7 @@ module collisionClerk_class
   type, public, extends(tallyClerk) :: collisionClerk
     private
     ! Filter, Map & Vector of Responses
+    character(nameLen), dimension(:), allocatable      :: responseNames
     class(tallyFilter), allocatable                    :: filter
     class(tallyMap), allocatable                       :: map
     type(tallyResponseSlot), dimension(:), allocatable :: responses
@@ -69,10 +63,12 @@ module collisionClerk_class
     procedure :: init
     procedure :: kill
     procedure :: validReports
+    procedure :: getResult
     procedure :: getSize
 
     ! File reports and check status -> run-time procedures
     procedure :: computeVolumeWeightedSum
+    procedure :: flush
     procedure :: reportInColl
 
     ! Output procedures
@@ -91,9 +87,13 @@ contains
     integer(longInt)                  :: address, baseAddress
     integer(shortInt)                 :: i
     real(defReal)                     :: volumeWeightedSum
+    character(*), parameter           :: here = 'computeVolumeWeightedSum (collisionClerk_class.f90)'
 
     ! Initialise volumeWeightedSum = ZERO.
     volumeWeightedSum = ZERO
+
+    ! Call fatalError if map is not allocated.
+    if (.not. allocated(self % map)) call fatalError(here, 'Tally map is not allocated.')
 
     ! Accumulate sum.
     baseAddress = self % getMemAddress()
@@ -116,7 +116,7 @@ contains
     class(dictionary), intent(in)                 :: dict
     character(nameLen), intent(in)                :: name
     character(nameLen), dimension(:), allocatable :: responseNames
-    integer(shortInt)                             :: i, nResponses
+    integer(shortInt)                             :: i
 
     ! Assign name
     call self % setName(name)
@@ -129,20 +129,22 @@ contains
 
     ! Get names of response dictionaries
     call dict % get(responseNames,'response')
-    nResponses = size(responseNames)
+
+    ! Set width
+    self % width = size(responseNames)
 
     ! Load responses
-    allocate(self % responses(nResponses))
-    do i = 1, nResponses
+    allocate(self % responses(self % width))
+    do i = 1, self % width
       call self % responses(i) % init(dict % getDictPtr(responseNames(i)))
 
     end do
 
-    ! Set width
-    self % width = nResponses
-
     ! Handle virtual collisions
-    call dict % getOrDefault(self % handleVirtual,'handleVirtual', .true.)
+    call dict % getOrDefault(self % handleVirtual, 'handleVirtual', .true.)
+
+    ! Load responseNames.
+    self % responseNames = responseNames
 
   end subroutine init
 
@@ -154,6 +156,8 @@ contains
 
     ! Superclass
     call kill_super(self)
+
+    if (allocated(self % responseNames)) deallocate(self % responseNames)
 
     ! Kill and deallocate filter
     if (allocated(self % filter)) then
@@ -188,6 +192,112 @@ contains
   end function validReports
 
   !!
+  !!
+  !!
+  pure subroutine getResult(self, res, mem)
+    class(collisionClerk), intent(in)              :: self
+    class(tallyResult), allocatable, intent(inout) :: res
+    type(scoreMemory), intent(in)                  :: mem
+    character(nameLen)                             :: name
+    integer(longInt)                               :: addr
+    integer(shortInt)                              :: i, j, nBins
+    real(defReal)                                  :: val, STD
+    type(tallyResultArrays), pointer               :: resultsPtr
+
+    ! Allocate result to tallyResultArrays
+    ! Do not deallocate if already allocated to FMresult
+    if (allocated(res)) then
+      select type(res)
+        class is (tallyResultArrays)
+          ! Do nothing.
+
+        class default
+          ! Deallocate.
+          deallocate(res)
+
+      end select
+
+    end if
+    if (.not. allocated(res)) allocate(tallyResultArrays :: res)
+
+    select type(ptr => res)
+      type is (tallyResultArrays)
+        resultsPtr => ptr
+
+    end select
+
+    ! Get name of clerk.
+    name = self % getName()
+
+    ! Get number of bins.
+    nBins = 1
+    if (allocated(self % map)) nBins = self % map % bins(0)
+
+    ! Enforce shape of results array.
+    if (allocated(resultsPtr % results)) then
+      if (size(resultsPtr % results) /= self % width) then
+        deallocate(resultsPtr % results)
+        allocate(resultsPtr % results(self % width))
+
+      end if
+
+    else
+      allocate(resultsPtr % results(self % width))
+
+    end if
+
+    ! Enforce shape of inner arrays.
+    do i = 1, self % width
+      associate(currentResults => resultsPtr % results(i))
+        if (allocated(currentResults % values)) then
+          if (size(currentResults % values) /= nBins) then
+            deallocate(currentResults % values)
+            allocate(currentResults % values(nBins))
+
+          end if
+
+        else
+          allocate(currentResults % values(nBins))
+
+        end if
+
+        if (allocated(currentResults % standardDeviations)) then
+          if (size(currentResults % standardDeviations) /= nBins) then
+            deallocate(currentResults % standardDeviations)
+            allocate(currentResults % standardDeviations(nBins))
+
+          end if
+
+        else
+          allocate(currentResults % standardDeviations(nBins))
+
+        end if
+
+      end associate
+
+    end do
+
+    ! Load entries.
+    addr = self % getMemAddress() - 1
+    do i = 1, self % width
+      associate(currentResults => resultsPtr % results(i))
+        currentResults % clerkName = name
+        currentResults % responseName = self % responseNames(i)
+        do j = 1, nBins
+          addr = addr + 1
+          call mem % getResult(val, STD, addr)
+          currentResults % values(j) = val
+          currentResults % standardDeviations(j) = STD
+
+        end do
+
+      end associate
+
+    end do
+
+  end subroutine getResult
+
+  !!
   !! Return memory size of the clerk
   !!
   !! See tallyClerk_inter for details
@@ -200,6 +310,31 @@ contains
     if (allocated(self % map)) S = S * self % map % bins(0)
 
   end function getSize
+
+  !!
+  !!
+  !!
+  subroutine flush(self, memory)
+    class(collisionClerk), intent(in) :: self
+    type(scoreMemory), intent(inout)  :: memory
+    integer(longInt)                  :: addr
+    integer(shortInt)                 :: i, j, nBins
+
+    nBins = 1
+    if (allocated(self % map)) nBins = self % map % bins(0)
+
+    ! Flush entries.
+    addr = self % getMemAddress() - 1
+    do i = 1, self % width
+      do j = 1, nBins
+        addr = addr + 1
+        call memory % flush(addr)
+
+      end do
+
+    end do
+
+  end subroutine flush
 
   !!
   !! Process incoming collision report
@@ -310,7 +445,7 @@ contains
     ! Print results to the file
     do i = 1, product(resArrayShape)
       call mem % getResult(val, std, self % getMemAddress() - 1 + i)
-      call outFile % addResult(val,std)
+      call outFile % addResult(val, std)
 
     end do
 

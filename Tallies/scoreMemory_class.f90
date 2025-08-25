@@ -78,27 +78,23 @@ module scoreMemory_class
   !!        in extra cycles are discarded in current implementation
   !!
   type, public :: scoreMemory
-      !private
-      real(defReal), dimension(:,:), allocatable :: bins          !! Space for storing cumul data (2nd dim size is always 2!)
-      real(defReal), dimension(:,:), allocatable :: parallelBins  !! Space for scoring for different threads
-      integer(longInt)                         :: N = 0         !! Size of memory (number of bins)
-      integer(shortInt)                        :: nThreads = 0  !! Number of threads used for parallelBins
-      integer(shortInt)                        :: id            !! Id of the tally
-      integer(shortInt)                        :: batchN = 0    !! Number of Batches
-      integer(shortInt)                        :: cycles = 0    !! Cycles counter
-      integer(shortInt)                        :: batchSize = 1 !! Batch interval size (in cycles)
+    private
+    real(defReal), dimension(:, :), allocatable :: bins, parallelBins !! Space for storing cumul data (2nd dim size is always 2!)
+    integer(longInt)                            :: N = 0_longInt         !! Size of memory (number of bins)
+    integer(shortInt)                           :: batchN = 0, batchSize = 0, cycles = 0, id = 0, nThreads = 0
   contains
     ! Interface procedures
-    procedure :: init
-    procedure :: kill
-    generic   :: score      => score_defReal, score_shortInt, score_longInt
-    generic   :: accumulate => accumulate_defReal, accumulate_shortInt, accumulate_longInt
-    generic   :: getResult  => getResult_withSTD, getResult_withoutSTD
-    procedure :: getScore
-    procedure :: closeCycle
-    procedure :: closeBin
-    procedure :: lastCycle
-    procedure :: getBatchSize
+    procedure          :: init
+    procedure          :: kill
+    generic            :: score => score_defReal, score_shortInt, score_longInt
+    generic            :: accumulate => accumulate_defReal, accumulate_shortInt, accumulate_longInt
+    generic            :: getResult => getResult_withSTD, getResult_withoutSTD
+    procedure          :: getScore
+    procedure          :: closeCycle
+    procedure          :: closeBin
+    procedure          :: lastCycle
+    procedure          :: getBatchSize
+    procedure          :: flush
 
     ! Private procedures
     procedure, private :: score_defReal
@@ -164,9 +160,12 @@ contains
 
    if (allocated(self % bins)) deallocate(self % bins)
    if (allocated(self % parallelBins)) deallocate(self % parallelBins)
-   self % N = 0
-   self % nThreads = 0
+   self % N = 0_longInt
    self % batchN = 0
+   self % batchSize = 1
+   self % cycles = 0
+   self % id = 0
+   self % nThreads = 0
 
   end subroutine kill
 
@@ -359,6 +358,24 @@ contains
   end function getBatchSize
 
   !!
+  !!
+  !!
+  subroutine flush(self, idx)
+    class(scoreMemory), intent(inout) :: self
+    integer(longInt), intent(in)      :: idx
+    character(*), parameter           :: here = 'flush (scoreMemory_class.f90)'
+
+    if (idx < 0_longInt .or. self % N < idx) call fatalError(here, 'Out of bounds memory index.')
+
+    ! Flush everything to zero.
+    self % bins(idx, :) = ZERO
+    self % parallelBins(idx, :) = ZERO
+    self % batchN = 0
+    self % cycles = 0
+
+  end subroutine flush
+
+  !!
   !! Load mean result and Standard deviation into provided arguments
   !! Load from bin indicated by idx
   !! Returns 0 if index is invalid
@@ -417,14 +434,12 @@ contains
     if (idx < 0_longInt .or. idx > self % N) then
       mean = ZERO
       return
+
     end if
 
     ! Check if # of samples is provided
-    if (present(samples)) then
-      N = samples
-    else
-      N = self % batchN
-    end if
+    N = self % batchN
+    if (present(samples)) N = samples
 
     ! Calculate mean
     mean = self % bins(idx, CSUM) / N
@@ -440,10 +455,12 @@ contains
     integer(longInt), intent(in)   :: idx
     real(defReal)                  :: score
 
-    if (idx <= 0_longInt .or. idx > self % N) then
+    if (idx < 1_longInt .or. self % N < idx) then
       score = ZERO
+
     else
       score = sum(self % parallelBins(idx, :))
+
     end if
 
   end function getScore

@@ -1,18 +1,15 @@
 module tallyClerk_inter
 
-  use numPrecision
-  use tallyCodes
   use dictionary_class,      only : dictionary
-  use genericProcedures,     only : fatalError
+  use errors_mod,            only : fatalError
+  use nuclearDatabase_inter, only : nuclearDatabase
+  use numPrecision
+  use outputFile_class,      only : outputFile
   use particle_class,        only : particle, particleState
   use particleDungeon_class, only : particleDungeon
-  use outputFile_class,      only : outputFile
-
   use scoreMemory_class,     only : scoreMemory
+  use tallyCodes
   use tallyResult_class,     only : tallyResult, tallyResultEmpty
-
-  ! Nuclear Data Interface
-  use nuclearDatabase_inter, only : nuclearDatabase
 
   implicit none
   private
@@ -20,9 +17,7 @@ module tallyClerk_inter
   !!
   !! Extandable superclass procedures
   !!
-  public :: setMemAddress
-  public :: setName
-  public :: kill
+  public :: kill, setMemAddress, setName
 
   !!
   !! Abstract interface for a single tallyClerk.
@@ -67,27 +62,28 @@ module tallyClerk_inter
   !!   getResult        -> Return tally result object for interactions
   !!
   !!
-  type, public,abstract :: tallyClerk
+  type, public, abstract :: tallyClerk
     private
-    integer(longInt)   :: memAdress = -1
+    integer(longInt)   :: memAdress = -1_longInt
     character(nameLen) :: name = ''
   contains
     ! Procedures used during build
-    procedure(init),deferred          :: init
+    procedure(init), deferred         :: init
     procedure                         :: kill
     procedure(validReports), deferred :: validReports
-    procedure(getSize),deferred       :: getSize
+    procedure(getSize), deferred      :: getSize
 
     ! Assign and get memory
     procedure                  :: setMemAddress
     procedure, non_overridable :: getMemAddress
 
-    ! Assign an get name
+    ! Assign and get name
     procedure                  :: setName
     procedure, non_overridable :: getName
 
     ! File reports and check status -> run-time procedures
     procedure :: computeVolumeWeightedSum
+    procedure :: flush
     procedure :: reportInColl
     procedure :: reportOutColl
     procedure :: reportPath
@@ -99,9 +95,9 @@ module tallyClerk_inter
     procedure :: isConverged
 
     ! Output procedures
-    procedure(display), deferred      :: display
-    procedure(print),deferred         :: print
-    procedure                         :: getResult
+    procedure(display), deferred :: display
+    procedure(print), deferred   :: print
+    procedure                    :: getResult
 
   end type tallyClerk
 
@@ -229,6 +225,18 @@ contains
     volumeWeightedSum = ZERO
 
   end function computeVolumeWeightedSum
+
+  !!
+  !!
+  !!
+  subroutine flush(self, memory)
+    class(tallyClerk), intent(in)    :: self
+    type(scoreMemory), intent(inout) :: memory
+    character(*), parameter          :: here = 'flush (tallyClerk_inter.f90)'
+
+    call fatalError(here, 'Unsupported procedure.')
+
+  end subroutine flush
 
   !!
   !! Process incoming collision report

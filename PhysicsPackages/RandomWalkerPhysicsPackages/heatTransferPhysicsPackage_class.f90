@@ -16,11 +16,15 @@ module heatTransferPhysicsPackage_class
   use randomWalker_class,         only : newRandomWalker, randomWalker
   use RNG_class,                  only : RNG
   use scalarField_inter,          only : getHeatSourceFieldPtr, scalarField
+  use tallyAdmin_class,           only : tallyAdmin
   use topologicalObject_inter,    only : topologicalObjectBox
   use transportOperatorWoS_class, only : transportOperatorWoS
   use universalVariables
   use unstructuredMesh_inter,     only : getCastUnstructuredMeshPtr, unstructuredMesh
   use vertex_class,               only : vertex, vertexBox
+
+  implicit none
+  private
 
   ! Parameters (for now).
   real(defReal), parameter :: conductivity = 27.0e-2_defReal ! W cm⁻¹ K⁻¹
@@ -32,11 +36,13 @@ module heatTransferPhysicsPackage_class
     private
     class(unstructuredMesh), pointer         :: unstructuredMeshPtr => null()
     real(defReal)                            :: convergenceCriterion = ZERO, surfaceTolerance = ZERO
-    real(defReal), dimension(:), allocatable :: parentErrors, parentSumOfScores, parentSumOfScoresSquared
-    type(RNG)                                :: rand 
+    real(defReal), dimension(:), allocatable :: means, parentErrors, parentSumOfScores, parentSumOfScoresSquared
+    type(RNG)                                :: rand
+    type(tallyAdmin), pointer                :: tallyPtr => null()
     type(transportOperatorWoS)               :: transportOperator
   contains
     procedure :: collectSpecificResults
+    procedure :: getMeans
     procedure :: init
     procedure :: kill
     procedure :: run
@@ -56,9 +62,27 @@ contains
   !!
   !!
   !!
+  pure function getMeans(self) result(means)
+    class(heatTransferPhysicsPackage), intent(in) :: self
+    real(defReal), dimension(:), allocatable      :: means
+
+    if (allocated(self % means)) then
+      means = self % means
+
+    else
+      allocate(means(0))
+
+    end if
+
+  end function getMeans
+
+  !!
+  !!
+  !!
   subroutine init(self, payload)
     class(heatTransferPhysicsPackage), intent(inout) :: self
     class(initPhysicsPackagePayload), intent(in)     :: payload
+    class(dictionary), pointer                       :: clerksDict, tallyDict
     class(geometry), pointer                         :: geometryPtr
     class(geometryMesh), pointer                     :: geometryMeshPtr
     class(mesh), pointer                             :: meshPtr
@@ -85,8 +109,8 @@ contains
     self % unstructuredMeshPtr => unstructuredMeshPtr
 
     nParentElements = self % unstructuredMeshPtr % getParentElementsNumber()
-    allocate(self % parentErrors(nParentElements), self % parentSumOfScores(nParentElements), &
-             self % parentSumOfScoresSquared(nParentElements))
+    allocate(self % means(nParentElements), self % parentErrors(nParentElements), &
+             self % parentSumOfScores(nParentElements), self % parentSumOfScoresSquared(nParentElements))
 
     ! Initialise RNG.
     call self % rand % init(self % getInitialSeed())
@@ -103,10 +127,14 @@ contains
     call kill_super(self)
 
     ! Local.
+    self % unstructuredMeshPtr => null()
     self % convergenceCriterion = ZERO
     self % surfaceTolerance = ZERO
+    if (allocated(self % means)) deallocate(self % means)
+    if (allocated(self % parentErrors)) deallocate(self % parentErrors)
     if (allocated(self % parentSumOfScores)) deallocate(self % parentSumOfScores)
     if (allocated(self % parentSumOfScoresSquared)) deallocate(self % parentSumOfScoresSquared)
+    self % tallyPtr => null()
     call self % transportOperator % kill()
 
   end subroutine kill
@@ -118,7 +146,7 @@ contains
     class(heatTransferPhysicsPackage), intent(inout) :: self
     integer(shortInt)                                :: elementIdx, i, nWalks, nTotalWalks
     integer(shortInt), dimension(:), allocatable     :: childrenIdxs
-    real(defReal)                                    :: accumulatedValue, mean, previousMean, randomNumber, variance
+    real(defReal)                                    :: accumulatedValue, mean, randomNumber, variance
     type(coordList), pointer                         :: coordsPtr
     type(elementBox)                                 :: box, childBox
     type(randomWalker)                               :: walker
@@ -128,6 +156,7 @@ contains
     print *, "/\/\ HEAT TRANSFER CALCULATION /\/\"
 
     ! Initialise variables.
+    self % means = ZERO
     self % parentErrors = INF
     self % parentSumOfScores = ZERO
     self % parentSumOfScoresSquared = ZERO
@@ -141,7 +170,6 @@ contains
         ! Loop until the error for this parent is below the convergence criterion.
         elementIdx = box % ptr % getIdx()
         nWalks = 0
-        previousMean = ZERO
         do while(self % convergenceCriterion < self % parentErrors(i))
           ! Generate a new random walker and check if the current parent element is active.
           walker = newRandomWalker()
@@ -180,15 +208,14 @@ contains
               mean = sum / nWalks
               variance = (sumOfSquares - sum * sum / nWalks) / ((nWalks - 1) * mean)
               self % parentErrors(i) = sqrt(variance / nWalks)
-              previousMean = mean
 
             end if
 
           end associate
 
         end do
-
-        print *, 'Mean:', self % parentSumOfScores(i) / nWalks
+        self % means(i) = self % parentSumOfScores(i) / nWalks
+        print *, 'Mean:', self % means(i)
 
       end if
 
@@ -207,7 +234,7 @@ contains
     class(heatTransferPhysicsPackage), intent(inout)      :: self
     type(randomWalker), intent(inout)                     :: walker
     class(scalarField), pointer                           :: heatSourceFieldPtr
-    integer(shortInt)                                     :: boundaryCondition, i, j, k, l
+    integer(shortInt)                                     :: boundaryCondition, i, j, nSharingElements
     real(defReal)                                         :: minDistance, mu, phi, remainingDistance, transmissionProbability, &
                                                              valueToAccumulate, dist
     real(defReal), dimension(2)                           :: coefficients
@@ -217,10 +244,8 @@ contains
     type(element), pointer                                :: chosenElementPtr, elementPtr, neighbourElementPtr
     type(elementBox)                                      :: box
     type(elementIntersectionTestResult)                   :: faceIntersectionResults
-    type(inclusionTestResult)                             :: inclusionResults
-    type(orientatedFaceBox), dimension(:), allocatable    :: faceBoxes, testBoxes
+    type(orientatedFaceBox), dimension(:), allocatable    :: faceBoxes
     type(topologicalObjectBox), dimension(:), allocatable :: sharingElements
-    type(vertexBox), dimension(:), allocatable            :: faceVertices, testVertices, thisFaceVertices
     character(*), parameter                               :: here = 'walk (heatTransferPhysicsPackage_class.f90)'
 
     ! Initialise isDead = .false.

@@ -1,0 +1,3 @@
+module temperatureResponse_class
+
+end module temperatureResponse_class

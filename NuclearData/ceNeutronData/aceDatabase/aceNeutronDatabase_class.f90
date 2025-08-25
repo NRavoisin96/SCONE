@@ -1146,7 +1146,7 @@ contains
 
     j = 1
     ! Loop over all nuclides
-    do i = 2,size(self % nuclides)
+    do i = 2, size(self % nuclides)
       ! Get the ZAID without temperature -> only compares the first 5 letters of the ZAID.TT string
       write(zaid,'(A5)') adjustl(self % nuclides(i) % ZAID)
       ! Create ZAID list and mapping
@@ -1252,8 +1252,126 @@ contains
   !!
   !!
   subroutine updateMaterialsProperties(self)
-    class(aceNeutronDatabase), intent(inout) :: self
+    class(aceNeutronDatabase), intent(inout)     :: self
+    class(scalarField), pointer                  :: temperatureFieldPtr
+    character(nameLen)                           :: name
+    integer(shortInt)                            :: i, idx, j, maxNuc, nMaterials
+    integer(shortInt), dimension(:), allocatable :: nucIdxs
+    real(defReal)                                :: A, alpha, eLower, eLowURR, eLowURRNuc, eUpper, eUpSab, eUpSabNuc, &
+                                                    joulesPerMeVPerkBoltzmann, kBoltzmannPerJoulesPerMeV, max_deltakT, &
+                                                    max_kT, min_deltakT, min_kT, nuckT, oneLessAlpha, onePlusAlpha
+    real(defReal), dimension(2)                  :: sabT
+    type(charMap)                                :: nucSet
+    type(materialItem), pointer                  :: mat
+    character(*), parameter                      :: here = 'updateMaterialProperties (aceNeutronDatabase_class.f90)'
+    integer(shortInt), parameter                 :: IN_SET = 1
 
+    ! Create list of all nuclides. Loop over materials
+    ! Find maximum number of nuclides: maxNuc
+    maxNuc = 0
+    nMaterials = mm_nMat()
+    do i = 1, nMaterials
+      mat => mm_getMatPtr(i)
+      maxNuc = max(maxNuc, size(mat % nuclides))
+
+      ! Add all nuclides in material to the map
+      do j = 1, size(mat % nuclides)
+        name = self % makeNuclideName(mat % nuclides(j))
+        call nucSet % add(name, IN_SET)
+
+      end do
+
+    end do
+    allocate(nucIdxs(maxNuc))
+
+    temperatureFieldPtr => getTemperatureFieldPtr()
+    do i = 1, nMaterials
+      mat => mm_getMatPtr(i)
+
+      ! Find if material temperature bounds are respected
+      kBoltzmannPerJoulesPerMeV = kBoltzmann / joulesPerMeV
+      joulesPerMeVPerkBoltzmann = ONE / kBoltzmannPerJoulesPerMeV
+      max_kT = kBoltzmannPerJoulesPerMeV * mat % T 
+      min_kt = max_kT
+      if (associated(temperatureFieldPtr)) then
+        max_kT = max(max_kT, kBoltzmannPerJoulesPerMeV * temperatureFieldPtr % getMaximumMaterialValue(mat % matIdx))
+        min_kT = min(min_kT, kBoltzmannPerJoulesPerMeV * temperatureFieldPtr % getMinimumMaterialValue(mat % matIdx))
+
+      end if
+      
+      ! Loop over nuclides
+      do j = 1, size(mat % nuclides)
+        name = self % makeNuclideName(mat % nuclides(j))
+        
+        ! Find nuclide definition to see if fissile
+        ! Also used for checking stochastic mixing bounds
+        nucIdxs(j) = nucSet % get(name)
+          
+        ! Check to ensure stochastic mixing temperature 
+        ! is bounded by Sab temperatures
+        if (mat % nuclides(j) % sabMix) then
+          sabT = self % nuclides(nucIdxs(j)) % getSabTBounds()
+          if (min_kT < sabT(1) .or. sabT(2) < max_kT) call fatalError(Here,&
+            'Material temperature must be bounded by the provided S(alpha,beta) data. '//&
+            'The minimum material temperature is: '//numToChar(min_kT * joulesPerMeVPerkBoltzmann)//&
+            'K and the maximum material temperature is: '//numToChar(max_kT * joulesPerMeVPerkBoltzmann)//&
+            'K. The data bounds are '//numToChar(sabT(1) * joulesPerMeVPerkBoltzmann)//&
+            'K and '//numToChar(sabT(2) * joulesPerMeVPerkBoltzmann)//'K.')
+
+        end if
+
+      end do
+
+      eUpSab = self % eBounds(1)
+      eLowURR = self % eBounds(2)
+
+      if (mat % hasTMS) then
+        ! Loop again to find energy limits of S(a,b) and URES for TMS applicability
+        do j = 1, size(mat % nuclides)
+          ! Find nuclide information
+          idx = nucIdxs(j)
+          nuckT = self % nuclides(idx) % getkT()
+          A = self % nuclides(idx) % getMass()
+          max_deltakT = max_kT - nuckT
+          min_deltakT = min_kT - nuckT
+
+          ! Call fatal error if material temperature is lower then base nuclide temperature
+          if (min_deltakT < ZERO) &
+          call fatalError(Here, 'Minimum material kT: '//numToChar(min_kT)//&
+                                ' must be greater than nuclear data kT: '//numToChar(nuckT)//'.')
+
+          ! Find nuclide upper S(a,b) energy
+          eUpSabNuc = max(self % nuclides(idx) % SabEl(2), self % nuclides(idx) % SabInel(2))
+
+          ! Find energy limits to define majorant calculation range
+          eUpper = ZERO
+          if (ZERO < eUpSabNuc) then
+            alpha = 4.0_defReal * sqrt(max_deltakT / (eUpSabNuc * A))
+            onePlusAlpha = ONE + alpha
+            eUpper = eUpSabNuc * onePlusAlpha * onePlusAlpha
+
+          end if
+          eUpSab  = max(eUpSab, eUpper)
+
+          eLowUrrNuc = self % nuclides(idx) % urrE(1)
+
+          eLower = self % eBounds(2)
+          if (eLowUrrNuc /= ZERO) then
+            alpha = 4.0_defReal * sqrt(max_deltakT / (eLowUrrNuc * A))
+            oneLessAlpha = max(ONE - alpha, ZERO)
+            eLower = eLowUrrNuc * oneLessAlpha * oneLessAlpha
+
+          end if
+          eLowURR = min(eLowURR, eLower)
+
+        end do
+
+      end if
+
+      ! Update material.
+      call self % materials(i) % set(eUpperSab = eUpSab, eLowerURR = eLowURR)
+
+    end do
 
   end subroutine updateMaterialsProperties
 

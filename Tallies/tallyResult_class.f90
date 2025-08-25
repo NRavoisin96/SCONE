@@ -34,10 +34,24 @@ module tallyResult_class
   !! var = tallyResultScalar(name, value, STD)
   !!
   type, public, extends(tallyResult) :: tallyResultScalar
-    character(nameLen) :: clerkName
-    real(defReal)      :: value
-    real(defReal)      :: STD
+    character(nameLen) :: clerkName = ''
+    real(defReal)      :: value = ZERO, STD = ZERO
   end type tallyResultScalar
+
+  !!
+  !!
+  !!
+  type, public, extends(tallyResult) :: tallyResultArray
+    character(nameLen)                       :: clerkName = '', responseName = ''
+    real(defReal), dimension(:), allocatable :: values, standardDeviations
+  end type tallyResultArray
+
+  !!
+  !!
+  !!
+  type, public, extends(tallyResult) :: tallyResultArrays
+    type(tallyResultArray), dimension(:), allocatable :: results
+  end type tallyResultArrays
 
   !!
   !! Class that is returned when there is no defined result
