@@ -65,7 +65,7 @@ contains
     real(defReal), dimension(3)                         :: currEdgeVector, extraRoom, n_xyzTarget, &
                                                            spacingComparison
     real(defReal)                                       :: maxCosValue, tempMaxCosValue, currEdgeLength, &
-                                                           residual
+                                                           residual, avgLength, factor
     integer(shortInt), dimension(:,:), allocatable      :: minExponent
 
     !!!
@@ -75,6 +75,7 @@ contains
     ! (needs to be changed) (change it so that it can be read from the inputfile?)
     ! (Currently, n_layers can be only either 2 or 3; to be updated)
     self % n_layers = 3
+    factor = 0.1
     allocate(minExponent(self % n_layers,3))
     allocate(self % spacing(self % n_layers))
     allocate(self % spacingInv(self % n_layers))
@@ -134,7 +135,8 @@ contains
     ! (needs to be changed) (can combine the procedure for coarsest and finest layers)
     ! set the target cartesian grid spacing for the coarsest layer
     ! important: we set and keep the spacing in all directions the same
-    self % spacing(1) = (self % l_min)*0.5*0.2
+    avgLength = calculateAvgEdgeLength(edges)
+    self % spacing(1) = avgLength*factor
     self % spacingInv(1) = 1/(self % spacing(1))
 
     ! calculate true cartesian grid spacing and number of cells for the coarsest layer

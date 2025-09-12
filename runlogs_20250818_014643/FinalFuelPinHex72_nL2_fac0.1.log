@@ -1,0 +1,78 @@
+  ><((((*>  ><((((*>  ><((((*>  ><((((*>  ><((((*>  ><((((*>  ><((((*>  ><((((*>  ><((((*>  ><((((*> 
+ 
+         _____ __________  _   ________  
+        / ___// ____/ __ \/ | / / ____/  
+        \__ \/ /   / / / /  |/ / __/     
+       ___/ / /___/ /_/ / /|  / /___     
+      /____/\____/\____/_/ |_/_____/     
+ 
+ 
+ Compiler Info :   GCC version 11.4.0
+ OpenMP Threads:    1
+
+  <*((((><  <*((((><  <*((((><  <*((((><  <*((((><  <*((((><  <*((((><  <*((((><  <*((((><  <*((((>< 
+ <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+ /\/\ READING GEOMETRY /\/\
+ Building Surfaces
+ DONE!
+ Building Cells
+ DONE!
+ Building Meshes
+ ----------------------------------------------------
+ /\/\ Cartesian grid parameters and mesh quality /\/\
+ Minimum angle                       :   0.78539816339744828     
+ Minimum edge length                 :    7.7500000000000013E-002
+ No. of vertices                     :          123
+ No. of edges                        :          310
+ No. of faces                        :          260
+ No. of elements                     :           72
+ No. of layers                       :            2
+ Grid spacing for coarsest           :    2.7829025785848449E-002
+ Grid spacing for finest             :    3.4786282232310561E-003
+ Grid size in xyz for coarsest       :           64          64          32
+ Grid size in xyz for finest         :          512         512         256
+ Grid lower bounds in xyz            :  -0.63000001000000005      -0.63000001000000005      -0.30000000999999998     
+ Grid upper bounds in xyz            :    1.1510576402943007        1.1510576402943007       0.59052881514715039     
+ ----------------------------------------------------
+ Starting the procedure to calculate number of cells for each type
+       25460    10799104        4158
+ <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+ Fatal has occurred in:
+ Init, cartesianGridCoarsest_class.f90
+
+ Because:
+ Terminating after printing the number of cells for each type. If not 
+ intended, comment these lines.
+ <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+ERROR STOP 
+
+Error termination. Backtrace:
+#0  0x7e5ff0c23960 in ???
+#1  0x7e5ff0c244d9 in ???
+#2  0x7e5ff0c25b47 in ???
+#3  0x57568d9a1eee in __errors_mod_MOD_fatalerror
+	at /home/daeyeun/MPhil_project/SCONE/SharedModules/errors_mod.f90:66
+#4  0x57568dac2837 in __cartesiangridcoarsest_class_MOD_init
+	at /home/daeyeun/MPhil_project/SCONE/DataStructures/CartesianGrid/CartesianGridMulti/cartesianGridCoarsest_class.f90:378
+#5  0x57568da924e6 in __patchmultiacceleration_class_MOD_init
+	at /home/daeyeun/MPhil_project/SCONE/Geometry/Meshes/UnstructuredMeshes/AccelerationStructures/patchMultiAcceleration_class.f90:506
+#6  0x57568da90357 in __unstructuredmesh_inter_MOD_init
+	at /home/daeyeun/MPhil_project/SCONE/Geometry/Meshes/UnstructuredMeshes/unstructuredMesh_inter.f90:526
+#7  0x57568da77da1 in __meshfactory_func_MOD_new_mesh_ptr
+	at /home/daeyeun/MPhil_project/SCONE/Geometry/Meshes/meshFactory_func.f90:72
+#8  0x57568da68823 in __meshshelf_class_MOD_init
+	at /home/daeyeun/MPhil_project/SCONE/Geometry/Meshes/meshShelf_class.f90:76
+#9  0x57568da4db09 in __csg_class_MOD_init
+	at /home/daeyeun/MPhil_project/SCONE/Geometry/csg_class.f90:119
+#10  0x57568da1e34e in __geometrystd_class_MOD_init
+	at /home/daeyeun/MPhil_project/SCONE/Geometry/geometryStd_class.f90:84
+#11  0x57568dacfd38 in __geometryfactory_func_MOD_new_geometry.constprop.0
+	at /home/daeyeun/MPhil_project/SCONE/Geometry/geometryFactory_func.f90:76
+#12  0x57568d9a33f0 in __eigenphysicspackage_class_MOD_init
+	at /home/daeyeun/MPhil_project/SCONE/PhysicsPackages/eigenPhysicsPackage_class.f90:461
+#13  0x57568d9a9ae8 in __physicspackagefactory_func_MOD_new_physicspackage
+	at /home/daeyeun/MPhil_project/SCONE/PhysicsPackages/physicsPackageFactory_func.f90:73
+#14  0x57568d999ad9 in scone
+	at /home/daeyeun/MPhil_project/SCONE/Apps/scone.f90:53
+#15  0x57568d9995ce in main
+	at /home/daeyeun/MPhil_project/SCONE/Apps/scone.f90:3

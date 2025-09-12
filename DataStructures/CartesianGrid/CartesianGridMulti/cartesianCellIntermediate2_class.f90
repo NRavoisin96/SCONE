@@ -7,7 +7,6 @@ module cartesianCellIntermediate2_class
   use faceShelf_class,                 only : faceShelf
   use cartesianInitProcedures
   use cartesianGridSubLayer_inter,     only : cartesianGridSubLayer
-  use cartesianGridIntermediate3_class,only : cartesianGridIntermediate3
   use cartesianGridFinest_class,       only : cartesianGridFinest
   use genericProcedures,               only : append, fatalError
 
@@ -84,11 +83,11 @@ contains
     if (self % chi == 0) then
 
       ! (needs to be changed) (pointers cannot point to the same class)
-      if (n_layers > currLayer+1) then 
-        allocate(cartesianGridIntermediate3:: self % subGrid)
-      else
+      ! if (n_layers > currLayer+1) then 
+      !   allocate(cartesianGridIntermediate3:: self % subGrid)
+      ! else
         allocate(cartesianGridFinest:: self % subGrid)
-      end if
+      ! end if
 
       call self % subgrid % init(vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
                                  currLayer + 1, candidateElementIdxs, newGridBoundsMin, alpha, wStar)

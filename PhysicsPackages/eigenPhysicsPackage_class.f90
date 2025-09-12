@@ -301,6 +301,7 @@ contains
     print*, "/\/\ In-cycle procedure time /\/\"
     print*, "CPU  time: ", t2 - t1, " seconds"
     print*, "Wall time: ", trim(secToChar(timerTime(timerIdx)))
+    call tally % display()
     print*, "-------------------------------------------------------------"
 
     ! Load elapsed time

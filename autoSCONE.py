@@ -17,38 +17,25 @@ from typing import Dict, List, Tuple
 
 # ───────────── USER-EDITABLE CONTROL PANEL ─────────────
 POP_VALUES  = [
-    500,
-    1000,
-    1500,
-    2000,
-    2500,
-    3000,
-    3500,
-    4000,
-    4500,
-    5000,
-    5500,
-    6000,
-    6500,
-    7000,
-    8000,
-    9000,
-    10000,
-    15000,
-    20000,
-    40000,
-    60000,
-    80000, 
-    100000,
-    150000
+1000,
+4000,
+7000,
+10000,
+15000,
+30000,
+50000,
+75000,
+110000,
+150000
+
 ]
 ACCEL       = ["patchSingle", "octree"]
 GEOM_CASES  = [
     # polyhedral
-    "FinalFuelPinHex72",  "FinalFuelPinHex243", "FinalFuelPinHex576",
-    "FinalFuelPinHex1125","FinalFuelPinHex1944","FinalFuelPinHex3087",
-    "FinalFuelPinHex4608","FinalFuelPinPoly264","FinalFuelPinPoly436",
-    "FinalFuelPinPoly468","FinalFuelPinPoly940","FinalFuelPinPoly1560",
+    # "FinalFuelPinHex72",  "FinalFuelPinHex243", "FinalFuelPinHex576",
+    # "FinalFuelPinHex1125","FinalFuelPinHex1944","FinalFuelPinHex3087",
+    # "FinalFuelPinHex4608","FinalFuelPinPoly264","FinalFuelPinPoly436",
+    # "FinalFuelPinPoly468","FinalFuelPinPoly940","FinalFuelPinPoly1560",
     # tetrahedral
     "FinalFuelPinTet137", "FinalFuelPinTet298",
     "FinalFuelPinTet427", "FinalFuelPinTet660",
@@ -118,7 +105,7 @@ def main()->None:
     if not EXEC.exists(): sys.exit(f"Executable missing: {EXEC}")
     originals=_load_decks()
 
-    csv_path = BASE / f"scone_benchmark_{dt.datetime.now():%Y%m%d_%H%M%S}.csv"
+    csv_path = BASE / f"scone_benchmarkSeed1_{dt.datetime.now():%Y%m%d_%H%M%S}.csv"
     with csv_path.open("w", newline="") as fh:
         writer = csv.DictWriter(fh, fieldnames=FIELDS)
         writer.writeheader()

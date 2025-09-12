@@ -15,8 +15,8 @@ from pathlib import Path
 from typing import List, Tuple
 
 # ─────────────── CONTROL PANEL ──────────────────────────────────
-FACES_VALUES   = [4, 7, 9]    # outer loop
-REFINE_VALUES  = [8, 10]                     # inner loop
+FACES_VALUES   = [1, 4, 7, 9, 11, 13, 15, 17, 19]    # outer loop
+REFINE_VALUES  = [2, 4, 6, 8, 10, 12, 14, 16, 18]                     # inner loop
 
 BASE_DIR   = Path(__file__).resolve().parent      # /home/dk725/SCONE/SCONE
 BUILD_DIR  = BASE_DIR / "Build"

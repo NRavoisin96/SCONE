@@ -179,6 +179,7 @@ contains
     call self % gridFinitePrecision(vertices, faces, elements) 
     call self % setGridIsOutsideMesh()
 
+    print*, "average edge length", calculateAvgEdgeLength(edges)
     ! Finding the distribution of valence of vertices/edges (for extra analysis).
     ! call self % vertexValenceDistribution(vertices)
     ! call self % edgeValenceDistribution(edges)
