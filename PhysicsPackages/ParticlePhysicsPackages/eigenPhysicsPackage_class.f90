@@ -121,8 +121,13 @@ contains
     ! Display progress
     call printFishLineR(cycleNumber)
     print *
-    print *, 'Cycle: ', numToChar(cycleNumber), ' of ', &
-    merge(numToChar(self % N_inactive), numToChar(self % getCyclesNumber()), self % inactiveCycles)
+    if (self % inactiveCycles) then
+      print *, 'Cycle: ', numToChar(cycleNumber), ' of ', numToChar(self % N_inactive)
+
+    else
+      print *, 'Cycle: ', numToChar(cycleNumber), ' of ', numToChar(self % getCyclesNumber())
+
+    end if
     print *, 'Pop: ', numToChar(nInitialParticles) , ' -> ', numToChar(nFinalParticles)
     print *, 'Elapsed time: ', trim(secToChar(elapsedTime))
     print *, 'End time:     ', trim(secToChar(endTime))

@@ -35,13 +35,15 @@ module heatTransferPhysicsPackage_class
   type, public, extends(physicsPackage)      :: heatTransferPhysicsPackage
     private
     class(unstructuredMesh), pointer         :: unstructuredMeshPtr => null()
+    integer(shortInt)                        :: nRuns = 0
     real(defReal)                            :: convergenceCriterion = ZERO, surfaceTolerance = ZERO
-    real(defReal), dimension(:), allocatable :: means, parentErrors, parentSumOfScores, parentSumOfScoresSquared
+    real(defReal), dimension(:), allocatable :: means, parentErrors, parentSumOfScores, parentSumOfScoresSquared, variances
     type(RNG)                                :: rand
     type(tallyAdmin), pointer                :: tallyPtr => null()
     type(transportOperatorWoS)               :: transportOperator
   contains
     procedure :: collectSpecificResults
+    procedure :: flushResults
     procedure :: getMeans
     procedure :: init
     procedure :: kill
@@ -58,6 +60,18 @@ contains
     type(outputFile), intent(inout)               :: out
 
   end subroutine collectSpecificResults
+
+  !!
+  !!
+  !!
+  subroutine flushResults(self)
+    class(heatTransferPhysicsPackage), intent(inout) :: self
+
+    self % means = ZERO
+    self % variances = ZERO
+    self % nRuns = 0
+
+  end subroutine flushResults
 
   !!
   !!
@@ -82,9 +96,7 @@ contains
   subroutine init(self, payload)
     class(heatTransferPhysicsPackage), intent(inout) :: self
     class(initPhysicsPackagePayload), intent(in)     :: payload
-    class(dictionary), pointer                       :: clerksDict, tallyDict
     class(geometry), pointer                         :: geometryPtr
-    class(geometryMesh), pointer                     :: geometryMeshPtr
     class(mesh), pointer                             :: meshPtr
     class(unstructuredMesh), pointer                 :: unstructuredMeshPtr
     integer(shortInt)                                :: nParentElements
@@ -99,18 +111,24 @@ contains
 
     ! Retrieve pointer to mesh geometry (hardcoded for now).
     geometryPtr => self % getGeometryPtr()
-    geometryMeshPtr => getGeometryMeshPtr(geometryPtr)
-    if (.not. associated(geometryMeshPtr)) call fatalError(here, 'Only mesh geometries are currently supported.')
 
     ! Retrieve number of parent elements in the mesh geometry and allocate memory.
-    meshPtr => geometryMeshPtr % getMeshPtr(1)
+    meshPtr => geometryPtr % getMeshPtr(1)
     unstructuredMeshPtr => getCastUnstructuredMeshPtr(meshPtr)
     if (.not. associated(unstructuredMeshPtr)) call fatalError(here, 'Unable to retrieve unstructured mesh pointer.')
     self % unstructuredMeshPtr => unstructuredMeshPtr
 
     nParentElements = self % unstructuredMeshPtr % getParentElementsNumber()
     allocate(self % means(nParentElements), self % parentErrors(nParentElements), &
-             self % parentSumOfScores(nParentElements), self % parentSumOfScoresSquared(nParentElements))
+             self % parentSumOfScores(nParentElements), self % parentSumOfScoresSquared(nParentElements), &
+             self % variances(nParentElements))
+
+    ! Initialise variables.
+    self % means = ZERO
+    self % parentErrors = INF
+    self % parentSumOfScores = ZERO
+    self % parentSumOfScoresSquared = ZERO
+    self % variances = ZERO
 
     ! Initialise RNG.
     call self % rand % init(self % getInitialSeed())
@@ -146,7 +164,7 @@ contains
     class(heatTransferPhysicsPackage), intent(inout) :: self
     integer(shortInt)                                :: elementIdx, i, nWalks, nTotalWalks
     integer(shortInt), dimension(:), allocatable     :: childrenIdxs
-    real(defReal)                                    :: accumulatedValue, mean, randomNumber, variance
+    real(defReal)                                    :: accumulatedValue, mean, previousMean, randomNumber, variance
     type(coordList), pointer                         :: coordsPtr
     type(elementBox)                                 :: box, childBox
     type(randomWalker)                               :: walker
@@ -155,13 +173,12 @@ contains
     print *, repeat("<>", 50)
     print *, "/\/\ HEAT TRANSFER CALCULATION /\/\"
 
-    ! Initialise variables.
-    self % means = ZERO
     self % parentErrors = INF
     self % parentSumOfScores = ZERO
     self % parentSumOfScoresSquared = ZERO
 
     ! Loop over all regions.
+    self % nRuns = self % nRuns + 1
     nTotalWalks = 0
     do i = 1, self % unstructuredMeshPtr % getElementsNumber()
       ! Retrieve current element. Check if it is a parent element.
@@ -170,6 +187,7 @@ contains
         ! Loop until the error for this parent is below the convergence criterion.
         elementIdx = box % ptr % getIdx()
         nWalks = 0
+        previousMean = ZERO
         do while(self % convergenceCriterion < self % parentErrors(i))
           ! Generate a new random walker and check if the current parent element is active.
           walker = newRandomWalker()
@@ -204,22 +222,33 @@ contains
             sumOfSquares = sumOfSquares + accumulatedValue * accumulatedValue
 
             ! Update standard error for current parent.
-            if (100 < nWalks) then
+            if (2000 < nWalks) then
               mean = sum / nWalks
-              variance = (sumOfSquares - sum * sum / nWalks) / ((nWalks - 1) * mean)
-              self % parentErrors(i) = sqrt(variance / nWalks)
+              variance = (sumOfSquares - sum * mean) / (nWalks - 1)
+              self % parentErrors(i) = abs((mean - previousMean) / mean)
+              previousMean = mean
 
             end if
 
           end associate
 
         end do
-        self % means(i) = self % parentSumOfScores(i) / nWalks
-        print *, 'Mean:', self % means(i)
+
+        previousMean = self % means(i)
+        self % means(i) = self % means(i) + (mean - self % means(i)) / self % nRuns
+        if (1 < self % nRuns) then
+          self % variances(i) = (self % variances(i) + (mean - previousMean) * (mean - self % means(i))) / (self % nRuns - 1)
+
+        end if
+
+        print *, 'Temperature:', self % means(i), '+/-', self % variances(i)
+        print *, 'Number of walks:', nWalks
 
       end if
 
     end do
+
+    print *, 'Total number of walks:', nTotalWalks
 
     print *
     print *, "\/\/ END OF HEAT TRANSFER CALCULATION \/\/"

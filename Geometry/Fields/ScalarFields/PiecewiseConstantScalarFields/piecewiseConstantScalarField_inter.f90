@@ -8,7 +8,7 @@ module piecewiseConstantScalarField_inter
   private
 
   ! Public procedures.
-  public :: kill
+  public :: kill, setValues
 
   !!
   !!

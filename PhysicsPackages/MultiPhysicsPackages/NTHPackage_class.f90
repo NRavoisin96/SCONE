@@ -56,6 +56,7 @@ contains
                                                     inactiveTalliesDict, packagesDict
     class(scalarField), pointer                  :: heatSourceFieldPtr, temperatureFieldPtr
     type(initParticlePhysicsPackagePayload)      :: neutronicPackagePayload
+    type(initPhysicsPackagePayload)              :: heatTransgerPackagePayload
     character(*), parameter                      :: here = 'init (NTHPackage_class.f90)'
 
     ! Initialise superclass.
@@ -123,7 +124,10 @@ contains
     call copyPayload(payload, neutronicPackagePayload)
     neutronicPackagePayload % dict => currentPackageDict
     call self % neutronicsPackage % init(neutronicPackagePayload)
-    call self % heatTransferPackage % init(payload)
+    
+    call copyPayload(payload, heatTransgerPackagePayload)
+    heatTransgerPackagePayload % dict => packagesDict % getDictPtr('heatTransfer')
+    call self % heatTransferPackage % init(heatTransgerPackagePayload)
 
   end subroutine init
 
@@ -224,7 +228,6 @@ contains
           if (.not. allocated(ptr % results)) call fatalError(here, 'Empty tally results.')
           do j = 1, size(ptr % results)
             if (ptr % results(j) % clerkName == 'fissionPower') then
-              print *, sum(ptr % results(j) % values)
               call heatSourceFieldPtr % setValues(ptr % results(j) % values)
 
             end if
@@ -241,8 +244,9 @@ contains
       call temperatureFieldPtr % setValues(self % heatTransferPackage % getMeans())
 
       ! Update neutronics package nuclear data using the new temperature field and flush tallies.
-      call self % neutronicsPackage % updateNuclearData()
+      !call self % neutronicsPackage % updateNuclearData()
       if (flushResults) then
+        call self % heatTransferPackage % flushResults()
         call tallyAdminPtr % flush('fissionPower')
 
       end if

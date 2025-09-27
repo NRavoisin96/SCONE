@@ -143,7 +143,15 @@ contains
     ! Set cellIdx to the index of the CSG cell, then find elementIdx and localId within mesh.
     data % cellIdx = self % cell % idx
     call self % mesh % ptr % findHostElement(data)
-    data % localId = merge(data % localId + 1, data % localId, 0 < data % elementIdx)
+    if (0 < data % elementIdx) then
+      data % localId = data % localId + 1
+      data % meshIdx = self % mesh % idx
+
+    else
+      data % localId = 1
+      data % meshIdx = 0
+
+    end if
 
   end subroutine findCell
   
@@ -159,7 +167,15 @@ contains
     ! Initialise surfIdx = 0 and compute distance to next mesh crossing. Also check if particle is
     ! inside the mesh.
     call self % mesh % ptr % distance(data)
-    data % localId = merge(data % localId + 1, data % localId, 0 < data % elementIdx)
+    if (0 < data % elementIdx) then
+      data % localId = data % localId + 1
+      data % meshIdx = self % mesh % idx
+
+    else
+      data % localId = 1
+      data % meshIdx = 0
+
+    end if
     
     ! If particle is outside the mesh then compute distance to the next CSG surface crossing.
     if (.not. data % isInside) call self % cell % ptr % distance(data % d, data % surfaceIdx, data % r, data % u)

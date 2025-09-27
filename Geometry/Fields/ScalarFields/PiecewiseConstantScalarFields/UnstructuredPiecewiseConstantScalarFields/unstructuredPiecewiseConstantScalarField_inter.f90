@@ -11,7 +11,7 @@ module unstructuredPiecewiseConstantScalarField_inter
   use materialMenu_mod,                   only : nMat
   use mesh_inter,                         only : mesh
   use numPrecision
-  use piecewiseConstantScalarField_inter, only : kill_super => kill, piecewiseConstantScalarField
+  use piecewiseConstantScalarField_inter, only : kill_super => kill, piecewiseConstantScalarField, setValues_super => setValues
   use universalVariables,                 only : INF
   use unstructuredMesh_inter,             only : getCastUnstructuredMeshPtr, unstructuredMesh
 
@@ -33,6 +33,7 @@ module unstructuredPiecewiseConstantScalarField_inter
     procedure                           :: init
     procedure                           :: kill
     procedure(retrieveValues), deferred :: retrieveValues
+    procedure                           :: setValues
   end type unstructuredPiecewiseConstantScalarField
 
   abstract interface
@@ -179,5 +180,41 @@ contains
     call self % activeElementIdxToParentElementIdxMap % kill()
 
   end subroutine kill
+
+  !!
+  !!
+  !!
+  subroutine setValues(self, values)
+    class(unstructuredPiecewiseConstantScalarField), intent(inout) :: self
+    real(defReal), dimension(:), intent(in)                        :: values
+    integer(shortInt)                                              :: i, materialIdx, nMaterials
+    integer(shortInt), dimension(:), allocatable                   :: localIdsToMaterialIdxs
+    real(defReal), dimension(:), allocatable                       :: maximumMaterialValues, minimumMaterialValues
+    type(elementBox)                                               :: element
+
+    ! Set values from superclass.
+    call setValues_super(self, values)
+
+    ! Loop through all parent elements and find maximum field value for all materials.
+    localIdsToMaterialIdxs = self % meshPtr % getLocalIdsToMaterialIdxs()
+    nMaterials = nMat()
+    allocate(maximumMaterialValues(nMaterials), minimumMaterialValues(nMaterials))
+    maximumMaterialValues = -INF
+    minimumMaterialValues = INF
+    do i = 1, self % meshPtr % getElementsNumber()
+      element = self % meshPtr % getElementBox(i)
+      if (element % ptr % getParentIdx() == 0) then
+        ! The current element is a parent element. Retrieve its localId and update maximum value for its material.
+        materialIdx = localIdsToMaterialIdxs(element % ptr % getLocalId())
+        maximumMaterialValues(materialIdx) = max(maximumMaterialValues(materialIdx), self % getValue(element % ptr % getIdx()))
+        minimumMaterialValues(materialIdx) = min(minimumMaterialValues(materialIdx), self % getValue(element % ptr % getIdx()))
+
+      end if
+
+    end do
+    call self % setMaximumMaterialValues(maximumMaterialValues)
+    call self % setMinimumMaterialValues(minimumMaterialValues)
+
+  end subroutine setValues
 
 end module unstructuredPiecewiseConstantScalarField_inter
