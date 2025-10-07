@@ -1,16 +1,16 @@
 seed = 1;
-pop = 500;
+pop = 100000;
 Inactive_Cycles = 50;
 Active_Cycles = 50;
-Total_CPU_Time = 1.12502E+02;
-Total_Transport_Time = 1.58642E+00;
+Total_CPU_Time = 3.79465E+02;
+Total_Transport_Time = 3.77025E+02;
 inactive_batchSize = 1;
 batchSize = 1;
-keff_IMP_PROD = [ 7.78120E+02,3.65168E+00];
-keff_IMP_ABS = [ 5.00169E+02,2.08624E+00];
-keff_SCATTER_PROD = [ 1.44000E+00,2.14114E-01];
+keff_IMP_PROD = [ 1.57407E+05,5.63252E+01];
+keff_IMP_ABS = [ 1.00293E+05,3.33517E+01];
+keff_SCATTER_PROD = [ 2.87000E+02,2.20685E+00];
 keff_ANA_LEAK = [ 0.00000E+00,0.00000E+00];
-keff_K_EFF = [ 1.56023E+00,3.59717E-03];
+keff_K_EFF = [ 1.57397E+00,2.13994E-04];
 active_batchSize = 1;
-active_k_eff_k_analog = [ 1.55671E+00,9.32404E-03];
+active_k_eff_k_analog = [ 1.57450E+00,6.50791E-04];
 

@@ -8,6 +8,7 @@ module cartesianGridIntermediate2_class
   use cartesianCellIntermediate2_class,        only : cartesianCellIntermediate2
   use numPrecision   
   use cartesianGenericProcedures
+  use ragged3dMatrix_class,                    only : ragged3d
 
   implicit none
   private
@@ -24,8 +25,10 @@ module cartesianGridIntermediate2_class
 
     ! Build procedures
     procedure                                    :: init
+    procedure                                    :: initt
     procedure                                    :: constructMapping
     procedure                                    :: refineGrid
+    procedure                                    :: constructMappingNRefineGrid
     ! Runtime procedures
     procedure                                    :: getGridChi
     procedure                                    :: getGridPhi
@@ -69,6 +72,44 @@ contains
                            currLayer, candidateElementIdxs, gridBoundsMin, localNxyz, alpha, wStar)
 
   end subroutine
+
+  !!
+  !!
+  !!
+  subroutine initt(self, vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
+                   currLayer, intersectedFaceIdxs, gridBoundsMin, alpha, wStar, &
+                   extraDistanceArr, candidateElementIdxs, normalSignsMat, &
+                   circumscribedBallRadius, targetDistance, targetDistanceSqr)
+    class(cartesianGridIntermediate2), intent(inout)     :: self
+    class(vertexShelf), intent(in)                      :: vertices
+    class(edgeShelf), intent(inout)                     :: edges
+    class(faceShelf), intent(inout)                     :: faces
+    class(elementShelf), intent(in)                     :: elements
+    real(defReal), dimension(:), intent(in)             :: spacing, spacingInv
+    integer(shortInt), dimension(:,:), intent(in)       :: n_xyz
+    integer(shortInt), intent(in)                       :: n_layers, currLayer
+    integer(shortInt), dimension(:), intent(in)         :: intersectedFaceIdxs, candidateElementIdxs
+    real(defReal), dimension(3), intent(in)             :: gridBoundsMin
+    real(defReal), intent(in)                           :: alpha, wStar, circumscribedBallRadius, targetDistance, &
+                                                           targetDistanceSqr
+    real(defReal), dimension(:), intent(in)             :: extraDistanceArr
+    type(ragged3d), intent(in)                          :: normalSignsMat
+    integer(shortInt), dimension(3)                     :: localNxyz
+    integer(shortInt)                                   :: i
+
+    ! calculate local number of cells 
+    do i = 1, 3
+      localNxyz(i) = n_xyz(currLayer,i)/n_xyz(currLayer-1,i)
+    end do
+
+    ! construct mapping and refine further
+    allocate(self % grid(localNxyz(1), localNxyz(2), localNxyz(3)))
+    call self % constructMappingNRefineGrid(vertices, edges, faces, elements, spacing, spacingInv, &
+          n_xyz, n_layers, currLayer, intersectedFaceIdxs, gridBoundsMin, localNxyz, alpha, wStar, &
+          extraDistanceArr, candidateElementIdxs, normalSignsMat, &
+          circumscribedBallRadius, targetDistance, targetDistanceSqr)
+
+  end subroutine initt
 
   !!
   !!
@@ -176,6 +217,51 @@ contains
 
   end subroutine refineGrid
 
+  !!
+  !!
+  !!
+  subroutine constructMappingNRefineGrid(self, vertices, edges, faces, elements, spacing, spacingInv, &
+                   n_xyz, n_layers, currLayer, intersectedFaceIdxs, gridBoundsMin, localNxyz, alpha, wStar, &
+                   extraDistanceArr, candidateElementIdxs, normalSignsMat, &
+                   circumscribedBallRadius, targetDistance, targetDistanceSqr)
+    class(cartesianGridIntermediate2), intent(inout)     :: self
+    class(vertexShelf), intent(in)                      :: vertices
+    class(edgeShelf), intent(inout)                     :: edges
+    class(faceShelf), intent(inout)                     :: faces
+    class(elementShelf), intent(in)                     :: elements
+    real(defReal), dimension(:), intent(in)             :: spacing, spacingInv
+    integer(shortInt), dimension(:,:), intent(in)       :: n_xyz
+    integer(shortInt), intent(in)                       :: n_layers, currLayer
+    integer(shortInt), dimension(:), intent(in)         :: intersectedFaceIdxs, candidateElementIdxs
+    real(defReal), dimension(3), intent(in)             :: gridBoundsMin
+    integer(shortInt), dimension(3), intent(in)         :: localNxyz
+    real(defReal), intent(in)                           :: alpha, wStar, circumscribedBallRadius, targetDistance, &
+                                                           targetDistanceSqr
+    real(defReal), dimension(:), intent(in)             :: extraDistanceArr
+    type(ragged3d), intent(in)                          :: normalSignsMat
+    integer(shortInt)                                   :: i, j, k
+    real(defReal), dimension(3)                         :: newGridBoundsMin
+
+    do i = 1, localNxyz(1)
+      do j = 1, localNxyz(2)
+        do k = 1, localNxyz(3)
+
+          ! (needs to be changed) (store newGridBoundsMin info)
+          newGridBoundsMin(1) = (gridBoundsMin(1)) + (spacing(currLayer)) * (i-1)
+          newGridBoundsMin(2) = (gridBoundsMin(2)) + (spacing(currLayer)) * (j-1)
+          newGridBoundsMin(3) = (gridBoundsMin(3)) + (spacing(currLayer)) * (k-1)
+
+          call self % grid(i,j,k) % constructNRefineCell(vertices, edges, faces, elements, spacing, &
+                   spacingInv, n_xyz, n_layers, currLayer, intersectedFaceIdxs, gridBoundsMin, alpha, &
+                   wStar, extraDistanceArr, candidateElementIdxs, normalSignsMat, &
+                   circumscribedBallRadius, targetDistance, targetDistanceSqr)
+                                               
+        end do
+      end do
+    end do
+
+  end subroutine constructMappingNRefineGrid
+
 !&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 ! bit-trick (not saving)
 !&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
@@ -248,6 +334,8 @@ contains
     integer(shortInt)                                   :: chi
 
     cellIdxsMat(currLayer,:) = getLocalIdx(baseIntegerCoord, shift(currLayer,:), mask(currLayer,:))
+
+    ! print*, "intermediate2"
 
     chi = self % grid(cellIdxsMat(currLayer,1), cellIdxsMat(currLayer,2), cellIdxsMat(currLayer,3)) &
                                          % getChi(baseIntegerCoord,shift,mask,currLayer, cellIdxsMat)

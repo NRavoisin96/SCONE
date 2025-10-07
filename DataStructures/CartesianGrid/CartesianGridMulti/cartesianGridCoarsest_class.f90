@@ -9,6 +9,7 @@ module cartesianGridCoarsest_class
   use cartesianCellCoarsest_class,     only : cartesianCellCoarsest
   use cartesianGenericProcedures
   use genericProcedures,               only : fatalError
+  use cartesianInitProcedures,         only : setFaceParameters, fixFaceElementIdxsOrder
 
   implicit none
   private
@@ -18,7 +19,9 @@ module cartesianGridCoarsest_class
   !! stores information for all layers because non-coarsest layers have multiple of them per layer due to the adaptive-refinement 
   type, public                                                  :: cartesianGridCoarsest
     private
-    real(defReal)                                               :: alpha = ZERO, l_min = ZERO, wStar = ZERO
+    real(defReal)                                               :: alpha = ZERO, l_min = ZERO, wStar = ZERO, &
+                                                                   circumscribedBallRadius = ZERO, targetDistance = ZERO, &
+                                                                   targetDistanceSqr = ZERO
     real(defReal), dimension(:), allocatable                    :: spacing, spacingInv
     real(defReal), dimension(3)                                 :: gridBounds_max = ZERO, gridBounds_min = ZERO, &
                                                                    meshBounds_max = ZERO, meshBounds_min = ZERO
@@ -35,6 +38,7 @@ module cartesianGridCoarsest_class
     procedure                               :: constructMapping
     procedure                               :: setGridIsOutsideMesh
     procedure                               :: refineGrid
+    procedure                               :: setChiSingleFace !""
     ! Runtime procedures
     procedure                               :: getGridBounds_min
     procedure                               :: getSpacingReciprocal
@@ -68,13 +72,90 @@ contains
                                                            residual, avgLength, factor
     integer(shortInt), dimension(:,:), allocatable      :: minExponent
 
+    ! print*, "££££££££££££££££££££££££££££££££££££££££££££££££££££"
+    ! currEdgeVertexIdxs = elements % getElementFaceIdxs(146)
+    ! do i = 1, size(currEdgeVertexIdxs)
+    !   print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+    !   print*, "faceIdx", currEdgeVertexIdxs(i)
+    !   print*, "elementIdxs", faces % getFaceElementIdxs(abs(currEdgeVertexIdxs(i)))
+    ! end do
+
+    ! print*, "££££££££££££££££££££££££££££££££££££££££££££££££££££"
+    ! currEdgeVertexIdxs = elements % getElementFaceIdxs(131)
+    ! do i = 1, size(currEdgeVertexIdxs)
+    !   print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+    !   print*, "faceIdx", currEdgeVertexIdxs(i)
+    !   print*, "elementIdxs", faces % getFaceElementIdxs(abs(currEdgeVertexIdxs(i)))
+    ! end do
+
+    ! print*, "££££££££££££££££££££££££££££££££££££££££££££££££££££"
+    ! currEdgeVertexIdxs = elements % getElementFaceIdxs(127)
+    ! do i = 1, size(currEdgeVertexIdxs)
+    !   print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+    !   print*, "faceIdx", currEdgeVertexIdxs(i)
+    !   print*, "elementIdxs", faces % getFaceElementIdxs(abs(currEdgeVertexIdxs(i)))
+    ! end do
+
+    ! print*, "££££££££££££££££££££££££££££££££££££££££££££££££££££"
+    ! currEdgeVertexIdxs = elements % getElementFaceIdxs(176)
+    ! do i = 1, size(currEdgeVertexIdxs)
+    !   print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+    !   print*, "faceIdx", currEdgeVertexIdxs(i)
+    !   print*, "elementIdxs", faces % getFaceElementIdxs(abs(currEdgeVertexIdxs(i)))
+    ! end do
+
+    ! print*, "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$"
+    ! print*, vertices % getVertexCoordinates(92)
+    ! currEdgeVertexIdxs = edges % getEdgeVertexIdxs(395)
+    ! print*, currEdgeVertexIdxs
+    ! print*, vertices % getVertexCoordinates(currEdgeVertexIdxs(1))
+    ! print*, vertices % getVertexCoordinates(currEdgeVertexIdxs(2))
+
     !!!
     !integer(shortInt) :: baseIntegerCoord, globalIdx
     !!!
 
+    !""
+    ! currEdgeVertexIdxs = [3,5,6, 2354, 2,1,5,7,23,6,1,76,86,23,9]
+    ! call quickSort(currEdgeVertexIdxs,1,size(currEdgeVertexIdxs))
+    ! print*, currEdgeVertexIdxs
+    ! call fatalError("as","as")
+    !""
+
+    ! currEdgeVertexIdxs = [1,2,7,7,7,5,5,9,8,3,1,3,3,3]
+    ! print*, sortByHighestFrequency(currEdgeVertexIdxs)
+    ! call fatalError("asdf", "asdf")
+
+    ! integer(shortInt), dimension(:), allocatable :: temp
+    ! do i = 1, elements % getSize()
+    !   print*, "---------------------------------------------------------------"
+    !   print*, elements % getElementCentroid(i)
+    !   if (allocated(temp)) deallocate(temp)
+    !   temp = elements % getElementVertexIdxs(i)
+    !   do j = 1, size(temp)
+    !     print*, vertices % getVertexCoordinates(temp(j))
+    !   end do
+
+    ! end do
+
+    ! do i = 1, faces % getSize()
+    !   print*, i
+    !   print*, faces % getFaceElementIdxs(i)
+
+    ! end do
+
+    ! currEdgeVertexIdxs = [1,3,5,6,8,22,456,565]
+    ! print*, intBinarySearch(currEdgeVertexIdxs, 6)
+    ! print*, intBinarySearch(currEdgeVertexIdxs, 8)
+    ! print*, intBinarySearch(currEdgeVertexIdxs, 22)
+    ! print*, intBinarySearch(currEdgeVertexIdxs, 456)
+    ! print*, intBinarySearch(currEdgeVertexIdxs, 565)
+
+    ! call fatalError("as", "as")
+
     ! (needs to be changed) (change it so that it can be read from the inputfile?)
     ! (Currently, n_layers can be only either 2 or 3; to be updated)
-    self % n_layers = 3
+    self % n_layers = 2
     factor = 0.1
     allocate(minExponent(self % n_layers,3))
     allocate(self % spacing(self % n_layers))
@@ -84,14 +165,32 @@ contains
     allocate(self % mask(self % n_layers,3))
     allocate(self % nSub_xyz(self % n_layers,3))   !!!!!
 
+    ! !-----------------------------------------------------------------------------------------
+    ! ! calculate constants for each face and assign them.
+    ! ! (constant = dot(any point on the plane ⊥ the face, face normal))
+    ! ! (needs to be changed) (set this value in other place and intent(in) not intent(inout))
+    ! !-----------------------------------------------------------------------------------------
+    ! do i = 1, faces % getSize()
+    !   call faces % setFaceConst(i, dot_product(faces % getFaceNormal(i), faces % getFaceCentroid(i))*(-1))
+    ! end do
+
     !-----------------------------------------------------------------------------------------
-    ! calculate constants for each face and assign them.
+    ! Calculate and set other parameters for each face required for face intersection and
+    ! polyhedron inclusion tests. Note that extraDistance and normalSigns have to be multiplied
+    ! by grid spacings of each layer before use.
     ! (constant = dot(any point on the plane ⊥ the face, face normal))
     ! (needs to be changed) (set this value in other place and intent(in) not intent(inout))
     !-----------------------------------------------------------------------------------------
-    do i = 1, faces % getSize()
-      call faces % setFaceConst(i, dot_product(faces % getFaceNormal(i), faces % getFaceCentroid(i))*(-1))
-    end do
+    call setFaceParameters(faces)
+
+    !-----------------------------------------------------------------------------------------
+    ! Ensure that element indices of a given face is [owner element, non-ownere element].
+    ! Otherwise, the algorithm collapses.
+    ! It seems that the code already ensures the order [owner element, non-ownere element].
+    ! However, to fully ensure, this subroutine is called. This subroutine takes very small portion
+    ! of the total initialisation time.
+    !-----------------------------------------------------------------------------------------
+    call fixFaceElementIdxsOrder(faces, elements)
 
     !-----------------------------------------------------------------------------------------
     ! set l_min. Concurrently, set edgeLength and edgeUnitVector for all edges
@@ -107,6 +206,8 @@ contains
 
       call edges % setEdgeUnitVector(i, currEdgeVector/currEdgeLength)
       call edges % setEdgeLength(i, currEdgeLength)
+      call edges % setEdgeDotProductOfVector(i, dot_product(currEdgeVector, currEdgeVector))
+      call edges % setEdgeVector(i, currEdgeVector)
 
       if (currEdgeLength < self % l_min) self % l_min = currEdgeLength
 
@@ -309,6 +410,13 @@ contains
     !!!!!
 
     !-----------------------------------------------------------------------------------------
+    ! Calculate parameters used for edge intersection test
+    !-----------------------------------------------------------------------------------------
+    self % circumscribedBallRadius = sqrt(3.0d0)*(self % spacing(self % n_layers))*0.5
+    self % targetDistance = (self % wStar) / (1 + SIN(self % alpha))
+    self % targetDistanceSqr = (self % targetDistance)**2
+
+    !-----------------------------------------------------------------------------------------
     ! print cartesian grid parameters and mesh quality
     !-----------------------------------------------------------------------------------------
     print*, "----------------------------------------------------"
@@ -338,6 +446,7 @@ contains
     print*, "Grid upper bounds in xyz            : ", self % gridBounds_max
     print*, "----------------------------------------------------"
 
+    ! call fatalError("as", "as")
     ! for temporary debugging
     ! print*, "/////////////////////////////////////////"
     ! print*, "spacing of each layer"
@@ -367,7 +476,8 @@ contains
     allocate(self % grid(self % n_xyzCoarsest(1), self % n_xyzCoarsest(2), self % n_xyzCoarsest(3)))
 
     call self % constructMapping(vertices, edges, faces, elements)
-    call self % setGridIsOutsideMesh()
+    call self % setGridIsOutsideMesh(-(faces % getSize() + 1)) !"""
+    !call self % setChiSingleFace(faces)!"""
     call self % refineGrid(vertices, edges, faces, elements)
 
     ! Print the number of cells for each layer (for extra analysis).
@@ -408,11 +518,17 @@ contains
     class(faceShelf), intent(in)                          :: faces
     class(elementShelf), intent(in)                       :: elements
     integer(shortInt)                                     :: i, j, k, l
-    integer(shortInt), dimension(:), allocatable          :: currVertexIdxs, currElementFaceIdxs
+    integer(shortInt), dimension(:), allocatable          :: currVertexIdxs, currFaceEdgeIdxs, currElementFaceIdxs
     integer(shortInt), dimension(6)                       :: AABBIndices
+    real(defReal)                                         :: extraDistance
     real(defReal), dimension(3)                           :: centroid, currFaceNormal
     real(defReal), dimension(:,:), allocatable            :: faceNormalSigns
 
+    ! (needs to be changed) A further study can be done to see if the order of the two (polyhedron inclusion and face intersection)
+    ! tests affect initialisation time significantly. For dense coarsest grid relative to the mesh, polyhedron inclusion test first 
+    ! is benefitial as many cells will be included in a polyhedron so avoids intersection tests. For sparse, intersection test first
+    ! can potentially be benefitial because it avoids inclusion tests which are unlikely to pass. However, there are not many cells
+    ! in the first place, and thereby drawbacks can be insignificant. 
     !----------------------------------------------------------------------------------------------
     ! polyhedron inclusion tests
     !----------------------------------------------------------------------------------------------
@@ -429,16 +545,9 @@ contains
         deallocate(faceNormalSigns)
         allocate(faceNormalSigns(3, size(currElementFaceIdxs)))
         do j = 1, size(currElementFaceIdxs)
-          currFaceNormal = faces % getFaceNormal(currElementFaceIdxs(j))
-          do k = 1, 3
-            if (currFaceNormal(k) > 0) then
-              faceNormalSigns(k, j) = 1
-            else
-              faceNormalSigns(k, j) = -1
-            end if
-          end do
+          faceNormalSigns(:,j) = faces % getFaceNormalSigns(currElementFaceIdxs(j))
         end do
-        faceNormalSigns = faceNormalSigns * (self % spacing(1))/2
+        faceNormalSigns = faceNormalSigns * (self % spacing(1))*0.5
 
 
         !Loop over all cartesian cells in the box and test if each cell is entirely included in the polyhedron
@@ -461,24 +570,77 @@ contains
 
     end do
 
+    !----------------------------------------------------------------------------------------------
+    ! face intersection tests
+    !----------------------------------------------------------------------------------------------
+    do i = 1, faces % getSize()
+
+      ! construct box for candidate cells
+      currVertexIdxs = faces % getFaceVertexIdxs(i)
+      AABBIndices = constructAABB(vertices, currVertexIdxs, self % gridBounds_min, self % spacing(1))
+
+      ! calculate face-only-dependent properties
+      currFaceEdgeIdxs = faces % getFaceEdgeIdxs(i)
+      currFaceNormal = faces % getFaceNormal(i)
+      extraDistance = faces % getFaceExtraDistance(i) * (self%spacing(1))          
+
+      !Loop over all cartesian cells in the box and test if each cell intersect with the current face
+      !(needs to be changed) (k and l can be a function of j e.g. k = datum + slope*j so that box is narrowed down)
+      do j = AABBIndices(1), AABBIndices(4)
+          do k = AABBIndices(2), AABBIndices(5)
+              do l = AABBIndices(3), AABBIndices(6)
+
+                  ! (needs to be changed) (store centroid info)
+                  centroid(1) = (self % gridBounds_min(1)) + (self % spacing(1)) * (j-0.5)
+                  centroid(2) = (self % gridBounds_min(2)) + (self % spacing(1)) * (k-0.5)
+                  centroid(3) = (self % gridBounds_min(3)) + (self % spacing(1)) * (l-0.5)
+
+                  call self % grid(j,k,l) % cellTestFaceIntersection(vertices, edges, faces, &
+                                            currVertexIdxs, extraDistance, currFaceNormal, &
+                                            centroid, self % spacing(1), i, currFaceEdgeIdxs)
+
+              end do 
+          end do    
+      end do
+
+    end do
+
   end subroutine constructMapping
+
+  ! !!
+  ! !!
+  ! !!
+  ! subroutine setGridIsOutsideMesh(self)
+  !   class(cartesianGridCoarsest), intent(inout)         :: self
+  !   integer(shortInt)                                   :: i, j, k
+
+  !   do i = 1, self % n_xyzCoarsest(1)
+  !     do j = 1, self % n_xyzCoarsest(2)
+  !       do k = 1, self % n_xyzCoarsest(3)
+  !         call self % grid(i,j,k) % setIsOutsideMesh()
+  !       end do
+  !     end do
+  !   end do
+
+  ! end subroutine setGridIsOutsideMesh !""(remove)
 
   !!
   !!
   !!
-  subroutine setGridIsOutsideMesh(self)
+  subroutine setGridIsOutsideMesh(self, no) !"""
     class(cartesianGridCoarsest), intent(inout)         :: self
+    integer(shortInt), intent(in)                       :: no
     integer(shortInt)                                   :: i, j, k
 
     do i = 1, self % n_xyzCoarsest(1)
       do j = 1, self % n_xyzCoarsest(2)
         do k = 1, self % n_xyzCoarsest(3)
-          call self % grid(i,j,k) % setIsOutsideMesh()
+          call self % grid(i,j,k) % setIsOutsideMesh(no)
         end do
       end do
     end do
 
-  end subroutine setGridIsOutsideMesh
+  end subroutine setGridIsOutsideMesh !""(remove)
 
   !!
   !!
@@ -491,6 +653,21 @@ contains
     class(elementShelf), intent(in)                     :: elements
     integer(shortInt)                                   :: i, j, k
     real(defReal), dimension(3)                         :: newGridBoundsMin
+    integer(shortInt), dimension(:,:), allocatable      :: aaa
+    ! integer(shortInt), dimension(:), allocatable        :: A
+
+    ! a = [1,2,3,4,5]
+    ! call eraseAt_shortInt(a,1)
+    ! print*, size(a)
+    ! call eraseAt_shortInt(a,1)
+    ! print*, size(a)
+    ! call eraseAt_shortInt(a,1)
+    ! print*, size(a)
+    ! call eraseAt_shortInt(a,1)
+    ! print*, size(a)
+    ! call eraseAt_shortInt(a,1)
+    ! print*, allocated(a), size(a)
+
 
     do i = 1, self % n_xyzCoarsest(1)
       do j = 1, self % n_xyzCoarsest(2)
@@ -503,12 +680,35 @@ contains
 
           call self % grid(i,j,k) % refineCell(vertices, edges, faces, elements, self % spacing, &
                                                self % spacingInv, self % n_xyz, self % n_layers, &
-                                               newGridBoundsMin, self % alpha, self % wStar)
+                                               newGridBoundsMin, self % alpha, self % wStar, &
+                                               self % circumscribedBallRadius, self % targetDistance, &
+                                               self % targetDistanceSqr)
         end do
       end do
     end do
 
+    ! call fatalError("as","as")
+
   end subroutine refineGrid
+
+  !!
+  !!
+  !!
+  subroutine setChiSingleFace(self, faces) !"""
+    class(cartesianGridCoarsest), intent(inout)         :: self
+    class(faceShelf), intent(in)                        :: faces
+    integer(shortInt)                                   :: i, j, k
+
+    do i = 1, self % n_xyzCoarsest(1)
+      do j = 1, self % n_xyzCoarsest(2)
+        do k = 1, self % n_xyzCoarsest(3)
+          call self % grid(i,j,k) % setChiFace(faces)
+        end do
+      end do
+    end do
+
+  end subroutine setChiSingleFace
+
 
   !!
   !!

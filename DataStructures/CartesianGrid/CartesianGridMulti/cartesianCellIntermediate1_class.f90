@@ -6,10 +6,12 @@ module cartesianCellIntermediate1_class
   use edgeShelf_class,                 only : edgeShelf
   use faceShelf_class,                 only : faceShelf
   use cartesianInitProcedures
+  use cartesianGenericProcedures,      only : intBinarySearch
   use cartesianGridSubLayer_inter,     only : cartesianGridSubLayer
   use cartesianGridIntermediate2_class,only : cartesianGridIntermediate2
   use cartesianGridFinest_class,       only : cartesianGridFinest
   use genericProcedures,               only : append, fatalError
+  use ragged3dMatrix_class,            only : ragged3d
 
   implicit none
   private
@@ -33,6 +35,7 @@ module cartesianCellIntermediate1_class
     ! Build procedures.
     procedure                                    :: cellTestPolyhedronInclusion
     procedure                                    :: refineCell
+    procedure                                    :: constructNRefineCell
     ! Runtime procedures.
     procedure                                    :: getChi
     procedure                                    :: getPhi
@@ -96,6 +99,161 @@ contains
     end if 
 
   end subroutine refineCell
+
+  !!
+  !!
+  !!
+  subroutine constructNRefineCell(self, vertices, edges, faces, elements, spacing, spacingInv, &
+                   n_xyz, n_layers, currLayer, intersectedFaceIdxsOld, newGridBoundsMin, alpha, wStar, &
+                   extraDistanceArrOld, candidateElementIdxs, normalSignsMatOld, &
+                   circumscribedBallRadius, targetDistance, targetDistanceSqr)
+    class(cartesianCellIntermediate1), intent(inout)    :: self
+    class(vertexShelf), intent(in)                      :: vertices
+    class(edgeShelf), intent(inout)                     :: edges
+    class(faceShelf), intent(inout)                     :: faces
+    class(elementShelf), intent(in)                     :: elements
+    real(defReal), dimension(:), intent(in)             :: spacing, spacingInv
+    integer(shortInt), dimension(:,:), intent(in)       :: n_xyz
+    integer(shortInt), intent(in)                       :: n_layers, currLayer
+    integer(shortInt), dimension(:), intent(in)         :: intersectedFaceIdxsOld, candidateElementIdxs
+    real(defReal), dimension(3), intent(in)             :: newGridBoundsMin
+    real(defReal), intent(in)                           :: alpha, wStar, circumscribedBallRadius, targetDistance, &
+                                                           targetDistanceSqr
+    real(defReal), dimension(:), intent(in)             :: extraDistanceArrOld
+    type(ragged3d), intent(in)                          :: normalSignsMatOld
+    type(ragged3d)                                      :: normalSignsMat
+    real(defReal), dimension(3)                         :: centroid, currFaceNormal
+    integer(shortInt)                                   :: i, currFaceIdx, currElementIdxInArr
+    integer(shortInt), dimension(:), allocatable        :: currVertexIdxs, currFaceEdgeIdxs, &
+                                                           intersectedFaceIdxs, removedFaceIdxs, &
+                                                           currCandidateElementIdxs, testElementIdxs, &
+                                                           currElementFaceIdxs 
+    real(defReal)                                       :: extraDistance, currFaceConst
+    real(defReal), dimension(:), allocatable            :: extraDistanceArr
+    real(defReal), dimension(:,:), allocatable          :: faceNormalSigns
+
+    ! Save a copy of intersectedFaceIdxs and extraDistanceArr because the array will be modified and passed to the sub-layer.
+    if (allocated(intersectedFaceIdxs)) deallocate(intersectedFaceIdxs)
+    if (allocated(extraDistanceArr)) deallocate(extraDistanceArr)
+    call normalSignsMat % kill()
+    intersectedFaceIdxs = intersectedFaceIdxsOld
+    extraDistanceArr = extraDistanceArrOld
+    normalSignsMat = normalSignsMatOld
+
+    ! Calculate centroid from newGridBoundsMin
+    do i = 1, 3
+      centroid(i) = newGridBoundsMin(i) + spacing(currLayer)*0.5
+    end do
+
+    ! Face intersection tests agains all faces in the array "intersectedFaceIdxs"
+    ! Looping index decreases by one each iteration because currFaceIdx can be removed.
+    do i = size(intersectedFaceIdxs), 1, -1
+      currFaceIdx = intersectedFaceIdxs(i)
+      extraDistance = extraDistanceArr(i)
+
+      ! Retrieve face-specific parameters
+      if (allocated(currVertexIdxs)) deallocate(currVertexIdxs)
+      if (allocated(currFaceEdgeIdxs)) deallocate(currFaceEdgeIdxs)
+      if (allocated(removedFaceIdxs)) deallocate(removedFaceIdxs)
+      currVertexIdxs = faces % getFaceVertexIdxs(currFaceIdx)
+      currFaceNormal = faces % getFaceNormal(currFaceIdx)
+      currFaceEdgeIdxs = faces % getFaceEdgeIdxs(currFaceIdx)
+
+      call testFaceIntersectionNonCoarsest(vertices, edges, faces, currVertexIdxs, extraDistance, &
+                    currFaceNormal, centroid, spacing(currLayer), currFaceIdx, currFaceEdgeIdxs, &
+                    intersectedFaceIdxs, i, extraDistanceArr, removedFaceIdxs)
+
+    end do
+
+    ! If there turns out to be no face intersecting with the cell, perform polyhedron inclusion test
+    if (.NOT. allocated(intersectedFaceIdxs)) then
+
+      ! If there is a single face removed from the array "intersectedFaceIdxs", perform special (simplified) inclusion test
+      if (size(removedFaceIdxs) == 1) then
+        if (allocated(testElementIdxs)) deallocate(testElementIdxs)
+        currFaceNormal = faces % getFaceNormal(removedFaceIdxs(1))
+        currFaceConst = faces % getFaceConst(removedFaceIdxs(1))
+        testElementIdxs = faces % getFaceElementIdxs(removedFaceIdxs(1))
+
+        ! Test if the particle lies in the owner element of the face.
+        ! If true, the particle lies in the non-owner element of the face
+        ! Currently, the element indices of a give face is: [owner element, non-owner element]
+        if (faceHalfSpaceTest(currFaceNormal, centroid, currFaceConst)) then
+
+          ! If it is a bondary face, the only element attached is the owner of the face.
+          ! Hence, if faceHalfSpaceTest tells that the neutron lies outside of the owner element, then we know its outside of the mesh.
+          ! (There was no problem in this logic, but might not work with non-OpenFoam mesh data format)
+          if (faces % getFaceIsBoundary(removedFaceIdxs(1))) then
+            self % chi = -1
+            return
+          else
+            self % chi = testElementIdxs(2)
+            return
+          end if
+
+        else
+
+          self % chi = testElementIdxs(1)
+          return
+
+        end if
+        
+      ! If there is more than one removed face indices
+      else
+
+        if (allocated(currCandidateElementIdxs)) deallocate(currCandidateElementIdxs)
+        currCandidateElementIdxs = faces % getFaceElementIdxs(removedFaceIdxs)
+
+        ! Loop over all candidate elements within which the neutron can possibly lie
+        do i = 1, size(currCandidateElementIdxs)
+
+          ! Consturct an array holding face indices of the current element
+          if (allocated(currElementFaceIdxs)) deallocate(currElementFaceIdxs)
+          currElementFaceIdxs = elements % getElementFaceIdxs(currCandidateElementIdxs(i))
+
+          ! Construct a matrix holding faceNormal signs by retrieving pre-calculated data.
+          if (allocated(faceNormalSigns)) deallocate(faceNormalSigns)
+          currElementIdxInArr = intBinarySearch(candidateElementIdxs, currCandidateElementIdxs(i))
+          faceNormalSigns = normalSignsMat % get(currElementIdxInArr)
+
+          ! Perform polyhedron inclusion test.
+          if (testPolyhedronInclusionnew(faces, currElementFaceIdxs, centroid, faceNormalSigns)) then
+            ! If included, update chi mapping and return.
+            self % chi = currCandidateElementIdxs(i)
+            return
+          end if
+
+        end do
+
+        ! If survived to this point, the particle does not lie within any single polyhedron
+        ! nor the cell intersects with any faces. Hence, the particle lies outside of the mesh domain
+        self % chi = -1
+        return
+
+      end if
+
+    else 
+
+      ! If there is still faces intersecting the cell, then we refine further
+      ! (needs to be changed) (pointers cannot point to the same class)
+      if (n_layers > currLayer+1) then 
+        allocate(cartesianGridIntermediate2:: self % subGrid)
+      else
+        allocate(cartesianGridFinest:: self % subGrid)
+      end if
+
+      call normalSignsMat % scale(spacingInv(currLayer)*spacing(currLayer+1))
+      extraDistanceArr(:) = extraDistanceArr(:)*(spacingInv(currLayer)*spacing(currLayer+1))
+
+      call self % subgrid % initt(vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
+                                  currLayer+1, intersectedFaceIdxs, newGridBoundsMin, alpha, wStar, &
+                                  extraDistanceArr, candidateElementIdxs, normalSignsMat, &
+                                  circumscribedBallRadius, targetDistance, targetDistanceSqr)
+
+    end if
+
+
+  end subroutine constructNRefineCell
 
 !&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 ! bit-trick (not saving)

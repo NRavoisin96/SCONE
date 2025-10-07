@@ -5,6 +5,7 @@ module cartesianGridSubLayer_inter
   use faceShelf_class,                 only : faceShelf
   use elementShelf_class,              only : elementShelf
   use numPrecision,                    only : shortInt, defReal
+  use ragged3dMatrix_class,            only : ragged3d
 
   implicit none
   private
@@ -14,6 +15,7 @@ module cartesianGridSubLayer_inter
   type, public, abstract                          :: cartesianGridSubLayer
   contains
     procedure(init), deferred                     :: init
+    procedure(initt), deferred                    :: initt
     procedure(getGridChi), deferred               :: getGridChi
     procedure(getGridPhi), deferred               :: getGridPhi
     procedure(getGridPhiCapital), deferred        :: getGridPhiCapital
@@ -42,6 +44,32 @@ module cartesianGridSubLayer_inter
       real(defReal), intent(in)                           :: alpha, wStar
 
      end subroutine
+
+  !!
+  !!
+  !!
+  subroutine initt(self, vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
+                   currLayer, intersectedFaceIdxs, gridBoundsMin, alpha, wStar, &
+                   extraDistanceArr, candidateElementIdxs, normalSignsMat, &
+                   circumscribedBallRadius, targetDistance, targetDistanceSqr)
+      import                                               cartesianGridSubLayer, vertexShelf, edgeShelf, faceShelf, &
+                                                           elementShelf, defReal, shortInt, ragged3d
+    class(cartesianGridSubLayer), intent(inout)         :: self
+    class(vertexShelf), intent(in)                      :: vertices
+    class(edgeShelf), intent(inout)                     :: edges
+    class(faceShelf), intent(inout)                     :: faces
+    class(elementShelf), intent(in)                     :: elements
+    real(defReal), dimension(:), intent(in)             :: spacing, spacingInv
+    integer(shortInt), dimension(:,:), intent(in)       :: n_xyz
+    integer(shortInt), intent(in)                       :: n_layers, currLayer
+    integer(shortInt), dimension(:), intent(in)         :: intersectedFaceIdxs, candidateElementIdxs
+    real(defReal), dimension(3), intent(in)             :: gridBoundsMin
+    real(defReal), intent(in)                           :: alpha, wStar, circumscribedBallRadius, targetDistance, &
+                                                           targetDistanceSqr
+    real(defReal), dimension(:), intent(in)             :: extraDistanceArr
+    type(ragged3d), intent(in)                          :: normalSignsMat
+
+  end subroutine initt
 
 !&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 ! bit-trick (not saving)

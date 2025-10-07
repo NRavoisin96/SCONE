@@ -16,6 +16,11 @@ module genericProcedures
     module procedure append_shortIntArray
   end interface
 
+  interface eraseAt
+    module procedure eraseAt_shortInt
+    module procedure eraseAt_defReal
+  end interface
+
   interface countCharacters
     module procedure countCharacters_shortInt
     module procedure countCharacters_longInt
@@ -2192,5 +2197,130 @@ contains
     print *, lines(offset_L+1)
 
   end subroutine  printFishLineR
+
+  !!
+  !!
+  !!
+  pure subroutine eraseValue_shortInt(array, value, removeAll)
+  integer(shortInt), allocatable, intent(inout) :: array(:)
+  integer(shortInt), intent(in)                 :: value
+  logical(defBool), optional, intent(in)        :: removeAll
+  integer(shortInt), allocatable                :: tmp(:)
+
+  if (.not. allocated(array)) return
+  if (size(array) == 0) return
+
+  if (present(removeAll)) then
+    if (removeAll) then
+      ! keep everything that is not equal to value
+      tmp = pack(array, array /= value)
+      call move_alloc(tmp, array)
+      return
+    end if
+  end if
+
+  ! remove only the first occurrence
+  block
+    integer(shortInt) :: idx
+    idx = linFind(array, value)
+    if (idx == targetNotFound) return
+    select case (size(array))
+    case (1)
+      deallocate(array)
+    case default
+      tmp = [ array(:idx-1), array(idx+1:) ]
+      call move_alloc(tmp, array)
+    end select
+  end block
+end subroutine eraseValue_shortInt
+
+!!
+!!
+!!
+pure subroutine eraseAt_shortInt(array, idx)
+  integer(shortInt), allocatable, intent(inout) :: array(:)
+  integer(shortInt), intent(in)                 :: idx
+  integer(shortInt), allocatable                :: tmp(:)
+
+  if (.not. allocated(array)) return
+  if (idx < 1 .or. idx > size(array)) return
+
+  select case (size(array))
+  case (1)
+    deallocate(array)
+  case default
+    tmp = [ array(:idx-1), array(idx+1:) ]
+    call move_alloc(tmp, array)
+  end select
+end subroutine eraseAt_shortInt
+
+!!
+!!
+!!
+pure subroutine eraseAt_defReal(array, idx)
+  real(defReal), allocatable, intent(inout) :: array(:)
+  integer(shortInt), intent(in)             :: idx
+  real(defReal), allocatable                :: tmp(:)
+
+  if (.not. allocated(array)) return
+  if (idx < 1 .or. idx > size(array)) return
+
+  select case (size(array))
+  case (1)
+    deallocate(array)
+  case default
+    tmp = [ array(:idx-1), array(idx+1:) ]
+    call move_alloc(tmp, array)
+  end select
+end subroutine eraseAt_defReal
+
+! !!
+! !!
+! !!
+! pure subroutine matAppend(mat, new_row)
+!   integer, allocatable, intent(inout) :: mat(:,:)
+!   integer, intent(in)                 :: new_row(:)
+!   integer, allocatable :: tmp(:,:)
+!   integer :: old_rows, cols
+
+!   if (.not. allocated(mat)) then
+!     allocate(mat(1, size(new_row)))
+!     mat(1, :) = new_row
+!     return
+!   end if
+
+!   cols = size(mat, 2)
+!   old_rows = size(mat, 1)
+!   allocate(tmp(old_rows+1, cols))
+!   if (old_rows > 0) tmp(1:old_rows, :) = mat
+!   tmp(old_rows+1, :) = new_row
+!   call move_alloc(tmp, mat)
+! end subroutine matAppend
+
+! !!
+! !!
+! !!
+! pure subroutine matEraseRow(mat, idx)
+!   integer, allocatable, intent(inout) :: mat(:,:)
+!   integer, intent(in)                 :: idx
+!   integer, allocatable :: tmp(:,:)
+!   integer :: nrows, ncols
+
+!   if (.not. allocated(mat)) return
+!   nrows = size(mat, 1)
+!   ncols = size(mat, 2)
+
+!   if (idx < 1 .or. idx > nrows) return
+
+!   select case (nrows)
+!   case (1)
+!     deallocate(mat)
+!   case default
+!     allocate(tmp(nrows-1, ncols))
+!     if (idx > 1) tmp(1:idx-1, :) = mat(1:idx-1, :)
+!     if (idx < nrows) tmp(idx:nrows-1, :) = mat(idx+1:nrows, :)
+!     call move_alloc(tmp, mat)
+!   end select
+! end subroutine matEraseRow
 
 end module genericProcedures

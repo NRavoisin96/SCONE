@@ -5,7 +5,7 @@ module cartesianInitProcedures
   use edgeShelf_class,              only : edgeShelf
   use faceShelf_class,              only : faceShelf
   use elementShelf_class,           only : elementShelf
-  use genericProcedures,            only : findCommon
+  use genericProcedures,            only : findCommon, append, eraseAt
   use numPrecision   
   use cartesianGenericProcedures,   only : testIntervalIntersection
 
@@ -132,6 +132,42 @@ contains
     chi = elementIdx
 
   end subroutine testPolyhedronInclusion
+
+  !!
+  !!
+  !!
+  function testPolyhedronInclusionNew(faces, currElementFaceIdxs, centroid, &
+                                     faceNormalSigns) result(isIncluded)
+    class(faceShelf), intent(in)                        :: faces
+    integer(shortInt), dimension(:), intent(in)         :: currElementFaceIdxs
+    real(defReal), dimension(3), intent(in)             :: centroid
+    real(defReal), dimension(:,:), intent(in)           :: faceNormalSigns
+    integer(shortInt)                                   :: i, j
+    real(defReal), dimension(3)                         :: furthestVertexCoord
+    logical(defBool)                                    :: isIncluded
+
+    isIncluded = .FALSE.
+
+    do i = 1, size(currElementFaceIdxs)
+      
+      do j = 1, 3
+        furthestVertexCoord(j) = centroid(j) + faceNormalSigns(j,i) 
+      end do
+
+      if (dot_product(faces % getFaceNormal(currElementFaceIdxs(i)), furthestVertexCoord) &
+          + faces % getFaceConst(currElementFaceIdxs(i)) > 0) then
+
+          ! if TRUE, then at least a part of this cell lies outside of the polyhedron
+          return
+
+      end if 
+
+    end do
+
+    ! if survived to this point, then the cell is entired enclosed by the polyhedron. 
+    isIncluded = .TRUE.
+
+  end function testPolyhedronInclusionNew
 
   !!
   !!
@@ -288,6 +324,264 @@ contains
 
   !!
   !!
+  !!
+  subroutine testFaceIntersectionCoarsest(vertices, edges, faces, currVertexIdxs, extraDistance, currFaceNormal, & 
+                                           centroid, cellSpacing, faceIdx, currFaceEdgeIdxs, intersectedFaceIdxs)
+    class(vertexShelf), intent(in)                              :: vertices
+    class(edgeShelf), intent(in)                                :: edges
+    class(faceShelf), intent(in)                                :: faces
+    integer(shortInt), dimension(:), intent(in)                 :: currVertexIdxs, currFaceEdgeIdxs
+    real(defReal), dimension(3), intent(in)                     :: currFaceNormal, centroid
+    real(defReal), intent(in)                                   :: extraDistance, cellSpacing
+    integer(shortInt), intent(in)                               :: faceIdx
+    integer(shortInt), dimension(:), allocatable, intent(inout) :: intersectedFaceIdxs
+    integer(shortInt)                                           :: i, j
+    real(defReal), dimension(3)                                 :: currVertexCoords, min1, max1, currEdgeUnitVector
+    real(defReal)                                               :: faceConst, currValue, vectorDotCentroid, extraDistance2 
+
+    !------------------------------------------------------------------------------------------------
+    ! Testing along face normal
+    !------------------------------------------------------------------------------------------------
+    vectorDotCentroid = dot_product(currFaceNormal, centroid)
+    faceConst = faces % getFaceConst(faceIdx)
+
+    if (.NOT. testIntervalIntersection(vectorDotCentroid - extraDistance, vectorDotCentroid + extraDistance, &
+        -faceConst, -faceConst)) then
+          !!!!!
+          ! print*, "faceNormal"
+          ! print*, vectorDotCentroid - extraDistance
+          ! print*, vectorDotCentroid + extraDistance
+          ! print*, -faceConst
+          !!!!!
+      return
+    end if
+
+    !------------------------------------------------------------------------------------------------
+    ! Testing along crossProduct(each of edgeUnitVector, three coordinate basis)
+    !------------------------------------------------------------------------------------------------
+    ! loop over all edgesUnitVectors of the current face
+    do i = 1, size(currFaceEdgeIdxs)
+      currEdgeUnitVector = edges % getEdgeUnitvector(currFaceEdgeIdxs(i))
+      
+      ! loop over all vertices of the current face to find the min and max of polygon interval
+      do j = 1, size(currVertexIdxs)
+        currVertexCoords = vertices % getVertexCoordinates(currVertexIdxs(j))
+
+        ! for coordinate basis = (1,0,0)
+        currValue = currEdgeUnitVector(3)*currVertexCoords(2) - currEdgeUnitVector(2)*currVertexCoords(3)
+        if (j == 1) then
+          min1(1) = currValue
+          max1(1) = currValue
+        else
+          if (currValue < min1(1)) then
+            min1(1) = currValue
+          elseif (currValue > max1(1)) then
+            max1(1) = currValue
+          end if 
+        end if
+
+        ! for coordinate basis = (0,1,0)
+        currValue = - currEdgeUnitVector(3)*currVertexCoords(1) + currEdgeUnitVector(1)*currVertexCoords(3)
+        if (j == 1) then
+          min1(2) = currValue
+          max1(2) = currValue
+        else
+          if (currValue < min1(2)) then
+            min1(2) = currValue
+          elseif (currValue > max1(2)) then
+            max1(2) = currValue
+          end if 
+        end if
+
+        ! for coordinate basis = (0,0,1)
+        currValue =  currEdgeUnitVector(2)*currVertexCoords(1) - currEdgeUnitVector(1)*currVertexCoords(2)
+        if (j == 1) then
+          min1(3) = currValue
+          max1(3) = currValue
+        else
+          if (currValue < min1(3)) then
+            min1(3) = currValue
+          elseif (currValue > max1(3)) then
+            max1(3) = currValue
+          end if 
+        end if
+
+      end do
+
+      ! test intersections of interval
+      vectorDotCentroid = currEdgeUnitVector(3)*centroid(2)-currEdgeUnitVector(2)*centroid(3)
+      extraDistance2 = (abs(currEdgeUnitVector(3)) + abs(currEdgeUnitVector(2)))*cellSpacing*0.5
+      if (.NOT. testIntervalIntersection(vectorDotCentroid - extraDistance2, vectorDotCentroid + extraDistance2, &
+                                                min1(1), max1(1))) then
+          !!!!!
+          ! print*, "Crossx"
+          !!!!!
+          return
+      end if
+
+      vectorDotCentroid = currEdgeUnitVector(1)*centroid(3)-currEdgeUnitVector(3)*centroid(1)
+      extraDistance2 = (abs(currEdgeUnitVector(3)) + abs(currEdgeUnitVector(1)))*cellSpacing*0.5
+      if (.NOT. testIntervalIntersection(vectorDotCentroid - extraDistance2, vectorDotCentroid + extraDistance2, &
+                                                min1(2), max1(2))) then
+          !!!!!
+          ! print*, "Crossy"
+          !!!!!
+          return
+      end if
+
+      vectorDotCentroid = currEdgeUnitVector(2)*centroid(1)-currEdgeUnitVector(1)*centroid(2)
+      extraDistance2 = (abs(currEdgeUnitVector(2)) + abs(currEdgeUnitVector(1)))*cellSpacing*0.5
+      if (.NOT. testIntervalIntersection(vectorDotCentroid - extraDistance2, vectorDotCentroid + extraDistance2, &
+                                                min1(3), max1(3))) then
+          !!!!!
+          ! print*, "Crossz"
+          !!!!!
+          return
+      end if
+
+    end do
+
+    !------------------------------------------------------------------------------------------------
+    ! if survived to this point, then there is no separating axis. Hence, add the face index to the list
+    !------------------------------------------------------------------------------------------------
+    call append(intersectedFaceIdxs, faceIdx)
+    
+  end subroutine testFaceIntersectionCoarsest
+
+  !!
+  !!
+  !!
+  subroutine testFaceIntersectionNonCoarsest(vertices, edges, faces, currVertexIdxs, extraDistance, currFaceNormal, & 
+                                             centroid, cellSpacing, faceIdx, currFaceEdgeIdxs, intersectedFaceIdxs, &
+                                             arrIdx4Face, extraDistanceArr, removedFaceIdxs)
+    class(vertexShelf), intent(in)                              :: vertices
+    class(edgeShelf), intent(in)                                :: edges
+    class(faceShelf), intent(in)                                :: faces
+    integer(shortInt), dimension(:), intent(in)                 :: currVertexIdxs, currFaceEdgeIdxs
+    real(defReal), dimension(3), intent(in)                     :: currFaceNormal, centroid
+    real(defReal), intent(in)                                   :: extraDistance, cellSpacing
+    integer(shortInt), intent(in)                               :: faceIdx, arrIdx4Face
+    integer(shortInt), dimension(:), allocatable, intent(inout) :: intersectedFaceIdxs, removedFaceIdxs
+    real(defReal), dimension(:), allocatable, intent(inout)     :: extraDistanceArr
+    integer(shortInt)                                           :: i, j
+    real(defReal), dimension(3)                                 :: currVertexCoords, min1, max1, currEdgeUnitVector
+    real(defReal)                                               :: faceConst, currValue, vectorDotCentroid, extraDistance2 
+
+    !------------------------------------------------------------------------------------------------
+    ! Testing along face normal
+    !------------------------------------------------------------------------------------------------
+    vectorDotCentroid = dot_product(currFaceNormal, centroid)
+    faceConst = faces % getFaceConst(faceIdx)
+
+    if (.NOT. testIntervalIntersection(vectorDotCentroid - extraDistance, vectorDotCentroid + extraDistance, &
+        -faceConst, -faceConst)) then
+
+      ! Update relerant indices and return
+      call eraseAt(intersectedFaceIdxs,arrIdx4Face)
+      call eraseAt(extraDistanceArr,arrIdx4Face)
+      call append(removedFaceIdxs, faceIdx)
+      return
+    end if
+
+    !------------------------------------------------------------------------------------------------
+    ! Testing along crossProduct(each of edgeUnitVector, three coordinate basis)
+    !------------------------------------------------------------------------------------------------
+    ! loop over all edgesUnitVectors of the current face
+    ! do i = 1, size(currFaceEdgeIdxs)
+    !   currEdgeUnitVector = edges % getEdgeUnitvector(currFaceEdgeIdxs(i))
+      
+    !   ! loop over all vertices of the current face to find the min and max of polygon interval
+    !   do j = 1, size(currVertexIdxs)
+    !     currVertexCoords = vertices % getVertexCoordinates(currVertexIdxs(j))
+
+    !     ! for coordinate basis = (1,0,0)
+    !     currValue = currEdgeUnitVector(3)*currVertexCoords(2) - currEdgeUnitVector(2)*currVertexCoords(3)
+    !     if (j == 1) then
+    !       min1(1) = currValue
+    !       max1(1) = currValue
+    !     else
+    !       if (currValue < min1(1)) then
+    !         min1(1) = currValue
+    !       elseif (currValue > max1(1)) then
+    !         max1(1) = currValue
+    !       end if 
+    !     end if
+
+    !     ! for coordinate basis = (0,1,0)
+    !     currValue = - currEdgeUnitVector(3)*currVertexCoords(1) + currEdgeUnitVector(1)*currVertexCoords(3)
+    !     if (j == 1) then
+    !       min1(2) = currValue
+    !       max1(2) = currValue
+    !     else
+    !       if (currValue < min1(2)) then
+    !         min1(2) = currValue
+    !       elseif (currValue > max1(2)) then
+    !         max1(2) = currValue
+    !       end if 
+    !     end if
+
+    !     ! for coordinate basis = (0,0,1)
+    !     currValue =  currEdgeUnitVector(2)*currVertexCoords(1) - currEdgeUnitVector(1)*currVertexCoords(2)
+    !     if (j == 1) then
+    !       min1(3) = currValue
+    !       max1(3) = currValue
+    !     else
+    !       if (currValue < min1(3)) then
+    !         min1(3) = currValue
+    !       elseif (currValue > max1(3)) then
+    !         max1(3) = currValue
+    !       end if 
+    !     end if
+
+    !   end do
+
+    !   ! test intersections of interval
+    !   vectorDotCentroid = currEdgeUnitVector(3)*centroid(2)-currEdgeUnitVector(2)*centroid(3)
+    !   extraDistance2 = (abs(currEdgeUnitVector(3)) + abs(currEdgeUnitVector(2)))*cellSpacing*0.5
+    !   if (.NOT. testIntervalIntersection(vectorDotCentroid - extraDistance2, vectorDotCentroid + extraDistance2, &
+    !                                             min1(1), max1(1))) then
+
+    !       ! Update relerant indices and return
+    !       call eraseAt(intersectedFaceIdxs,arrIdx4Face)
+    !       call eraseAt(extraDistanceArr,arrIdx4Face)
+    !       call append(removedFaceIdxs, faceIdx)
+    !       return
+    !   end if
+
+    !   vectorDotCentroid = currEdgeUnitVector(1)*centroid(3)-currEdgeUnitVector(3)*centroid(1)
+    !   extraDistance2 = (abs(currEdgeUnitVector(3)) + abs(currEdgeUnitVector(1)))*cellSpacing*0.5
+    !   if (.NOT. testIntervalIntersection(vectorDotCentroid - extraDistance2, vectorDotCentroid + extraDistance2, &
+    !                                             min1(2), max1(2))) then
+
+    !       ! Update relerant indices and return
+    !       call eraseAt(intersectedFaceIdxs,arrIdx4Face)
+    !       call eraseAt(extraDistanceArr,arrIdx4Face)
+    !       call append(removedFaceIdxs, faceIdx)
+    !       return
+    !   end if
+
+    !   vectorDotCentroid = currEdgeUnitVector(2)*centroid(1)-currEdgeUnitVector(1)*centroid(2)
+    !   extraDistance2 = (abs(currEdgeUnitVector(2)) + abs(currEdgeUnitVector(1)))*cellSpacing*0.5
+    !   if (.NOT. testIntervalIntersection(vectorDotCentroid - extraDistance2, vectorDotCentroid + extraDistance2, &
+    !                                             min1(3), max1(3))) then
+
+    !       ! Update relerant indices and return
+    !       call eraseAt(intersectedFaceIdxs,arrIdx4Face)
+    !       call eraseAt(extraDistanceArr,arrIdx4Face)
+    !       call append(removedFaceIdxs, faceIdx)
+    !       return
+    !   end if
+
+    ! end do
+
+    !------------------------------------------------------------------------------------------------
+    ! if survived to this point, then there is no separating axis. Hence, do not remove the face index
+    !------------------------------------------------------------------------------------------------
+    
+  end subroutine testFaceIntersectionNonCoarsest
+
+  !!
+  !!
   !! 
   subroutine testTwoIntersectedFaces(vertices, edges, faces, centroid, targetDistance, phi, phiCapital, faceIdxs)
     class(vertexShelf), intent(in)                      :: vertices
@@ -411,7 +705,80 @@ contains
 
   end subroutine coverFinitePrecision
 
+  !!
+  !!
+  !!
+  subroutine setFaceParameters(faces)
+    class(faceShelf), intent(inout)               :: faces
+    integer(shortInt)                             :: i, j
+    real(defReal)                                 :: extraDistance
+    real(defReal), dimension(3)                   :: currFaceNormal
+    integer(shortInt), dimension(3)               :: faceNormalSigns
 
+    do i = 1, faces % getSize()
 
+      ! Calculate and set extraDistance (to be multiplied by grid spacing)
+      currFaceNormal = faces % getFaceNormal(i)
+      extraDistance = (abs(currFaceNormal(1)) + abs(currFaceNormal(2)) + abs(currFaceNormal(3)))*0.5  
+      call faces % setFaceExtraDistance(i, extraDistance)
+      
+      ! Calculate and set faceNormalSigns (to be multiplied by a half of grid spacing)
+      do j = 1, 3
+        if (currFaceNormal(j) > 0) then
+          faceNormalSigns(j) = 1
+        else
+          faceNormalSigns(j) = -1
+        end if
+      end do
+      call faces % setFaceNormalSigns(i, faceNormalSigns)
+
+      ! Calculate and set const (constant = dot(any point on the plane ⊥ the face, face normal))
+      call faces % setFaceConst(i, dot_product(faces % getFaceNormal(i), faces % getFaceCentroid(i))*(-1))
+
+    end do
+
+  end subroutine setFaceParameters
+
+  !!
+  !! returns true if (dot_product(faceNormal, pointOfInterest-centroidOfFace) > 0)
+  !! i.e. it returns true when the pointOfInterest lies in the non-owner element of the face
+  function faceHalfSpaceTest(currFaceNormal, pointOfInterest, currFaceConst) result(outcome)
+    real(defReal), dimension(3), intent(in)   :: currFaceNormal, pointOfInterest
+    real(defReal), intent(in)                 :: currFaceConst
+    logical(defBool)                          :: outcome 
+  
+    if (dot_product(currFaceNormal, pointOfInterest) + currFaceConst > 0) then
+      outcome = .TRUE.
+    else
+      outcome = .FALSE.
+    end if
+
+  end function faceHalfSpaceTest
+
+  !!
+  !! Changes the order of element indices of a give face so that
+  !! the order is [owner element, non-owner element]
+  subroutine fixFaceElementIdxsOrder(faces, elements)
+    class(faceShelf), intent(inout)               :: faces
+    class(elementShelf), intent(in)               :: elements
+    integer(shortInt)                             :: i
+    integer(shortInt), dimension(:), allocatable  :: currFaceElementIdxs
+
+    do i = 1, faces % getSize()
+
+      if (allocated(currFaceElementIdxs)) deallocate(currFaceElementIdxs)
+      currFaceElementIdxs = faces % getFaceElementIdxs(i)
+
+      if (faceHalfSpaceTest(faces % getFaceNormal(i), &
+          elements % getElementCentroid(currFaceElementIdxs(1)), faces % getFaceConst(i))) then
+
+        ! Swap the order of indices if the first index is for the non-owner element of the given face.
+        call faces % swapFaceElementIdxsOrder(i)
+
+      end if
+
+    end do
+
+  end subroutine fixFaceElementIdxsOrder
 
 end module cartesianInitProcedures

@@ -25,6 +25,7 @@ module faceShelf_class
   contains
     procedure                                :: addEdgeIdxToFace
     procedure                                :: addElementIdxToFace
+    procedure                                :: swapFaceElementIdxsOrder
     procedure                                :: addFace
     procedure                                :: addVertexIdxToFace
     procedure                                :: allocateFace
@@ -39,6 +40,10 @@ module faceShelf_class
     procedure                                :: getFaceArea
     procedure                                :: getFaceConst
     procedure                                :: setFaceConst
+    procedure                                :: getFaceExtraDistance
+    procedure                                :: setFaceExtraDistance
+    procedure                                :: getFaceNormalSigns
+    procedure                                :: setFaceNormalSigns
     procedure                                :: getFaceBoundingBox
     procedure                                :: getFaceCentroid
     procedure                                :: getFaceEdgeIdxs
@@ -97,6 +102,18 @@ contains
     call self % shelf(idx) % item % addElementIdx(elementIdx)
 
   end subroutine addElementIdxToFace
+
+  !!
+  !!
+  !!
+  subroutine swapFaceElementIdxsOrder(self, idx)
+    class(faceShelf), intent(inout)              :: self
+    integer(shortInt), intent(in)                :: idx
+
+    call self % shelf(idx) % item % swapElementIdxsOrder()
+    
+  end subroutine swapFaceElementIdxsOrder
+
 
   !!
   !!
@@ -365,6 +382,54 @@ contains
     call self % shelf(idx) % item % setConst(const)
 
   end subroutine setFaceConst
+
+  !!
+  !!
+  !!
+  elemental function getFaceExtraDistance(self, idx) result(extraDistance)
+    class(faceShelf), intent(in)  :: self
+    integer(shortInt), intent(in) :: idx
+    real(defReal)                 :: extraDistance
+
+    extraDistance = self % shelf(abs(idx)) % item % getExtraDistance()
+
+  end function getFaceExtraDistance
+
+  !!
+  !!
+  !!
+  elemental subroutine setFaceExtraDistance(self, idx, extraDistance)
+    class(faceShelf), intent(inout) :: self
+    integer(shortInt), intent(in)   :: idx
+    real(defReal), intent(in)       :: extraDistance
+
+    call self % shelf(idx) % item % setExtraDistance(extraDistance)
+
+  end subroutine setFaceExtraDistance
+
+  !!
+  !!
+  !!
+  pure function getFaceNormalSigns(self, idx) result(normalSigns)
+    class(faceShelf), intent(in)    :: self
+    integer(shortInt), intent(in)   :: idx
+    integer(shortInt), dimension(3) :: normalSigns
+
+    normalSigns = self % shelf(abs(idx)) % item % getNormalSigns(idx)
+
+  end function getFaceNormalSigns
+
+  !!
+  !!
+  !!
+  pure subroutine setFaceNormalSigns(self, idx, normalSigns)
+    class(faceShelf), intent(inout)             :: self
+    integer(shortInt), intent(in)               :: idx
+    integer(shortInt), dimension(3), intent(in) :: normalSigns
+
+    call self % shelf(idx) % item % setNormalSigns(normalSigns)
+
+  end subroutine setFaceNormalSigns
 
   !! Function 'getFaceBoundingBox'
   !!

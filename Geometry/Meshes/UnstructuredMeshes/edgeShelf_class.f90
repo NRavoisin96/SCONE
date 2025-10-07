@@ -21,16 +21,20 @@ module edgeShelf_class
     procedure                             :: getEdgeVertexIdxs
     procedure                             :: getSize
     procedure                             :: getEdgeUnitVector
+    procedure                             :: getEdgeVector
     procedure                             :: getEdgeLocalBasis1
     procedure                             :: getEdgeLocalBasis2
     procedure                             :: getEdgeLength
+    procedure                             :: getEdgeDotProductOfVector
     procedure                             :: getEdgeAnglesArray
     procedure                             :: getEdgeElementIdxsArray
     !procedure                             :: getEdgeIsBoundary
     procedure                             :: setEdgeUnitVector
+    procedure                             :: setEdgeVector ! This can be removed and retrieved from UnitVector (memory vs time)
     procedure                             :: setEdgeLocalBasis1
     procedure                             :: setEdgeLocalBasis2
     procedure                             :: setEdgeLength
+    procedure                             :: setEdgeDotProductOfVector
     procedure                             :: setEdgeAnglesArray
     procedure                             :: setEdgeElementIdxsArray
     !procedure                             :: setEdgeIsboundary
@@ -245,6 +249,18 @@ contains
   !!
   !!
   !!
+  pure function getEdgeVector(self, idx) result(vector)
+    class(edgeShelf), intent(in)  :: self
+    integer(shortInt), intent(in) :: idx
+    real(defReal), dimension(3)   :: vector
+
+    vector = self % shelf(idx) % getVector()
+
+  end function getEdgevector
+
+  !!
+  !!
+  !!
   pure function getEdgeLocalBasis1(self, idx) result(localBasis1)
     class(edgeShelf), intent(in)  :: self
     integer(shortInt), intent(in) :: idx
@@ -277,6 +293,18 @@ contains
     length = self % shelf(idx) % getLength()
 
   end function getEdgeLength
+
+  !!
+  !!
+  !!
+  elemental function getEdgeDotProductOfVector(self, idx) result(dotProductOfVector)
+    class(edgeShelf), intent(in)  :: self
+    integer(shortInt), intent(in) :: idx
+    real(defReal)                 :: dotProductOfVector
+
+    dotProductOfVector = self % shelf(idx) % getDotProductOfVector()
+
+  end function getEdgeDotProductOfVector
 
   !!
   !!
@@ -329,6 +357,18 @@ contains
   !!
   !!
   !!
+  pure subroutine setEdgeVector(self, idx, vector)
+    class(edgeShelf), intent(inout)             :: self
+    integer(shortInt), intent(in)               :: idx
+    real(defReal), dimension(3), intent(in)     :: vector
+
+    call self % shelf(idx) % setVector(vector)
+
+  end subroutine setEdgeVector
+
+  !!
+  !!
+  !!
   pure subroutine setEdgeLocalBasis1(self, idx, localBasis1)
     class(edgeShelf), intent(inout)             :: self
     integer(shortInt), intent(in)               :: idx
@@ -361,6 +401,18 @@ contains
     call self % shelf(idx) % setLength(Length)
 
   end subroutine setEdgeLength
+
+  !!
+  !!
+  !!
+  pure subroutine setEdgeDotProductOfVector(self, idx, dotProductOfVector)
+    class(edgeShelf), intent(inout)             :: self
+    integer(shortInt), intent(in)               :: idx
+    real(defReal), intent(in)                   :: dotProductOfVector
+
+    call self % shelf(idx) % setDotProductOfVector(dotProductOfVector)
+
+  end subroutine setEdgeDotProductOfVector
 
   !!
   !!

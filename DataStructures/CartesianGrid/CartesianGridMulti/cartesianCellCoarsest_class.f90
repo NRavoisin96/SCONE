@@ -9,7 +9,9 @@ module cartesianCellCoarsest_class
   use cartesianGridSubLayer_inter,      only : cartesianGridSubLayer
   use cartesianGridFinest_class,        only : cartesianGridFinest
   use cartesianGridIntermediate1_class, only : cartesianGridIntermediate1
+  use cartesianGenericProcedures,       only : quickSort
   use genericProcedures,                only : append, fatalError
+  use ragged3dMatrix_class,             only : ragged3d
 
   implicit none
   private
@@ -19,8 +21,8 @@ module cartesianCellCoarsest_class
   type, public                                          :: cartesianCellCoarsest
     private
     class(cartesianGridSubLayer), pointer               :: subGrid => null()
-    integer(shortInt)                                   :: chi = 0
-    integer(shortInt), dimension(:), allocatable        :: candidateElementIdxs
+    integer(shortInt)                                   :: chi = 0 !-1 !"""
+    integer(shortInt), dimension(:), allocatable        :: candidateElementIdxs, intersectedFaceIdxs !""(remove first)
     ! (needs to be changed) (cell centre should be a property to avoid repetative calc.)
     ! (due to limited memory, this is calculated each time needed)
     ! (try to avoid adding properties tho due to memory)
@@ -29,8 +31,10 @@ module cartesianCellCoarsest_class
 
     ! Build procedures.
     procedure                                    :: cellTestPolyhedronInclusion
+    procedure                                    :: cellTestFaceIntersection
     procedure                                    :: setIsOutsideMesh
     procedure                                    :: refineCell
+    procedure                                    :: setChiFace !"""
     ! Runtime procedures.
     procedure                                    :: getChi
     procedure                                    :: getPhi
@@ -57,24 +61,66 @@ contains
     integer(shortInt), intent(in)                       :: elementIdx
 
     ! if current cell is found to be entirely contained within a polyhedron, there cannot not be other polyhedra
-    if (self % chi /= 0) return
+    if (self % chi > 0) return
 
     ! Otherwise, continue testing and appending the array of candidate element indices 
     call testPolyhedronInclusion(faces, currElementFaceIdxs, centroid, faceNormalSigns, elementIdx, self % chi)
-    call append(self % candidateElementIdxs, elementIdx)
+    !""call append(self % candidateElementIdxs, elementIdx)
 
   end subroutine cellTestPolyhedronInclusion
 
+  !!
+  !!
+  !!
+  subroutine cellTestFaceIntersection(self, vertices, edges, faces, currVertexIdxs, extraDistance, currFaceNormal, &
+                                      centroid, cellSpacing, faceIdx, currFaceEdgeIdxs)
+    class(cartesianCellCoarsest), intent(inout)         :: self
+    class(vertexShelf), intent(in)                      :: vertices
+    class(edgeShelf), intent(in)                        :: edges
+    class(faceShelf), intent(in)                        :: faces
+    integer(shortInt), dimension(:), intent(in)         :: currVertexIdxs, currFaceEdgeIdxs
+    real(defReal), dimension(3), intent(in)             :: currFaceNormal, centroid
+    real(defReal), intent(in)                           :: extraDistance, cellSpacing
+    integer(shortInt), intent(in)                       :: faceIdx
+
+    if (self % chi > 0) then
+      return
+    elseif (self % chi < 0) then
+      self % chi = 0
+    end if
+    
+    call testFaceIntersectionCoarsest(vertices, edges, faces, currVertexIdxs, extraDistance, currFaceNormal, &
+                                  centroid, cellSpacing, faceIdx, currFaceEdgeIdxs, self % intersectedFaceIdxs)
+
+  end subroutine cellTestFaceIntersection
+
+
+  ! !!
+  ! !!
+  ! !!
+  ! subroutine setIsOutsideMesh(self)
+  !   class(cartesianCellCoarsest), intent(inout)         :: self
+
+  !   ! if candidateElementIdxs is not allocated, this cell does not intersect AABB of any polyhedron.
+  !   ! Hence, this cell lies outside of mesh
+  !   if (.NOT. allocated(self % candidateElementIdxs)) self % chi = -1
+
+  ! end subroutine setIsOutsideMesh
 
   !!
   !!
   !!
-  subroutine setIsOutsideMesh(self)
+  subroutine setIsOutsideMesh(self, no) !"""
     class(cartesianCellCoarsest), intent(inout)         :: self
+    integer(shortInt), intent(in)                       :: no
 
     ! if candidateElementIdxs is not allocated, this cell does not intersect AABB of any polyhedron.
     ! Hence, this cell lies outside of mesh
-    if (.NOT. allocated(self % candidateElementIdxs)) self % chi = -1
+    if (.NOT. allocated(self % candidateElementIdxs)) then
+      if (.NOT. allocated(self % intersectedFaceIdxs)) then
+        !self % chi = no
+      end if
+    end if
 
   end subroutine setIsOutsideMesh
 
@@ -82,7 +128,8 @@ contains
   !!
   !!
   subroutine refineCell(self, vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
-                             newGridBoundsMin, alpha, wStar)
+                             newGridBoundsMin, alpha, wStar, circumscribedBallRadius, targetDistance, &
+                             targetDistanceSqr)
     class(cartesianCellCoarsest), intent(inout)         :: self
     class(vertexShelf), intent(in)                      :: vertices
     class(edgeShelf), intent(inout)                     :: edges
@@ -92,26 +139,126 @@ contains
     integer(shortInt), dimension(:,:), intent(in)       :: n_xyz
     integer(shortInt), intent(in)                       :: n_layers
     real(defReal), dimension(3), intent(in)             :: newGridBoundsMin
-    real(defReal), intent(in)                           :: alpha, wStar
+    real(defReal), intent(in)                           :: alpha, wStar, circumscribedBallRadius, targetDistance, &
+                                                           targetDistanceSqr
+    integer(shortInt), dimension(:), allocatable        :: candidateElementIdxs, currElementFaceIdxs
+    real(defReal), dimension(:), allocatable            :: extraDistanceArr
+    integer(shortInt)                                   :: i, j, numberOfElements, numberOfFaces
+    type(ragged3d)                                      :: normalSignsMat
+    real(defReal), dimension(:,:), allocatable          :: currNormalSignsMat
+    real(defReal)                                       :: halfSpacing
 
-    !if the current cell is not entirely contained within a polyhedron, then refine the grid
+    !if the current cell is not entirely contained within a polyhedron nor outside of the mesh domain, refine the cell
     if (self % chi == 0) then
 
+      ! If (very rarely) the cell is inside the mesh domain but intersects with no faces, then specify that this cell lies outside
+      if (.NOT. allocated(self % intersectedFaceIdxs)) then
+        self % chi = faces % getSize() + 1 !-1 !"""
+        return
+      end if
+
+      halfSpacing = 0.5*spacing(2)
+
+      ! First, setup element- and face-specific parameters so that they do not have to be recalculated for multiple cells at each layer.
+      ! Because, we perform DFS for initialisation, this is benefitial (Otherwise, each cell in the same level need to
+      ! recalculate these.) There is no memory issue because each travelsal down a path require (reduced list of) these
+      ! parameters at each layer only once. It is important to calculate these during "refine" one by one because otherwise,
+      ! all cells in the coarsest layer store these values.
+
+      ! Begin with face-specific paremeters
+      if (allocated(extraDistanceArr)) deallocate(extraDistanceArr)
+      allocate(extraDistanceArr(size(self % intersectedFaceIdxs)))
+      do i = 1, size(self % intersectedFaceIdxs)
+        extraDistanceArr(i) = faces % getFaceExtraDistance(self % intersectedFaceIdxs(i))
+      end do
+      extraDistanceArr = extraDistanceArr * spacing(2)
+
+      ! Then, element-specific parameters
+      if (size(self % intersectedFaceIdxs) > 1) then
+        if (allocated(candidateElementIdxs)) deallocate(candidateElementIdxs)
+
+        ! Preparation before setting up normalSignsMat
+        candidateElementIdxs = faces % getFaceElementIdxs(self % intersectedFaceIdxs)
+        numberOfElements = size(candidateElementIdxs)
+        call quickSort(candidateElementIdxs, 1, numberOfElements)
+        call normalSignsMat % kill()
+        call normalSignsMat % init()
+
+        ! Construct currNormalSignsMat for each face of the element and append to normalSignsMat
+        do i = 1, numberOfElements
+          currElementFaceIdxs = elements % getElementFaceIdxs(candidateElementIdxs(i))
+          numberOfFaces = size(currElementFaceIdxs)
+
+          if (allocated(currNormalSignsMat)) deallocate(currNormalSignsMat)
+          allocate(currNormalSignsMat(3,numberOfFaces))
+          do j = 1, numberOfFaces
+            currNormalSignsMat(:,j) = faces % getFaceNormalSigns(currElementFaceIdxs(j))
+          end do
+
+          currNormalSignsMat(:,:) = currNormalSignsMat(:,:)*halfSpacing
+          call normalSignsMat % append(currNormalSignsMat)
+
+        end do
+
+      elseif (size(self % intersectedFaceIdxs) == 1) then
+        ! If there is a singe intersected face, we perform special version of polyhedron inclusion tests.
+        ! So no need to construct normalSignsMat (initialisation is still required)
+        call normalSignsMat % kill()
+        call normalSignsMat % init()
+    
+      end if
+
+      ! Determine and set the next layer
       if (n_layers > 2) then 
         allocate(cartesianGridIntermediate1:: self % subGrid)
       else
         allocate(cartesianGridFinest:: self % subGrid)
       end if
 
+      ! print*, "intersectedFaceIdxs", self % intersectedFaceIdxs
+      ! print*, "extraDistanceArr", extraDistanceArr
+      !call fatalError("done", "done")
+
+
+      !""
+      self % candidateElementIdxs = faces % getFaceElementIdxs(self%intersectedFaceIdxs)
       call self % subgrid % init(vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
                                  2, self % candidateElementIdxs, newGridBoundsMin, alpha, wStar)
+      ! call self % subgrid % initt(vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
+      !                             2, self % intersectedFaceIdxs, newGridBoundsMin, alpha, wStar, &
+      !                             extraDistanceArr, candidateElementIdxs, normalSignsMat, &
+      !                             circumscribedBallRadius, targetDistance, targetDistanceSqr)
+      !""
 
     end if 
 
     ! deallocate candidateElementIdxs to save memory. Otherwise, memory could explode
-    if (allocated(self % candidateElementIdxs)) deallocate(self % candidateElementIdxs)
+    !""
+    !if (allocated(self % candidateElementIdxs)) deallocate(self % candidateElementIdxs)
+    if (allocated(self % intersectedFaceIdxs)) deallocate(self % intersectedFaceIdxs)
+    !""
 
   end subroutine refineCell
+
+  !!
+  !!
+  !!
+  subroutine setChiFace(self, faces) !"""
+    class(cartesianCellCoarsest), intent(inout)         :: self
+    class(faceShelf), intent(in)                        :: faces
+
+    if (allocated(self % intersectedFaceIdxs)) then
+      if (size(self % intersectedFaceIdxs) == 1) then
+
+        if (self % chi > 0) return
+        if (self % chi == -(faces % getSize() + 1)) return
+        self % chi = -(self % intersectedFaceIdxs(1))
+        ! print*, self % chi
+
+      end if
+    end if
+
+  end subroutine setChiFace
 
 !&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 ! bit-trick (not saving)

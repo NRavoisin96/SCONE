@@ -21,8 +21,9 @@ module edge_class
     integer(shortInt)                            :: idx = 0
     integer(shortInt), dimension(2)              :: vertexIdxs = 0
     integer(shortInt), dimension(:), allocatable :: faceIdxs, elementIdxs, elementIdxsArray
-    real(defReal), dimension(3)                  :: unitVector = ZERO, localBasis1 = ZERO, localBasis2 = ZERO
-    real(defReal)                                :: length = ZERO
+    real(defReal), dimension(3)                  :: unitVector = ZERO, localBasis1 = ZERO, localBasis2 = ZERO, &
+                                                    vector = ZERO
+    real(defReal)                                :: length = ZERO, dotProductOfVector = ZERO
     real(defReal), dimension(:), allocatable     :: anglesArray
     !logical                                      :: isBoundary = .FALSE.
 
@@ -35,9 +36,11 @@ module edge_class
     procedure                                    :: setIdx
     procedure                                    :: setVertexIdxs
     procedure                                    :: setUnitVector
+    procedure                                    :: setVector
     procedure                                    :: setLocalBasis1
     procedure                                    :: setLocalBasis2
     procedure                                    :: setLength
+    procedure                                    :: setDotProductOfVector
     procedure                                    :: setAnglesArray
     procedure                                    :: setElementIdxsArray
     procedure                                    :: isAllocatedAnglesArray
@@ -48,9 +51,11 @@ module edge_class
     procedure                                    :: getIdx
     procedure                                    :: getVertexIdxs
     procedure                                    :: getUnitVector
+    procedure                                    :: getVector
     procedure                                    :: getLocalBasis1
     procedure                                    :: getLocalBasis2
     procedure                                    :: getLength
+    procedure                                    :: getDotProductOfVector
     procedure                                    :: getAnglesArray
     procedure                                    :: getElementIdxsArray
     !procedure                                    :: getIsBoundary
@@ -168,6 +173,17 @@ contains
   !!
   !!
   !!
+  pure function getVector(self) result(vector)
+    class(edge), intent(in)       :: self
+    real(defReal), dimension(3)   :: vector
+
+    vector = self % vector
+
+  end function getVector
+
+  !!
+  !!
+  !!
   pure function getLocalBasis1(self) result(localBasis1)
     class(edge), intent(in)       :: self
     real(defReal), dimension(3)   :: localBasis1
@@ -197,6 +213,17 @@ contains
     length = self % length
 
   end function getLength
+
+  !!
+  !!
+  !!
+  elemental function getDotProductOfVector(self) result(dotProductOfVector)
+    class(edge), intent(in) :: self
+    real(defReal)           :: dotProductOfVector
+
+    dotProductOfVector = self % dotProductOfVector
+
+  end function getDotProductOfVector
 
   !!
   !!
@@ -293,6 +320,17 @@ contains
   !!
   !!
   !!
+  pure subroutine setVector(self, vector)
+    class(edge), intent(inout)               :: self
+    real(defReal), intent(in), dimension(3)  :: vector
+
+    self % vector = vector
+
+  end subroutine setVector
+
+  !!
+  !!
+  !!
   pure subroutine setLocalBasis1(self, localBasis1)
     class(edge), intent(inout)               :: self
     real(defReal), intent(in), dimension(3)  :: localBasis1
@@ -322,6 +360,17 @@ contains
     self % length = length
 
   end subroutine setLength
+
+  !!
+  !!
+  !!
+  elemental subroutine setDotProductOfVector(self, DotProductOfVector)
+    class(edge), intent(inout) :: self
+    real(defReal), intent(in)  :: dotProductOfVector
+
+    self % dotProductOfVector = dotProductOfVector
+
+  end subroutine setDotProductOfVector
 
   !!
   !!

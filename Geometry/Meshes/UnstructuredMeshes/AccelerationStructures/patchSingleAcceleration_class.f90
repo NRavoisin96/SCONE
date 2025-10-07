@@ -9,6 +9,7 @@ module patchSingleAcceleration_class
   use edgeShelf_class,             only : edgeShelf
   use cartesianGridSingle_class,   only : cartesianGridSingle
   use cartesianGenericProcedures,  only : binarySearchAngle
+    use genericProcedures,            only : fatalError
   !!!!!
   ! With analysis on distribution
   !use analysisDistribution
@@ -57,6 +58,8 @@ contains
     ! (needs to be changed) (needs checking) (is it correct to use "getPositionToNudge" or other coordinates?)
     r = coords % getPositionToNudge()
 
+    ! print*, r, "original coord"
+
     !!!!!
     !r = [-0.40675141160938533,      -0.57523604333256917,        5.3471601775829991E-002]
     !print*, "coord", r
@@ -101,7 +104,9 @@ contains
     !!!!!
     !print*, "elementIdx1", potentialElementIdx
     !!!!!
-    
+
+    ! print*, potentialElementIdx, "OriginalPotentialElementIdx"
+
     ! if element index is valid (the current cell, characterised by "cellIdxs", is fully contained within that element)
     if (potentialElementIdx > 0) then
       call coords % setElementIdx(potentialElementIdx)
@@ -111,11 +116,22 @@ contains
     ! in case the current cell lies outside the computational domain for the unstructured mesh, return.
     ! this is tested after testing if (chi > 0) because that is the most likely case in terms of the number of the cells
     elseif (potentialElementIdx == -1) then
+
+    ! if (abs(r(1) + 0.18162572041166308) <  0.0001) then
+    !   if (abs(r(2) + 0.62507425157176821) < 0.0001) then
+    !     if (abs(r(3) - 0.11402506185224603) < 0.0001) then
+    !       call fatalError("as", "as")
+    !     end if
+    !   end if
+    ! end if
+
       return
       
     ! otherwise, the current cell intersects with either face(s) or edge(s). Start patch searching.
     else
       edgeIdx = self % grid % getGridPhiCapital(cellIdxs)
+
+      ! print*, edgeIdx, "OriginalEdgeIdx"
 
       if (edgeIdx == 0) then
         ! push the coordinates away from the current vertex (= phi)
@@ -141,6 +157,8 @@ contains
         edgeIdx = self % grid % getGridPhiCapital(cellIdxs)
         potentialElementIdx = self % grid % getGridChi(cellIdxs)
 
+        ! print*, potentialElementIdx, "NewPotentialElementIdx"
+
         ! if pushed coordinate has direct mapping for element index, use that
         ! (needs to be changed) (possible acceleration for this and other parts of the subroutine)
         ! (needs checking) (is pushed position has direct mapping for element idx, is it guaranteed to lie inside. OW, ">=" not "/=")
@@ -154,6 +172,14 @@ contains
               !print*, "elementIdx2", potentialElementIdx
               !!!!!
 
+    ! if (abs(r(1) + 0.18162572041166308) <  0.0001) then
+    !   if (abs(r(2) + 0.62507425157176821) < 0.0001) then
+    !     if (abs(r(3) - 0.11402506185224603) < 0.0001) then
+    !       call fatalError("as", "as")
+    !     end if
+    !   end if
+    ! end if
+
           return
         end if
 
@@ -164,6 +190,11 @@ contains
         ! !!!
 
       end if
+
+      ! print*, vertexIdx, "NewVertex"
+      ! print*, edgeIdx, "newEdge"
+      ! print*, r, "newCoord"
+      ! print*, vertices % getVertexCoordinates(vertexIdx), "newVertexCoord"
     
       ! calculate pseudo angle
       currEdgeVertexIdxs = edges % getEdgeVertexIdxs(edgeIdx)
@@ -189,6 +220,14 @@ contains
     !!!!!
     !print*, "elementIdx3", potentialElementIdx
     !!!!!
+
+    ! if (abs(r(1) + 0.18162572041166308) <  0.0001) then
+    !   if (abs(r(2) + 0.62507425157176821) < 0.0001) then
+    !     if (abs(r(3) - 0.11402506185224603) < 0.0001) then
+    !       call fatalError("as", "as")
+    !     end if
+    !   end if
+    ! end if
 
       return
 

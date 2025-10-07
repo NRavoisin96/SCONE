@@ -9,6 +9,7 @@ module cartesianGridFinest_class
   use numPrecision   
   use genericProcedures,                       only : crossProduct, append
   use cartesianGenericProcedures
+  use ragged3dMatrix_class,                    only : ragged3d
 
   implicit none
   private
@@ -25,10 +26,12 @@ module cartesianGridFinest_class
 
     ! Build procedures
     procedure                                    :: init
+    procedure                                    :: initt
     procedure                                    :: constructMapping
     procedure                                    :: sortAngles
     procedure                                    :: setGridIsOutsideMesh
     procedure                                    :: gridFinitePrecision
+    procedure                                    :: constructMappingNRefineGrid
     ! Runtime procedures
     procedure                                    :: getGridChi
     procedure                                    :: getGridPhi
@@ -70,9 +73,53 @@ contains
     call self % sortAngles(edges, faces, localNxyz)
     call self % gridFinitePrecision(faces, elements, candidateElementIdxs, gridBoundsMin, spacing, &
                                     n_layers, localNxyz) 
-    call self % setGridIsOutsideMesh(localNxyz)
+    call self % setGridIsOutsideMesh(localNxyz, -(faces % getSize() + 1)) !"""
 
   end subroutine
+
+  !!
+  !!
+  !!
+  subroutine initt(self, vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
+                   currLayer, intersectedFaceIdxs, gridBoundsMin, alpha, wStar, &
+                   extraDistanceArr, candidateElementIdxs, normalSignsMat, &
+                   circumscribedBallRadius, targetDistance, targetDistanceSqr)
+    class(cartesianGridFinest), intent(inout)           :: self
+    class(vertexShelf), intent(in)                      :: vertices
+    class(edgeShelf), intent(inout)                     :: edges
+    class(faceShelf), intent(inout)                     :: faces
+    class(elementShelf), intent(in)                     :: elements
+    real(defReal), dimension(:), intent(in)             :: spacing, spacingInv
+    integer(shortInt), dimension(:,:), intent(in)       :: n_xyz
+    integer(shortInt), intent(in)                       :: n_layers, currLayer
+    integer(shortInt), dimension(:), intent(in)         :: intersectedFaceIdxs, candidateElementIdxs
+    real(defReal), dimension(3), intent(in)             :: gridBoundsMin
+    real(defReal), intent(in)                           :: alpha, wStar, circumscribedBallRadius, targetDistance, &
+                                                           targetDistanceSqr
+    real(defReal), dimension(:), intent(in)             :: extraDistanceArr
+    type(ragged3d), intent(in)                          :: normalSignsMat
+    integer(shortInt), dimension(3)                     :: localNxyz
+    integer(shortInt)                                   :: i
+    integer(shortInt), dimension(:), allocatable        :: candidateElementIdxsPrecision
+
+    ! calculate local number of cells 
+    do i = 1, 3
+      localNxyz(i) = n_xyz(currLayer,i)/n_xyz(currLayer-1,i)
+    end do
+
+    ! construct mapping and refine further
+    allocate(self % grid(localNxyz(1), localNxyz(2), localNxyz(3)))
+    call self % constructMappingNRefineGrid(vertices, edges, faces, elements, spacing, spacingInv, &
+          n_xyz, n_layers, currLayer, intersectedFaceIdxs, gridBoundsMin, localNxyz, alpha, wStar, &
+          extraDistanceArr, candidateElementIdxs, normalSignsMat, circumscribedBallRadius, targetDistance, &
+          targetDistanceSqr)
+    call self % sortAngles(edges, faces, localNxyz)
+    candidateElementIdxsPrecision = faces % getFaceElementIdxs(intersectedFaceIdxs)
+    call self % gridFinitePrecision(faces, elements, candidateElementIdxsPrecision, gridBoundsMin, spacing, &
+                                    n_layers, localNxyz) 
+    call self % setGridIsOutsideMesh(localNxyz, 123) !"""
+
+  end subroutine initt
 
   !!
   !!
@@ -466,16 +513,17 @@ contains
   !!
   !!
   !! 
-  subroutine setGridIsOutsideMesh(self, localNxyz)
+  subroutine setGridIsOutsideMesh(self, localNxyz, no) !"""
     class(cartesianGridFinest), intent(inout)              :: self
     integer(shortInt), dimension(3), intent(in)            :: localNxyz
+    integer(shortInt), intent(in)                          :: no
     integer(shortInt)                                      :: i, j, k
 
     ! loop over all cartesian cells and call relevant subroutine
     do i = 1, localNxyz(1)
       do j = 1, localNxyz(2)
         do k = 1, localNxyz(3)
-          call self % grid(i,j,k) % setIsOutsideMesh()
+          call self % grid(i,j,k) % setIsOutsideMesh(no)
         end do
       end do 
     end do
@@ -499,6 +547,7 @@ contains
     real(defReal), dimension(3)                           :: centroid
 
 
+    ! (needs to be changed) This loop (with i) can be the inner most loop to reduce the number of times centroid is calculated
     do i = 1, size(candidateElementIdxs)
 
         ! No need to calculate AABB of candidate elements because refined grid is guaranteed to overlap with AABB of all candidates.
@@ -530,6 +579,51 @@ contains
     end do
 
   end subroutine gridFinitePrecision
+
+  !!
+  !!
+  !!
+  subroutine constructMappingNRefineGrid(self, vertices, edges, faces, elements, spacing, spacingInv, &
+                   n_xyz, n_layers, currLayer, intersectedFaceIdxs, gridBoundsMin, localNxyz, alpha, wStar, &
+                   extraDistanceArr, candidateElementIdxs, normalSignsMat, circumscribedBallRadius, targetDistance, &
+                   targetDistanceSqr)
+    class(cartesianGridFinest), intent(inout)           :: self
+    class(vertexShelf), intent(in)                      :: vertices
+    class(edgeShelf), intent(inout)                     :: edges
+    class(faceShelf), intent(inout)                     :: faces
+    class(elementShelf), intent(in)                     :: elements
+    real(defReal), dimension(:), intent(in)             :: spacing, spacingInv
+    integer(shortInt), dimension(:,:), intent(in)       :: n_xyz
+    integer(shortInt), intent(in)                       :: n_layers, currLayer
+    integer(shortInt), dimension(:), intent(in)         :: intersectedFaceIdxs, candidateElementIdxs
+    real(defReal), dimension(3), intent(in)             :: gridBoundsMin
+    integer(shortInt), dimension(3), intent(in)         :: localNxyz
+    real(defReal), intent(in)                           :: alpha, wStar, circumscribedBallRadius, targetDistance, &
+                                                           targetDistanceSqr
+    real(defReal), dimension(:), intent(in)             :: extraDistanceArr
+    type(ragged3d), intent(in)                          :: normalSignsMat
+    integer(shortInt)                                   :: i, j, k
+    real(defReal), dimension(3)                         :: newGridBoundsMin
+
+    do i = 1, localNxyz(1)
+      do j = 1, localNxyz(2)
+        do k = 1, localNxyz(3)
+
+          ! (needs to be changed) (store newGridBoundsMin info)
+          newGridBoundsMin(1) = (gridBoundsMin(1)) + (spacing(currLayer)) * (i-1)
+          newGridBoundsMin(2) = (gridBoundsMin(2)) + (spacing(currLayer)) * (j-1)
+          newGridBoundsMin(3) = (gridBoundsMin(3)) + (spacing(currLayer)) * (k-1)
+
+          call self % grid(i,j,k) % constructNRefineCell(vertices, edges, faces, elements, spacing, &
+                   spacingInv, n_xyz, n_layers, currLayer, intersectedFaceIdxs, gridBoundsMin, alpha, &
+                   wStar, extraDistanceArr, candidateElementIdxs, normalSignsMat, &
+                   circumscribedBallRadius, targetDistance, targetDistanceSqr)
+                                               
+        end do
+      end do
+    end do
+
+  end subroutine constructMappingNRefineGrid
 
 !&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 ! bit-trick (not saving)
@@ -608,6 +702,8 @@ contains
     !  ishft does not do anyting. So, just perfrom iand for the finest layer.)
     !cellIdxs = getLocalIdx(baseIntegerCoord, shift(currLayer,:), mask(currLayer,:))
     cellIdxsMat(currLayer,:) = getLocalIdxFinest(baseIntegerCoord, shift(currLayer,:), mask(currLayer,:))
+
+    ! print*, "finest"
 
     chi = self % grid(cellIdxsMat(currLayer,1), cellIdxsMat(currLayer,2), cellIdxsMat(currLayer,3)) % getChi()
 

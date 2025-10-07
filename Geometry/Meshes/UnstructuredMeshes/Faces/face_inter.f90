@@ -30,15 +30,17 @@ module face_inter
   type, public, abstract                         :: face
     private
     integer(shortInt)                            :: idx = 0, parentIdx = 0
-    integer(shortInt), dimension(:), allocatable :: edgeIdxs, elementIdxs, triangleIdxs, vertexIdxs
+    integer(shortInt), dimension(:), allocatable :: edgeIdxs, elementIdxs, triangleIdxs, vertexIdxs, &
+                                                    normalSigns
     logical(defBool)                             :: isBoundary = .false.
-    real(defReal)                                :: area = ZERO, const = ZERO
+    real(defReal)                                :: area = ZERO, const = ZERO, extraDistance = ZERO
     real(defReal), dimension(3)                  :: centroid = ZERO, normal = ZERO, AB = ZERO, AC = ZERO
     type(axisAlignedBoundingBox)                 :: boundingBox
     character(:), allocatable                    :: type
   contains
     procedure, non_overridable                   :: addEdgeIdx
     procedure, non_overridable                   :: addElementIdx
+    procedure, non_overridable                   :: swapElementIdxsOrder
     procedure, non_overridable                   :: addTriangleIdx
     procedure, non_overridable                   :: addVertexIdx
     procedure, non_overridable                   :: build
@@ -51,6 +53,8 @@ module face_inter
     procedure, non_overridable                   :: getAC
     procedure, non_overridable                   :: getArea
     procedure, non_overridable                   :: getConst
+    procedure, non_overridable                   :: getExtraDistance
+    procedure, non_overridable                   :: getNormalSigns
     procedure, non_overridable                   :: getBoundingBox
     procedure, non_overridable                   :: getCentroid
     procedure, non_overridable                   :: getEdgeIdxs
@@ -72,6 +76,8 @@ module face_inter
     procedure                                    :: kill
     procedure, non_overridable                   :: setArea
     procedure, non_overridable                   :: setConst
+    procedure, non_overridable                   :: setExtraDistance
+    procedure, non_overridable                   :: setNormalSigns
     procedure, non_overridable                   :: setCentroid
     procedure, non_overridable                   :: setIsBoundary
     procedure, non_overridable                   :: setIdx
@@ -175,6 +181,29 @@ contains
     call append(self % elementIdxs, idx)
 
   end subroutine addElementIdx
+
+  !! Changes the order of element indices of a give face so that
+  !! the order is [owner element, non-owner element]
+  !! For (usual OpenFoam mesh format) boundary faces, the only element attached is
+  !! usually set as owner element so [owner element]. However, if this format is violated,
+  !! [0, the only element attached] where "0" indicates the outside of the mesh domain.
+  subroutine swapElementIdxsOrder(self)
+    class(face), intent(inout)                   :: self
+    integer(shortInt), dimension(:), allocatable :: idxsOld
+
+    if (allocated(idxsOld)) deallocate(idxsold)
+
+    idxsOld = self % elementIdxs
+    if (size(self % elementIdxs) == 1) then
+      self % elementIdxs = 0_shortInt
+      call append(self % elementIdxs, idxsOld)
+    else
+      self % elementIdxs(1) = idxsOld(2)
+      self % elementIdxs(2) = idxsOld(1)
+    end if
+
+  end subroutine swapElementIdxsOrder
+
 
   !! Subroutine 'addTriangleIdx'
   !!
@@ -429,6 +458,32 @@ contains
     if (idx < 0) const = -const
 
   end function getConst
+
+  !!
+  !!
+  !!
+  elemental function getExtraDistance(self) result(extraDistance)
+    class(face), intent(in) :: self
+    real(defReal)           :: extraDistance
+    
+    extraDistance = self % extraDistance
+
+  end function getExtraDistance
+
+  !!
+  !!
+  !!
+  pure function getNormalSigns(self, idx) result(normalSigns)
+    class(face), intent(in)                 :: self
+    integer(shortInt), intent(in), optional :: idx
+    integer(shortInt), dimension(3)         :: normalSigns
+    
+    normalSigns = self % normalSigns
+
+    if (.not. present(idx)) return
+    if (idx < 0) normalSigns = -normalSigns
+
+  end function getNormalSigns
 
   !! Function 'getBoundingBox'
   !!
@@ -824,6 +879,28 @@ contains
 
   end subroutine setArea
 
+  !!
+  !!
+  !!
+  elemental subroutine setExtraDistance(self, extraDistance)
+    class(face), intent(inout) :: self
+    real(defReal), intent(in)  :: extraDistance
+
+    self % extraDistance = extraDistance
+
+  end subroutine setExtraDistance
+
+  !!
+  !!
+  !!
+  pure subroutine setNormalSigns(self, normalSigns)
+    class(face), intent(inout)                  :: self
+    integer(shortInt), dimension(3), intent(in) :: normalSigns
+
+    if (.NOT. allocated(self % normalSigns)) allocate(self % normalSigns(3))
+    self % normalSigns = normalSigns
+
+  end subroutine setNormalSigns
   !!
   !!
   !!

@@ -9,6 +9,15 @@ module cartesianGenericProcedures
 
   implicit none
 
+  !!
+  !! DERIVED TYPE: num_freq
+  !! A custom data structure to hold a number and its corresponding frequency.
+  !! Used for: sortByHighestFrequency
+  type :: num_freq
+      integer :: number
+      integer :: frequency
+  end type num_freq
+
 contains
 
   !!
@@ -196,7 +205,7 @@ contains
   !! ("value" to be outside the bounds of "array". So rewritten. Can be moved to genericProcedure Later)
   !! (needs to be changed) (for boundary edges, value > array(size(array)) or value < array(1) cases might not)
   !! (work using this subroutine)
-  pure function binarySearchAngle(array, value) result(idx)
+  function binarySearchAngle(array, value) result(idx)
     real(defReal), dimension(:), intent(in)             :: array
     real(defReal), intent(in)                           :: value
     integer(shortInt)                                   :: idx, bottom, top, i
@@ -368,5 +377,137 @@ contains
     if (left < j) call quicksort(a, left, j)
     if (i < right) call quicksort(a, i, right)
   end subroutine quicksort
+
+  !!
+  !!
+  !!
+  function intBinarySearch(arr, value) result(idx)
+      integer(shortInt), dimension(:), intent(in) :: arr
+      integer(shortInt), intent(in)               :: value
+      integer(shortInt)                           :: idx
+      integer(shortInt)                           :: left, right, mid
+
+      left  = 1
+      right = size(arr)
+      idx   = 0
+
+      do while (left <= right)
+          mid = (left + right) / 2
+          if (arr(mid) == value) then
+              idx = mid
+              exit
+          else if (arr(mid) < value) then
+              left = mid + 1
+          else
+              right = mid - 1
+          end if
+      end do
+
+  end function intBinarySearch
+
+!!
+!!
+!! Takes an integer array, finds all unique numbers, and returns a new
+!! array with those unique numbers sorted in descending order of their
+!! frequency in the original array.
+function sortByHighestFrequency(input_array) result(output_array)
+    integer(shortInt), dimension(:), intent(in)  :: input_array
+    integer(shortInt), dimension(:), allocatable :: output_array
+    integer(shortInt)                            :: array_size, num_unique, i, j
+    integer(shortInt), dimension(:), allocatable :: sorted_temp_array
+    type(num_freq), dimension(:), allocatable    :: freq_pairs
+
+    array_size = size(input_array)
+
+    ! Handle an empty input array
+    if (array_size == 0) then
+        if (allocated(output_array)) deallocate(output_array)
+        allocate(output_array(0))
+        return
+    end if
+
+    ! --- Step 1: Create a sorted copy of the input array to make counting easy ---
+    sorted_temp_array = input_array
+    call quicksort(sorted_temp_array, 1, array_size)
+
+    ! --- Step 2: First pass to count the number of unique elements ---
+    num_unique = 1
+    do i = 2, array_size
+        if (sorted_temp_array(i) /= sorted_temp_array(i-1)) then
+            num_unique = num_unique + 1
+        end if
+    end do
+
+    ! --- Step 3: Second pass to populate the frequency pairs array ---
+    allocate(freq_pairs(num_unique))
+    j = 1
+    freq_pairs(j)%number = sorted_temp_array(1)
+    freq_pairs(j)%frequency = 1
+    do i = 2, array_size
+        if (sorted_temp_array(i) == sorted_temp_array(i-1)) then
+            freq_pairs(j)%frequency = freq_pairs(j)%frequency + 1
+        else
+            j = j + 1
+            freq_pairs(j)%number = sorted_temp_array(i)
+            freq_pairs(j)%frequency = 1
+        end if
+    end do
+
+    deallocate(sorted_temp_array)
+
+    ! --- Step 4: Sort the frequency pairs in descending order of frequency ---
+    call quicksort_freq_pairs(freq_pairs, 1, num_unique)
+
+    ! --- Step 5: Construct the final output array from the sorted pairs ---
+    allocate(output_array(num_unique))
+    do i = 1, num_unique
+        output_array(i) = freq_pairs(i)%number
+    end do
+
+    deallocate(freq_pairs)
+
+end function sortByHighestFrequency
+
+!!
+!! An efficient, recursive sorting algorithm for the 'num_freq' type. It
+!! sorts the array in descending order based on the 'frequency' field.
+recursive subroutine quicksort_freq_pairs(pairs, left, right)
+    type(num_freq), dimension(:), intent(inout) :: pairs
+    integer, intent(in)                         :: left, right
+    integer                                     :: i, j, pivot_freq
+    type(num_freq)                              :: temp
+
+    if (left >= right) return
+
+    ! Use the frequency of the middle element as the pivot
+    pivot_freq = pairs((left + right) / 2)%frequency
+    i = left
+    j = right
+
+    do
+        ! Sort descending: find elements > pivot on the left
+        do while (pairs(i)%frequency > pivot_freq)
+            i = i + 1
+        end do
+        ! Sort descending: find elements < pivot on the right
+        do while (pairs(j)%frequency < pivot_freq)
+            j = j - 1
+        end do
+
+        if (i <= j) then
+            temp = pairs(i)
+            pairs(i) = pairs(j)
+            pairs(j) = temp
+            i = i + 1
+            j = j - 1
+        end if
+
+        if (i > j) exit
+    end do
+
+    if (left < j) call quicksort_freq_pairs(pairs, left, j)
+    if (i < right) call quicksort_freq_pairs(pairs, i, right)
+end subroutine quicksort_freq_pairs
+
 
 end module cartesianGenericProcedures
