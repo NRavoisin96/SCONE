@@ -121,7 +121,8 @@ contains
     type(dynamic2dMatSet)                               :: normalSignsMat
     real(defReal), dimension(:,:), allocatable          :: faceNormalSigns
     integer(shortInt), dimension(:), allocatable        :: currElementFaceIdxs, removedFaceIdxsInArr, &
-                                                           candidateElementIdxs, removedElementIdxsInArr
+                                                           candidateElementIdxs, removedElementIdxsInArr, &
+                                                           uniqueFaceList
     integer(shortInt)                                   :: i
     real(defReal), dimension(3)                         :: centroid
     logical(defBool)                                    :: isOut
@@ -175,6 +176,17 @@ contains
       call normalSignsMat % deleteMany(removedElementIdxsInArr)
     end if
     call normalSignsMat % scale(spacingInv(currLayer)*spacing(currLayer+1))
+
+    if (normalSignsMat % is_singleton_abs()) then
+      uniqueFaceList = normalSignsMat % unique_list()
+      self % chi = -abs(uniqueFaceList(1))
+      return
+    end if
+
+    ! if (normalSignsMat % nslices() == 0) then
+    !   print*, normalSignsMatOld % nslices()
+    !   print*, normalSignsMatOld % unique_list()
+    ! end if
 
 
 

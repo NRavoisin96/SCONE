@@ -53,6 +53,7 @@ module dynamic2dMatSet_class
     procedure :: get_copy
     procedure :: unique_count
     procedure :: is_singleton
+    procedure :: is_singleton_abs
     procedure :: unique_list
   end type dynamic2dMatSet
 
@@ -560,6 +561,36 @@ contains
     class(dynamic2dMatSet), intent(in) :: self
     tf = (self%gids%n == 1_shortInt)
   end function is_singleton
+
+  pure logical function is_singleton_abs(self) result(tf)
+    class(dynamic2dMatSet), intent(in) :: self
+    integer(shortInt) :: i, nuniq
+    integer(shortInt), allocatable :: abskeys(:)
+    logical :: unique
+
+    if (self%gids%n <= 1_shortInt) then
+      tf = (self%gids%n == 1_shortInt)
+      return
+    end if
+
+    nuniq = self%gids%n
+    allocate(abskeys(nuniq))
+    do i = 1, nuniq
+      abskeys(i) = abs(self%gids%keys(i))
+    end do
+
+    ! Check if all absolute values are identical
+    unique = .true.
+    do i = 2, nuniq
+      if (abskeys(i) /= abskeys(1)) then
+        unique = .false.
+        exit
+      end if
+    end do
+
+    tf = unique
+    deallocate(abskeys)
+  end function is_singleton_abs
 
   function unique_list(self) result(out)
     class(dynamic2dMatSet), intent(in) :: self

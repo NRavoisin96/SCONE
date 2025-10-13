@@ -148,7 +148,7 @@ contains
     integer(shortInt), dimension(:), allocatable, intent(out) :: removedFaceIdxsInArr
     logical(defBool), intent(out)                             :: isOut
     integer(shortInt)                                         :: i, j
-    real(defReal), dimension(3)                               :: furthestVertexCoord
+    real(defReal), dimension(3)                               :: furthestVertexCoord, nearestVertexCoord
     logical(defBool)                                          :: isInside
 
     isOut = .FALSE.
@@ -163,9 +163,23 @@ contains
 
       if (dot_product(faces % getFaceNormal(currElementFaceIdxs(i)), furthestVertexCoord) &
           + faces % getFaceConst(currElementFaceIdxs(i)) > ZERO) then
+
         isInside = .FALSE.
+
+        ! ! Extra test to determine if the Cartesian cell lies completely outside
+        ! do j = 1, 3
+        !   nearestVertexCoord(j) = centroid(j) - faceNormalSigns(j,i) 
+        ! end do
+
+        ! if (dot_product(faces % getFaceNormal(currElementFaceIdxs(i)), nearestVertexCoord) &
+        !                 + faces % getFaceConst(currElementFaceIdxs(i)) > ZERO) then
+        !   isOut = .TRUE.
+        ! end if
+
       else
+
         call append(removedFaceIdxsInArr, i)
+
       end if 
 
     end do
