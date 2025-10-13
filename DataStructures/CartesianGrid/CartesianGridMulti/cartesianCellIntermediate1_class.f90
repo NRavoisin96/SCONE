@@ -12,6 +12,7 @@ module cartesianCellIntermediate1_class
   use cartesianGridFinest_class,       only : cartesianGridFinest
   use genericProcedures,               only : append, fatalError
   use ragged3dMatrix_class,            only : ragged3d
+  use dynamic2dMatSet_class,           only : dynamic2dMatSet
 
   implicit none
   private
@@ -35,6 +36,7 @@ module cartesianCellIntermediate1_class
     ! Build procedures.
     procedure                                    :: cellTestPolyhedronInclusion
     procedure                                    :: refineCell
+    procedure                                    :: refineCell2
     procedure                                    :: constructNRefineCell
     ! Runtime procedures.
     procedure                                    :: getChi
@@ -99,6 +101,78 @@ contains
     end if 
 
   end subroutine refineCell
+
+  !!
+  !!
+  !!
+  subroutine refineCell2(self, vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
+                             currLayer, candidateElementIdxs, newGridBoundsMin, alpha, wStar, normalSignsMatOld)
+    class(cartesianCellIntermediate1), intent(inout)     :: self
+    class(vertexShelf), intent(in)                      :: vertices
+    class(edgeShelf), intent(inout)                     :: edges
+    class(faceShelf), intent(inout)                     :: faces
+    class(elementShelf), intent(in)                     :: elements
+    real(defReal), dimension(:), intent(in)             :: spacing, spacingInv
+    integer(shortInt), dimension(:,:), intent(in)       :: n_xyz
+    integer(shortInt), intent(in)                       :: n_layers, currLayer
+    integer(shortInt), dimension(:), intent(in)         :: candidateElementIdxs
+    real(defReal), dimension(3), intent(in)             :: newGridBoundsMin
+    real(defReal), intent(in)                           :: alpha, wStar
+    type(dynamic2dMatSet), intent(in)                   :: normalSignsMatOld
+    type(dynamic2dMatSet)                               :: normalSignsMat
+    real(defReal), dimension(:,:), allocatable          :: faceNormalSigns
+    integer(shortInt), dimension(:), allocatable        :: currElementFaceIdxs
+    integer(shortInt)                                   :: i, j, k, l !@@ last one
+    real(defReal), dimension(3)                         :: centroid, currFaceNormal !@@ last three
+
+    normalSignsMat = normalSignsMatOld
+
+    ! Calculate centroid from newGridBoundsMin
+    do i = 1, 3
+      centroid(i) = newGridBoundsMin(i) + spacing(currLayer)*0.5
+    end do
+
+    allocate(faceNormalSigns(3, 2))
+    allocate(currElementFaceIdxs(1))
+
+    do i = 1, normalSignsMat % nslices()
+
+      deallocate(faceNorMalSigns)
+      deallocate(currElementFaceIdxs)
+
+      call normalSignsMat % get_copy(i, faceNormalSigns, currElementFaceIdxs)
+
+      call testPolyhedronInclusion(faces, currElementFaceIdxs, centroid, faceNormalSigns, &
+                                   candidateElementIdxs(i), self % chi)
+
+      if (self % chi > 0) return
+
+
+
+
+    end do
+
+    !@@ Update NormalSignsMat (remove and scale)
+    call normalSignsMat % scale(spacingInv(currLayer)*spacing(currLayer+1))
+
+
+
+    !if the current cell is not entirely contained within a polyhedron, then refine the grid
+    if (self % chi == 0) then !@@ can be removed
+
+      ! (needs to be changed) (pointers cannot point to the same class)
+      if (n_layers > currLayer+1) then 
+        allocate(cartesianGridIntermediate2:: self % subGrid)
+      else
+        allocate(cartesianGridFinest:: self % subGrid)
+      end if
+
+      call self % subgrid % init2(vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
+                        currLayer + 1, candidateElementIdxs, newGridBoundsMin, alpha, wStar, normalSignsMat)
+
+    end if 
+
+  end subroutine refineCell2
 
   !!
   !!

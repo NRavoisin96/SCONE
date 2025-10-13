@@ -9,6 +9,7 @@ module cartesianGridIntermediate1_class
   use numPrecision   
   use cartesianGenericProcedures
   use ragged3dMatrix_class,                    only : ragged3d
+  use dynamic2dMatSet_class,                   only : dynamic2dMatSet
 
   implicit none
   private
@@ -25,9 +26,11 @@ module cartesianGridIntermediate1_class
 
     ! Build procedures
     procedure                                    :: init
+    procedure                                    :: init2
     procedure                                    :: initt
     procedure                                    :: constructMapping
     procedure                                    :: refineGrid
+    procedure                                    :: refineGrid2
     procedure                                    :: constructMappingNRefineGrid
     ! Runtime procedures
     procedure                                    :: getGridChi
@@ -72,6 +75,38 @@ contains
                            currLayer, candidateElementIdxs, gridBoundsMin, localNxyz, alpha, wStar)
 
   end subroutine init
+
+  !!
+  !!
+  !!
+  subroutine init2(self, vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
+                       currLayer, candidateElementIdxs, gridBoundsMin, alpha, wStar, normalSignsMat)
+    class(cartesianGridIntermediate1), intent(inout)     :: self
+    class(vertexShelf), intent(in)                      :: vertices
+    class(edgeShelf), intent(inout)                     :: edges
+    class(faceShelf), intent(inout)                     :: faces
+    class(elementShelf), intent(in)                     :: elements
+    real(defReal), dimension(:), intent(in)             :: spacing, spacingInv
+    integer(shortInt), dimension(:,:), intent(in)       :: n_xyz
+    integer(shortInt), intent(in)                       :: n_layers, currLayer
+    integer(shortInt), dimension(:), intent(in)         :: candidateElementIdxs
+    real(defReal), dimension(3), intent(in)             :: gridBoundsMin
+    real(defReal), intent(in)                           :: alpha, wStar
+    type(dynamic2dMatSet), intent(in)                   :: normalSignsMat
+    integer(shortInt), dimension(3)                     :: localNxyz
+    integer(shortInt)                                   :: i
+
+    ! calculate local number of cells 
+    do i = 1, 3
+      localNxyz(i) = n_xyz(currLayer,i)/n_xyz(currLayer-1,i)
+    end do
+
+    ! construct mapping and refine further
+    allocate(self % grid(localNxyz(1), localNxyz(2), localNxyz(3)))
+    call self % refineGrid2(vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
+                           currLayer, candidateElementIdxs, gridBoundsMin, localNxyz, alpha, wStar, normalSignsMat)             
+
+  end subroutine init2
 
   !!
   !!
@@ -216,6 +251,46 @@ contains
     end do
 
   end subroutine refineGrid
+
+  !!
+  !!
+  !!
+  subroutine refineGrid2(self, vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
+                             currLayer, candidateElementIdxs, gridBoundsMin, localNxyz, alpha, wStar, normalSignsMat)
+    class(cartesianGridIntermediate1), intent(inout)     :: self
+    class(vertexShelf), intent(in)                      :: vertices
+    class(edgeShelf), intent(inout)                     :: edges
+    class(faceShelf), intent(inout)                     :: faces
+    class(elementShelf), intent(in)                     :: elements
+    real(defReal), dimension(:), intent(in)             :: spacing, spacingInv
+    integer(shortInt), dimension(:,:), intent(in)       :: n_xyz
+    integer(shortInt), intent(in)                       :: n_layers, currLayer
+    integer(shortInt), dimension(:), intent(in)         :: candidateElementIdxs
+    real(defReal), dimension(3), intent(in)             :: gridBoundsMin
+    integer(shortInt), dimension(3), intent(in)         :: localNxyz
+    real(defReal), intent(in)                           :: alpha, wStar
+    type(dynamic2dMatSet), intent(in)                   :: normalSignsMat
+    integer(shortInt)                                   :: i, j, k
+    real(defReal), dimension(3)                         :: newGridBoundsMin
+
+    do i = 1, localNxyz(1)
+      do j = 1, localNxyz(2)
+        do k = 1, localNxyz(3)
+
+          ! (needs to be changed) (store newGridBoundsMin info)
+          newGridBoundsMin(1) = (gridBoundsMin(1)) + (spacing(currLayer)) * (i-1)
+          newGridBoundsMin(2) = (gridBoundsMin(2)) + (spacing(currLayer)) * (j-1)
+          newGridBoundsMin(3) = (gridBoundsMin(3)) + (spacing(currLayer)) * (k-1)
+
+          call self % grid(i,j,k) % refineCell2(vertices, edges, faces, elements, spacing, spacingInv, n_xyz, &
+                                               n_layers, currLayer, candidateElementIdxs, newGridBoundsMin, &
+                                               alpha, wStar, normalSignsMat)
+                                               
+        end do
+      end do
+    end do
+
+  end subroutine refineGrid2
 
   !!
   !!

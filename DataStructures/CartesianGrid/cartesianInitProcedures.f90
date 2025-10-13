@@ -136,6 +136,48 @@ contains
   !!
   !!
   !!
+  subroutine testPolyhedronInclusion3(faces, currElementFaceIdxs, centroid, &
+                                     faceNormalSigns, elementIdx, chi, &
+                                     removedFaceIdxsInarr, isOut)
+    class(faceShelf), intent(in)                              :: faces
+    integer(shortInt), dimension(:), intent(in)               :: currElementFaceIdxs
+    real(defReal), dimension(3), intent(in)                   :: centroid
+    real(defReal), dimension(:,:), intent(in)                 :: faceNormalSigns
+    integer(shortInt), intent(in)                             :: elementIdx
+    integer(shortInt), intent(inout)                          :: chi
+    integer(shortInt), dimension(:), allocatable, intent(out) :: removedFaceIdxsInArr
+    logical(defBool), intent(out)                             :: isOut
+    integer(shortInt)                                         :: i, j
+    real(defReal), dimension(3)                               :: furthestVertexCoord
+    logical(defBool)                                          :: isInside
+
+    isOut = .FALSE.
+    isInside = .TRUE.
+
+    do i = 1, size(currElementFaceIdxs)
+      
+      do j = 1, 3
+        furthestVertexCoord(j) = centroid(j) + faceNormalSigns(j,i) 
+      end do
+
+      if (.NOT. dot_product(faces % getFaceNormal(currElementFaceIdxs(i)), furthestVertexCoord) &
+          + faces % getFaceConst(currElementFaceIdxs(i)) > 0) then
+
+          isInside = .FALSE.
+          call append(removedFaceIdxsInArr, i)
+      end if 
+
+    end do
+
+    ! if survived to this point, then the cell is entired enclosed by the polyhedron. 
+    ! Hence, set chi mapping to the current element index.
+    if (isInside) chi = elementIdx
+
+  end subroutine testPolyhedronInclusion3
+
+  !!
+  !!
+  !!
   function testPolyhedronInclusionNew(faces, currElementFaceIdxs, centroid, &
                                      faceNormalSigns) result(isIncluded)
     class(faceShelf), intent(in)                        :: faces

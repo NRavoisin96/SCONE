@@ -9,9 +9,10 @@ module cartesianCellCoarsest_class
   use cartesianGridSubLayer_inter,      only : cartesianGridSubLayer
   use cartesianGridFinest_class,        only : cartesianGridFinest
   use cartesianGridIntermediate1_class, only : cartesianGridIntermediate1
-  use cartesianGenericProcedures,       only : quickSort
+  use cartesianGenericProcedures,       only : quickSort, sortByHighestFrequency
   use genericProcedures,                only : append, fatalError
   use ragged3dMatrix_class,             only : ragged3d
+  use dynamic2dMatSet_class,            only : dynamic2dMatSet
 
   implicit none
   private
@@ -22,7 +23,7 @@ module cartesianCellCoarsest_class
     private
     class(cartesianGridSubLayer), pointer               :: subGrid => null()
     integer(shortInt)                                   :: chi = 0 !-1 !"""
-    integer(shortInt), dimension(:), allocatable        :: candidateElementIdxs, intersectedFaceIdxs !""(remove first)
+    integer(shortInt), dimension(:), allocatable        :: intersectedFaceIdxs !""(remove first)
     ! (needs to be changed) (cell centre should be a property to avoid repetative calc.)
     ! (due to limited memory, this is calculated each time needed)
     ! (try to avoid adding properties tho due to memory)
@@ -34,6 +35,7 @@ module cartesianCellCoarsest_class
     procedure                                    :: cellTestFaceIntersection
     procedure                                    :: setIsOutsideMesh
     procedure                                    :: refineCell
+    procedure                                    :: refineCell2
     procedure                                    :: setChiFace !"""
     ! Runtime procedures.
     procedure                                    :: getChi
@@ -116,11 +118,13 @@ contains
 
     ! if candidateElementIdxs is not allocated, this cell does not intersect AABB of any polyhedron.
     ! Hence, this cell lies outside of mesh
-    if (.NOT. allocated(self % candidateElementIdxs)) then
+    !@@
+    !if (.NOT. allocated(self % candidateElementIdxs)) then
       if (.NOT. allocated(self % intersectedFaceIdxs)) then
         !self % chi = no
       end if
-    end if
+    !end if
+    !@@
 
   end subroutine setIsOutsideMesh
 
@@ -165,6 +169,7 @@ contains
       ! parameters at each layer only once. It is important to calculate these during "refine" one by one because otherwise,
       ! all cells in the coarsest layer store these values.
 
+      !@@ (remove)
       ! Begin with face-specific paremeters
       if (allocated(extraDistanceArr)) deallocate(extraDistanceArr)
       allocate(extraDistanceArr(size(self % intersectedFaceIdxs)))
@@ -176,9 +181,11 @@ contains
       ! Then, element-specific parameters
       if (size(self % intersectedFaceIdxs) > 1) then
         if (allocated(candidateElementIdxs)) deallocate(candidateElementIdxs)
+      !@@
 
         ! Preparation before setting up normalSignsMat
         candidateElementIdxs = faces % getFaceElementIdxs(self % intersectedFaceIdxs)
+        
         numberOfElements = size(candidateElementIdxs)
         call quickSort(candidateElementIdxs, 1, numberOfElements)
         call normalSignsMat % kill()
@@ -221,9 +228,8 @@ contains
 
 
       !""
-      self % candidateElementIdxs = faces % getFaceElementIdxs(self%intersectedFaceIdxs)
       call self % subgrid % init(vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
-                                 2, self % candidateElementIdxs, newGridBoundsMin, alpha, wStar)
+                                 2, candidateElementIdxs, newGridBoundsMin, alpha, wStar)
       ! call self % subgrid % initt(vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
       !                             2, self % intersectedFaceIdxs, newGridBoundsMin, alpha, wStar, &
       !                             extraDistanceArr, candidateElementIdxs, normalSignsMat, &
@@ -239,6 +245,155 @@ contains
     !""
 
   end subroutine refineCell
+
+  !!
+  !!
+  !!
+  subroutine refineCell2(self, vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
+                             newGridBoundsMin, alpha, wStar, circumscribedBallRadius, targetDistance, &
+                             targetDistanceSqr)
+    class(cartesianCellCoarsest), intent(inout)         :: self
+    class(vertexShelf), intent(in)                      :: vertices
+    class(edgeShelf), intent(inout)                     :: edges
+    class(faceShelf), intent(inout)                     :: faces
+    class(elementShelf), intent(in)                     :: elements
+    real(defReal), dimension(:), intent(in)             :: spacing, spacingInv
+    integer(shortInt), dimension(:,:), intent(in)       :: n_xyz
+    integer(shortInt), intent(in)                       :: n_layers
+    real(defReal), dimension(3), intent(in)             :: newGridBoundsMin
+    real(defReal), intent(in)                           :: alpha, wStar, circumscribedBallRadius, targetDistance, &
+                                                           targetDistanceSqr
+    integer(shortInt), dimension(:), allocatable        :: candidateElementIdxs, currElementFaceIdxs, removedFaceIdxsInArr
+    real(defReal), dimension(:), allocatable            :: extraDistanceArr
+    integer(shortInt)                                   :: i, j, numberOfElements, numberOfFaces
+    real(defReal), dimension(:,:), allocatable          :: currNormalSignsMat, faceNormalSigns
+    real(defReal)                                       :: halfSpacing
+    type(dynamic2dMatSet)                               :: normalSignsMat
+    real(defReal), dimension(3)                         :: centroid
+    logical(defBool)                                    :: isOut
+
+    !if the current cell is not entirely contained within a polyhedron nor outside of the mesh domain, refine the cell
+    if (self % chi == 0) then
+
+      ! If (very rarely) the cell is inside the mesh domain but intersects with no faces, then specify that this cell lies outside
+      if (.NOT. allocated(self % intersectedFaceIdxs)) then
+        self % chi = faces % getSize() + 1 !-1 !"""
+        return
+      end if
+
+      halfSpacing = 0.5*spacing(1)
+
+      ! First, setup element- and face-specific parameters so that they do not have to be recalculated for multiple cells at each layer.
+      ! Because, we perform DFS for initialisation, this is benefitial (Otherwise, each cell in the same level need to
+      ! recalculate these.) There is no memory issue because each travelsal down a path require (reduced list of) these
+      ! parameters at each layer only once. It is important to calculate these during "refine" one by one because otherwise,
+      ! all cells in the coarsest layer store these values.
+
+      ! Then, element-specific parameters
+      ! if (size(self % intersectedFaceIdxs) > 1) then
+        if (allocated(candidateElementIdxs)) deallocate(candidateElementIdxs)
+      
+
+        ! Preparation before setting up normalSignsMat
+
+        ! Sort the candidate element indices such that when we retrive duplicatable list of element indices
+        ! from faceElementIdxs of intersectedFaces, the most frequent element comes first because it is mostly 
+        ! likely that refined cells will be contained within this element
+        do i = 1, size(self % intersectedFaceIdxs)
+          call append(candidateElementIdxs, faces % getFaceElementIdxs(self % intersectedFaceIdxs(i)))
+        end do
+        candidateElementIdxs = sortByHighestFrequency(candidateElementIdxs)
+        
+        numberOfElements = size(candidateElementIdxs)
+        call normalSignsMat % kill()
+        call normalSignsMat % init(numberOfElements)
+
+        ! Construct currNormalSignsMat for each face of the element and append to normalSignsMat
+        do i = 1, numberOfElements
+          currElementFaceIdxs = elements % getElementFaceIdxs(candidateElementIdxs(i))
+          numberOfFaces = size(currElementFaceIdxs)
+
+          if (allocated(currNormalSignsMat)) deallocate(currNormalSignsMat)
+          allocate(currNormalSignsMat(3,numberOfFaces))
+          do j = 1, numberOfFaces
+            currNormalSignsMat(:,j) = faces % getFaceNormalSigns(currElementFaceIdxs(j))
+          end do
+          currNormalSignsMat(:,:) = currNormalSignsMat(:,:)*halfSpacing
+          call normalSignsMat % append(currNormalSignsMat, currElementFaceIdxs)
+
+        end do
+
+      !@@ if ther is a single intersectedFaceIdxs, then chi is non-zero, the code does not reach up to here.
+      ! elseif (size(self % intersectedFaceIdxs) == 1) then
+      !   ! If there is a singe intersected face, we perform special version of polyhedron inclusion tests.
+      !   ! So no need to construct normalSignsMat
+      !   call normalSignsMat % kill()
+    
+      ! end if
+
+      ! Determine and set the next layer
+      if (n_layers > 2) then 
+        allocate(cartesianGridIntermediate1:: self % subGrid)
+      else
+        allocate(cartesianGridFinest:: self % subGrid)
+      end if
+
+      ! Update normalSignsMat
+      do i = 1, 3
+        centroid(i) = newGridBoundsMin(i) + spacing(1)*0.5
+      end do
+
+      do i = 1, numberOfElements
+        if (allocated(faceNormalSigns)) deallocate(faceNormalSigns)
+        if (allocated(currElementFaceIdxs)) deallocate(currElementFaceIdxs)
+        if (allocated(removedFaceIdxsInArr)) deallocate(removedFaceIdxsInArr)
+        call normalSignsMat % get_copy(i, faceNormalSigns, currElementFaceIdxs)
+        call testPolyhedronInclusion3(faces, currElementFaceIdxs, centroid, faceNormalSigns, candidateElementIdxs(i), &
+                                      self % chi, removedFaceIdxsInArr, isOut)
+
+        if (isOut) then
+          call normalSignsMat % delete(i)
+        else
+          if (allocated(removedFaceIdxsInArr)) then
+            call normalSignsMat % delete_columns(i, removedFaceIdxsInArr)
+            !print*, "Yes"
+            !print*, size(removedFaceIdxsInArr)
+          else
+            !print*, "Not"
+          end if
+        end if
+      
+      end do
+      call normalSignsMat % scale(spacingInv(1)*spacing(2))
+
+      ! if (normalSignsMat % is_singleton()) then
+      !   print*, "here"
+      ! end if 
+      !@@@
+
+      ! call self % subgrid % init(vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
+      !                            2, candidateElementIdxs, newGridBoundsMin, alpha, wStar)
+
+      ! call self % subgrid % initt(vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
+      !                             2, self % intersectedFaceIdxs, newGridBoundsMin, alpha, wStar, &
+      !                             extraDistanceArr, candidateElementIdxs, normalSignsMat, &
+      !                             circumscribedBallRadius, targetDistance, targetDistanceSqr)
+
+      call self % subgrid % init2(vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
+                                 2, candidateElementIdxs, newGridBoundsMin, alpha, wStar, normalSignsMat)
+
+      ! call fatalError("as", "as")
+      !@@@
+
+    end if 
+
+    ! deallocate candidateElementIdxs to save memory. Otherwise, memory could explode
+    !""
+    !if (allocated(self % candidateElementIdxs)) deallocate(self % candidateElementIdxs)
+    if (allocated(self % intersectedFaceIdxs)) deallocate(self % intersectedFaceIdxs)
+    !""
+
+  end subroutine refineCell2
 
   !!
   !!

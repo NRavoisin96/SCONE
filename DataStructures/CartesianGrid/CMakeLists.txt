@@ -6,4 +6,5 @@ add_sources(
             ./cartesianGenericProcedures.f90
             ./cartesianInitProcedures.f90
             ./ragged3dMatrix_class.f90
+            ./dynamic2dMatSet_class.f90
            )

@@ -47,7 +47,7 @@ geometry {
 
 nuclearData {
 	handles {
-    		ce {type aceNeutronDatabase; aceLibrary /home/daeyeun/MPhil_project/fullLib.xsfile ;}
+    		ce {type aceNeutronDatabase; aceLibrary $SCONE_ACE;}
   	}
 
 	materials {

@@ -6,6 +6,7 @@ module cartesianGridSubLayer_inter
   use elementShelf_class,              only : elementShelf
   use numPrecision,                    only : shortInt, defReal
   use ragged3dMatrix_class,            only : ragged3d
+  use dynamic2dMatSet_class,           only : dynamic2dMatSet
 
   implicit none
   private
@@ -15,6 +16,7 @@ module cartesianGridSubLayer_inter
   type, public, abstract                          :: cartesianGridSubLayer
   contains
     procedure(init), deferred                     :: init
+    procedure(init2), deferred                    :: init2
     procedure(initt), deferred                    :: initt
     procedure(getGridChi), deferred               :: getGridChi
     procedure(getGridPhi), deferred               :: getGridPhi
@@ -44,6 +46,28 @@ module cartesianGridSubLayer_inter
       real(defReal), intent(in)                           :: alpha, wStar
 
      end subroutine
+
+    !!
+    !!
+    !!
+    subroutine init2(self, vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
+                         currLayer, candidateElementIdxs, gridBoundsMin, alpha, wStar, normalSignsMat)
+      import                                                 cartesianGridSubLayer, vertexShelf, edgeShelf, faceShelf, &
+                                                             elementShelf, defReal, shortInt, dynamic2dMatSet
+      class(cartesianGridSubLayer), intent(inout)         :: self
+      class(vertexShelf), intent(in)                      :: vertices
+      class(edgeShelf), intent(inout)                     :: edges
+      class(faceShelf), intent(inout)                     :: faces
+      class(elementShelf), intent(in)                     :: elements
+      real(defReal), dimension(:), intent(in)             :: spacing, spacingInv
+      integer(shortInt), dimension(:,:), intent(in)       :: n_xyz
+      integer(shortInt), intent(in)                       :: n_layers, currLayer
+      integer(shortInt), dimension(:), intent(in)         :: candidateElementIdxs
+      real(defReal), dimension(3), intent(in)             :: gridBoundsMin
+      real(defReal), intent(in)                           :: alpha, wStar
+      type(dynamic2dMatSet), intent(in)                   :: normalSignsMat
+
+     end subroutine 
 
   !!
   !!

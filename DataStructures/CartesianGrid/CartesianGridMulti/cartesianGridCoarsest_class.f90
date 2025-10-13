@@ -10,6 +10,7 @@ module cartesianGridCoarsest_class
   use cartesianGenericProcedures
   use genericProcedures,               only : fatalError
   use cartesianInitProcedures,         only : setFaceParameters, fixFaceElementIdxsOrder
+  use dynamic2dMatSet_class,           only : dynamic2dMatSet
 
   implicit none
   private
@@ -39,6 +40,7 @@ module cartesianGridCoarsest_class
     procedure                               :: setGridIsOutsideMesh
     procedure                               :: refineGrid
     procedure                               :: setChiSingleFace !""
+    procedure                               :: testingDynamic2dMatSet
     ! Runtime procedures
     procedure                               :: getGridBounds_min
     procedure                               :: getSpacingReciprocal
@@ -155,7 +157,7 @@ contains
 
     ! (needs to be changed) (change it so that it can be read from the inputfile?)
     ! (Currently, n_layers can be only either 2 or 3; to be updated)
-    self % n_layers = 2
+    self % n_layers = 4
     factor = 0.1
     allocate(minExponent(self % n_layers,3))
     allocate(self % spacing(self % n_layers))
@@ -470,6 +472,10 @@ contains
     !   print*, iand(globalIdx, self%mask(i,1)) + 1
     ! end do
 
+    !@@
+    ! call self % testingDynamic2dMatSet(faces)
+    !@@
+
     !-----------------------------------------------------------------------------------------
     !initialise for patch search
     !-----------------------------------------------------------------------------------------
@@ -477,7 +483,7 @@ contains
 
     call self % constructMapping(vertices, edges, faces, elements)
     call self % setGridIsOutsideMesh(-(faces % getSize() + 1)) !"""
-    !call self % setChiSingleFace(faces)!"""
+    call self % setChiSingleFace(faces)!"""
     call self % refineGrid(vertices, edges, faces, elements)
 
     ! Print the number of cells for each layer (for extra analysis).
@@ -507,6 +513,189 @@ contains
     !!!!!
 
   end subroutine init
+
+  !!
+  !!
+  !!
+  subroutine testingDynamic2dMatSet(self,faces) !@@
+    class(cartesianGridCoarsest), intent(inout)           :: self
+    class(faceShelf), intent(in)                          :: faces
+    type(dynamic2dMatSet)                                 :: SetTesting, setTesting2
+    real(defReal), dimension(:,:), allocatable            :: sliceA, sliceB, sliceC, cols
+    integer(shortInt), dimension(:), allocatable          :: gids
+    integer(shortInt)                                     :: i
+
+    call SetTesting % init(3)
+    allocate(sliceA(3,2))
+    allocate(sliceB(3,3))
+    allocate(sliceC(3,3))
+
+    sliceA(:,1) = faces % getFaceNormal(1)
+    sliceA(:,2) = faces % getFaceNormal(2)
+
+    sliceB(:,1) = faces % getFaceNormal(3)
+    sliceB(:,2) = faces % getFaceNormal(4)
+    sliceB(:,3) = faces % getFaceNormal(1)
+
+    sliceC(:,1) = faces % getFaceNormal(6)
+    sliceC(:,2) = faces % getFaceNormal(7)
+    sliceC(:,3) = faces % getFaceNormal(8)
+
+    print*, "-----------------------------------------------------------------------------"
+    do i =1 ,8
+      print*, i
+      print*, faces % getFaceNormal(i)
+    end do
+
+
+    print*, "-----------------------------------------------------------------------------"
+    print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+    print*, sliceA
+    print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+    print*, sliceB
+    print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+    print*, sliceC
+
+    call setTesting % append(sliceA, [1,2])
+    call setTesting % append(sliceB, [3,4,1])
+    call setTesting % append(sliceC, [6,7,8])
+  
+    print*, "-----------------------------------------------------------------------------"
+    print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+    call setTesting % get_copy(1, cols, gids)
+    print*, cols
+    print*, gids
+    print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+    call setTesting % get_copy(2, cols, gids)
+    print*, cols
+    print*, gids
+    print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+    call setTesting % get_copy(3, cols, gids)
+    print*, cols
+    print*, gids
+
+    ! deallocate(gids)
+    ! call setTesting % delete_columns(1,gids)
+    call setTesting % delete(2)
+    print*, setTesting % nslices()
+
+    print*, "-----------------------------------------------------------------------------"
+    print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+    call setTesting % get_copy(1, cols, gids)
+    print*, cols
+    print*, gids
+    print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+    call setTesting % get_copy(2, cols, gids)
+    print*, cols
+    print*, gids
+    print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+    call setTesting % get_copy(3, cols, gids)
+    print*, cols
+    print*, gids
+    print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+    call setTesting % get_copy(4, cols, gids)
+    print*, cols
+    print*, gids
+
+    setTesting2 = setTesting
+
+    print*, "-----------------------------------------------------------------------------"
+    print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+    call setTesting % get_copy(1, cols, gids)
+    print*, cols
+    print*, gids
+    print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+    call setTesting % get_copy(2, cols, gids)
+    print*, cols
+    print*, gids
+    print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+    call setTesting % get_copy(3, cols, gids)
+    print*, cols
+    print*, gids
+    print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+    call setTesting % get_copy(4, cols, gids)
+    print*, cols
+    print*, gids
+
+
+    ! call setTesting % delete(2)
+  
+    ! print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+    ! call setTesting % get_copy(1, cols, gids)
+    ! print*, cols
+    ! print*, gids
+    ! print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+    ! call setTesting % get_copy(2, cols, gids)
+    ! print*, cols
+    ! print*, gids
+    ! print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+    ! call setTesting % get_copy(3, cols, gids)
+    ! print*, cols
+    ! print*, gids
+
+  !   call setTesting % scale(2.0_defReal)
+
+  !   print*, "-----------------------------------------------------------------------------"
+  !   print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+  !   print*, setTesting % get_copy(1)
+  !   print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+  !   print*, setTesting % get_copy(2)
+  !   print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+  !   print*, setTesting % get_copy(3)
+
+  !   call setTesting % scale(0.5_defReal)
+
+  !   print*, "NONONNONNONO", setTesting % is_singleton()
+  !   print*, "NONOONONNONNONON", setTesting % unique_list() 
+  !   ! call setTesting % unique_list_and_columns(gids, cols)
+  !   ! print*, gids
+  !   ! print*, cols
+
+  !   call setTesting % delete_columns(2,[1,2])
+
+  !   print*, "NONONNONNONO", setTesting % is_singleton()
+  !   print*, "NONOONONNONNONON", setTesting % unique_list()
+  !   ! call setTesting % unique_list_and_columns(gids, cols)
+  !   ! print*, gids
+  !   ! print*, cols
+
+  ! ! print*, "-----------------------------------------------------------------------------"
+  ! ! do i = 1, size(gids)
+  ! !   print*, gids(i)
+  ! !   print*, cols(:,i)
+  ! ! end do
+
+  !   print*, "-----------------------------------------------------------------------------"
+  !   print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+  !   print*, setTesting % get_copy(2)
+
+  !   ! call setTesting % delete(2)
+
+  !   ! print*, "-----------------------------------------------------------------------------"
+  !   ! print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+  !   ! print*, setTesting % get_copy(1)
+  !   ! print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+  !   ! print*, setTesting % get_copy(2)
+  !   ! ! print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+  !   ! ! print*, setTesting % get_copy(3)
+
+
+  !   call setTesting % delete_columns(1,[2])
+  !   call setTesting % delete_columns(3,[1,2])
+  !   print*, setTesting % is_singleton()
+  !   call setTesting % delete_columns(3,[1])
+  !   print*, setTesting % is_singleton()
+
+    call fatalError("here", "here")
+
+
+
+  end subroutine testingDynamic2dMatSet
+
+
+
+
+
 
   !!
   !!
@@ -678,11 +867,20 @@ contains
           newGridBoundsMin(2) = (self % gridBounds_min(2)) + (self % spacing(1)) * (j-1)
           newGridBoundsMin(3) = (self % gridBounds_min(3)) + (self % spacing(1)) * (k-1)
 
-          call self % grid(i,j,k) % refineCell(vertices, edges, faces, elements, self % spacing, &
-                                               self % spacingInv, self % n_xyz, self % n_layers, &
-                                               newGridBoundsMin, self % alpha, self % wStar, &
-                                               self % circumscribedBallRadius, self % targetDistance, &
-                                               self % targetDistanceSqr)
+          !@@@
+          ! call self % grid(i,j,k) % refineCell(vertices, edges, faces, elements, self % spacing, &
+          !                                      self % spacingInv, self % n_xyz, self % n_layers, &
+          !                                      newGridBoundsMin, self % alpha, self % wStar, &
+          !                                      self % circumscribedBallRadius, self % targetDistance, &
+          !                                      self % targetDistanceSqr)
+
+          call self % grid(i,j,k) % refineCell2(vertices, edges, faces, elements, self % spacing, &
+                                                        self % spacingInv, self % n_xyz, self % n_layers, &
+                                                        newGridBoundsMin, self % alpha, self % wStar, &
+                                                        self % circumscribedBallRadius, self % targetDistance, &
+                                                        self % targetDistanceSqr)
+          !@@@
+
         end do
       end do
     end do
