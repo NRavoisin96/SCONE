@@ -153,6 +153,7 @@ contains
 
     isOut = .FALSE.
     isInside = .TRUE.
+    ! Add new test to set isInside False
 
     do i = 1, size(currElementFaceIdxs)
       
@@ -160,11 +161,11 @@ contains
         furthestVertexCoord(j) = centroid(j) + faceNormalSigns(j,i) 
       end do
 
-      if (.NOT. dot_product(faces % getFaceNormal(currElementFaceIdxs(i)), furthestVertexCoord) &
-          + faces % getFaceConst(currElementFaceIdxs(i)) > 0) then
-
-          isInside = .FALSE.
-          call append(removedFaceIdxsInArr, i)
+      if (dot_product(faces % getFaceNormal(currElementFaceIdxs(i)), furthestVertexCoord) &
+          + faces % getFaceConst(currElementFaceIdxs(i)) > ZERO) then
+        isInside = .FALSE.
+      else
+        call append(removedFaceIdxsInArr, i)
       end if 
 
     end do
@@ -172,6 +173,8 @@ contains
     ! if survived to this point, then the cell is entired enclosed by the polyhedron. 
     ! Hence, set chi mapping to the current element index.
     if (isInside) chi = elementIdx
+
+
 
   end subroutine testPolyhedronInclusion3
 

@@ -6,7 +6,7 @@ module cartesianCellIntermediate1_class
   use edgeShelf_class,                 only : edgeShelf
   use faceShelf_class,                 only : faceShelf
   use cartesianInitProcedures
-  use cartesianGenericProcedures,      only : intBinarySearch
+  use cartesianGenericProcedures,      only : intBinarySearch, remove_elements
   use cartesianGridSubLayer_inter,     only : cartesianGridSubLayer
   use cartesianGridIntermediate2_class,only : cartesianGridIntermediate2
   use cartesianGridFinest_class,       only : cartesianGridFinest
@@ -106,7 +106,7 @@ contains
   !!
   !!
   subroutine refineCell2(self, vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
-                             currLayer, candidateElementIdxs, newGridBoundsMin, alpha, wStar, normalSignsMatOld)
+                    currLayer, candidateElementIdxsOld, newGridBoundsMin, alpha, wStar, normalSignsMatOld)
     class(cartesianCellIntermediate1), intent(inout)     :: self
     class(vertexShelf), intent(in)                      :: vertices
     class(edgeShelf), intent(inout)                     :: edges
@@ -115,17 +115,21 @@ contains
     real(defReal), dimension(:), intent(in)             :: spacing, spacingInv
     integer(shortInt), dimension(:,:), intent(in)       :: n_xyz
     integer(shortInt), intent(in)                       :: n_layers, currLayer
-    integer(shortInt), dimension(:), intent(in)         :: candidateElementIdxs
+    integer(shortInt), dimension(:), intent(in)         :: candidateElementIdxsOld
     real(defReal), dimension(3), intent(in)             :: newGridBoundsMin
     real(defReal), intent(in)                           :: alpha, wStar
     type(dynamic2dMatSet), intent(in)                   :: normalSignsMatOld
     type(dynamic2dMatSet)                               :: normalSignsMat
     real(defReal), dimension(:,:), allocatable          :: faceNormalSigns
-    integer(shortInt), dimension(:), allocatable        :: currElementFaceIdxs
-    integer(shortInt)                                   :: i, j, k, l !@@ last one
-    real(defReal), dimension(3)                         :: centroid, currFaceNormal !@@ last three
+    integer(shortInt), dimension(:), allocatable        :: currElementFaceIdxs, removedFaceIdxsInArr, &
+                                                           candidateElementIdxs, removedElementIdxsInArr
+    integer(shortInt)                                   :: i
+    real(defReal), dimension(3)                         :: centroid
+    logical(defBool)                                    :: isOut
 
     normalSignsMat = normalSignsMatOld
+    candidateElementIdxs = candidateElementIdxsOld
+    if (allocated(removedElementIdxsInArr)) deallocate(removedElementIdxsInArr)
 
     ! Calculate centroid from newGridBoundsMin
     do i = 1, 3
@@ -139,13 +143,27 @@ contains
 
       deallocate(faceNorMalSigns)
       deallocate(currElementFaceIdxs)
+      if (allocated(removedFaceIdxsInArr)) deallocate(removedFaceIdxsInArr)
 
       call normalSignsMat % get_copy(i, faceNormalSigns, currElementFaceIdxs)
 
-      call testPolyhedronInclusion(faces, currElementFaceIdxs, centroid, faceNormalSigns, &
-                                   candidateElementIdxs(i), self % chi)
+      call testPolyhedronInclusion3(faces, currElementFaceIdxs, centroid, faceNormalSigns, &
+                            candidateElementIdxs(i), self % chi, removedFaceIdxsInArr, isOut)
 
       if (self % chi > 0) return
+
+      if (isOut) then
+        call append(removedElementIdxsInArr, i)
+      else
+        if (allocated(removedFaceIdxsInArr)) then
+          call normalSignsMat % delete_columns(i, removedFaceIdxsInArr)
+          !print*, "Yes"
+          ! print*, size(removedFaceIdxsInArr)
+          ! print*, "@@@", size(currElementFaceIdxs)
+        else
+          !print*, "Not"
+        end if
+      end if
 
 
 
@@ -153,6 +171,10 @@ contains
     end do
 
     !@@ Update NormalSignsMat (remove and scale)
+    if (allocated(removedElementIdxsInArr)) then
+      call remove_elements(candidateElementIdxs, removedElementIdxsInArr)
+      call normalSignsMat % deleteMany(removedElementIdxsInArr)
+    end if
     call normalSignsMat % scale(spacingInv(currLayer)*spacing(currLayer+1))
 
 
@@ -171,6 +193,8 @@ contains
                         currLayer + 1, candidateElementIdxs, newGridBoundsMin, alpha, wStar, normalSignsMat)
 
     end if 
+
+    call normalSignsMat % kill()
 
   end subroutine refineCell2
 

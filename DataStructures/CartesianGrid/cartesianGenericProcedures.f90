@@ -509,5 +509,71 @@ recursive subroutine quicksort_freq_pairs(pairs, left, right)
     if (i < right) call quicksort_freq_pairs(pairs, i, right)
 end subroutine quicksort_freq_pairs
 
+!!
+!!
+!!
+subroutine remove_elements(a, idxs)
+    implicit none
+    integer(shortInt), allocatable, intent(inout) :: a(:)
+    integer(shortInt),            intent(in)     :: idxs(:)
+
+    integer(shortInt), allocatable :: iv(:)   ! valid, unique, sorted indices to drop
+    integer(shortInt), allocatable :: tmp(:)
+    integer :: n, m, r, i, j, k, out, t
+
+    n = size(a)
+    m = size(idxs)
+    if (n == 0 .or. m == 0) return
+
+    ! Collect in-range indices, remove duplicates
+    allocate(iv(m))
+    r = 0
+    do i = 1, m
+        k = idxs(i)
+        if (k >= 1 .and. k <= n) then
+            if (r == 0) then
+                r = 1
+                iv(1) = k
+            else
+                if (.not. any(iv(1:r) == k)) then
+                    r = r + 1
+                    iv(r) = k
+                end if
+            end if
+        end if
+    end do
+    if (r == 0) then
+        deallocate(iv)
+        return
+    end if
+
+    ! Sort iv(1:r); r is tiny so a simple O(r^2) sort is optimal in practice
+    if (r > 1) then
+        do i = 1, r - 1
+            do j = i + 1, r
+                if (iv(j) < iv(i)) then
+                    t = iv(i); iv(i) = iv(j); iv(j) = t
+                end if
+            end do
+        end do
+    end if
+
+    ! Compact copy in one pass
+    allocate(tmp(n - r))
+    out = 0
+    j = 1
+    do k = 1, n
+        if (j <= r .and. k == iv(j)) then
+            j = j + 1
+        else
+            out = out + 1
+            tmp(out) = a(k)
+        end if
+    end do
+
+    call move_alloc(tmp, a)
+    deallocate(iv)
+end subroutine remove_elements
+
 
 end module cartesianGenericProcedures

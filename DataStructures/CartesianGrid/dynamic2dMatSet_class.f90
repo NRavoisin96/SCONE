@@ -48,6 +48,7 @@ module dynamic2dMatSet_class
     procedure :: update_replace
     procedure :: filter_columns
     procedure :: delete
+    procedure :: deleteMany
     procedure :: delete_columns
     procedure :: get_copy
     procedure :: unique_count
@@ -393,6 +394,80 @@ contains
     end if
     self%nused = self%nused - 1_shortInt
   end subroutine delete
+
+  subroutine deleteMany(self, idx)
+    class(dynamic2dMatSet), intent(inout) :: self
+    integer(shortInt),      intent(in)    :: idx(:)
+
+    integer :: n, i, j, dest, c
+    logical :: any_deleted
+    logical, allocatable :: keep(:)        ! automatic array via deferred-shape trick below
+
+    if (self%nused == 0_shortInt) return
+    if (size(idx) == 0) return
+
+    ! Fast paths
+    if (size(idx) == 1) then
+      call self%delete(idx(1))
+      return
+    end if
+    if (size(idx) >= self%nused) then
+      call self%kill()
+      return
+    end if
+
+    ! Set up an automatic mask on the stack
+    n = self%nused
+    allocate(keep(n))
+    keep = .true.
+
+    ! Validate and mark deletions, duplicates ignored
+    do i = 1, size(idx)
+      c = idx(i)
+      if (c < 1 .or. c > n) then
+        call fatalError("dynamic2dMatSet:delete_many", "index out of range")
+      end if
+      keep(c) = .false.
+    end do
+
+    any_deleted = .not. all(keep)
+    if (.not. any_deleted) then
+      deallocate(keep)
+      return
+    end if
+
+    ! Update global id multiset for slices being removed
+    do i = 1, n
+      if (.not. keep(i)) then
+        if (allocated(self%slice(i)%tags)) then
+          do j = 1, size(self%slice(i)%tags)
+            call self%gids%sub(self%slice(i)%tags(j), 1_shortInt)
+          end do
+        end if
+      end if
+    end do
+
+    ! Stable compaction in one forward pass using move_alloc
+    dest = 1
+    do i = 1, n
+      if (keep(i)) then
+        if (dest /= i) then
+          call move_alloc(self%slice(i)%data, self%slice(dest)%data)
+          call move_alloc(self%slice(i)%tags, self%slice(dest)%tags)
+        end if
+        dest = dest + 1
+      else
+        if (allocated(self%slice(i)%data)) deallocate(self%slice(i)%data)
+        if (allocated(self%slice(i)%tags)) deallocate(self%slice(i)%tags)
+      end if
+    end do
+
+    ! After move_alloc, sources are unallocated. The tail is already empty.
+    self%nused = int(count(keep), kind=shortInt)
+
+    deallocate(keep)
+
+  end subroutine deleteMany
 
   subroutine delete_columns(self, k, cols)
     class(dynamic2dMatSet), intent(inout) :: self

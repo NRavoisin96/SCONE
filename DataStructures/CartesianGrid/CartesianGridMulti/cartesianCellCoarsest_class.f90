@@ -391,6 +391,7 @@ contains
     !""
     !if (allocated(self % candidateElementIdxs)) deallocate(self % candidateElementIdxs)
     if (allocated(self % intersectedFaceIdxs)) deallocate(self % intersectedFaceIdxs)
+    call normalSignsMat % kill()
     !""
 
   end subroutine refineCell2

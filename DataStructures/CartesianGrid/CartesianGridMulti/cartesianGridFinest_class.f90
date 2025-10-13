@@ -575,6 +575,9 @@ contains
       end do 
     end do
 
+    !@@
+    call normalSignsMat %kill()
+
   end subroutine constructMapping2
 
   !!

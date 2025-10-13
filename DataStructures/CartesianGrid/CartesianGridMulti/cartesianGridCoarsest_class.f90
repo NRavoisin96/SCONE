@@ -8,7 +8,7 @@ module cartesianGridCoarsest_class
   use numPrecision      
   use cartesianCellCoarsest_class,     only : cartesianCellCoarsest
   use cartesianGenericProcedures
-  use genericProcedures,               only : fatalError
+  use genericProcedures,               only : fatalError!, append
   use cartesianInitProcedures,         only : setFaceParameters, fixFaceElementIdxsOrder
   use dynamic2dMatSet_class,           only : dynamic2dMatSet
 
@@ -73,6 +73,19 @@ contains
     real(defReal)                                       :: maxCosValue, tempMaxCosValue, currEdgeLength, &
                                                            residual, avgLength, factor
     integer(shortInt), dimension(:,:), allocatable      :: minExponent
+
+    ! currEdgeVertexIdxs = [2,4,6,1,6,2,12]
+    ! print*, currEdgeVertexIdxs
+    ! call remove_elements(currEdgeVertexIdxs,[1,2])
+    ! print*, currEdgeVertexIdxs
+    ! call remove_elements(currEdgeVertexIdxs,[4])
+    ! print*, currEdgeVertexIdxs
+    ! call remove_elements(currEdgeVertexIdxs,[2,3])
+    ! print*, currEdgeVertexIdxs
+    ! call append(numberOfCellsAnalysis,1)
+    ! call remove_elements(currEdgeVertexIdxs, numberOfCellsAnalysis)
+    ! print*, currEdgeVertexIdxs
+    ! call fatalError("as", "as")
 
     ! print*, "££££££££££££££££££££££££££££££££££££££££££££££££££££"
     ! currEdgeVertexIdxs = elements % getElementFaceIdxs(146)
@@ -574,10 +587,7 @@ contains
     print*, cols
     print*, gids
 
-    ! deallocate(gids)
-    ! call setTesting % delete_columns(1,gids)
-    call setTesting % delete(2)
-    print*, setTesting % nslices()
+    call setTesting % deleteMany([3])
 
     print*, "-----------------------------------------------------------------------------"
     print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
@@ -592,30 +602,49 @@ contains
     call setTesting % get_copy(3, cols, gids)
     print*, cols
     print*, gids
-    print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
-    call setTesting % get_copy(4, cols, gids)
-    print*, cols
-    print*, gids
 
-    setTesting2 = setTesting
+    ! ! deallocate(gids)
+    ! ! call setTesting % delete_columns(1,gids)
+    ! call setTesting % delete(2)
+    ! print*, setTesting % nslices()
 
-    print*, "-----------------------------------------------------------------------------"
-    print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
-    call setTesting % get_copy(1, cols, gids)
-    print*, cols
-    print*, gids
-    print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
-    call setTesting % get_copy(2, cols, gids)
-    print*, cols
-    print*, gids
-    print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
-    call setTesting % get_copy(3, cols, gids)
-    print*, cols
-    print*, gids
-    print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
-    call setTesting % get_copy(4, cols, gids)
-    print*, cols
-    print*, gids
+    ! print*, "-----------------------------------------------------------------------------"
+    ! print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+    ! call setTesting % get_copy(1, cols, gids)
+    ! print*, cols
+    ! print*, gids
+    ! print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+    ! call setTesting % get_copy(2, cols, gids)
+    ! print*, cols
+    ! print*, gids
+    ! print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+    ! call setTesting % get_copy(3, cols, gids)
+    ! print*, cols
+    ! print*, gids
+    ! print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+    ! call setTesting % get_copy(4, cols, gids)
+    ! print*, cols
+    ! print*, gids
+
+    ! setTesting2 = setTesting
+
+    ! print*, "-----------------------------------------------------------------------------"
+    ! print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+    ! call setTesting % get_copy(1, cols, gids)
+    ! print*, cols
+    ! print*, gids
+    ! print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+    ! call setTesting % get_copy(2, cols, gids)
+    ! print*, cols
+    ! print*, gids
+    ! print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+    ! call setTesting % get_copy(3, cols, gids)
+    ! print*, cols
+    ! print*, gids
+    ! print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+    ! call setTesting % get_copy(4, cols, gids)
+    ! print*, cols
+    ! print*, gids
 
 
     ! call setTesting % delete(2)
