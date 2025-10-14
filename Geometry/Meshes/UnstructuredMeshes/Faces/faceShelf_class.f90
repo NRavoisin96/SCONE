@@ -42,6 +42,9 @@ module faceShelf_class
     procedure                                :: setFaceConst
     procedure                                :: getFaceExtraDistance
     procedure                                :: setFaceExtraDistance
+    procedure                                :: getFaceExtraDistanceArr
+    procedure                                :: setFaceExtraDistanceArr
+    procedure                                :: deallocateFaceExtraDistanceArr
     procedure                                :: getFaceNormalSigns
     procedure                                :: setFaceNormalSigns
     procedure                                :: getFaceBoundingBox
@@ -406,6 +409,41 @@ contains
     call self % shelf(idx) % item % setExtraDistance(extraDistance)
 
   end subroutine setFaceExtraDistance
+
+  !!
+  !!
+  !!
+  elemental function getFaceExtraDistanceArr(self, idx, currLayer) result(extraDistanceArr)
+    class(faceShelf), intent(in)              :: self
+    integer(shortInt), intent(in)             :: idx, currLayer
+    real(defReal)                             :: extraDistanceArr
+
+    extraDistanceArr = self % shelf(abs(idx)) % item % getExtraDistanceArr(currLayer)
+
+  end function getFaceExtraDistanceArr
+
+  !!
+  !!
+  !!
+  pure subroutine setFaceExtraDistanceArr(self, idx, extraDistanceArr, n_layers)
+    class(faceShelf), intent(inout)               :: self
+    integer(shortInt), intent(in)                 :: idx, n_layers
+    real(defReal), dimension(:), intent(in)       :: extraDistanceArr
+
+    call self % shelf(idx) % item % setExtraDistanceArr(extraDistanceArr, n_layers)
+
+  end subroutine setFaceExtraDistanceArr
+
+  !!
+  !!
+  !!
+  elemental subroutine deallocateFaceExtraDistanceArr(self, idx)
+    class(faceShelf), intent(inout)               :: self
+    integer(shortInt), intent(in)                 :: idx
+
+    call self % shelf(idx) % item % deallocateExtraDistanceArr()
+
+  end subroutine deallocateFaceExtraDistanceArr
 
   !!
   !!

@@ -398,6 +398,8 @@ contains
                                                              extraDistance
     real(defReal), dimension(3)                           :: centroid, currEdgeVector, currFaceNormal
     real(defReal), dimension(:,:), allocatable            :: faceNormalSigns
+    integer(shortInt), dimension(:), allocatable          :: removedFaceIdxsInArr
+    logical(defBool)                                      :: isOut
 
     normalSignsMat = normalSignsMatOld
 
@@ -486,8 +488,15 @@ contains
                     centroid(2) = (gridBoundsMin(2)) + (spacing(n_layers)) * (k-0.5)
                     centroid(3) = (gridBoundsMin(3)) + (spacing(n_layers)) * (l-0.5)
 
-                    call self % grid(j,k,l) % cellTestPolyhedronInclusion(faces, currElementFaceIdxs, centroid, &
-                                                                          faceNormalSigns, candidateElementIdxs(i))
+                    !@@
+                    ! call self % grid(j,k,l) % cellTestPolyhedronInclusion(faces, currElementFaceIdxs, centroid, &
+                    !                                                       faceNormalSigns, candidateElementIdxs(i))
+
+
+                    if (allocated(removedFaceIdxsInArr)) deallocate(removedFaceIdxsInArr)                  
+                    call self % grid(j,k,l) % cellTestPolyhedronInclusion2(faces, currElementFaceIdxs, centroid, &
+                                faceNormalSigns, candidateElementIdxs(i), removedFaceIdxsInArr, isOut, currLayer)
+                    !@@
 
                 end do 
             end do    

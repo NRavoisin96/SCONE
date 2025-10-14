@@ -9,7 +9,7 @@ module cartesianGridCoarsest_class
   use cartesianCellCoarsest_class,     only : cartesianCellCoarsest
   use cartesianGenericProcedures
   use genericProcedures,               only : fatalError!, append
-  use cartesianInitProcedures,         only : setFaceParameters, fixFaceElementIdxsOrder
+  use cartesianInitProcedures,         only : setFaceParameters, fixFaceElementIdxsOrder, setFaceParameters2
   use dynamic2dMatSet_class,           only : dynamic2dMatSet
 
   implicit none
@@ -489,6 +489,9 @@ contains
     ! call self % testingDynamic2dMatSet(faces)
     !@@
 
+    !Calculate face-specific parameters used for face intersection and polyhedron inclusion tests
+    call setFaceParameters2(faces, self % spacing, self % n_layers)
+
     !-----------------------------------------------------------------------------------------
     !initialise for patch search
     !-----------------------------------------------------------------------------------------
@@ -498,6 +501,11 @@ contains
     call self % setGridIsOutsideMesh(-(faces % getSize() + 1)) !"""
     call self % setChiSingleFace(faces)!"""
     call self % refineGrid(vertices, edges, faces, elements)
+
+    ! Deallocate face-specific parameters used for face intersection and polyhedron inclusion tests
+    do i = 1, faces % getSize()
+      call faces % deallocateFaceExtraDistanceArr(i)
+    end do
 
     ! Print the number of cells for each layer (for extra analysis).
     ! print*, "Starting the procedure to calculate number of cells for each type"

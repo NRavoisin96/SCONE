@@ -348,8 +348,8 @@ contains
         if (allocated(currElementFaceIdxs)) deallocate(currElementFaceIdxs)
         if (allocated(removedFaceIdxsInArr)) deallocate(removedFaceIdxsInArr)
         call normalSignsMat % get_copy(i, faceNormalSigns, currElementFaceIdxs)
-        call testPolyhedronInclusion3(faces, currElementFaceIdxs, centroid, faceNormalSigns, candidateElementIdxs(i), &
-                                      self % chi, removedFaceIdxsInArr, isOut)
+        call testPolyhedronInclusion2New(faces, currElementFaceIdxs, centroid, faceNormalSigns, candidateElementIdxs(i), &
+                                      self % chi, removedFaceIdxsInArr, isOut, 1)
 
         if (isOut) then
           call normalSignsMat % delete(i)

@@ -136,9 +136,9 @@ contains
   !!
   !!
   !!
-  subroutine testPolyhedronInclusion3(faces, currElementFaceIdxs, centroid, &
+  subroutine testPolyhedronInclusion2(faces, currElementFaceIdxs, centroid, &
                                      faceNormalSigns, elementIdx, chi, &
-                                     removedFaceIdxsInarr, isOut)
+                                     removedFaceIdxsInArr, isOut)
     class(faceShelf), intent(in)                              :: faces
     integer(shortInt), dimension(:), intent(in)               :: currElementFaceIdxs
     real(defReal), dimension(3), intent(in)                   :: centroid
@@ -190,7 +190,70 @@ contains
 
 
 
-  end subroutine testPolyhedronInclusion3
+  end subroutine testPolyhedronInclusion2
+
+  !!
+  !!
+  !!
+  subroutine testPolyhedronInclusion2New(faces, currElementFaceIdxs, centroid, &
+                                     faceNormalSigns, elementIdx, chi, &
+                                     removedFaceIdxsInArr, isOut, currLayer)
+    class(faceShelf), intent(in)                              :: faces
+    integer(shortInt), dimension(:), intent(in)               :: currElementFaceIdxs
+    real(defReal), dimension(3), intent(in)                   :: centroid
+    real(defReal), dimension(:,:), intent(in)                 :: faceNormalSigns
+    integer(shortInt), intent(in)                             :: elementIdx, currLayer
+    integer(shortInt), intent(inout)                          :: chi
+    integer(shortInt), dimension(:), allocatable, intent(out) :: removedFaceIdxsInArr
+    logical(defBool), intent(out)                             :: isOut
+    integer(shortInt)                                         :: i, j
+    logical(defBool)                                          :: isInside
+    ! real(defReal)                                             :: vectorDotCentroid, extraDistance, const
+
+    isOut = .FALSE.
+    isInside = .TRUE.
+    ! Add new test to set isInside False
+
+    do i = 1, size(currElementFaceIdxs)
+
+      ! vectorDotCentroid = dot_product(faces % getFaceNormal(currElementFaceIdxs(i)), centroid)
+      ! extraDistance = faces % getFaceExtraDistanceArr(currElementFaceIdxs(i), currLayer)
+      ! const = faces % getFaceConst(currElementFaceIdxs(i))
+
+
+      if (dot_product(faces % getFaceNormal(currElementFaceIdxs(i)), centroid) &
+          + faces % getFaceExtraDistanceArr(currElementFaceIdxs(i), currLayer) &
+          + faces % getFaceConst(currElementFaceIdxs(i)) > ZERO) then
+
+        isInside = .FALSE.
+
+        ! if (dot_product(faces % getFaceNormal(currElementFaceIdxs(i)), centroid) &
+        !     - faces % getFaceExtraDistanceArr(currElementFaceIdxs(i), 2) &
+        !     + faces % getFaceConst(currElementFaceIdxs(i)) > ZERO) then
+        !     ! isOut = .TRUE.
+        !     call append(removedFaceIdxsInArr, i)
+        ! end if  
+        ! if (.NOT. testIntervalIntersection(vectorDotCentroid - extraDistance, vectorDotCentroid + extraDistance, &
+        !                                    -const, -const)) then
+        !   ! isOut = .TRUE.
+        !   call append(removedFaceIdxsInArr, i)                                            
+        ! end if                                              
+
+      else
+
+        call append(removedFaceIdxsInArr, i)
+
+      end if 
+
+    end do
+
+    ! if survived to this point, then the cell is entired enclosed by the polyhedron. 
+    ! Hence, set chi mapping to the current element index.
+    if (isInside) chi = elementIdx
+
+
+
+  end subroutine testPolyhedronInclusion2New
 
   !!
   !!
@@ -261,6 +324,10 @@ contains
     !------------------------------------------------------------------------------------------------
     vectorDotCentroid = dot_product(currFaceNormal, centroid)
     faceConst = faces % getFaceConst(faceIdx)
+    ! extradistance2 = faces % getFaceExtraDistanceArr(faceIdx,4)
+    ! if (extraDistance /= extraDistance2) then
+    !   print*, "hahaha"
+    ! end if
 
     if (.NOT. testIntervalIntersection(vectorDotCentroid - extraDistance, vectorDotCentroid + extraDistance, &
         -faceConst, -faceConst)) then
@@ -797,6 +864,32 @@ contains
     end do
 
   end subroutine setFaceParameters
+
+  !!
+  !!
+  !!
+  subroutine setFaceParameters2(faces, spacing, n_layers)
+    class(faceShelf), intent(inout)           :: faces
+    real(defReal), dimension(:), intent(in)   :: spacing
+    integer(shortInt)                         :: n_layers
+    real(defReal), dimension(3)               :: currFaceNormal
+    integer(shortInt)                         :: i, j
+    real(defReal), dimension(:), allocatable  :: extraDistanceArr
+
+    if (.NOT. allocated(extraDistanceArr)) allocate(extraDistanceArr(n_layers))
+
+    do i = 1, faces % getSize()
+      currFaceNormal = faces % getFaceNormal(i)
+      extraDistanceArr(:) = abs(currFaceNormal(1)) + abs(currFaceNormal(2)) + abs(currFaceNormal(3))
+
+      do j = 1, n_layers
+        extraDistanceArr(j) = extraDistanceArr(j)*(0.5*spacing(j))
+      end do
+
+      call faces % setFaceExtraDistanceArr(i, extraDistanceArr, n_layers)
+    end do
+
+  end subroutine
 
   !!
   !! returns true if (dot_product(faceNormal, pointOfInterest-centroidOfFace) > 0)

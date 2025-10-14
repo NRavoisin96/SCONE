@@ -37,6 +37,7 @@ module face_inter
     real(defReal), dimension(3)                  :: centroid = ZERO, normal = ZERO, AB = ZERO, AC = ZERO
     type(axisAlignedBoundingBox)                 :: boundingBox
     character(:), allocatable                    :: type
+    real(defReal), dimension(:), allocatable     :: extraDistanceArr
   contains
     procedure, non_overridable                   :: addEdgeIdx
     procedure, non_overridable                   :: addElementIdx
@@ -54,6 +55,7 @@ module face_inter
     procedure, non_overridable                   :: getArea
     procedure, non_overridable                   :: getConst
     procedure, non_overridable                   :: getExtraDistance
+    procedure, non_overridable                   :: getExtraDistanceArr
     procedure, non_overridable                   :: getNormalSigns
     procedure, non_overridable                   :: getBoundingBox
     procedure, non_overridable                   :: getCentroid
@@ -77,6 +79,8 @@ module face_inter
     procedure, non_overridable                   :: setArea
     procedure, non_overridable                   :: setConst
     procedure, non_overridable                   :: setExtraDistance
+    procedure, non_overridable                   :: setExtraDistanceArr
+    procedure, non_overridable                   :: deallocateExtraDistanceArr
     procedure, non_overridable                   :: setNormalSigns
     procedure, non_overridable                   :: setCentroid
     procedure, non_overridable                   :: setIsBoundary
@@ -469,6 +473,18 @@ contains
     extraDistance = self % extraDistance
 
   end function getExtraDistance
+
+  !!
+  !!
+  !!
+  elemental function getExtraDistanceArr(self, currLayer) result(extraDistanceArr)
+    class(face), intent(in)         :: self
+    integer(shortInt), intent(in)   :: currLayer
+    real(defReal)                   :: extraDistanceArr
+    
+    extraDistanceArr = self % extraDistanceArr(currLayer)
+
+  end function getExtraDistanceArr
 
   !!
   !!
@@ -889,6 +905,29 @@ contains
     self % extraDistance = extraDistance
 
   end subroutine setExtraDistance
+
+  !!
+  !!
+  !!
+  pure subroutine setExtraDistanceArr(self, extraDistanceArr, n_layers)
+    class(face), intent(inout)              :: self
+    real(defReal), dimension(:), intent(in) :: extraDistanceArr
+    integer(shortInt), intent(in)           :: n_layers
+
+    allocate(self % extraDistanceArr(n_layers))
+    self % extraDistanceArr = extraDistanceArr
+
+  end subroutine setExtraDistanceArr
+
+  !!
+  !!
+  !!
+  elemental subroutine deallocateExtraDistanceArr(self)
+    class(face), intent(inout)      :: self
+
+    deallocate(self % extraDistanceArr)
+
+  end subroutine deallocateExtraDistanceArr
 
   !!
   !!

@@ -148,8 +148,8 @@ contains
 
       call normalSignsMat % get_copy(i, faceNormalSigns, currElementFaceIdxs)
 
-      call testPolyhedronInclusion3(faces, currElementFaceIdxs, centroid, faceNormalSigns, &
-                            candidateElementIdxs(i), self % chi, removedFaceIdxsInArr, isOut)
+      call testPolyhedronInclusion2New(faces, currElementFaceIdxs, centroid, faceNormalSigns, &
+                candidateElementIdxs(i), self % chi, removedFaceIdxsInArr, isOut, currLayer)
 
       if (self % chi > 0) return
 
