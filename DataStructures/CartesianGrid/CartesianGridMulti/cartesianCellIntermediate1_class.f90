@@ -411,70 +411,21 @@ contains
 !&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 ! bit-trick (saving)
 !&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-  !!
-  !!
-  !!
-  function getChi(self, baseIntegerCoord, shift, mask, currLayer, cellIdxsMat) result(chi)
-    class(cartesianCellIntermediate1), intent(in)        :: self
-    integer(shortInt), dimension(3), intent(in)         :: baseIntegerCoord
-    integer(shortInt), dimension(:,:), intent(in)       :: shift, mask
-    integer(shortInt), dimension(:,:), intent(inout)    :: cellIdxsMat
-    integer(shortInt), intent(in)                       :: currLayer
-    integer(shortInt)                                   :: chi
-
-    if (self % chi /= 0) then
-      chi = self % chi
-    else
-      chi = self % subGrid % getGridChi(baseIntegerCoord, shift, mask, currLayer+1, cellIdxsMat)
-    end if
-
-  end function getChi
-
-  !!
-  !!
-  !!
-  function getPhi(self, cellIdxsMat, currLayer) result(phi)
-    class(cartesianCellIntermediate1), intent(in)        :: self
-    integer(shortInt), dimension(:,:), intent(in)       :: cellIdxsMat
-    integer(shortInt), intent(in)                       :: currLayer
-    integer(shortInt)                                   :: phi
-
-    phi = self % subGrid % getGridPhi(cellIdxsMat, currLayer+1)
-
-  end function getPhi
-
-  !!
-  !!
-  !!
-  function getPhiCapital(self, cellIdxsMat, currLayer) result(phiCapital)
-    class(cartesianCellIntermediate1), intent(in)        :: self
-    integer(shortInt), dimension(:,:), intent(in)       :: cellIdxsMat
-    integer(shortInt), intent(in)                       :: currLayer
-    integer(shortInt)                                   :: phiCapital
-
-    phiCapital = self % subGrid % getGridPhiCapital(cellIdxsMat, currLayer+1)
-
-  end function getPhiCapital
-
-!&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-! Non bit-trick (saving)
-!&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
   ! !!
   ! !!
   ! !!
-  ! function getChi(self, r, gridBounds_min, spacingInv, currLayer, cellIdxsMat, nSub_xyz) result(chi)
+  ! function getChi(self, baseIntegerCoord, shift, mask, currLayer, cellIdxsMat) result(chi)
   !   class(cartesianCellIntermediate1), intent(in)        :: self
-  !   real(defReal), dimension(3), intent(in)             :: r, gridBounds_min                                    
-  !   real(defReal), dimension(:), intent(in)             :: spacingInv
+  !   integer(shortInt), dimension(3), intent(in)         :: baseIntegerCoord
+  !   integer(shortInt), dimension(:,:), intent(in)       :: shift, mask
   !   integer(shortInt), dimension(:,:), intent(inout)    :: cellIdxsMat
-  !   integer(shortInt), dimension(:,:), intent(in)       :: nSub_xyz
   !   integer(shortInt), intent(in)                       :: currLayer
   !   integer(shortInt)                                   :: chi
 
   !   if (self % chi /= 0) then
   !     chi = self % chi
   !   else
-  !     chi = self % subGrid % getGridChi(r, gridBounds_min, spacingInv, currLayer+1, cellIdxsMat, nSub_xyz)
+  !     chi = self % subGrid % getGridChi(baseIntegerCoord, shift, mask, currLayer+1, cellIdxsMat)
   !   end if
 
   ! end function getChi
@@ -504,6 +455,55 @@ contains
   !   phiCapital = self % subGrid % getGridPhiCapital(cellIdxsMat, currLayer+1)
 
   ! end function getPhiCapital
+
+!&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+! Non bit-trick (saving)
+!&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+  !!
+  !!
+  !!
+  function getChi(self, r, gridBounds_min, spacingInv, currLayer, cellIdxsMat, nSub_xyz) result(chi)
+    class(cartesianCellIntermediate1), intent(in)        :: self
+    real(defReal), dimension(3), intent(in)             :: r, gridBounds_min                                    
+    real(defReal), dimension(:), intent(in)             :: spacingInv
+    integer(shortInt), dimension(:,:), intent(inout)    :: cellIdxsMat
+    integer(shortInt), dimension(:,:), intent(in)       :: nSub_xyz
+    integer(shortInt), intent(in)                       :: currLayer
+    integer(shortInt)                                   :: chi
+
+    if (self % chi /= 0) then
+      chi = self % chi
+    else
+      chi = self % subGrid % getGridChi(r, gridBounds_min, spacingInv, currLayer+1, cellIdxsMat, nSub_xyz)
+    end if
+
+  end function getChi
+
+  !!
+  !!
+  !!
+  function getPhi(self, cellIdxsMat, currLayer) result(phi)
+    class(cartesianCellIntermediate1), intent(in)        :: self
+    integer(shortInt), dimension(:,:), intent(in)       :: cellIdxsMat
+    integer(shortInt), intent(in)                       :: currLayer
+    integer(shortInt)                                   :: phi
+
+    phi = self % subGrid % getGridPhi(cellIdxsMat, currLayer+1)
+
+  end function getPhi
+
+  !!
+  !!
+  !!
+  function getPhiCapital(self, cellIdxsMat, currLayer) result(phiCapital)
+    class(cartesianCellIntermediate1), intent(in)        :: self
+    integer(shortInt), dimension(:,:), intent(in)       :: cellIdxsMat
+    integer(shortInt), intent(in)                       :: currLayer
+    integer(shortInt)                                   :: phiCapital
+
+    phiCapital = self % subGrid % getGridPhiCapital(cellIdxsMat, currLayer+1)
+
+  end function getPhiCapital
 
 !&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 ! 

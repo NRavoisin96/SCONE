@@ -1096,66 +1096,20 @@ contains
 !&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 ! bit-trick (saving)
 !&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-  !!
-  !!
-  !! 
-  function getGridChi(self, baseIntegerCoord, cellIdxsMat) result(chi)
-    class(cartesianGridCoarsest), intent(in)                       :: self
-    integer(shortInt), dimension(3), intent(in)                    :: baseIntegerCoord
-    integer(shortInt), dimension(:,:), allocatable, intent(inout)  :: cellIdxsMat
-    integer(shortInt)                                              :: chi
-
-    if (.NOT. allocated(cellIdxsMat)) allocate(cellIdxsMat(self%n_layers,3))
-    cellIdxsMat(1,:) = getGlobalIdx(baseIntegerCoord,self%shift(1,:))
-
-    chi = self % grid(cellIdxsMat(1,1), cellIdxsMat(1,2), cellIdxsMat(1,3)) % &
-                    getChi(baseIntegerCoord, self%shift,self%mask, cellIdxsMat)
-
-  end function getGridChi
-
-  !!
-  !!
-  !! 
-  function getGridPhi(self, cellIdxsMat) result(phi)
-    class(cartesianGridCoarsest), intent(in)            :: self
-    integer(shortInt), dimension(:,:), intent(in)       :: cellIdxsMat
-    integer(shortInt)                                   :: phi
-
-    phi = self % grid(cellIdxsMat(1,1), cellIdxsMat(1,2), cellIdxsMat(1,3)) % &
-                                                            getPhi(cellIdxsMat)
-
-  end function getGridPhi
-
-  !!
-  !!
-  !! 
-  function getGridPhiCapital(self, cellIdxsMat) result(phiCapital)
-    class(cartesianGridCoarsest), intent(in)            :: self
-    integer(shortInt), dimension(:,:), intent(in)       :: cellIdxsMat
-    integer(shortInt)                                   :: phiCapital
-
-    phiCapital = self % grid(cellIdxsMat(1,1), cellIdxsMat(1,2), cellIdxsMat(1,3)) &
-                                                        % getPhiCapital(cellIdxsMat)
-
-  end function getGridPhiCapital
-
-!&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
-! Non bit-trick (saving)
-!&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
   ! !!
   ! !!
   ! !! 
-  ! function getGridChi(self, r, cellIdxsMat) result(chi)
+  ! function getGridChi(self, baseIntegerCoord, cellIdxsMat) result(chi)
   !   class(cartesianGridCoarsest), intent(in)                       :: self
-  !   real(defReal), dimension(3), intent(in)                        :: r                                 
+  !   integer(shortInt), dimension(3), intent(in)                    :: baseIntegerCoord
   !   integer(shortInt), dimension(:,:), allocatable, intent(inout)  :: cellIdxsMat
   !   integer(shortInt)                                              :: chi
 
   !   if (.NOT. allocated(cellIdxsMat)) allocate(cellIdxsMat(self%n_layers,3))
-  !   cellIdxsMat(1,:) = ceiling((r(:) - self%gridBounds_min(:))*(self%spacingInv(1)))
+  !   cellIdxsMat(1,:) = getGlobalIdx(baseIntegerCoord,self%shift(1,:))
 
   !   chi = self % grid(cellIdxsMat(1,1), cellIdxsMat(1,2), cellIdxsMat(1,3)) % &
-  !         getChi(r, self%gridBounds_min, self%spacingInv, cellIdxsMat, self%nSub_xyz)
+  !                   getChi(baseIntegerCoord, self%shift,self%mask, cellIdxsMat)
 
   ! end function getGridChi
 
@@ -1184,6 +1138,52 @@ contains
   !                                                       % getPhiCapital(cellIdxsMat)
 
   ! end function getGridPhiCapital
+
+!&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+! Non bit-trick (saving)
+!&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+  !!
+  !!
+  !! 
+  function getGridChi(self, r, cellIdxsMat) result(chi)
+    class(cartesianGridCoarsest), intent(in)                       :: self
+    real(defReal), dimension(3), intent(in)                        :: r                                 
+    integer(shortInt), dimension(:,:), allocatable, intent(inout)  :: cellIdxsMat
+    integer(shortInt)                                              :: chi
+
+    if (.NOT. allocated(cellIdxsMat)) allocate(cellIdxsMat(self%n_layers,3))
+    cellIdxsMat(1,:) = ceiling((r(:) - self%gridBounds_min(:))*(self%spacingInv(1)))
+
+    chi = self % grid(cellIdxsMat(1,1), cellIdxsMat(1,2), cellIdxsMat(1,3)) % &
+          getChi(r, self%gridBounds_min, self%spacingInv, cellIdxsMat, self%nSub_xyz)
+
+  end function getGridChi
+
+  !!
+  !!
+  !! 
+  function getGridPhi(self, cellIdxsMat) result(phi)
+    class(cartesianGridCoarsest), intent(in)            :: self
+    integer(shortInt), dimension(:,:), intent(in)       :: cellIdxsMat
+    integer(shortInt)                                   :: phi
+
+    phi = self % grid(cellIdxsMat(1,1), cellIdxsMat(1,2), cellIdxsMat(1,3)) % &
+                                                            getPhi(cellIdxsMat)
+
+  end function getGridPhi
+
+  !!
+  !!
+  !! 
+  function getGridPhiCapital(self, cellIdxsMat) result(phiCapital)
+    class(cartesianGridCoarsest), intent(in)            :: self
+    integer(shortInt), dimension(:,:), intent(in)       :: cellIdxsMat
+    integer(shortInt)                                   :: phiCapital
+
+    phiCapital = self % grid(cellIdxsMat(1,1), cellIdxsMat(1,2), cellIdxsMat(1,3)) &
+                                                        % getPhiCapital(cellIdxsMat)
+
+  end function getGridPhiCapital
 
 !&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 ! 
