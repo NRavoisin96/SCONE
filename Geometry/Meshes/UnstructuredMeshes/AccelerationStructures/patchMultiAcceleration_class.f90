@@ -431,6 +431,10 @@ contains
     !print*, "PotentialElementIdx", potentialElementIdx
     !!!!!
 
+    ! if (potentialElementIdx > 436) then
+    !   print*, potentialElementIdx
+    ! end if
+
     ! print*, potentialElementIdx, "OriginalPotentialElementIdx"
 
     ! if element index is valid (the current cell, characterised by "cellIdxs", is fully contained within that element)
@@ -439,7 +443,7 @@ contains
 
     !!!!!
     !print*, "indices", baseIntegerCoord
-    !print*, "PotentialElementIdx", potentialElementIdx
+    ! print*, "PotentialElementIdx", potentialElementIdx
     !!!!!
       
       call coords % setParentElementIdx(elements % getElementParentIdx(potentialElementIdx))

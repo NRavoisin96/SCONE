@@ -136,6 +136,45 @@ contains
   !!
   !!
   !!
+  subroutine testPolyhedronInclusion2Coarsest(faces, currElementFaceIdxs, centroid, &
+                                     faceNormalSigns, elementIdx, chi)
+    class(faceShelf), intent(in)                        :: faces
+    integer(shortInt), dimension(:), intent(in)         :: currElementFaceIdxs
+    real(defReal), dimension(3), intent(in)             :: centroid
+    real(defReal), dimension(:,:), intent(in)           :: faceNormalSigns
+    integer(shortInt), intent(in)                       :: elementIdx
+    integer(shortInt), intent(inout)                    :: chi
+    integer(shortInt)                                   :: i, j
+    real(defReal), dimension(3)                         :: furthestVertexCoord
+
+    do i = 1, size(currElementFaceIdxs)
+      
+      ! do j = 1, 3
+      !   furthestVertexCoord(j) = centroid(j) + faceNormalSigns(j,i) 
+      ! end do
+
+      ! if (dot_product(faces % getFaceNormal(currElementFaceIdxs(i)), furthestVertexCoord) &
+      !     + faces % getFaceConst(currElementFaceIdxs(i)) > 0) then
+
+      if (dot_product(faces % getFaceNormal(currElementFaceIdxs(i)), centroid) &
+                + faces % getFaceExtraDistanceArr(currElementFaceIdxs(i), 1) &
+                + faces % getFaceConst(currElementFaceIdxs(i)) > ZERO) then
+          ! if TRUE, then at least a part of this cell lies outside of the polyhedron
+
+          return
+      end if 
+
+    end do
+
+    ! if survived to this point, then the cell is entired enclosed by the polyhedron. 
+    ! Hence, set chi mapping to the current element index.
+    chi = elementIdx
+
+  end subroutine testPolyhedronInclusion2Coarsest
+
+  !!
+  !!
+  !!
   subroutine testPolyhedronInclusion2(faces, currElementFaceIdxs, centroid, &
                                      faceNormalSigns, elementIdx, chi, &
                                      removedFaceIdxsInArr, isOut)
@@ -209,9 +248,11 @@ contains
     integer(shortInt)                                         :: i, j
     logical(defBool)                                          :: isInside
     ! real(defReal)                                             :: vectorDotCentroid, extraDistance, const
+    !integer(shortInt), dimension(:), allocatable                  :: abc
 
     isOut = .FALSE.
     isInside = .TRUE.
+    !print*, size(currElementFaceIdxs)
     ! Add new test to set isInside False
 
     do i = 1, size(currElementFaceIdxs)
@@ -228,10 +269,11 @@ contains
         isInside = .FALSE.
 
         ! if (dot_product(faces % getFaceNormal(currElementFaceIdxs(i)), centroid) &
-        !     - faces % getFaceExtraDistanceArr(currElementFaceIdxs(i), 2) &
+        !     - faces % getFaceExtraDistanceArr(currElementFaceIdxs(i), currLayer) &
         !     + faces % getFaceConst(currElementFaceIdxs(i)) > ZERO) then
         !     ! isOut = .TRUE.
         !     call append(removedFaceIdxsInArr, i)
+        !     ! call append(abc, i)
         ! end if  
         ! if (.NOT. testIntervalIntersection(vectorDotCentroid - extraDistance, vectorDotCentroid + extraDistance, &
         !                                    -const, -const)) then
@@ -246,6 +288,14 @@ contains
       end if 
 
     end do
+
+    ! if (size(currelementFaceIdxs) == size(removedFaceIdxsInArr)) then
+    !   if (.NOT. isInside) then
+    !     print*, "---------------------------------------"
+    !     print*, currElementFaceIdxs
+    !     print*, abc
+    !   end if
+    ! end if
 
     ! if survived to this point, then the cell is entired enclosed by the polyhedron. 
     ! Hence, set chi mapping to the current element index.

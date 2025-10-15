@@ -5,6 +5,7 @@ module cartesianCellCoarsest_class
   use vertexShelf_class,                only : vertexShelf
   use edgeShelf_class,                  only : edgeShelf
   use faceShelf_class,                  only : faceShelf
+  use elementShelf_class,               only : elementShelf
   use cartesianInitProcedures
   use cartesianGridSubLayer_inter,      only : cartesianGridSubLayer
   use cartesianGridFinest_class,        only : cartesianGridFinest
@@ -32,6 +33,7 @@ module cartesianCellCoarsest_class
 
     ! Build procedures.
     procedure                                    :: cellTestPolyhedronInclusion
+    procedure                                    :: cellFinitePrecision
     procedure                                    :: cellTestFaceIntersection
     procedure                                    :: setIsOutsideMesh
     procedure                                    :: refineCell
@@ -66,10 +68,50 @@ contains
     if (self % chi > 0) return
 
     ! Otherwise, continue testing and appending the array of candidate element indices 
-    call testPolyhedronInclusion(faces, currElementFaceIdxs, centroid, faceNormalSigns, elementIdx, self % chi)
+    call testPolyhedronInclusion2Coarsest(faces, currElementFaceIdxs, centroid, faceNormalSigns, elementIdx, self % chi)
     !""call append(self % candidateElementIdxs, elementIdx)
 
   end subroutine cellTestPolyhedronInclusion
+
+  !!
+  !!
+  !!
+  subroutine cellFinitePrecision(self, faces, elements, currElementFaceIdxs, centroid, &
+                                 elementIdx)
+    class(cartesianCellCoarsest), intent(inout)         :: self
+    class(faceShelf), intent(in)                        :: faces
+    class(elementShelf), intent(in)                     :: elements
+    integer(shortInt), dimension(:), intent(in)         :: currElementFaceIdxs
+    real(defReal), dimension(3), intent(in)             :: centroid
+    integer(shortInt), intent(in)                       :: elementIdx
+    integer(shortInt), dimension(:), allocatable        :: elementFaceIdxs, elementIdxs
+    integer(shortInt)                                   :: i, faceIdx
+
+    if (self % chi > 0) then
+      return
+    elseif (self % chi == 0) then
+      if (.NOT. allocated(self % intersectedFaceIdxs)) then
+
+      do i = 1, size(currElementFaceIdxs)
+
+        if (dot_product(faces % getFaceNormal(currElementFaceIdxs(i)), centroid) &
+            + faces % getFaceConst(currElementFaceIdxs(i)) > 0) then
+            ! if TRUE, then centroid of this cell lies outside of the polyhedron
+            return
+        end if 
+
+      end do
+
+      ! If survived to this point, this cell is contained within a single mesh element, but
+      ! chi mapping info was not assigned due to floating-point-finite-precision.
+      self % chi = elementIdx
+
+
+
+
+      end if
+    end if
+  end subroutine cellFinitePrecision
 
   !!
   !!
@@ -95,7 +137,6 @@ contains
                                   centroid, cellSpacing, faceIdx, currFaceEdgeIdxs, self % intersectedFaceIdxs)
 
   end subroutine cellTestFaceIntersection
-
 
   ! !!
   ! !!
@@ -277,8 +318,12 @@ contains
 
       ! If (very rarely) the cell is inside the mesh domain but intersects with no faces, then specify that this cell lies outside
       if (.NOT. allocated(self % intersectedFaceIdxs)) then
-        self % chi = faces % getSize() + 1 !-1 !"""
+        !@@
+        self % chi = -(faces % getSize() + 1) !-1 !"""
         return
+
+
+        !@@
       end if
 
       halfSpacing = 0.5*spacing(1)

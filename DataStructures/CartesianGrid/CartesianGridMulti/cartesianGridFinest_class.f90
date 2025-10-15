@@ -419,7 +419,8 @@ contains
       !candElementEdgeIdxs = elements % getElementEdgeIdxs(candidateElementIdxs(h))
       call append(duplicatesArray, elements % getElementEdgeIdxs(candidateElementIdxs(h)))
     end do
-    candElementEdgeIdxs = getUniqueSortedArr(duplicatesArray)
+    ! candElementEdgeIdxs = getUniqueSortedArr(duplicatesArray)
+    candElementEdgeIdxs = sortByHighestFrequency(duplicatesArray)
     !!!!!
 
       do i = 1, size(candElementEdgeIdxs)
@@ -524,7 +525,9 @@ contains
       !candElementFaceIdxs = abs(elements % getElementFaceIdxs(candidateElementIdxs(h)))
       call append(duplicatesArray, abs(elements % getElementFaceIdxs(candidateElementIdxs(h))))
     end do
-    candElementFaceIdxs = getUniqueSortedArr(duplicatesArray)
+    ! candElementFaceIdxs = getUniqueSortedArr(duplicatesArray)
+    candElementFaceIdxs = sortByHighestFrequency(duplicatesArray)
+    ! candElementFaceIdxs = abs(normalSignsMatOld % unique_list())
     !!!!!
 
       do i = 1, size(candElementFaceIdxs)

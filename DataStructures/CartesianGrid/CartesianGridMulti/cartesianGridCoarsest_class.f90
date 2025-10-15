@@ -831,6 +831,47 @@ contains
 
     end do
 
+    !----------------------------------------------------------------------------------------------
+    ! polyhedron inclusion tests (to account for finite precision)
+    !----------------------------------------------------------------------------------------------
+    !allocate(faceNormalSigns(3, 2))
+    do i = 1, elements % getSize()
+
+        ! construct box for candidate cells
+        currVertexIdxs = elements % getElementVertexIdxs(i)
+        AABBIndices = constructAABB(vertices, currVertexIdxs, self % gridBounds_min, self % spacing(1))
+
+        ! calculate element-only-dependent properties
+        currElementFaceIdxs = elements % getElementFaceIdxs(i)
+
+        ! deallocate(faceNormalSigns)
+        ! allocate(faceNormalSigns(3, size(currElementFaceIdxs)))
+        ! do j = 1, size(currElementFaceIdxs)
+        !   faceNormalSigns(:,j) = faces % getFaceNormalSigns(currElementFaceIdxs(j))
+        ! end do
+        ! faceNormalSigns = faceNormalSigns * (self % spacing(1))*0.5
+
+
+        !Loop over all cartesian cells in the box and test if each cell is entirely included in the polyhedron
+        !(needs to be changed) (k and l can be a function of j e.g. k = datum + slope*j so that box is narrowed down)
+        do j = AABBIndices(1), AABBIndices(4)
+            do k = AABBIndices(2), AABBIndices(5)
+                do l = AABBIndices(3), AABBIndices(6)
+
+                    ! (needs to be changed) (store centroid info)
+                    centroid(1) = (self % gridBounds_min(1)) + (self % spacing(1)) * (j-0.5)
+                    centroid(2) = (self % gridBounds_min(2)) + (self % spacing(1)) * (k-0.5)
+                    centroid(3) = (self % gridBounds_min(3)) + (self % spacing(1)) * (l-0.5)
+
+                    call self % grid(j,k,l) % cellFinitePrecision(faces, elements, currElementFaceIdxs, &
+                                                                           centroid, i)
+
+                end do 
+            end do    
+        end do
+
+    end do
+
   end subroutine constructMapping
 
   ! !!
