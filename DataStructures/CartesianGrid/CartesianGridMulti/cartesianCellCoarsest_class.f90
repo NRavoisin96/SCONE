@@ -321,8 +321,6 @@ contains
         !@@
         self % chi = -(faces % getSize() + 1) !-1 !"""
         return
-
-
         !@@
       end if
 

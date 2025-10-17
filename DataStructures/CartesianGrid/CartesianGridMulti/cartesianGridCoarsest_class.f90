@@ -9,7 +9,8 @@ module cartesianGridCoarsest_class
   use cartesianCellCoarsest_class,     only : cartesianCellCoarsest
   use cartesianGenericProcedures
   use genericProcedures,               only : fatalError!, append
-  use cartesianInitProcedures,         only : setFaceParameters, fixFaceElementIdxsOrder, setFaceParameters2
+  use cartesianInitProcedures,         only : setFaceParameters, fixFaceElementIdxsOrder, setFaceParameters2, &
+                                              setGridFirstDimension, setGridOtherDimensions
   use dynamic2dMatSet_class,           only : dynamic2dMatSet
 
   implicit none
@@ -74,103 +75,12 @@ contains
                                                            residual, avgLength, factor
     integer(shortInt), dimension(:,:), allocatable      :: minExponent
 
-    ! currEdgeVertexIdxs = [2,4,6,1,6,2,12]
-    ! print*, currEdgeVertexIdxs
-    ! call remove_elements(currEdgeVertexIdxs,[1,2])
-    ! print*, currEdgeVertexIdxs
-    ! call remove_elements(currEdgeVertexIdxs,[4])
-    ! print*, currEdgeVertexIdxs
-    ! call remove_elements(currEdgeVertexIdxs,[2,3])
-    ! print*, currEdgeVertexIdxs
-    ! call append(numberOfCellsAnalysis,1)
-    ! call remove_elements(currEdgeVertexIdxs, numberOfCellsAnalysis)
-    ! print*, currEdgeVertexIdxs
-    ! call fatalError("as", "as")
-
-    ! print*, "££££££££££££££££££££££££££££££££££££££££££££££££££££"
-    ! currEdgeVertexIdxs = elements % getElementFaceIdxs(146)
-    ! do i = 1, size(currEdgeVertexIdxs)
-    !   print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
-    !   print*, "faceIdx", currEdgeVertexIdxs(i)
-    !   print*, "elementIdxs", faces % getFaceElementIdxs(abs(currEdgeVertexIdxs(i)))
-    ! end do
-
-    ! print*, "££££££££££££££££££££££££££££££££££££££££££££££££££££"
-    ! currEdgeVertexIdxs = elements % getElementFaceIdxs(131)
-    ! do i = 1, size(currEdgeVertexIdxs)
-    !   print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
-    !   print*, "faceIdx", currEdgeVertexIdxs(i)
-    !   print*, "elementIdxs", faces % getFaceElementIdxs(abs(currEdgeVertexIdxs(i)))
-    ! end do
-
-    ! print*, "££££££££££££££££££££££££££££££££££££££££££££££££££££"
-    ! currEdgeVertexIdxs = elements % getElementFaceIdxs(127)
-    ! do i = 1, size(currEdgeVertexIdxs)
-    !   print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
-    !   print*, "faceIdx", currEdgeVertexIdxs(i)
-    !   print*, "elementIdxs", faces % getFaceElementIdxs(abs(currEdgeVertexIdxs(i)))
-    ! end do
-
-    ! print*, "££££££££££££££££££££££££££££££££££££££££££££££££££££"
-    ! currEdgeVertexIdxs = elements % getElementFaceIdxs(176)
-    ! do i = 1, size(currEdgeVertexIdxs)
-    !   print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
-    !   print*, "faceIdx", currEdgeVertexIdxs(i)
-    !   print*, "elementIdxs", faces % getFaceElementIdxs(abs(currEdgeVertexIdxs(i)))
-    ! end do
-
-    ! print*, "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$"
-    ! print*, vertices % getVertexCoordinates(92)
-    ! currEdgeVertexIdxs = edges % getEdgeVertexIdxs(395)
-    ! print*, currEdgeVertexIdxs
-    ! print*, vertices % getVertexCoordinates(currEdgeVertexIdxs(1))
-    ! print*, vertices % getVertexCoordinates(currEdgeVertexIdxs(2))
-
-    !!!
-    !integer(shortInt) :: baseIntegerCoord, globalIdx
-    !!!
-
-    !""
-    ! currEdgeVertexIdxs = [3,5,6, 2354, 2,1,5,7,23,6,1,76,86,23,9]
-    ! call quickSort(currEdgeVertexIdxs,1,size(currEdgeVertexIdxs))
-    ! print*, currEdgeVertexIdxs
-    ! call fatalError("as","as")
-    !""
-
-    ! currEdgeVertexIdxs = [1,2,7,7,7,5,5,9,8,3,1,3,3,3]
-    ! print*, sortByHighestFrequency(currEdgeVertexIdxs)
-    ! call fatalError("asdf", "asdf")
-
-    ! integer(shortInt), dimension(:), allocatable :: temp
-    ! do i = 1, elements % getSize()
-    !   print*, "---------------------------------------------------------------"
-    !   print*, elements % getElementCentroid(i)
-    !   if (allocated(temp)) deallocate(temp)
-    !   temp = elements % getElementVertexIdxs(i)
-    !   do j = 1, size(temp)
-    !     print*, vertices % getVertexCoordinates(temp(j))
-    !   end do
-
-    ! end do
-
-    ! do i = 1, faces % getSize()
-    !   print*, i
-    !   print*, faces % getFaceElementIdxs(i)
-
-    ! end do
-
-    ! currEdgeVertexIdxs = [1,3,5,6,8,22,456,565]
-    ! print*, intBinarySearch(currEdgeVertexIdxs, 6)
-    ! print*, intBinarySearch(currEdgeVertexIdxs, 8)
-    ! print*, intBinarySearch(currEdgeVertexIdxs, 22)
-    ! print*, intBinarySearch(currEdgeVertexIdxs, 456)
-    ! print*, intBinarySearch(currEdgeVertexIdxs, 565)
-
-    ! call fatalError("as", "as")
+    !@@
+    integer(shortInt)     :: ratioFinest2Coarsest
 
     ! (needs to be changed) (change it so that it can be read from the inputfile?)
     ! (Currently, n_layers can be only either 2 or 3; to be updated)
-    self % n_layers = 4
+    self % n_layers = 2
     factor = 0.1
     allocate(minExponent(self % n_layers,3))
     allocate(self % spacing(self % n_layers))
@@ -242,187 +152,259 @@ contains
 
     self % alpha = ACOS(maxCosValue)
 
+    !&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+    ! Bit-Trick (the number of cells per dimension is power of 2)
+    !&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+    ! !-----------------------------------------------------------------------------------------
+    ! ! calculate grid dimensions
+    ! !-----------------------------------------------------------------------------------------
+    ! !---------------------------------------------
+    ! ! Repeatative process for the coarsest layer
+    ! !---------------------------------------------
+    ! ! (needs to be changed) (can combine the procedure for coarsest and finest layers)
+    ! ! set the target cartesian grid spacing for the coarsest layer
+    ! ! important: we set and keep the spacing in all directions the same
+    ! avgLength = calculateAvgEdgeLength(edges)
+    ! self % spacing(1) = avgLength*factor
+    ! self % spacingInv(1) = 1/(self % spacing(1))
+
+    ! ! calculate true cartesian grid spacing and number of cells for the coarsest layer
+    ! extremalCoordinates = vertices % getExtremalCoordinates()
+    ! self % meshBounds_min = extremalCoordinates(1:3)
+    ! self % meshBounds_max = extremalCoordinates(4:6)
+    ! outer1: do i = 1, 3 
+    !   ! extend the cartesian grid dimension slightly further from the bounds of the mesh
+    !   self % gridBounds_min(i) = self % meshBounds_min(i) - NUDGE
+    !   self % gridBounds_max(i) = self % meshBounds_max(i) + NUDGE
+
+    !   ! calculate the target number of cells for the coarsest layer
+    !   n_xyzTarget(i) = (self % gridBounds_max(i) - self % gridBounds_min(i)) / self % spacing(1)
+    !   self % n_xyzCoarsest(i) = ceiling(n_xyzTarget(i))
+      
+    !   ! to use cheaper indexing calc. procedure, the number of cells must be a power of 2
+    !   ! Hence, find the lowest possible j such that n_xyzTarget(i) <= 2**j   
+    !   inner1: do j = 1, 30
+    !     if (n_xyzTarget(i) <= 2**j) then
+    !       minExponent(1,i) = j
+    !       exit inner1
+    !     end if
+    !   end do inner1 
+
+    !   ! set the true spacing and the number of cells for the coarsest layer
+    !   self % n_xyz(1,i) = 2**minExponent(1,i)
+
+    !   ! extend gridBounds so that spacing and n_xyz are kept the same.
+    !   ! residual is added to the max bound only to increase the change of this extra space lying
+    !   ! outside of the mesh bounds so that they do not have to be refined in sub-layers.
+    !   !residual = self % n_xyz(1,i)*self % spacing(1) - (self % gridBounds_max(i) - self % gridBounds_min(i))
+    !   residual = (self % n_xyz(1,i) - n_xyzTarget(i))*self % spacing(1)
+    !   self % gridBounds_max(i) = self % gridBounds_max(i) + residual 
+
+    !   ! print*, "spacing                         : ", self % spacing(1)
+    !   ! print*, "No.                             : ", self % n_xyz(1,i)
+    !   ! print*, "No. target                      : ", n_xyzTarget(i)
+    !   ! print*, "Grid size after                 : ", (self%gridBounds_max(i)-self%gridBounds_min(i))
+    !   ! print*, "Grid size before                : ", (self%gridBounds_max(i)-self%gridBounds_min(i)-residual)
+    !   ! print*, "No. times spacing               : ", self%n_xyz(1,i)*self%spacing(1)
+    !   ! print*, "residual                        : ", residual
+    !   ! print*, "Grid lower bounds in xyz        : ", self % gridBounds_min
+    !   ! print*, "Grid upper bounds in xyz        : ", self % gridBounds_max      
+    !   ! Call fatal error in case grid bounds not set appropriately
+    !   ! if (self%n_xyz(1,i)*self%spacing(1) /= (self%gridBounds_max(i)-self%gridBounds_min(i))) then
+    !   !       call fatalError("Calculation of grid dimensions for the coarsest", "grid bounds not set appropriately")
+    !   ! end if
+
+    ! end do outer1
+
+    ! !---------------------------------------------
+    ! ! Repeatative process for the finest layer
+    ! !---------------------------------------------
+    ! ! calculate target spacing for the finest layer
+    ! ! (needs to be changed) (times by 0.9999 for wStar?)
+    ! self % wStar = (self % l_min)*min(0.5d0, SIN(self % alpha))
+    ! self % spacing(self % n_layers) = 2*(self % wStar)*SIN(self % alpha)*SIN((self % alpha)/2)&
+    !                                   /sqrt(3.0d0)/(1+SIN(self % alpha))/(1+SIN((self % alpha)/2))
+    ! self % spacingInv(self % n_layers) = 1/(self % spacing(self % n_layers))
+
+    ! ! calculate the target number of cells for the finest layer in x-direction
+    ! ! Note that diffExponent will be the same for all directions (xyz) because spaings are the same in all directions
+    ! ! for all layers, and number of cells are always a power of 2. Hence, the calculation is done for x-diretion only, 
+    ! ! and the same result is applied to all other directions.
+    ! n_xyzTarget(1) = (self % gridBounds_max(1) - self % gridBounds_min(1)) / self % spacing(self % n_layers)
+
+    ! ! to use cheaper indexing calc. procedure, the number of cells must be a power of 2
+    ! ! Hence, find the lowest possible j such that n_xyz(i) <= 2**j   
+    ! loop1: do j = 1, 30
+    !   if (n_xyzTarget(1) <= 2**j) then
+
+    !     ! ensure the gap between the exponent of the coarsest and finest layers is large enough to accomodate the specified n_layers
+    !     if (j - minExponent(1,1) < self % n_layers - 1) then
+    !       diffExponent = self % n_layers - 1
+    !     else
+    !       diffExponent = j - minExponent(1,1)
+    !     end if
+
+    !     exit loop1
+
+    !   end if
+    ! end do loop1
+
+    ! ! apply the result from x-direction to all xyz
+    ! do i = 1, 3
+
+    !   ! set minExponent
+    !   minExponent(self % n_layers,i) = minExponent(1,i) + diffExponent
+
+    !   ! set the number of cells for the finest layer
+    !   self % n_xyz(self % n_layers,i) = 2**minExponent(self % n_layers,i)
+      
+    ! end do
+
+    ! ! set the true spacing for the finest layer
+    ! self % spacing(self % n_layers) = (self % gridBounds_max(1) - self % gridBounds_min(1)) / self % n_xyz(self % n_layers,1)
+    ! self % spacingInv(self % n_layers) = 1/(self % spacing(self % n_layers))
+
+    ! ! Call fatal error for inappropirate cell number
+    ! ! do i = 1, 3
+    ! !   spacingComparison(i) = (self % gridBounds_max(i) - self % gridBounds_min(i)) / self % n_xyz(self % n_layers,i)
+    ! ! end do
+    ! ! if (spacingComparison(1) /= spacingComparison(2)) then
+    ! !   call fatalError("Calculation of grid dimensions for the finest", "cell number not set appropriately")
+    ! ! end if
+    ! ! if (spacingComparison(1) /= spacingComparison(3)) then
+    ! !   call fatalError("Calculation of grid dimensions for the finest", "cell number not set appropriately")
+    ! ! end if
+
+    ! !---------------------------------------------
+    ! ! Repeat the same process for intermediate layers
+    ! !---------------------------------------------
+    ! if (self % n_layers > 2) then 
+    !   ! find (approximately) equally spaced exponents for intermediate layers
+    !   ! (needs to be changed) (parametric study needed to fine the best spacing strategy)
+    !   exponentGapLayers = INT(diffExponent/(self % n_layers - 1))
+
+    !   ! set minExponent, spacing and spacingInv for each of intermediate layers
+    !   do i = 2, self % n_layers-1
+
+    !     ! set minExponent
+    !     do j = 1, 3
+    !       minExponent(i,j) = minExponent(1,j) + exponentGapLayers*(i-1)
+    !       self % n_xyz(i,j) = 2**minExponent(i,j)
+    !     end do
+        
+    !     ! set grid spacing
+    !     self % spacing(i) = (self % gridBounds_max(1) - self % gridBounds_min(1)) / (self % n_xyz(i,1))
+    !     self % spacingInv(i) = 1/(self % spacing(i))  
+
+    !     ! Call fatal error in case of inappropriate spacings
+    !     ! if (self % spacing(i) /= (self%gridBounds_max(2)-self%gridBounds_min(2))/(self % n_xyz(i,2))) then
+    !     !   call fatalError("Calculation of grid dimensions for intermediate", "cell number not set appropriately")
+    !     ! end if
+    !     ! if (self % spacing(i) /= (self%gridBounds_max(3)-self%gridBounds_min(3))/(self % n_xyz(i,3))) then
+    !     !   call fatalError("Calculation of grid dimensions for intermediate", "cell number not set appropriately")
+    !     ! end if
+
+    !   end do
+
+    ! end if
+
+    ! !-----------------------------------------------------------------------------------------
+    ! ! Extra pre-calculation to help efficient indexing calculation procedure for each layer
+    ! !-----------------------------------------------------------------------------------------
+
+    ! ! calculate constants to be used for the cheaper indexing calc. procedure
+    ! ! First, initialise for the coarsest layer
+    ! do i = 1, 3
+    !   self % shift(1,i) = minExponent(self % n_layers,i) - minExponent(1,i)
+    !   self % mask(1,i) = 0 ! can be any integer (not used)
+    ! end do
+
+    ! ! then for all other layers
+    ! do i = 2, self % n_layers
+    !   do j = 1, 3
+    !     self % shift(i,j) = minExponent(self % n_layers,j) - minExponent(i,j)
+    !     self % mask(i,j) = ((self % n_xyz(i,j))/(self % n_xyz(i-1,j))) - 1
+    !   end do
+    ! end do
+
+    ! !!!!!
+    ! !-----------------------------------------------------------------------------------------
+    ! ! Calculate the number of sub-division at each layer descending down the grid.
+    ! !-----------------------------------------------------------------------------------------
+    ! ! Each row refers to each layer, and column to dimension. Hence, the second row represents
+    ! ! the number of sub-division when going from the coarsest to the first intermediate layer. 
+    ! ! First row is the dummy one to avoid having to subtract current layer by 1 during in-cycle.
+    ! self % nSub_xyz(:,:) = self % mask(:,:) + 1
+    ! !!!!
+
+    !&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+    ! Non Bit-Trick (the number of cells per dimension is no longer power of 2)
+    !&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
     !-----------------------------------------------------------------------------------------
     ! calculate grid dimensions
     !-----------------------------------------------------------------------------------------
-    !---------------------------------------------
-    ! Repeatative process for the coarsest layer
-    !---------------------------------------------
-    ! (needs to be changed) (can combine the procedure for coarsest and finest layers)
-    ! set the target cartesian grid spacing for the coarsest layer
-    ! important: we set and keep the spacing in all directions the same
-    avgLength = calculateAvgEdgeLength(edges)
-    self % spacing(1) = avgLength*factor
-    self % spacingInv(1) = 1/(self % spacing(1))
+    self % n_xyz = 0
 
-    ! calculate true cartesian grid spacing and number of cells for the coarsest layer
-    extremalCoordinates = vertices % getExtremalCoordinates()
-    self % meshBounds_min = extremalCoordinates(1:3)
-    self % meshBounds_max = extremalCoordinates(4:6)
-    outer1: do i = 1, 3 
-      ! extend the cartesian grid dimension slightly further from the bounds of the mesh
-      self % gridBounds_min(i) = self % meshBounds_min(i) - NUDGE
-      self % gridBounds_max(i) = self % meshBounds_max(i) + NUDGE
-
-      ! calculate the target number of cells for the coarsest layer
-      n_xyzTarget(i) = (self % gridBounds_max(i) - self % gridBounds_min(i)) / self % spacing(1)
-      self % n_xyzCoarsest(i) = ceiling(n_xyzTarget(i))
-      
-      ! to use cheaper indexing calc. procedure, the number of cells must be a power of 2
-      ! Hence, find the lowest possible j such that n_xyzTarget(i) <= 2**j   
-      inner1: do j = 1, 30
-        if (n_xyzTarget(i) <= 2**j) then
-          minExponent(1,i) = j
-          exit inner1
-        end if
-      end do inner1 
-
-      ! set the true spacing and the number of cells for the coarsest layer
-      self % n_xyz(1,i) = 2**minExponent(1,i)
-
-      ! extend gridBounds so that spacing and n_xyz are kept the same.
-      ! residual is added to the max bound only to increase the change of this extra space lying
-      ! outside of the mesh bounds so that they do not have to be refined in sub-layers.
-      !residual = self % n_xyz(1,i)*self % spacing(1) - (self % gridBounds_max(i) - self % gridBounds_min(i))
-      residual = (self % n_xyz(1,i) - n_xyzTarget(i))*self % spacing(1)
-      self % gridBounds_max(i) = self % gridBounds_max(i) + residual 
-
-      ! print*, "spacing                         : ", self % spacing(1)
-      ! print*, "No.                             : ", self % n_xyz(1,i)
-      ! print*, "No. target                      : ", n_xyzTarget(i)
-      ! print*, "Grid size after                 : ", (self%gridBounds_max(i)-self%gridBounds_min(i))
-      ! print*, "Grid size before                : ", (self%gridBounds_max(i)-self%gridBounds_min(i)-residual)
-      ! print*, "No. times spacing               : ", self%n_xyz(1,i)*self%spacing(1)
-      ! print*, "residual                        : ", residual
-      ! print*, "Grid lower bounds in xyz        : ", self % gridBounds_min
-      ! print*, "Grid upper bounds in xyz        : ", self % gridBounds_max      
-      ! Call fatal error in case grid bounds not set appropriately
-      ! if (self%n_xyz(1,i)*self%spacing(1) /= (self%gridBounds_max(i)-self%gridBounds_min(i))) then
-      !       call fatalError("Calculation of grid dimensions for the coarsest", "grid bounds not set appropriately")
-      ! end if
-
-    end do outer1
-
-    !---------------------------------------------
-    ! Repeatative process for the finest layer
-    !---------------------------------------------
-    ! calculate target spacing for the finest layer
-    ! (needs to be changed) (times by 0.9999 for wStar?)
+    ! Set grid parameters from the mesh parameters. Then, set the grid spacing for the finest and coarsest layers.
+    ! These are the target values and will be changed later in this subroutine.
     self % wStar = (self % l_min)*min(0.5d0, SIN(self % alpha))
     self % spacing(self % n_layers) = 2*(self % wStar)*SIN(self % alpha)*SIN((self % alpha)/2)&
                                       /sqrt(3.0d0)/(1+SIN(self % alpha))/(1+SIN((self % alpha)/2))
-    self % spacingInv(self % n_layers) = 1/(self % spacing(self % n_layers))
+    avgLength = calculateAvgEdgeLength(edges)
+    self % spacing(1) = avgLength*factor
 
-    ! calculate the target number of cells for the finest layer in x-direction
-    ! Note that diffExponent will be the same for all directions (xyz) because spaings are the same in all directions
-    ! for all layers, and number of cells are always a power of 2. Hence, the calculation is done for x-diretion only, 
-    ! and the same result is applied to all other directions.
-    n_xyzTarget(1) = (self % gridBounds_max(1) - self % gridBounds_min(1)) / self % spacing(self % n_layers)
+    ! Retrieve the minimum and maximum xyz-coordinates of the mesh.
+    extremalCoordinates = vertices % getExtremalCoordinates()
+    self % meshBounds_min = extremalCoordinates(1:3)
+    self % meshBounds_max = extremalCoordinates(4:6)
 
-    ! to use cheaper indexing calc. procedure, the number of cells must be a power of 2
-    ! Hence, find the lowest possible j such that n_xyz(i) <= 2**j   
-    loop1: do j = 1, 30
-      if (n_xyzTarget(1) <= 2**j) then
+    ! extend the cartesian grid dimension slightly further from the bounds of the mesh
+    do i = 1, 3
+      self % gridBounds_min(i) = self % meshBounds_min(i) - NUDGE
+      self % gridBounds_max(i) = self % meshBounds_max(i) + NUDGE
+    end do
 
-        ! ensure the gap between the exponent of the coarsest and finest layers is large enough to accomodate the specified n_layers
-        if (j - minExponent(1,1) < self % n_layers - 1) then
-          diffExponent = self % n_layers - 1
-        else
-          diffExponent = j - minExponent(1,1)
-        end if
+    ! Calculate and set grid spacing, number of cells in each layer for the first dimension (x-axis)
+    call setGridFirstDimension(self%gridBounds_min, self%gridBounds_max, self%spacing, self%n_layers, &
+                               self%n_xyz, ratioFinest2Coarsest)
 
-        exit loop1
+    ! Now, calculations for the second and third dimensions (y- and z-axis)
+    do i = 2, 3
+
+      if (abs(self%gridBounds_max(i)-self%gridBounds_min(i)) == &
+          abs(self%gridBounds_max(1)-self%gridBounds_min(1))) then
+            
+        self % n_xyz(:,i) = self % n_xyz(:,1)
+
+      else
+
+        call setGridOtherDimensions(self%gridBounds_min, self%gridBounds_max, self%spacing, &
+                                    self%n_layers, self%n_xyz, ratioFinest2Coarsest, i)
 
       end if
-    end do loop1
 
-    ! apply the result from x-direction to all xyz
-    do i = 1, 3
-
-      ! set minExponent
-      minExponent(self % n_layers,i) = minExponent(1,i) + diffExponent
-
-      ! set the number of cells for the finest layer
-      self % n_xyz(self % n_layers,i) = 2**minExponent(self % n_layers,i)
-      
     end do
 
-    ! set the true spacing for the finest layer
-    self % spacing(self % n_layers) = (self % gridBounds_max(1) - self % gridBounds_min(1)) / self % n_xyz(self % n_layers,1)
-    self % spacingInv(self % n_layers) = 1/(self % spacing(self % n_layers))
-
-    ! Call fatal error for inappropirate cell number
-    ! do i = 1, 3
-    !   spacingComparison(i) = (self % gridBounds_max(i) - self % gridBounds_min(i)) / self % n_xyz(self % n_layers,i)
-    ! end do
-    ! if (spacingComparison(1) /= spacingComparison(2)) then
-    !   call fatalError("Calculation of grid dimensions for the finest", "cell number not set appropriately")
-    ! end if
-    ! if (spacingComparison(1) /= spacingComparison(3)) then
-    !   call fatalError("Calculation of grid dimensions for the finest", "cell number not set appropriately")
-    ! end if
-
-    !---------------------------------------------
-    ! Repeat the same process for intermediate layers
-    !---------------------------------------------
-    if (self % n_layers > 2) then 
-      ! find (approximately) equally spaced exponents for intermediate layers
-      ! (needs to be changed) (parametric study needed to fine the best spacing strategy)
-      exponentGapLayers = INT(diffExponent/(self % n_layers - 1))
-
-      ! set minExponent, spacing and spacingInv for each of intermediate layers
-      do i = 2, self % n_layers-1
-
-        ! set minExponent
-        do j = 1, 3
-          minExponent(i,j) = minExponent(1,j) + exponentGapLayers*(i-1)
-          self % n_xyz(i,j) = 2**minExponent(i,j)
-        end do
-        
-        ! set grid spacing
-        self % spacing(i) = (self % gridBounds_max(1) - self % gridBounds_min(1)) / (self % n_xyz(i,1))
-        self % spacingInv(i) = 1/(self % spacing(i))  
-
-        ! Call fatal error in case of inappropriate spacings
-        ! if (self % spacing(i) /= (self%gridBounds_max(2)-self%gridBounds_min(2))/(self % n_xyz(i,2))) then
-        !   call fatalError("Calculation of grid dimensions for intermediate", "cell number not set appropriately")
-        ! end if
-        ! if (self % spacing(i) /= (self%gridBounds_max(3)-self%gridBounds_min(3))/(self % n_xyz(i,3))) then
-        !   call fatalError("Calculation of grid dimensions for intermediate", "cell number not set appropriately")
-        ! end if
-
-      end do
-
-    end if
-
-    !-----------------------------------------------------------------------------------------
-    ! Extra pre-calculation to help efficient indexing calculation procedure for each layer
-    !-----------------------------------------------------------------------------------------
-
-    ! calculate constants to be used for the cheaper indexing calc. procedure
-    ! First, initialise for the coarsest layer
-    do i = 1, 3
-      self % shift(1,i) = minExponent(self % n_layers,i) - minExponent(1,i)
-      self % mask(1,i) = 0 ! can be any integer (not used)
+    do i = 1, self % n_layers
+      self % spacingInv(i) = 1 / self % spacing(i)
     end do
 
-    ! then for all other layers
-    do i = 2, self % n_layers
-      do j = 1, 3
-        self % shift(i,j) = minExponent(self % n_layers,j) - minExponent(i,j)
-        self % mask(i,j) = ((self % n_xyz(i,j))/(self % n_xyz(i-1,j))) - 1
-      end do
-    end do
-
-    !!!!!
     !-----------------------------------------------------------------------------------------
     ! Calculate the number of sub-division at each layer descending down the grid.
     !-----------------------------------------------------------------------------------------
     ! Each row refers to each layer, and column to dimension. Hence, the second row represents
     ! the number of sub-division when going from the coarsest to the first intermediate layer. 
     ! First row is the dummy one to avoid having to subtract current layer by 1 during in-cycle.
-    self % nSub_xyz(:,:) = self % mask(:,:) + 1
-    !!!!!
+    self % nSub_xyz(:,:) = 1
+    do i = 2, self % n_layers
+      do j = 1, 3
+        self % nSub_xyz(i,j) = ((self % n_xyz(i,j))/(self % n_xyz(i-1,j)))
+      end do
+    end do
+
+    !&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
+    !
+    !&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&
 
     !-----------------------------------------------------------------------------------------
     ! Calculate parameters used for edge intersection test
@@ -461,40 +443,15 @@ contains
     print*, "Grid upper bounds in xyz            : ", self % gridBounds_max
     print*, "----------------------------------------------------"
 
-    ! call fatalError("as", "as")
-    ! for temporary debugging
-    ! print*, "/////////////////////////////////////////"
-    ! print*, "spacing of each layer"
-    ! print*, self % spacing
-    ! print*, "/////////////////////////////////////////"
-    ! print*, "grid size of each layer in each direction"
-    ! print*, self % n_xyz
-    ! print*, "/////////////////////////////////////////"
-
-    ! for temporary debugging
-    ! print*, self % n_xyz(2,:)
-    ! baseIntegerCoord = floor((0.71-self % gridBounds_min(1)) * self%spacingInv(self%n_layers))
-    ! print*, baseIntegerCoord
-    ! do i = 1, 3
-    !   print*, "-----------------------------------------"
-    !   print*, i
-    !   print*, self%shift(i,:)
-    !   print*, self%mask(i,:)
-    !   globalIdx = ishft(baseIntegerCoord,-self%shift(i,1))
-    !   print*, globalIdx
-    !   print*, iand(globalIdx, self%mask(i,1)) + 1
-    ! end do
-
-    !@@
-    ! call self % testingDynamic2dMatSet(faces)
-    !@@
-
     !Calculate face-specific parameters used for face intersection and polyhedron inclusion tests
     call setFaceParameters2(faces, self % spacing, self % n_layers)
 
     !-----------------------------------------------------------------------------------------
     !initialise for patch search
     !-----------------------------------------------------------------------------------------
+    self % n_xyzCoarsest(1) = self % n_xyz(1,1)
+    self % n_xyzCoarsest(2) = self % n_xyz(1,2)
+    self % n_xyzCoarsest(3) = self % n_xyz(1,3)
     allocate(self % grid(self % n_xyzCoarsest(1), self % n_xyzCoarsest(2), self % n_xyzCoarsest(3)))
 
     call self % constructMapping(vertices, edges, faces, elements)
@@ -513,25 +470,6 @@ contains
     ! print*, numberOfCellsAnalysis
     ! call fatalError("Init, cartesianGridCoarsest_class.f90", "Terminating after printing &
     !                 the number of cells for each type. If not intended, comment these lines.")
-
-    ! ! temporary for debugging
-    ! do i = 1, self % n_xyz(1,1)
-    !   do j = 1, self % n_xyz(1,2)
-    !     do k = 1, self % n_xyz(1,3)
-    !       print*, "--------------------------------"
-    !       print*,  self % grid(i,j,k) % getChi()
-    !       print*, self % grid(i,j,k) % getElementIdxs()
-    !     end do
-    !   end do
-    ! end do
-
-    !!!!!
-    ! print*,"***************************************"
-    ! print*, "Coarsest layer global index", getGlobalIdx([154,37,175], self%shift(1,:))
-    ! print*, "Intermediate layer local index", getlocalIdx([154,37,175], self%shift(2,:), self%mask(2,:))
-    ! print*, "Finest layer local index",getlocalIdxFinest([154,37,175], self%shift(3,:), self%mask(3,:))
-    !print*, "gridChi", self%getGridChi([154,37,175])
-    !!!!!
 
   end subroutine init
 
@@ -951,7 +889,6 @@ contains
           !                                      newGridBoundsMin, self % alpha, self % wStar, &
           !                                      self % circumscribedBallRadius, self % targetDistance, &
           !                                      self % targetDistanceSqr)
-
           call self % grid(i,j,k) % refineCell2(vertices, edges, faces, elements, self % spacing, &
                                                         self % spacingInv, self % n_xyz, self % n_layers, &
                                                         newGridBoundsMin, self % alpha, self % wStar, &

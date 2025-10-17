@@ -5,7 +5,7 @@ module cartesianInitProcedures
   use edgeShelf_class,              only : edgeShelf
   use faceShelf_class,              only : faceShelf
   use elementShelf_class,           only : elementShelf
-  use genericProcedures,            only : findCommon, append, eraseAt
+  use genericProcedures,            only : findCommon, append, eraseAt, fatalError
   use numPrecision   
   use cartesianGenericProcedures,   only : testIntervalIntersection
 
@@ -982,5 +982,154 @@ contains
     end do
 
   end subroutine fixFaceElementIdxsOrder
+
+  !!
+  !!
+  !!
+  subroutine setGridFirstDimension(gridBounds_min, gridBounds_max, spacing, n_layers, n_xyz, &
+                                   ratioFinest2Coarsest)
+    real(defReal), dimension(3), intent(in)            :: gridBounds_min, gridBounds_max
+    real(defReal), dimension(:), intent(inout)         :: spacing
+    integer(shortInt), intent(in)                      :: n_layers
+    integer(shortInt), dimension(:,:), intent(out)     :: n_xyz 
+    integer(shortInt), intent(out)                     :: ratioFinest2Coarsest
+    real(defReal)                                      :: targetSpacingCoarsest, gridSize, &
+                                                          targetSpacingFinest, targetRatio
+    integer(shortInt)                                  :: targetNFinest, targetNCoarsest, i, j  
+    integer(shortInt), dimension(:), allocatable       :: candidateRatios, primeFactors
+    
+    ! Calculate basic parameters
+    gridSize = gridBounds_max(1) - gridBounds_min(1)
+    targetNFinest = ceiling(gridSize/spacing(n_layers))
+    targetNCoarsest = ceiling(gridSize/spacing(1))
+    targetRatio = targetNFinest/targetNCoarsest
+
+    ! Depending on the number of layers used, retrieve candidate ratios between the number of cells in the finest and coarsest
+    if (n_layers == 2) then
+      ! Any integers
+      candidateRatios = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25]
+    elseif (n_layers == 3) then
+      ! Integers that are produces of at least two prime numbers
+      candidateRatios = [4,6,8,9,10,12,14,15,16,18,20,21,22,24,25]
+    elseif (n_layers == 4) then
+      ! Integers that are produces of at least three prime numbers
+      candidateRatios = [8,12,16,18,20,24]
+    end if
+
+    ! Choose relevant ratio from candidateRatios
+    if (targetratio <= 2) then
+      ratioFinest2Coarsest = 2
+    else
+
+      loop: do i = size(candidateRatios), 1, -1
+        if (targetRatio >= candidateRatios(i)) then
+          exit loop
+        end if
+      end do loop
+      ratioFinest2Coarsest = candidateRatios(i)
+
+    end if
+
+    ! Calculate the number of cells and cell spacing for the finest layer
+    n_xyz(n_layers,1) = targetNFinest + &
+                      (ratioFinest2Coarsest - mod(targetNFinest, ratioFinest2Coarsest))
+    spacing(n_layers) = gridSize / n_xyz(n_layers,1)                                          
+
+    ! Calculate the number of cells and cell spacings for the coarser layers
+    if (n_layers > 2) then
+      primeFactors = prime_factors(ratioFinest2Coarsest)
+
+      j = 1
+      do i = n_layers-1, 1, -1
+        n_xyz(i,1) = n_xyz(i+1,1)/primeFactors(j)
+        spacing(i) = gridSize / n_xyz(i,1)
+        j = j + 1
+      end do
+
+    else ! i.e. if n_layers = 2
+
+      n_xyz(1,1) = n_xyz(2,1)/ratioFinest2Coarsest
+      spacing(1) = gridSize / n_xyz(1,1)
+
+    end if
+
+  end subroutine setGridFirstDimension
+
+  !!
+  !!
+  !!
+  subroutine setGridOtherDimensions(gridBounds_min, gridBounds_max, spacing, n_layers, n_xyz, &
+                                   ratioFinest2Coarsest, dimension)
+    real(defReal), dimension(3), intent(in)            :: gridBounds_min
+    real(defReal), dimension(3), intent(inout)         :: gridBounds_max
+    real(defReal), dimension(:), intent(in)            :: spacing
+    integer(shortInt), intent(in)                      :: n_layers, ratioFinest2Coarsest, dimension
+    integer(shortInt), dimension(:,:), intent(inout)   :: n_xyz 
+    real(defReal)                                      :: targetSpacingCoarsest, gridSize, &
+                                                          targetSpacingFinest, targetRatio, &
+                                                          extraDistance
+    integer(shortInt)                                  :: targetNFinest, targetNCoarsest, i, j  
+    integer(shortInt), dimension(:), allocatable       :: primeFactors
+    
+    ! Calculate basic parameters
+    gridSize = gridBounds_max(dimension) - gridBounds_min(dimension)
+    targetNFinest = ceiling(gridSize/spacing(n_layers))
+    targetNCoarsest = ceiling(gridSize/spacing(1))
+    targetRatio = targetNFinest/targetNCoarsest
+
+    ! Calculate the number of cells and cell spacing for the finest layer
+    n_xyz(n_layers,dimension) = targetNFinest + &
+                      (ratioFinest2Coarsest - mod(targetNFinest, ratioFinest2Coarsest))                                        
+
+    ! Calculate the number of cells and cell spacings for the coarser layers
+    if (n_layers > 2) then
+      primeFactors = prime_factors(ratioFinest2Coarsest)
+
+      j = 1
+      do i = n_layers-1, 1, -1
+        n_xyz(i,dimension) = n_xyz(i+1,dimension)/primeFactors(j)
+        j = j + 1
+      end do
+
+    else ! i.e. if n_layers = 2
+
+      n_xyz(1,dimension) = n_xyz(2,dimension)/ratioFinest2Coarsest
+
+    end if
+
+    ! Calculate the extra distance to be added to host the n_xyz(n_layers,dimension)
+    extraDistance = n_xyz(n_layers,dimension)*spacing(n_layers) - gridSize
+    ! if (extraDistance < 0) then
+    !   call fatalError("SetGridOtherDimensions, cartesianInitProcedures.f90", &
+    !   "the extra distance to be added to host the n_xyz(n_layers,dimension) is negative")
+    ! elseif (extraDistance == 0) then
+    !   return
+    ! end if
+
+    print*, extraDistance
+    gridBounds_max(dimension) = gridBounds_max(dimension) + extraDistance
+
+
+  end subroutine setGridOtherDimensions
+
+  !!
+  !!
+  !!
+  function prime_factors(n) result(factors)
+      implicit none
+      integer(shortInt), intent(in)  :: n
+      integer(shortInt), allocatable :: factors(:)
+      integer(shortInt)              :: num, i, count
+
+      num = n
+
+      do i = 2, num
+          do while (mod(num, i) == 0)
+              count = size(factors)
+              call append(factors, i)
+              num = num / i
+          end do
+      end do
+  end function prime_factors
 
 end module cartesianInitProcedures
