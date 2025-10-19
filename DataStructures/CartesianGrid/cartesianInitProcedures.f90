@@ -234,12 +234,11 @@ contains
   !!
   !!
   subroutine testPolyhedronInclusion2New(faces, currElementFaceIdxs, centroid, &
-                                     faceNormalSigns, elementIdx, chi, &
+                                     elementIdx, chi, &
                                      removedFaceIdxsInArr, isOut, currLayer)
     class(faceShelf), intent(in)                              :: faces
     integer(shortInt), dimension(:), intent(in)               :: currElementFaceIdxs
     real(defReal), dimension(3), intent(in)                   :: centroid
-    real(defReal), dimension(:,:), intent(in)                 :: faceNormalSigns
     integer(shortInt), intent(in)                             :: elementIdx, currLayer
     integer(shortInt), intent(inout)                          :: chi
     integer(shortInt), dimension(:), allocatable, intent(out) :: removedFaceIdxsInArr

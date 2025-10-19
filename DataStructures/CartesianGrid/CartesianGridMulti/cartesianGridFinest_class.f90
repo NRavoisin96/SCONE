@@ -91,7 +91,7 @@ contains
   !!
   subroutine init2(self, vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
                        currLayer, candidateElementIdxs, gridBoundsMin, alpha, wStar, normalSignsMat, &
-                       circumscribedBallRadius, targetDistance, targetDistanceSqr)
+                       circumscribedBallRadius, targetDistance, targetDistanceSqr, candFaceIdxs)
     class(cartesianGridFinest), intent(inout)           :: self
     class(vertexShelf), intent(in)                      :: vertices
     class(edgeShelf), intent(inout)                     :: edges
@@ -100,7 +100,7 @@ contains
     real(defReal), dimension(:), intent(in)             :: spacing, spacingInv
     integer(shortInt), dimension(:,:), intent(in)       :: n_xyz
     integer(shortInt), intent(in)                       :: n_layers, currLayer
-    integer(shortInt), dimension(:), intent(in)         :: candidateElementIdxs
+    integer(shortInt), dimension(:), intent(in)         :: candidateElementIdxs, candFaceIdxs
     real(defReal), dimension(3), intent(in)             :: gridBoundsMin
     real(defReal), intent(in)                           :: alpha, wStar, circumscribedBallRadius, &
                                                            targetDistance, targetDistanceSqr
@@ -120,7 +120,7 @@ contains
     ! construct mapping and start constructing the full mapping
     call self % constructMapping2(vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
                   currLayer, candidateElementIdxs, gridBoundsMin, localNxyz, alpha, wStar, normalSignsMat, &
-                  circumscribedBallRadius, targetDistance, targetDistanceSqr)
+                  circumscribedBallRadius, targetDistance, targetDistanceSqr, candFaceIdxs)
     call self % sortAngles(edges, faces, localNxyz)
     call self % gridFinitePrecision(faces, elements, candidateElementIdxs, gridBoundsMin, spacing, &
                                     n_layers, localNxyz) 
@@ -394,7 +394,8 @@ contains
   !!
   subroutine constructMapping2(self, vertices, edges, faces, elements, spacing, spacingInv, n_xyz, &
                 n_layers, currLayer, candidateElementIdxs, gridBoundsMin, localNxyz, alpha, wStar, &
-                normalSignsMatOld, circumscribedBallRadius, targetDistance, targetDistanceSqr)
+                normalSignsMatOld, circumscribedBallRadius, targetDistance, targetDistanceSqr, &
+                candFaceIdxs)
     class(cartesianGridFinest), intent(inout)             :: self
     class(vertexShelf), intent(in)                        :: vertices
     class(edgeShelf), intent(inout)                       :: edges
@@ -403,7 +404,7 @@ contains
     real(defReal), dimension(:), intent(in)               :: spacing, spacingInv
     integer(shortInt), dimension(:,:), intent(in)         :: n_xyz
     integer(shortInt), intent(in)                         :: n_layers, currLayer
-    integer(shortInt), dimension(:), intent(in)           :: candidateElementIdxs
+    integer(shortInt), dimension(:), intent(in)           :: candidateElementIdxs, candFaceIdxs
     real(defReal), dimension(3), intent(in)               :: gridBoundsMin
     integer(shortInt), dimension(3), intent(in)           :: localNxyz
     real(defReal), intent(in)                             :: alpha, wStar, circumscribedBallRadius, targetDistance, &
@@ -412,7 +413,7 @@ contains
     type(dynamic2dMatSet)                                 :: normalSignsMat                                 
     integer(shortInt)                                     :: h, i, j, k, l
     integer(shortInt), dimension(:), allocatable          :: currVertexIdxs, currElementFaceIdxs, currFaceEdgeIdxs, &
-                                                             candElementEdgeIdxs, candElementFaceIdxs, duplicatesArray !!!!!(last)
+                                                             candElementEdgeIdxs, duplicatesArray !, candElementFaceIdxs !!!!!(last)
     real(defReal)                                         :: a, extraDistance
     real(defReal), dimension(3)                           :: centroid, currEdgeVector, currFaceNormal
     real(defReal), dimension(:,:), allocatable            :: faceNormalSigns
@@ -433,9 +434,13 @@ contains
     ! (needs to be checked) (double check) (Originally, outer loop was candidateElements, and inner loop was edge indices of 
     ! each candidate element. Finding unique list takes extra time initially but eventually it is a win because
     ! we do not have to test the same edge multiple times over multiple cells.)
-    do h = 1, size(candidateElementIdxs)
+    ! do h = 1, size(candidateElementIdxs)
+    !   !candElementEdgeIdxs = elements % getElementEdgeIdxs(candidateElementIdxs(h))
+    !   call append(duplicatesArray, elements % getElementEdgeIdxs(candidateElementIdxs(h)))
+    ! end do
+    do h = 1, size(candFaceIdxs)
       !candElementEdgeIdxs = elements % getElementEdgeIdxs(candidateElementIdxs(h))
-      call append(duplicatesArray, elements % getElementEdgeIdxs(candidateElementIdxs(h)))
+      call append(duplicatesArray, faces % getFaceEdgeIdxs(candFaceIdxs(h)))
     end do
     ! candElementEdgeIdxs = getUniqueSortedArr(duplicatesArray)
     candElementEdgeIdxs = sortByHighestFrequency(duplicatesArray)
@@ -503,7 +508,7 @@ contains
 
                     if (allocated(removedFaceIdxsInArr)) deallocate(removedFaceIdxsInArr)                  
                     call self % grid(j,k,l) % cellTestPolyhedronInclusion2(faces, currElementFaceIdxs, centroid, &
-                                faceNormalSigns, candidateElementIdxs(i), removedFaceIdxsInArr, isOut, currLayer)
+                                candidateElementIdxs(i), removedFaceIdxsInArr, isOut, currLayer)
                     !@@
 
                 end do 
@@ -528,21 +533,22 @@ contains
     ! each candidate element. Finding unique list takes extra time initially but eventually it is a win because
     ! we do not have to test the same edge multiple times over multiple cells. Also, if we test the same face twice,
     ! it can enter twoFacesIntersection subroutine with two same face indices, potentially giving an error.)
-    do h = 1, size(candidateElementIdxs)
-      !candElementFaceIdxs = abs(elements % getElementFaceIdxs(candidateElementIdxs(h)))
-      call append(duplicatesArray, abs(elements % getElementFaceIdxs(candidateElementIdxs(h))))
-    end do
+    ! do h = 1, size(candidateElementIdxs)
+    !   !candElementFaceIdxs = abs(elements % getElementFaceIdxs(candidateElementIdxs(h)))
+    !   call append(duplicatesArray, abs(elements % getElementFaceIdxs(candidateElementIdxs(h))))
+    ! end do
     ! candElementFaceIdxs = getUniqueSortedArr(duplicatesArray)
-    candElementFaceIdxs = sortByHighestFrequency(duplicatesArray)
+    ! candElementFaceIdxs = sortByHighestFrequency(duplicatesArray)
+    ! candElementFaceIdxs = candFaceIdxs
     ! candElementFaceIdxs = abs(normalSignsMatOld % unique_list())
     !!!!!
 
-      do i = 1, size(candElementFaceIdxs)
+      do i = 1, size(candFaceIdxs)
 
         ! calculate face-only-dependent properties
-        currVertexIdxs = faces % getFaceVertexIdxs(candElementFaceIdxs(i))
-        currFaceEdgeIdxs = faces % getFaceEdgeIdxs(candElementFaceIdxs(i))
-        currFaceNormal = faces % getFaceNormal(candElementFaceIdxs(i))
+        currVertexIdxs = faces % getFaceVertexIdxs(candFaceIdxs(i))
+        currFaceEdgeIdxs = faces % getFaceEdgeIdxs(candFaceIdxs(i))
+        currFaceNormal = faces % getFaceNormal(candFaceIdxs(i))
         ! extraDistance = (abs(currFaceNormal(1)) + abs(currFaceNormal(2)) + abs(currFaceNormal(3))) &
         !                 * (spacing(n_layers)) * 0.5  
         ! extraDistance = faces % getFaceExtraDistanceArr(candElementFaceIdxs(i), currLayer)             
@@ -566,7 +572,7 @@ contains
 
                     call self % grid(j,k,l) % cellTestFaceIntersection2(vertices, edges, faces, &
                                               currVertexIdxs, currFaceNormal, &
-                                              centroid, spacing(n_layers), candElementFaceIdxs(i), &
+                                              centroid, spacing(n_layers), candFaceIdxs(i), &
                                               currFaceEdgeIdxs, targetDistanceSqr, currLayer)
 
                     !@@

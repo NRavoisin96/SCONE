@@ -108,12 +108,11 @@ contains
   !!
   !!
   subroutine cellTestPolyhedronInclusion2(self, faces, currElementFaceIdxs, centroid, &
-                                         faceNormalSigns, elementIdx, removedFaceIdxsInArr, isOut, currLayer)
+                                         elementIdx, removedFaceIdxsInArr, isOut, currLayer)
     class(cartesianCellFinest), intent(inout)                    :: self
     class(faceShelf), intent(in)                                 :: faces
     integer(shortInt), dimension(:), intent(in)                  :: currElementFaceIdxs
     real(defReal), dimension(3), intent(in)                      :: centroid
-    real(defReal), dimension(:,:), intent(in)                    :: faceNormalSigns
     integer(shortInt), intent(in)                                :: elementIdx, currLayer
     integer(shortInt), dimension(:), allocatable, intent(out)    :: removedFaceIdxsInArr
     logical(defBool), intent(out)                                :: isOut     
@@ -125,7 +124,7 @@ contains
     !   call fatalError("done", "done")
     ! end if
 
-    call testPolyhedronInclusion2New(faces, currElementFaceIdxs, centroid, faceNormalSigns, elementIdx, self % chi, &
+    call testPolyhedronInclusion2New(faces, currElementFaceIdxs, centroid, elementIdx, self % chi, &
                                  removedFaceIdxsInArr, isOut, currLayer)
 
   end subroutine cellTestPolyhedronInclusion2

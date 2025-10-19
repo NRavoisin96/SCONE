@@ -322,7 +322,7 @@ contains
         !@@
       end if
 
-      halfSpacing = 0.5*spacing(1)
+      ! halfSpacing = 0.5*spacing(1)
 
       ! First, setup element- and face-specific parameters so that they do not have to be recalculated for multiple cells at each layer.
       ! Because, we perform DFS for initialisation, this is benefitial (Otherwise, each cell in the same level need to
@@ -392,7 +392,7 @@ contains
         ! call normalSignsMat % get_copy(i, faceNormalSigns, currElementFaceIdxs)
         call normalSignsMat % get_copy(i, currElementFaceIdxs)
         ! allocate(faceNormalSigns(1,1))
-        call testPolyhedronInclusion2New(faces, currElementFaceIdxs, centroid, faceNormalSigns, candidateElementIdxs(i), &
+        call testPolyhedronInclusion2New(faces, currElementFaceIdxs, centroid, candidateElementIdxs(i), &
                                       self % chi, removedFaceIdxsInArr, isOut, 1)
 
         if (isOut) then
@@ -425,7 +425,8 @@ contains
 
       call self % subgrid % init2(vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
                                  2, candidateElementIdxs, newGridBoundsMin, alpha, wStar, normalSignsMat, &
-                                 circumscribedBallRadius, targetDistance, targetDistanceSqr)
+                                 circumscribedBallRadius, targetDistance, targetDistanceSqr, &
+                                 self % intersectedFaceIdxs)
 
       ! call fatalError("as", "as")
       !@@@

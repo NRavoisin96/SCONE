@@ -106,7 +106,7 @@ contains
   !!
   subroutine refineCell2(self, vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
                     currLayer, candidateElementIdxsOld, newGridBoundsMin, alpha, wStar, normalSignsMatOld, &
-                    circumscribedBallRadius, targetDistance, targetDistanceSqr)
+                    circumscribedBallRadius, targetDistance, targetDistanceSqr, candFaceIdxs)
     class(cartesianCellIntermediate2), intent(inout)     :: self
     class(vertexShelf), intent(in)                      :: vertices
     class(edgeShelf), intent(inout)                     :: edges
@@ -115,7 +115,7 @@ contains
     real(defReal), dimension(:), intent(in)             :: spacing, spacingInv
     integer(shortInt), dimension(:,:), intent(in)       :: n_xyz
     integer(shortInt), intent(in)                       :: n_layers, currLayer
-    integer(shortInt), dimension(:), intent(in)         :: candidateElementIdxsOld
+    integer(shortInt), dimension(:), intent(in)         :: candidateElementIdxsOld, candFaceIdxs
     real(defReal), dimension(3), intent(in)             :: newGridBoundsMin
     real(defReal), intent(in)                           :: alpha, wStar, circumscribedBallRadius, targetDistance, &
                                                            targetDistanceSqr
@@ -151,7 +151,7 @@ contains
       call normalSignsMat % get_copy(i, currElementFaceIdxs)
       ! allocate(faceNormalSigns(1,1))
 
-      call testPolyhedronInclusion2New(faces, currElementFaceIdxs, centroid, faceNormalSigns, &
+      call testPolyhedronInclusion2New(faces, currElementFaceIdxs, centroid, &
                     candidateElementIdxs(i), self % chi, removedFaceIdxsInArr, isOut, currLayer)
 
       if (self % chi > 0) return
@@ -206,7 +206,7 @@ contains
 
       call self % subgrid % init2(vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
                         currLayer + 1, candidateElementIdxs, newGridBoundsMin, alpha, wStar, normalSignsMat, &
-                        circumscribedBallRadius, targetDistance, targetDistanceSqr)
+                        circumscribedBallRadius, targetDistance, targetDistanceSqr, candFaceIdxs)
 
     end if 
 
