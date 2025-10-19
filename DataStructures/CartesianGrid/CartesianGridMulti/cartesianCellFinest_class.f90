@@ -18,8 +18,8 @@ module cartesianCellFinest_class
   !!
   type, public                                          :: cartesianCellFinest
     private
-    integer(shortInt)                                   :: phi = 0, phiCapital = 0, chi = 0
-    integer(shortInt), dimension(2)                     :: faceIdxs = 0
+    integer(shortInt), allocatable                      :: phi, phiCapital, chi !###
+    integer(shortInt), dimension(:), allocatable        :: faceIdxs !###
     ! (needs to be changed) (cell centre should be a property to avoid repetative calc.)
     ! (due to limited memory, this is calculated each time needed)
     ! (try to avoid adding properties tho due to memory)
@@ -30,9 +30,12 @@ module cartesianCellFinest_class
     procedure                                    :: cellTestPolyhedronInclusion
     procedure                                    :: cellTestPolyhedronInclusion2
     procedure                                    :: cellTestFaceIntersection
+    procedure                                    :: cellTestFaceIntersection2
     procedure                                    :: cellConstructMapSingleFace
     procedure                                    :: setIsOutsideMesh
     procedure                                    :: cellFinitePrecision
+    procedure                                    :: cellClearRedundancy
+    procedure                                    :: cellAllocateAttributes
     procedure                                    :: constructNRefineCell
     ! Runtime procedures.
     procedure                                    :: getPhiCapital
@@ -152,7 +155,6 @@ contains
 
     !   call fatalError("done", "done")
     ! end if
-
     call testFaceIntersection(vertices, edges, faces, currVertexIdxs, extraDistance, currFaceNormal, &
                                   centroid, cellSpacing, faceIdx, currFaceEdgeIdxs, targetDistance, self % chi, &
                                   self % phi, self % phiCapital, self % faceIdxs)
@@ -162,13 +164,49 @@ contains
   !!
   !!
   !!
-  subroutine cellconstructMapSingleFace(self, faces)
+  subroutine cellTestFaceIntersection2(self, vertices, edges, faces, currVertexIdxs, currFaceNormal, &
+                                      centroid, cellSpacing, faceIdx, currFaceEdgeIdxs, targetDistance, currLayer)
+    class(cartesianCellFinest), intent(inout)           :: self
+    class(vertexShelf), intent(in)                      :: vertices
+    class(edgeShelf), intent(in)                        :: edges
+    class(faceShelf), intent(in)                        :: faces
+    integer(shortInt), dimension(:), intent(in)         :: currVertexIdxs, currFaceEdgeIdxs
+    real(defReal), dimension(3), intent(in)             :: currFaceNormal, centroid
+    real(defReal), intent(in)                           :: cellSpacing, targetDistance
+    integer(shortInt), intent(in)                       :: faceIdx, currLayer
+
+    ! if (faceIdx == 500) then
+    !   print*, "faceIdx=", faceIdx
+    !   print*, "currVertexIdxs", currVertexIdxs
+    !   print*, "extraDistance", extraDistance
+    !   print*, "currFaceNormal", currFaceNormal
+    !   print*, "cellSpacing", cellSpacing
+    !   print*, "currFaceEdgeIdxs", currFaceEdgeIdxs
+    !   print*, "targetDistance", targetDistance
+
+    !   call fatalError("done", "done")
+    ! end if
+
+    call testFaceIntersection2(vertices, edges, faces, currVertexIdxs, currFaceNormal, &
+                                  centroid, cellSpacing, faceIdx, currFaceEdgeIdxs, targetDistance, self % chi, &
+                                  self % phi, self % phiCapital, self % faceIdxs, currLayer)
+
+  end subroutine cellTestFaceIntersection2
+
+  !!
+  !!
+  !!
+  subroutine cellConstructMapSingleFace(self, faces)
     class(cartesianCellFinest), intent(inout)           :: self
     class(faceShelf), intent(in)                        :: faces
     integer(shortInt), dimension(:), allocatable        :: currFaceEdgeIdxs!, currFaceVertexIdxs
     integer(shortInt)     :: temp
 
-    call constructMapSingleFace(faces, self % faceIdxs, self % phiCapital)
+    ! call constructMapSingleFace(faces, self % faceIdxs, self % phiCapital)
+    if (self % faceIdxs(1) /= 0 .AND. self % faceIdxs(2) == 0) then
+      self % chi = -abs(self % faceIdxs(1))
+    end if
+
 
   end subroutine cellConstructMapSingleFace
 
@@ -213,6 +251,42 @@ contains
     end if
 
   end subroutine cellFinitePrecision
+
+  !!
+  !!
+  !!
+  subroutine cellAllocateAttributes(self)
+    class(cartesianCellFinest), intent(inout)           :: self
+
+    !###
+    allocate(self % faceIdxs, source=[0, 0])
+    allocate(self % chi, source = 0)
+    allocate(self % phi, source = 0)
+    allocate(self %phiCapital, source = 0)
+    !###
+
+  end subroutine cellAllocateAttributes
+
+  !!
+  !!
+  !!
+  subroutine cellClearRedundancy(self)
+    class(cartesianCellFinest), intent(inout)           :: self
+
+    !###
+    deallocate(self % faceIdxs)
+
+    if (self % chi /= 0) then
+      deallocate(self % phi)
+      deallocate(self % phiCapital)
+    else
+      deallocate(self % chi)
+      if (self % phi == 0) deallocate(self % phi)
+      if (self % phiCapital == 0) deallocate(self % phiCapital)
+    end if
+    !###
+
+  end subroutine cellClearRedundancy
 
   !!
   !!
@@ -460,7 +534,15 @@ contains
     class(cartesianCellFinest), intent(in)              :: self
     integer(shortInt)                                   :: phiCapital
 
-    phiCapital = self % phiCapital
+    !###
+    if(allocated(self%phiCapital)) then
+      phiCapital = self % phiCapital
+    else
+      phiCapital = 0
+    end if
+
+    ! phiCapital = self % phiCapital
+    !###
 
   end function getPhiCapital
 
@@ -471,7 +553,15 @@ contains
     class(cartesianCellFinest), intent(in)              :: self
     integer(shortInt)                                   :: phi
 
-    phi = self % phi
+    !###
+    if(allocated(self%phi)) then
+      phi = self % phi
+    else
+      phi = 0
+    end if
+
+    ! phi = self % phi
+    !###
 
   end function getPhi
 
@@ -482,7 +572,15 @@ contains
     class(cartesianCellFinest), intent(in)              :: self
     integer(shortInt)                                   :: chi
 
-    chi = self % chi
+    !###
+    if(allocated(self%chi)) then
+      chi = self % chi
+    else
+      chi = 0
+    end if
+
+    ! chi = self % chi
+    !###
 
   end function getChi
 

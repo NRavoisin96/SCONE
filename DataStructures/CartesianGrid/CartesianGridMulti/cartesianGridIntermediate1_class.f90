@@ -80,7 +80,8 @@ contains
   !!
   !!
   subroutine init2(self, vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
-                       currLayer, candidateElementIdxs, gridBoundsMin, alpha, wStar, normalSignsMat)
+                       currLayer, candidateElementIdxs, gridBoundsMin, alpha, wStar, normalSignsMat, &
+                       circumscribedBallRadius, targetDistance, targetDistanceSqr)
     class(cartesianGridIntermediate1), intent(inout)     :: self
     class(vertexShelf), intent(in)                      :: vertices
     class(edgeShelf), intent(inout)                     :: edges
@@ -91,7 +92,8 @@ contains
     integer(shortInt), intent(in)                       :: n_layers, currLayer
     integer(shortInt), dimension(:), intent(in)         :: candidateElementIdxs
     real(defReal), dimension(3), intent(in)             :: gridBoundsMin
-    real(defReal), intent(in)                           :: alpha, wStar
+    real(defReal), intent(in)                           :: alpha, wStar, circumscribedBallRadius, &
+                                                           targetDistance, targetDistanceSqr
     type(dynamic2dMatSet), intent(in)                   :: normalSignsMat
     integer(shortInt), dimension(3)                     :: localNxyz
     integer(shortInt)                                   :: i
@@ -104,7 +106,8 @@ contains
     ! construct mapping and refine further
     allocate(self % grid(localNxyz(1), localNxyz(2), localNxyz(3)))
     call self % refineGrid2(vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
-                           currLayer, candidateElementIdxs, gridBoundsMin, localNxyz, alpha, wStar, normalSignsMat)             
+                           currLayer, candidateElementIdxs, gridBoundsMin, localNxyz, alpha, wStar, &
+                           normalSignsMat, circumscribedBallRadius, targetDistance, targetDistanceSqr)             
 
   end subroutine init2
 
@@ -256,7 +259,8 @@ contains
   !!
   !!
   subroutine refineGrid2(self, vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
-                             currLayer, candidateElementIdxs, gridBoundsMin, localNxyz, alpha, wStar, normalSignsMat)
+                             currLayer, candidateElementIdxs, gridBoundsMin, localNxyz, alpha, wStar, &
+                             normalSignsMat, circumscribedBallRadius, targetDistance, targetDistanceSqr)
     class(cartesianGridIntermediate1), intent(inout)     :: self
     class(vertexShelf), intent(in)                      :: vertices
     class(edgeShelf), intent(inout)                     :: edges
@@ -268,7 +272,8 @@ contains
     integer(shortInt), dimension(:), intent(in)         :: candidateElementIdxs
     real(defReal), dimension(3), intent(in)             :: gridBoundsMin
     integer(shortInt), dimension(3), intent(in)         :: localNxyz
-    real(defReal), intent(in)                           :: alpha, wStar
+    real(defReal), intent(in)                           :: alpha, wStar, circumscribedBallRadius, &
+                                                           targetDistance, targetDistanceSqr
     type(dynamic2dMatSet), intent(in)                   :: normalSignsMat
     integer(shortInt)                                   :: i, j, k
     real(defReal), dimension(3)                         :: newGridBoundsMin
@@ -284,7 +289,8 @@ contains
 
           call self % grid(i,j,k) % refineCell2(vertices, edges, faces, elements, spacing, spacingInv, n_xyz, &
                                                n_layers, currLayer, candidateElementIdxs, newGridBoundsMin, &
-                                               alpha, wStar, normalSignsMat)
+                                               alpha, wStar, normalSignsMat, circumscribedBallRadius, &
+                                               targetDistance, targetDistanceSqr)
                                                
         end do
       end do

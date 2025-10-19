@@ -106,7 +106,8 @@ contains
   !!
   !!
   subroutine refineCell2(self, vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
-                    currLayer, candidateElementIdxsOld, newGridBoundsMin, alpha, wStar, normalSignsMatOld)
+                    currLayer, candidateElementIdxsOld, newGridBoundsMin, alpha, wStar, normalSignsMatOld, &
+                    circumscribedBallRadius, targetDistance, targetDistanceSqr)
     class(cartesianCellIntermediate1), intent(inout)     :: self
     class(vertexShelf), intent(in)                      :: vertices
     class(edgeShelf), intent(inout)                     :: edges
@@ -117,7 +118,8 @@ contains
     integer(shortInt), intent(in)                       :: n_layers, currLayer
     integer(shortInt), dimension(:), intent(in)         :: candidateElementIdxsOld
     real(defReal), dimension(3), intent(in)             :: newGridBoundsMin
-    real(defReal), intent(in)                           :: alpha, wStar
+    real(defReal), intent(in)                           :: alpha, wStar, circumscribedBallRadius, &
+                                                           targetDistance, targetDistanceSqr
     type(dynamic2dMatSet), intent(in)                   :: normalSignsMatOld
     type(dynamic2dMatSet)                               :: normalSignsMat
     real(defReal), dimension(:,:), allocatable          :: faceNormalSigns
@@ -137,16 +139,18 @@ contains
       centroid(i) = newGridBoundsMin(i) + spacing(currLayer)*0.5
     end do
 
-    allocate(faceNormalSigns(3, 2))
+    ! allocate(faceNormalSigns(3, 2))
     allocate(currElementFaceIdxs(1))
 
     do i = 1, normalSignsMat % nslices()
 
-      deallocate(faceNorMalSigns)
+      ! deallocate(faceNorMalSigns)
       deallocate(currElementFaceIdxs)
       if (allocated(removedFaceIdxsInArr)) deallocate(removedFaceIdxsInArr)
 
-      call normalSignsMat % get_copy(i, faceNormalSigns, currElementFaceIdxs)
+      ! call normalSignsMat % get_copy(i, faceNormalSigns, currElementFaceIdxs)
+      call normalSignsMat % get_copy(i, currElementFaceIdxs)
+      ! allocate(faceNormalSigns(1,1))
 
       call testPolyhedronInclusion2New(faces, currElementFaceIdxs, centroid, faceNormalSigns, &
                 candidateElementIdxs(i), self % chi, removedFaceIdxsInArr, isOut, currLayer)
@@ -176,7 +180,7 @@ contains
       call remove_elements(candidateElementIdxs, removedElementIdxsInArr)
       call normalSignsMat % deleteMany(removedElementIdxsInArr)
     end if
-    call normalSignsMat % scale(spacingInv(currLayer)*spacing(currLayer+1))
+    ! call normalSignsMat % scale(spacingInv(currLayer)*spacing(currLayer+1))
 
     if (normalSignsMat % is_singleton_abs()) then
       uniqueFaceList = normalSignsMat % unique_list()
@@ -184,6 +188,12 @@ contains
       return
     end if
 
+
+    ! ! if (normalSignsMat % unique_count() == 0) then
+    !   print*, "--------------------------------------------"
+    !   print*, normalSignsMatOld % nslices()
+    !   print*, normalSignsMatOld % unique_count()
+    ! ! end if
 
     !if the current cell is not entirely contained within a polyhedron, then refine the grid
     if (self % chi == 0) then !@@ can be removed
@@ -196,7 +206,8 @@ contains
       end if
 
       call self % subgrid % init2(vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
-                        currLayer + 1, candidateElementIdxs, newGridBoundsMin, alpha, wStar, normalSignsMat)
+                        currLayer + 1, candidateElementIdxs, newGridBoundsMin, alpha, wStar, normalSignsMat, &
+                        circumscribedBallRadius, targetDistance, targetDistanceSqr)
 
     end if 
 

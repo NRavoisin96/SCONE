@@ -55,20 +55,18 @@ contains
   !!
   !!
   !!
-  subroutine cellTestPolyhedronInclusion(self, faces, currElementFaceIdxs, centroid, &
-                                              faceNormalSigns, elementIdx)
+  subroutine cellTestPolyhedronInclusion(self, faces, currElementFaceIdxs, centroid, elementIdx)
     class(cartesianCellCoarsest), intent(inout)         :: self
     class(faceShelf), intent(in)                        :: faces
     integer(shortInt), dimension(:), intent(in)         :: currElementFaceIdxs
     real(defReal), dimension(3), intent(in)             :: centroid
-    real(defReal), dimension(:,:), intent(in)           :: faceNormalSigns
     integer(shortInt), intent(in)                       :: elementIdx
 
     ! if current cell is found to be entirely contained within a polyhedron, there cannot not be other polyhedra
     if (self % chi > 0) return
 
     ! Otherwise, continue testing and appending the array of candidate element indices 
-    call testPolyhedronInclusion2Coarsest(faces, currElementFaceIdxs, centroid, faceNormalSigns, elementIdx, self % chi)
+    call testPolyhedronInclusion2Coarsest(faces, currElementFaceIdxs, centroid, elementIdx, self % chi)
     !""call append(self % candidateElementIdxs, elementIdx)
 
   end subroutine cellTestPolyhedronInclusion
@@ -354,15 +352,16 @@ contains
         ! Construct currNormalSignsMat for each face of the element and append to normalSignsMat
         do i = 1, numberOfElements
           currElementFaceIdxs = elements % getElementFaceIdxs(candidateElementIdxs(i))
-          numberOfFaces = size(currElementFaceIdxs)
+          ! numberOfFaces = size(currElementFaceIdxs)
 
-          if (allocated(currNormalSignsMat)) deallocate(currNormalSignsMat)
-          allocate(currNormalSignsMat(3,numberOfFaces))
-          do j = 1, numberOfFaces
-            currNormalSignsMat(:,j) = faces % getFaceNormalSigns(currElementFaceIdxs(j))
-          end do
-          currNormalSignsMat(:,:) = currNormalSignsMat(:,:)*halfSpacing
-          call normalSignsMat % append(currNormalSignsMat, currElementFaceIdxs)
+          ! if (allocated(currNormalSignsMat)) deallocate(currNormalSignsMat)
+          ! allocate(currNormalSignsMat(3,numberOfFaces))
+          ! do j = 1, numberOfFaces
+          !   currNormalSignsMat(:,j) = faces % getFaceNormalSigns(currElementFaceIdxs(j))
+          ! end do
+          ! currNormalSignsMat(:,:) = currNormalSignsMat(:,:)*halfSpacing
+          ! call normalSignsMat % append(currNormalSignsMat, currElementFaceIdxs)
+          call normalSignsMat % append(currElementFaceIdxs)
 
         end do
 
@@ -387,10 +386,12 @@ contains
       end do
 
       do i = 1, numberOfElements
-        if (allocated(faceNormalSigns)) deallocate(faceNormalSigns)
+        ! if (allocated(faceNormalSigns)) deallocate(faceNormalSigns)
         if (allocated(currElementFaceIdxs)) deallocate(currElementFaceIdxs)
         if (allocated(removedFaceIdxsInArr)) deallocate(removedFaceIdxsInArr)
-        call normalSignsMat % get_copy(i, faceNormalSigns, currElementFaceIdxs)
+        ! call normalSignsMat % get_copy(i, faceNormalSigns, currElementFaceIdxs)
+        call normalSignsMat % get_copy(i, currElementFaceIdxs)
+        ! allocate(faceNormalSigns(1,1))
         call testPolyhedronInclusion2New(faces, currElementFaceIdxs, centroid, faceNormalSigns, candidateElementIdxs(i), &
                                       self % chi, removedFaceIdxsInArr, isOut, 1)
 
@@ -407,7 +408,7 @@ contains
         end if
       
       end do
-      call normalSignsMat % scale(spacingInv(1)*spacing(2))
+      ! call normalSignsMat % scale(spacingInv(1)*spacing(2))
 
       ! if (normalSignsMat % is_singleton()) then
       !   print*, "here"
@@ -423,7 +424,8 @@ contains
       !                             circumscribedBallRadius, targetDistance, targetDistanceSqr)
 
       call self % subgrid % init2(vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
-                                 2, candidateElementIdxs, newGridBoundsMin, alpha, wStar, normalSignsMat)
+                                 2, candidateElementIdxs, newGridBoundsMin, alpha, wStar, normalSignsMat, &
+                                 circumscribedBallRadius, targetDistance, targetDistanceSqr)
 
       ! call fatalError("as", "as")
       !@@@

@@ -51,7 +51,8 @@ module cartesianGridSubLayer_inter
     !!
     !!
     subroutine init2(self, vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
-                         currLayer, candidateElementIdxs, gridBoundsMin, alpha, wStar, normalSignsMat)
+                         currLayer, candidateElementIdxs, gridBoundsMin, alpha, wStar, normalSignsMat, &
+                         circumscribedBallRadius, targetDistance, targetDistanceSqr)
       import                                                 cartesianGridSubLayer, vertexShelf, edgeShelf, faceShelf, &
                                                              elementShelf, defReal, shortInt, dynamic2dMatSet
       class(cartesianGridSubLayer), intent(inout)         :: self
@@ -64,7 +65,8 @@ module cartesianGridSubLayer_inter
       integer(shortInt), intent(in)                       :: n_layers, currLayer
       integer(shortInt), dimension(:), intent(in)         :: candidateElementIdxs
       real(defReal), dimension(3), intent(in)             :: gridBoundsMin
-      real(defReal), intent(in)                           :: alpha, wStar
+      real(defReal), intent(in)                           :: alpha, wStar, circumscribedBallRadius, targetDistance, &
+                                                             targetDistanceSqr
       type(dynamic2dMatSet), intent(in)                   :: normalSignsMat
 
      end subroutine 

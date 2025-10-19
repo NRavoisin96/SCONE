@@ -137,11 +137,10 @@ contains
   !!
   !!
   subroutine testPolyhedronInclusion2Coarsest(faces, currElementFaceIdxs, centroid, &
-                                     faceNormalSigns, elementIdx, chi)
+                                              elementIdx, chi)
     class(faceShelf), intent(in)                        :: faces
     integer(shortInt), dimension(:), intent(in)         :: currElementFaceIdxs
     real(defReal), dimension(3), intent(in)             :: centroid
-    real(defReal), dimension(:,:), intent(in)           :: faceNormalSigns
     integer(shortInt), intent(in)                       :: elementIdx
     integer(shortInt), intent(inout)                    :: chi
     integer(shortInt)                                   :: i, j
@@ -497,6 +496,165 @@ contains
     !!!!!
 
   end subroutine testFaceIntersection
+
+  !!
+  !!
+  !!
+  subroutine testFaceIntersection2(vertices, edges, faces, currVertexIdxs, currFaceNormal, centroid, &
+                                  cellSpacing, faceIdx, currFaceEdgeIdxs, targetDistance, chi, phi, phiCapital, faceIdxs, &
+                                  currLayer)
+    class(vertexShelf), intent(in)                      :: vertices
+    class(edgeShelf), intent(in)                        :: edges
+    class(faceShelf), intent(in)                        :: faces
+    integer(shortInt), dimension(:), intent(in)         :: currVertexIdxs, currFaceEdgeIdxs
+    real(defReal), dimension(3), intent(in)             :: currFaceNormal, centroid
+    real(defReal), intent(in)                           :: cellSpacing, targetDistance
+    integer(shortInt), intent(in)                       :: faceIdx, chi, currLayer
+    integer(shortInt), intent(inout)                    :: phi, phiCapital
+    integer(shortInt), dimension(2), intent(inout)      :: faceIdxs
+    integer(shortInt)                                   :: i, j
+    real(defReal), dimension(3)                         :: currVertexCoords, min1, max1, currEdgeUnitVector
+    real(defReal)                                       :: faceConst, currValue, vectorDotCentroid, extraDistance2, &
+                                                          extraDistance 
+    extraDistance = faces % getFaceExtraDistanceArr(faceIdx, currLayer)  
+    !------------------------------------------------------------------------------------------------
+    !if cell is contained within a polyhedron, the cell cannot intersect with the polyhedron's faces
+    !Or, if phi and phiCapital mapping informations are assigned already from edge interesetion, no need to find new one.
+    !------------------------------------------------------------------------------------------------
+    if (chi /= 0) then
+      return
+    elseif (phi /= 0 .AND. phiCapital /= 0) then
+      return
+    end if
+
+    !------------------------------------------------------------------------------------------------
+    ! Testing along face normal
+    !------------------------------------------------------------------------------------------------
+    vectorDotCentroid = dot_product(currFaceNormal, centroid)
+    faceConst = faces % getFaceConst(faceIdx)
+    ! extradistance2 = faces % getFaceExtraDistanceArr(faceIdx,4)
+    ! if (extraDistance /= extraDistance2) then
+    !   print*, "hahaha"
+    ! end if
+
+    if (.NOT. testIntervalIntersection(vectorDotCentroid - extraDistance, vectorDotCentroid + extraDistance, &
+        -faceConst, -faceConst)) then
+          !!!!!
+          ! print*, "faceNormal"
+          ! print*, vectorDotCentroid - extraDistance
+          ! print*, vectorDotCentroid + extraDistance
+          ! print*, -faceConst
+          !!!!!
+      return
+    end if
+
+    !------------------------------------------------------------------------------------------------
+    ! Testing along crossProduct(each of edgeUnitVector, three coordinate basis)
+    !------------------------------------------------------------------------------------------------
+    ! loop over all edgesUnitVectors of the current face
+    do i = 1, size(currFaceEdgeIdxs)
+      currEdgeUnitVector = edges % getEdgeUnitvector(currFaceEdgeIdxs(i))
+      
+      ! loop over all vertices of the current face to find the min and max of polygon interval
+      do j = 1, size(currVertexIdxs)
+        currVertexCoords = vertices % getVertexCoordinates(currVertexIdxs(j))
+
+        ! for coordinate basis = (1,0,0)
+        currValue = currEdgeUnitVector(3)*currVertexCoords(2) - currEdgeUnitVector(2)*currVertexCoords(3)
+        if (j == 1) then
+          min1(1) = currValue
+          max1(1) = currValue
+        else
+          if (currValue < min1(1)) then
+            min1(1) = currValue
+          elseif (currValue > max1(1)) then
+            max1(1) = currValue
+          end if 
+        end if
+
+        ! for coordinate basis = (0,1,0)
+        currValue = - currEdgeUnitVector(3)*currVertexCoords(1) + currEdgeUnitVector(1)*currVertexCoords(3)
+        if (j == 1) then
+          min1(2) = currValue
+          max1(2) = currValue
+        else
+          if (currValue < min1(2)) then
+            min1(2) = currValue
+          elseif (currValue > max1(2)) then
+            max1(2) = currValue
+          end if 
+        end if
+
+        ! for coordinate basis = (0,0,1)
+        currValue =  currEdgeUnitVector(2)*currVertexCoords(1) - currEdgeUnitVector(1)*currVertexCoords(2)
+        if (j == 1) then
+          min1(3) = currValue
+          max1(3) = currValue
+        else
+          if (currValue < min1(3)) then
+            min1(3) = currValue
+          elseif (currValue > max1(3)) then
+            max1(3) = currValue
+          end if 
+        end if
+
+      end do
+
+      ! test intersections of interval
+      vectorDotCentroid = currEdgeUnitVector(3)*centroid(2)-currEdgeUnitVector(2)*centroid(3)
+      extraDistance2 = (abs(currEdgeUnitVector(3)) + abs(currEdgeUnitVector(2)))*cellSpacing*0.5
+      if (.NOT. testIntervalIntersection(vectorDotCentroid - extraDistance2, vectorDotCentroid + extraDistance2, &
+                                                min1(1), max1(1))) then
+          !!!!!
+          ! print*, "Crossx"
+          !!!!!
+          return
+      end if
+
+      vectorDotCentroid = currEdgeUnitVector(1)*centroid(3)-currEdgeUnitVector(3)*centroid(1)
+      extraDistance2 = (abs(currEdgeUnitVector(3)) + abs(currEdgeUnitVector(1)))*cellSpacing*0.5
+      if (.NOT. testIntervalIntersection(vectorDotCentroid - extraDistance2, vectorDotCentroid + extraDistance2, &
+                                                min1(2), max1(2))) then
+          !!!!!
+          ! print*, "Crossy"
+          !!!!!
+          return
+      end if
+
+      vectorDotCentroid = currEdgeUnitVector(2)*centroid(1)-currEdgeUnitVector(1)*centroid(2)
+      extraDistance2 = (abs(currEdgeUnitVector(2)) + abs(currEdgeUnitVector(1)))*cellSpacing*0.5
+      if (.NOT. testIntervalIntersection(vectorDotCentroid - extraDistance2, vectorDotCentroid + extraDistance2, &
+                                                min1(3), max1(3))) then
+          !!!!!
+          ! print*, "Crossz"
+          !!!!!
+          return
+      end if
+
+    end do
+
+    !------------------------------------------------------------------------------------------------
+    ! if survived to this point, then there is no separating axis. Hence, construct mapping accordingly
+    !------------------------------------------------------------------------------------------------
+
+    ! (needs to be changed) (due to memory, taking shortCut)
+    ! (originally, we just have to add faceIdx to an array of intersected faces)
+    if (faceIdxs(1) == 0) then
+      faceIdxs(1) = faceIdx
+    else
+      faceIdxs(2) = faceIdx
+      ! tests if the two faces have a common edge. If yes, assign phi and phiCapital mappings.
+      ! if there are more than two faces intersected with the cell, and phi and phicaptial have been assigned already,
+      ! then, this cell is complete in terms of mapping construction, and this subroutine is terminated at the beginning
+      ! of this subroutine.
+      call testTwoIntersectedFaces(vertices, edges, faces, centroid, targetDistance, phi, phiCapital, faceIdxs)
+    end if
+    
+    !!!!!
+    ! print*, "PASSESD"
+    !!!!!
+
+  end subroutine testFaceIntersection2
 
   !!
   !!

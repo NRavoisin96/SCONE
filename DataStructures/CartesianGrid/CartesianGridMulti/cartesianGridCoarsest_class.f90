@@ -455,7 +455,7 @@ contains
     allocate(self % grid(self % n_xyzCoarsest(1), self % n_xyzCoarsest(2), self % n_xyzCoarsest(3)))
 
     call self % constructMapping(vertices, edges, faces, elements)
-    call self % setGridIsOutsideMesh(-(faces % getSize() + 1)) !"""
+    ! call self % setGridIsOutsideMesh(-(faces % getSize() + 1)) !"""
     call self % setChiSingleFace(faces)!"""
     call self % refineGrid(vertices, edges, faces, elements)
 
@@ -484,184 +484,184 @@ contains
     integer(shortInt), dimension(:), allocatable          :: gids
     integer(shortInt)                                     :: i
 
-    call SetTesting % init(3)
-    allocate(sliceA(3,2))
-    allocate(sliceB(3,3))
-    allocate(sliceC(3,3))
+  !   call SetTesting % init(3)
+  !   allocate(sliceA(3,2))
+  !   allocate(sliceB(3,3))
+  !   allocate(sliceC(3,3))
 
-    sliceA(:,1) = faces % getFaceNormal(1)
-    sliceA(:,2) = faces % getFaceNormal(2)
+  !   sliceA(:,1) = faces % getFaceNormal(1)
+  !   sliceA(:,2) = faces % getFaceNormal(2)
 
-    sliceB(:,1) = faces % getFaceNormal(3)
-    sliceB(:,2) = faces % getFaceNormal(4)
-    sliceB(:,3) = faces % getFaceNormal(1)
+  !   sliceB(:,1) = faces % getFaceNormal(3)
+  !   sliceB(:,2) = faces % getFaceNormal(4)
+  !   sliceB(:,3) = faces % getFaceNormal(1)
 
-    sliceC(:,1) = faces % getFaceNormal(6)
-    sliceC(:,2) = faces % getFaceNormal(7)
-    sliceC(:,3) = faces % getFaceNormal(8)
+  !   sliceC(:,1) = faces % getFaceNormal(6)
+  !   sliceC(:,2) = faces % getFaceNormal(7)
+  !   sliceC(:,3) = faces % getFaceNormal(8)
 
-    print*, "-----------------------------------------------------------------------------"
-    do i =1 ,8
-      print*, i
-      print*, faces % getFaceNormal(i)
-    end do
+  !   print*, "-----------------------------------------------------------------------------"
+  !   do i =1 ,8
+  !     print*, i
+  !     print*, faces % getFaceNormal(i)
+  !   end do
 
-
-    print*, "-----------------------------------------------------------------------------"
-    print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
-    print*, sliceA
-    print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
-    print*, sliceB
-    print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
-    print*, sliceC
-
-    call setTesting % append(sliceA, [1,2])
-    call setTesting % append(sliceB, [3,4,1])
-    call setTesting % append(sliceC, [6,7,8])
-  
-    print*, "-----------------------------------------------------------------------------"
-    print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
-    call setTesting % get_copy(1, cols, gids)
-    print*, cols
-    print*, gids
-    print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
-    call setTesting % get_copy(2, cols, gids)
-    print*, cols
-    print*, gids
-    print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
-    call setTesting % get_copy(3, cols, gids)
-    print*, cols
-    print*, gids
-
-    call setTesting % deleteMany([3])
-
-    print*, "-----------------------------------------------------------------------------"
-    print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
-    call setTesting % get_copy(1, cols, gids)
-    print*, cols
-    print*, gids
-    print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
-    call setTesting % get_copy(2, cols, gids)
-    print*, cols
-    print*, gids
-    print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
-    call setTesting % get_copy(3, cols, gids)
-    print*, cols
-    print*, gids
-
-    ! ! deallocate(gids)
-    ! ! call setTesting % delete_columns(1,gids)
-    ! call setTesting % delete(2)
-    ! print*, setTesting % nslices()
-
-    ! print*, "-----------------------------------------------------------------------------"
-    ! print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
-    ! call setTesting % get_copy(1, cols, gids)
-    ! print*, cols
-    ! print*, gids
-    ! print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
-    ! call setTesting % get_copy(2, cols, gids)
-    ! print*, cols
-    ! print*, gids
-    ! print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
-    ! call setTesting % get_copy(3, cols, gids)
-    ! print*, cols
-    ! print*, gids
-    ! print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
-    ! call setTesting % get_copy(4, cols, gids)
-    ! print*, cols
-    ! print*, gids
-
-    ! setTesting2 = setTesting
-
-    ! print*, "-----------------------------------------------------------------------------"
-    ! print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
-    ! call setTesting % get_copy(1, cols, gids)
-    ! print*, cols
-    ! print*, gids
-    ! print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
-    ! call setTesting % get_copy(2, cols, gids)
-    ! print*, cols
-    ! print*, gids
-    ! print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
-    ! call setTesting % get_copy(3, cols, gids)
-    ! print*, cols
-    ! print*, gids
-    ! print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
-    ! call setTesting % get_copy(4, cols, gids)
-    ! print*, cols
-    ! print*, gids
-
-
-    ! call setTesting % delete(2)
-  
-    ! print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
-    ! call setTesting % get_copy(1, cols, gids)
-    ! print*, cols
-    ! print*, gids
-    ! print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
-    ! call setTesting % get_copy(2, cols, gids)
-    ! print*, cols
-    ! print*, gids
-    ! print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
-    ! call setTesting % get_copy(3, cols, gids)
-    ! print*, cols
-    ! print*, gids
-
-  !   call setTesting % scale(2.0_defReal)
 
   !   print*, "-----------------------------------------------------------------------------"
   !   print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
-  !   print*, setTesting % get_copy(1)
+  !   print*, sliceA
   !   print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
-  !   print*, setTesting % get_copy(2)
+  !   print*, sliceB
   !   print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
-  !   print*, setTesting % get_copy(3)
+  !   print*, sliceC
 
-  !   call setTesting % scale(0.5_defReal)
+  !   call setTesting % append(sliceA, [1,2])
+  !   call setTesting % append(sliceB, [3,4,1])
+  !   call setTesting % append(sliceC, [6,7,8])
+  
+  !   print*, "-----------------------------------------------------------------------------"
+  !   print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+  !   call setTesting % get_copy(1, cols, gids)
+  !   print*, cols
+  !   print*, gids
+  !   print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+  !   call setTesting % get_copy(2, cols, gids)
+  !   print*, cols
+  !   print*, gids
+  !   print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+  !   call setTesting % get_copy(3, cols, gids)
+  !   print*, cols
+  !   print*, gids
 
-  !   print*, "NONONNONNONO", setTesting % is_singleton()
-  !   print*, "NONOONONNONNONON", setTesting % unique_list() 
-  !   ! call setTesting % unique_list_and_columns(gids, cols)
-  !   ! print*, gids
-  !   ! print*, cols
-
-  !   call setTesting % delete_columns(2,[1,2])
-
-  !   print*, "NONONNONNONO", setTesting % is_singleton()
-  !   print*, "NONOONONNONNONON", setTesting % unique_list()
-  !   ! call setTesting % unique_list_and_columns(gids, cols)
-  !   ! print*, gids
-  !   ! print*, cols
-
-  ! ! print*, "-----------------------------------------------------------------------------"
-  ! ! do i = 1, size(gids)
-  ! !   print*, gids(i)
-  ! !   print*, cols(:,i)
-  ! ! end do
+  !   call setTesting % deleteMany([3])
 
   !   print*, "-----------------------------------------------------------------------------"
   !   print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
-  !   print*, setTesting % get_copy(2)
+  !   call setTesting % get_copy(1, cols, gids)
+  !   print*, cols
+  !   print*, gids
+  !   print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+  !   call setTesting % get_copy(2, cols, gids)
+  !   print*, cols
+  !   print*, gids
+  !   print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+  !   call setTesting % get_copy(3, cols, gids)
+  !   print*, cols
+  !   print*, gids
 
+  !   ! ! deallocate(gids)
+  !   ! ! call setTesting % delete_columns(1,gids)
   !   ! call setTesting % delete(2)
+  !   ! print*, setTesting % nslices()
 
   !   ! print*, "-----------------------------------------------------------------------------"
   !   ! print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
-  !   ! print*, setTesting % get_copy(1)
+  !   ! call setTesting % get_copy(1, cols, gids)
+  !   ! print*, cols
+  !   ! print*, gids
   !   ! print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
-  !   ! print*, setTesting % get_copy(2)
-  !   ! ! print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
-  !   ! ! print*, setTesting % get_copy(3)
+  !   ! call setTesting % get_copy(2, cols, gids)
+  !   ! print*, cols
+  !   ! print*, gids
+  !   ! print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+  !   ! call setTesting % get_copy(3, cols, gids)
+  !   ! print*, cols
+  !   ! print*, gids
+  !   ! print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+  !   ! call setTesting % get_copy(4, cols, gids)
+  !   ! print*, cols
+  !   ! print*, gids
+
+  !   ! setTesting2 = setTesting
+
+  !   ! print*, "-----------------------------------------------------------------------------"
+  !   ! print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+  !   ! call setTesting % get_copy(1, cols, gids)
+  !   ! print*, cols
+  !   ! print*, gids
+  !   ! print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+  !   ! call setTesting % get_copy(2, cols, gids)
+  !   ! print*, cols
+  !   ! print*, gids
+  !   ! print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+  !   ! call setTesting % get_copy(3, cols, gids)
+  !   ! print*, cols
+  !   ! print*, gids
+  !   ! print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+  !   ! call setTesting % get_copy(4, cols, gids)
+  !   ! print*, cols
+  !   ! print*, gids
 
 
-  !   call setTesting % delete_columns(1,[2])
-  !   call setTesting % delete_columns(3,[1,2])
-  !   print*, setTesting % is_singleton()
-  !   call setTesting % delete_columns(3,[1])
-  !   print*, setTesting % is_singleton()
+  !   ! call setTesting % delete(2)
+  
+  !   ! print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+  !   ! call setTesting % get_copy(1, cols, gids)
+  !   ! print*, cols
+  !   ! print*, gids
+  !   ! print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+  !   ! call setTesting % get_copy(2, cols, gids)
+  !   ! print*, cols
+  !   ! print*, gids
+  !   ! print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+  !   ! call setTesting % get_copy(3, cols, gids)
+  !   ! print*, cols
+  !   ! print*, gids
 
-    call fatalError("here", "here")
+  ! !   call setTesting % scale(2.0_defReal)
+
+  ! !   print*, "-----------------------------------------------------------------------------"
+  ! !   print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+  ! !   print*, setTesting % get_copy(1)
+  ! !   print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+  ! !   print*, setTesting % get_copy(2)
+  ! !   print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+  ! !   print*, setTesting % get_copy(3)
+
+  ! !   call setTesting % scale(0.5_defReal)
+
+  ! !   print*, "NONONNONNONO", setTesting % is_singleton()
+  ! !   print*, "NONOONONNONNONON", setTesting % unique_list() 
+  ! !   ! call setTesting % unique_list_and_columns(gids, cols)
+  ! !   ! print*, gids
+  ! !   ! print*, cols
+
+  ! !   call setTesting % delete_columns(2,[1,2])
+
+  ! !   print*, "NONONNONNONO", setTesting % is_singleton()
+  ! !   print*, "NONOONONNONNONON", setTesting % unique_list()
+  ! !   ! call setTesting % unique_list_and_columns(gids, cols)
+  ! !   ! print*, gids
+  ! !   ! print*, cols
+
+  ! ! ! print*, "-----------------------------------------------------------------------------"
+  ! ! ! do i = 1, size(gids)
+  ! ! !   print*, gids(i)
+  ! ! !   print*, cols(:,i)
+  ! ! ! end do
+
+  ! !   print*, "-----------------------------------------------------------------------------"
+  ! !   print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+  ! !   print*, setTesting % get_copy(2)
+
+  ! !   ! call setTesting % delete(2)
+
+  ! !   ! print*, "-----------------------------------------------------------------------------"
+  ! !   ! print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+  ! !   ! print*, setTesting % get_copy(1)
+  ! !   ! print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+  ! !   ! print*, setTesting % get_copy(2)
+  ! !   ! ! print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
+  ! !   ! ! print*, setTesting % get_copy(3)
+
+
+  ! !   call setTesting % delete_columns(1,[2])
+  ! !   call setTesting % delete_columns(3,[1,2])
+  ! !   print*, setTesting % is_singleton()
+  ! !   call setTesting % delete_columns(3,[1])
+  ! !   print*, setTesting % is_singleton()
+
+  !   call fatalError("here", "here")
 
 
 
@@ -686,7 +686,7 @@ contains
     integer(shortInt), dimension(6)                       :: AABBIndices
     real(defReal)                                         :: extraDistance
     real(defReal), dimension(3)                           :: centroid, currFaceNormal
-    real(defReal), dimension(:,:), allocatable            :: faceNormalSigns
+    !real(defReal), dimension(:,:), allocatable            :: faceNormalSigns !@@
 
     ! (needs to be changed) A further study can be done to see if the order of the two (polyhedron inclusion and face intersection)
     ! tests affect initialisation time significantly. For dense coarsest grid relative to the mesh, polyhedron inclusion test first 
@@ -696,7 +696,7 @@ contains
     !----------------------------------------------------------------------------------------------
     ! polyhedron inclusion tests
     !----------------------------------------------------------------------------------------------
-    allocate(faceNormalSigns(3, 2))
+    ! allocate(faceNormalSigns(3, 2)) !@@
     do i = 1, elements % getSize()
 
         ! construct box for candidate cells
@@ -706,13 +706,14 @@ contains
         ! calculate element-only-dependent properties
         currElementFaceIdxs = elements % getElementFaceIdxs(i)
 
-        deallocate(faceNormalSigns)
-        allocate(faceNormalSigns(3, size(currElementFaceIdxs)))
-        do j = 1, size(currElementFaceIdxs)
-          faceNormalSigns(:,j) = faces % getFaceNormalSigns(currElementFaceIdxs(j))
-        end do
-        faceNormalSigns = faceNormalSigns * (self % spacing(1))*0.5
-
+        !@@
+        ! deallocate(faceNormalSigns)
+        ! allocate(faceNormalSigns(3, size(currElementFaceIdxs)))
+        ! do j = 1, size(currElementFaceIdxs)
+        !   faceNormalSigns(:,j) = faces % getFaceNormalSigns(currElementFaceIdxs(j))
+        ! end do
+        ! faceNormalSigns = faceNormalSigns * (self % spacing(1))*0.5
+        !@@
 
         !Loop over all cartesian cells in the box and test if each cell is entirely included in the polyhedron
         !(needs to be changed) (k and l can be a function of j e.g. k = datum + slope*j so that box is narrowed down)
@@ -725,8 +726,12 @@ contains
                     centroid(2) = (self % gridBounds_min(2)) + (self % spacing(1)) * (k-0.5)
                     centroid(3) = (self % gridBounds_min(3)) + (self % spacing(1)) * (l-0.5)
 
-                    call self % grid(j,k,l) % cellTestPolyhedronInclusion(faces, currElementFaceIdxs, centroid, &
-                                                                          faceNormalSigns, i)
+                    !@@
+                    ! call self % grid(j,k,l) % cellTestPolyhedronInclusion(faces, currElementFaceIdxs, centroid, &
+                    !                                                       faceNormalSigns, i)
+
+                    call self % grid(j,k,l) % cellTestPolyhedronInclusion(faces, currElementFaceIdxs, centroid, i)
+                    !@@
 
                 end do 
             end do    
@@ -858,7 +863,7 @@ contains
     class(elementShelf), intent(in)                     :: elements
     integer(shortInt)                                   :: i, j, k
     real(defReal), dimension(3)                         :: newGridBoundsMin
-    integer(shortInt), dimension(:,:), allocatable      :: aaa
+    ! integer(shortInt), dimension(:,:), allocatable      :: aaa
     ! integer(shortInt), dimension(:), allocatable        :: A
 
     ! a = [1,2,3,4,5]

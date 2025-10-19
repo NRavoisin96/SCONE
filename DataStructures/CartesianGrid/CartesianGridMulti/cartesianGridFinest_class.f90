@@ -34,6 +34,8 @@ module cartesianGridFinest_class
     procedure                                    :: sortAngles
     procedure                                    :: setGridIsOutsideMesh
     procedure                                    :: gridFinitePrecision
+    procedure                                    :: gridAllocateCellAttributes    
+    procedure                                    :: gridClearRedundancy
     procedure                                    :: constructMappingNRefineGrid
     ! Runtime procedures
     procedure                                    :: getGridChi
@@ -69,14 +71,18 @@ contains
       localNxyz(i) = n_xyz(currLayer,i)/n_xyz(currLayer-1,i)
     end do
 
-    ! construct mapping and start constructing the full mapping
+    ! Start by allocating cell attributes
     allocate(self % grid(localNxyz(1), localNxyz(2), localNxyz(3)))
+    call self % gridAllocateCellAttributes(localNxyz)!###
+
+    ! construct mapping and start constructing the full mapping
     call self % constructMapping(vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
                                  currLayer, candidateElementIdxs, gridBoundsMin, localNxyz, alpha, wStar)
     call self % sortAngles(edges, faces, localNxyz)
     call self % gridFinitePrecision(faces, elements, candidateElementIdxs, gridBoundsMin, spacing, &
                                     n_layers, localNxyz) 
     call self % setGridIsOutsideMesh(localNxyz, -(faces % getSize() + 1)) !"""
+    call self % gridClearRedundancy(localNxyz) !###
 
   end subroutine
 
@@ -84,7 +90,8 @@ contains
   !!
   !!
   subroutine init2(self, vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
-                       currLayer, candidateElementIdxs, gridBoundsMin, alpha, wStar, normalSignsMat)
+                       currLayer, candidateElementIdxs, gridBoundsMin, alpha, wStar, normalSignsMat, &
+                       circumscribedBallRadius, targetDistance, targetDistanceSqr)
     class(cartesianGridFinest), intent(inout)           :: self
     class(vertexShelf), intent(in)                      :: vertices
     class(edgeShelf), intent(inout)                     :: edges
@@ -95,7 +102,8 @@ contains
     integer(shortInt), intent(in)                       :: n_layers, currLayer
     integer(shortInt), dimension(:), intent(in)         :: candidateElementIdxs
     real(defReal), dimension(3), intent(in)             :: gridBoundsMin
-    real(defReal), intent(in)                           :: alpha, wStar
+    real(defReal), intent(in)                           :: alpha, wStar, circumscribedBallRadius, &
+                                                           targetDistance, targetDistanceSqr
     type(dynamic2dMatSet), intent(in)                   :: normalSignsMat
     integer(shortInt), dimension(3)                     :: localNxyz
     integer(shortInt)                                   :: i
@@ -105,14 +113,19 @@ contains
       localNxyz(i) = n_xyz(currLayer,i)/n_xyz(currLayer-1,i)
     end do
 
-    ! construct mapping and start constructing the full mapping
+    ! Start by allocating cell attributes
     allocate(self % grid(localNxyz(1), localNxyz(2), localNxyz(3)))
+    call self % gridAllocateCellAttributes(localNxyz) !###
+
+    ! construct mapping and start constructing the full mapping
     call self % constructMapping2(vertices, edges, faces, elements, spacing, spacingInv, n_xyz, n_layers, &
-                  currLayer, candidateElementIdxs, gridBoundsMin, localNxyz, alpha, wStar, normalSignsMat)
+                  currLayer, candidateElementIdxs, gridBoundsMin, localNxyz, alpha, wStar, normalSignsMat, &
+                  circumscribedBallRadius, targetDistance, targetDistanceSqr)
     call self % sortAngles(edges, faces, localNxyz)
     call self % gridFinitePrecision(faces, elements, candidateElementIdxs, gridBoundsMin, spacing, &
                                     n_layers, localNxyz) 
     call self % setGridIsOutsideMesh(localNxyz, -(faces % getSize() + 1)) !"""
+    call self % gridClearRedundancy(localNxyz) !###
 
   end subroutine
 
@@ -146,8 +159,11 @@ contains
       localNxyz(i) = n_xyz(currLayer,i)/n_xyz(currLayer-1,i)
     end do
 
-    ! construct mapping and refine further
+    ! Start by allocating cell attributes
     allocate(self % grid(localNxyz(1), localNxyz(2), localNxyz(3)))
+    call self % gridAllocateCellAttributes(localNxyz) !###
+
+    ! construct mapping and refine further
     call self % constructMappingNRefineGrid(vertices, edges, faces, elements, spacing, spacingInv, &
           n_xyz, n_layers, currLayer, intersectedFaceIdxs, gridBoundsMin, localNxyz, alpha, wStar, &
           extraDistanceArr, candidateElementIdxs, normalSignsMat, circumscribedBallRadius, targetDistance, &
@@ -157,6 +173,7 @@ contains
     call self % gridFinitePrecision(faces, elements, candidateElementIdxsPrecision, gridBoundsMin, spacing, &
                                     n_layers, localNxyz) 
     call self % setGridIsOutsideMesh(localNxyz, 123) !"""
+    call self % gridClearRedundancy(localNxyz) !###
 
   end subroutine initt
 
@@ -376,7 +393,8 @@ contains
   !!
   !!
   subroutine constructMapping2(self, vertices, edges, faces, elements, spacing, spacingInv, n_xyz, &
-                n_layers, currLayer, candidateElementIdxs, gridBoundsMin, localNxyz, alpha, wStar, normalSignsMatOld)
+                n_layers, currLayer, candidateElementIdxs, gridBoundsMin, localNxyz, alpha, wStar, &
+                normalSignsMatOld, circumscribedBallRadius, targetDistance, targetDistanceSqr)
     class(cartesianGridFinest), intent(inout)             :: self
     class(vertexShelf), intent(in)                        :: vertices
     class(edgeShelf), intent(inout)                       :: edges
@@ -388,14 +406,14 @@ contains
     integer(shortInt), dimension(:), intent(in)           :: candidateElementIdxs
     real(defReal), dimension(3), intent(in)               :: gridBoundsMin
     integer(shortInt), dimension(3), intent(in)           :: localNxyz
-    real(defReal), intent(in)                             :: alpha, wStar
+    real(defReal), intent(in)                             :: alpha, wStar, circumscribedBallRadius, targetDistance, &
+                                                             targetDistanceSqr
     type(dynamic2dMatSet), intent(in)                     :: normalSignsMatOld
     type(dynamic2dMatSet)                                 :: normalSignsMat                                 
     integer(shortInt)                                     :: h, i, j, k, l
     integer(shortInt), dimension(:), allocatable          :: currVertexIdxs, currElementFaceIdxs, currFaceEdgeIdxs, &
                                                              candElementEdgeIdxs, candElementFaceIdxs, duplicatesArray !!!!!(last)
-    real(defReal)                                         :: circumscribedBallRadius, targetDistance, a, &
-                                                             extraDistance
+    real(defReal)                                         :: a, extraDistance
     real(defReal), dimension(3)                           :: centroid, currEdgeVector, currFaceNormal
     real(defReal), dimension(:,:), allocatable            :: faceNormalSigns
     integer(shortInt), dimension(:), allocatable          :: removedFaceIdxsInArr
@@ -407,8 +425,8 @@ contains
     ! edge interesection tests
     !----------------------------------------------------------------------------------------------
     !calculate constants for edge interesection tests
-    circumscribedBallRadius = sqrt(3.0d0)*(spacing(n_layers))/2
-    targetDistance = (wStar) / (1 + SIN(alpha))
+    ! circumscribedBallRadius = sqrt(3.0d0)*(spacing(n_layers))/2
+    ! targetDistance = (wStar) / (1 + SIN(alpha))
 
     !!!!!
     ! Get a list of unique edge indices of the candidate elements
@@ -429,7 +447,8 @@ contains
           currVertexIdxs = edges % getEdgeVertexIdxs(candElementEdgeIdxs(i))
           currEdgeVector = (edges % getEdgeUnitvector(candElementEdgeIdxs(i)))* &
                            (edges % getEdgeLength(candElementEdgeIdxs(i)))
-          a = dot_product(currEdgeVector, currEdgeVector)
+          ! a = dot_product(currEdgeVector, currEdgeVector)
+          a = edges % getEdgeDotProductOfVector(candElementEdgeIdxs(i))
 
           !Loop over all cartesian cells in the box and test if each cell intersects with the edge
           !(needs to be changed) (k and l can be a function of j e.g. k = datum + slope*j so that box is narrowed down)
@@ -451,20 +470,6 @@ contains
 
       end do
 
-    !!!!!
-    !end do
-    !!!!!
-
-    !!!!!
-    ! print*, "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$"
-    ! do i = 1, size(candidateElementIdxs)
-    !   print*, elements % getElementEdgeIdxs(candidateElementIdxs(i))
-    ! end do
-    ! print*, "----------------------------------------------"
-    ! print*, candElementEdgeIdxs
-    ! print*, "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$"
-    !!!!!
-
     !----------------------------------------------------------------------------------------------
     ! polyhedron inclusion tests
     !----------------------------------------------------------------------------------------------
@@ -476,7 +481,9 @@ contains
         deallocate(faceNorMalSigns)
         deallocate(currElementFaceIdxs)
 
-        call normalSignsMat % get_copy(i, faceNormalSigns, currElementFaceIdxs)            
+        ! call normalSignsMat % get_copy(i, faceNormalSigns, currElementFaceIdxs)
+        call normalSignsMat % get_copy(i, currElementFaceIdxs)
+        allocate(faceNorMalSigns(1,1))            
 
         !Loop over all cartesian cells in the box and test if each cell is entirely included in the polyhedron
         !(needs to be changed) (k and l can be a function of j e.g. k = datum + slope*j so that box is narrowed down)
@@ -508,7 +515,7 @@ contains
     !----------------------------------------------------------------------------------------------
     ! face intersection tests
     !----------------------------------------------------------------------------------------------
-    targetDistance = targetDistance**2
+    ! targetDistance = targetDistance**2
 
     !!!!!
     ! Deallocated "duplicatesArray" used for edge intersection and initialise it for face intersection
@@ -536,8 +543,9 @@ contains
         currVertexIdxs = faces % getFaceVertexIdxs(candElementFaceIdxs(i))
         currFaceEdgeIdxs = faces % getFaceEdgeIdxs(candElementFaceIdxs(i))
         currFaceNormal = faces % getFaceNormal(candElementFaceIdxs(i))
-        extraDistance = (abs(currFaceNormal(1)) + abs(currFaceNormal(2)) + abs(currFaceNormal(3))) &
-                        * (spacing(n_layers)) * 0.5               
+        ! extraDistance = (abs(currFaceNormal(1)) + abs(currFaceNormal(2)) + abs(currFaceNormal(3))) &
+        !                 * (spacing(n_layers)) * 0.5  
+        ! extraDistance = faces % getFaceExtraDistanceArr(candElementFaceIdxs(i), currLayer)             
 
         !Loop over all cartesian cells in the box and test if each cell intersect with the current face
         !(needs to be changed) (k and l can be a function of j e.g. k = datum + slope*j so that box is narrowed down)
@@ -550,30 +558,24 @@ contains
                     centroid(2) = (gridBoundsMin(2)) + (spacing(n_layers)) * (k-0.5)
                     centroid(3) = (gridBoundsMin(3)) + (spacing(n_layers)) * (l-0.5)
 
-                    call self % grid(j,k,l) % cellTestFaceIntersection(vertices, edges, faces, &
-                                              currVertexIdxs, extraDistance, currFaceNormal, &
+                    !@@
+                    ! call self % grid(j,k,l) % cellTestFaceIntersection(vertices, edges, faces, &
+                    !                           currVertexIdxs, extraDistance, currFaceNormal, &
+                    !                           centroid, spacing(n_layers), candElementFaceIdxs(i), &
+                    !                           currFaceEdgeIdxs, targetDistance)
+
+                    call self % grid(j,k,l) % cellTestFaceIntersection2(vertices, edges, faces, &
+                                              currVertexIdxs, currFaceNormal, &
                                               centroid, spacing(n_layers), candElementFaceIdxs(i), &
-                                              currFaceEdgeIdxs, targetDistance)
+                                              currFaceEdgeIdxs, targetDistanceSqr, currLayer)
+
+                    !@@
 
                 end do 
             end do    
         end do
 
       end do
-
-    !!!!!
-    !end do
-    !!!!!
-    
-    !!!!!
-    ! print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
-    ! do i = 1, size(candidateElementIdxs)
-    !   print*, abs(elements % getElementFaceIdxs(candidateElementIdxs(i)))
-    ! end do
-    ! print*, "----------------------------------------------"
-    ! print*, candElementFaceIdxs
-    ! print*, "&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&"
-    !!!!!
 
     ! for cells that intersec more than one face, mappings constructions are performed during face intersection test
     ! for those that intersect exactly one face, mappings constructions are performed here.
@@ -838,6 +840,46 @@ contains
     end do
 
   end subroutine gridFinitePrecision
+
+  !!
+  !!
+  !!
+  subroutine gridAllocateCellAttributes(self, localNxyz)
+    class(cartesianGridFinest), intent(inout)             :: self
+    integer(shortInt), dimension(3), intent(in)           :: localNxyz
+    integer(shortInt)                                     :: i, j, k
+
+        do i = 1, localNxyz(1)
+            do j = 1, localNxyz(2)
+                do k = 1, localNxyz(3)
+
+                    call self % grid(i,j,k) % cellAllocateAttributes()
+
+                end do 
+            end do    
+        end do
+
+  end subroutine gridAllocateCellAttributes
+
+  !!
+  !!
+  !!
+  subroutine gridClearRedundancy(self, localNxyz)
+    class(cartesianGridFinest), intent(inout)             :: self
+    integer(shortInt), dimension(3), intent(in)           :: localNxyz
+    integer(shortInt)                                     :: i, j, k
+
+        do i = 1, localNxyz(1)
+            do j = 1, localNxyz(2)
+                do k = 1, localNxyz(3)
+
+                    call self % grid(i,j,k) % cellClearRedundancy()
+
+                end do 
+            end do    
+        end do
+
+  end subroutine gridClearRedundancy
 
   !!
   !!
