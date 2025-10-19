@@ -473,17 +473,17 @@ contains
     !----------------------------------------------------------------------------------------------
     ! polyhedron inclusion tests
     !----------------------------------------------------------------------------------------------
-      allocate(faceNormalSigns(3, 2))
+      ! allocate(faceNormalSigns(3, 2))
       allocate(currElementFaceIdxs(1))
 
       do i = 1, normalSignsMat % nslices()
 
-        deallocate(faceNorMalSigns)
+        ! deallocate(faceNorMalSigns)
         deallocate(currElementFaceIdxs)
 
         ! call normalSignsMat % get_copy(i, faceNormalSigns, currElementFaceIdxs)
         call normalSignsMat % get_copy(i, currElementFaceIdxs)
-        allocate(faceNorMalSigns(1,1))            
+        ! allocate(faceNorMalSigns(1,1))            
 
         !Loop over all cartesian cells in the box and test if each cell is entirely included in the polyhedron
         !(needs to be changed) (k and l can be a function of j e.g. k = datum + slope*j so that box is narrowed down)
