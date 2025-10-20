@@ -17,7 +17,7 @@ module octree_class
 
   type, public :: octree
     private
-    integer(shortInt)  :: nLeaves = 0, maxFacesNumber = 10, maxRefinementLevel = 10
+    integer(shortInt)  :: nLeaves = 0, maxFacesNumber = 10, maxRefinementLevel = 2
     type(octreeNode)   :: root
   contains
     ! Build procedures.

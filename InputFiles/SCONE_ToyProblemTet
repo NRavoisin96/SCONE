@@ -65,8 +65,9 @@ nuclearData {
     		fuel {
       			temp 87476;
        			composition {
-      				92235.03  9.670E-003;
-      				92238.03  3.868E-002;
+                    92235.03 9.0336E-004;   // 235U number density [atoms/b·cm]
+                    92238.03 2.14069E-002;  // 238U number density
+                    8016.03  4.46205E-002;  // Oxygen (assumed all 16O)
 			}
       		}
 
