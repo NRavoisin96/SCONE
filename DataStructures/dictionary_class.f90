@@ -363,32 +363,37 @@ contains
   !! Copy one dictionary to another
   !! Overwrites LHS
   !!
-  recursive subroutine copy_dictionary(LHS,RHS)
+  recursive subroutine copy_dictionary(LHS, RHS)
     class(dictionary), intent(inout) :: LHS
     class(dictionary), intent(in)    :: RHS
-    integer(shortInt)                :: rhsSize, stride
-    integer(shortInt)                :: i
+    integer(shortInt)                :: dictLen, i, stride
 
     ! Clean LHS dictionary
     call LHS % kill()
 
-    ! Reainitialise LHS dictionary
-    rhsSize = size( RHS % keywords)
+    ! Reinitialise LHS dictionary.
+    dictLen = RHS % dictLen
     stride = RHS % stride
+    if (allocated(RHS % keywords)) then
+      call LHS % init(size(RHS % keywords), stride)
 
-    call LHS % init(rhsSize,stride)
+      ! Copy Keywords and entries
+      LHS % keywords = RHS % keywords
 
-    ! Copy Keywords and entries
-    LHS % keywords = RHS % keywords
+    end if
 
-    do i= 1, RHS % dictLen
-      call LHS % entries(i) % copy(RHS % entries(i))
+    if (allocated(RHS % entries)) then
+      do i = 1, dictLen
+        call LHS % entries(i) % copy(RHS % entries(i))
 
-    end do
-    ! Copy state settings
-    LHS % dictLen = RHS % dictLen
+      end do
+
+    end if
+
+    ! Copy state settings.
+    LHS % dictLen = dictLen
     LHS % maxSize = RHS % maxSize
-    LHS % stride  = RHS % stride
+    LHS % stride = stride
 
   end subroutine copy_dictionary
 

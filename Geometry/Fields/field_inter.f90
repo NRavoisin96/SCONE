@@ -2,7 +2,6 @@ module field_inter
 
   use dictionary_class, only : dictionary
   use numPrecision
-  use particle_class,   only : particle
 
   implicit none
   private

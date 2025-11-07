@@ -1,10 +1,10 @@
 module tallyFilterSlot_class
 
+  use dictionary_class,           only : dictionary
   use numPrecision
-  use dictionary_class,        only : dictionary
-  use particle_class,          only : particleState
-  use tallyFilter_inter,       only : tallyFilter
-  use tallyFilterFactory_func, only : new_tallyFilter
+  use tallyFilter_inter,          only : tallyFilter
+  use tallyFilterFactory_func,    only : new_tallyFilter
+  use transportObjectState_class, only : transportObjectState
 
   implicit none
   private
@@ -47,10 +47,10 @@ contains
   !!
   !! Call filter inside the slot
   !!
-  elemental function isPass(self, state) result(passed)
-    class(tallyFilterSlot), intent(in) :: self
-    class(particleState), intent(in)   :: state
-    logical(defBool)                   :: passed
+  function isPass(self, state) result(passed)
+    class(tallyFilterSlot), intent(in)      :: self
+    class(transportObjectState), intent(in) :: state
+    logical(defBool)                        :: passed
 
     passed = self % slot % isPass(state)
 
@@ -77,6 +77,5 @@ contains
     if (allocated(self % slot)) deallocate(self % slot)
 
   end subroutine kill
-
 
 end module tallyFilterSlot_class

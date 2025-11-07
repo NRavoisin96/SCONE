@@ -13,7 +13,6 @@ module errors_mod
   implicit none
 
 contains
-
   !!
   !! Kill the execution and print the error message
   !!
@@ -67,5 +66,15 @@ contains
 
   end subroutine fatalError
 
+  !!
+  !!
+  !!
+  subroutine unassociatedPtrError(where)
+    character(*), intent(in) :: where
+
+    ! Call fatalError.
+    call fatalError(where, 'Attempting to read value of unassociated pointer.')
+
+  end subroutine unassociatedPtrError
 
 end module errors_mod

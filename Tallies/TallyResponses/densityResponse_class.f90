@@ -1,13 +1,11 @@
 module densityResponse_class
 
+  use dictionary_class,       only : dictionary
+  use nuclearDatabase_inter,  only : nuclearDatabase
   use numPrecision
-  use universalVariables,  only : neutronMass, lightSpeed
-  use dictionary_class,    only : dictionary
-  use particle_class,      only : particle, P_NEUTRON, P_PHOTON
-  use tallyResponse_inter, only : tallyResponse
-
-  ! Nuclear Data interface
-  use nuclearDatabase_inter, only : nuclearDatabase
+  use physicalParticle_inter, only : castPhysicalParticlePtr, physicalParticle
+  use tallyResponse_inter,    only : tallyResponse
+  use transportObject_inter,  only : transportObject
 
   implicit none
   private
@@ -27,10 +25,9 @@ module densityResponse_class
   type, public, extends(tallyResponse) :: densityResponse
     private
   contains
-    procedure :: init
     procedure :: get
+    procedure :: init
     procedure :: kill
-
   end type densityResponse
 
 contains
@@ -53,13 +50,15 @@ contains
   !!
   !! See tallyResponse_inter for details
   !!
-  subroutine get(self, p, val, xsData)
+  subroutine get(self, object, val, xsData)
     class(densityResponse), intent(in)              :: self
-    class(particle), intent(in)                     :: p
+    class(transportObject), intent(in)              :: object
     real(defReal), intent(out)                      :: val
     class(nuclearDatabase), intent(inout), optional :: xsData
+    class(physicalParticle), pointer                :: p
 
-    ! Gets the particle speed from the particle
+    ! Gets the particle speed from the particle.
+    p => castPhysicalParticlePtr(object, .true.)
     val = ONE / p % getSpeed()
 
   end subroutine get

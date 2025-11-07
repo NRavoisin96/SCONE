@@ -1,10 +1,11 @@
 module testFilter_class
 
+  use dictionary_class,           only : dictionary
+  use errors_mod,                 only : fatalError
+  use genericProcedures,          only : numToChar
   use numPrecision
-  use genericProcedures, only : fatalError, numToChar
-  use particle_class,    only : particleState
-  use dictionary_class,  only : dictionary
-  use tallyFilter_inter, only : tallyFilter
+  use tallyFilter_inter,          only : tallyFilter
+  use transportObjectState_class, only : transportObjectState
 
   implicit none
   private
@@ -15,12 +16,10 @@ module testFilter_class
   !!
   type, public, extends(tallyFilter) :: testFilter
     private
-    integer(shortInt) :: minIdx = 0
-    integer(shortInt) :: maxIdx = 0
+    integer(shortInt) :: maxIdx = 0, minIdx = 0
   contains
     procedure :: init
     procedure :: isPass
-
   end type testFilter
 
 contains
@@ -28,28 +27,30 @@ contains
   !!
   !! Initialise testFilter from dictionary
   !!
-  subroutine init(self,dict)
+  subroutine init(self, dict)
     class(testFilter), intent(inout) :: self
     class(dictionary), intent(in)    :: dict
-    character(100), parameter :: Here ='init (testFilter_class.f90)'
+    character(*), parameter          :: here = 'init (testFilter_class.f90)'
 
-    call dict % get(self % minIdx,'minIdx')
-    call dict % get(self % maxIdx,'maxIdx')
+    call dict % get(self % minIdx, 'minIdx')
+    call dict % get(self % maxIdx, 'maxIdx')
 
     ! Verify
-    if (self % minIdx > self % maxIdx) call fatalError(Here,'minIdx > maxIdx')
+    if (self % minIdx > self % maxIdx) call fatalError(Here, 'maxIdx < minIdx.')
 
   end subroutine init
 
   !!
   !! Returns true if energy value is between specified bounds
   !!
-  elemental function isPass(self,state) result(passed)
-    class(testFilter), intent(in)    :: self
-    class(particleState), intent(in) :: state
-    logical(defBool)                 :: passed
+  function isPass(self, state) result(passed)
+    class(testFilter), intent(in)           :: self
+    class(transportObjectState), intent(in) :: state
+    integer(shortInt)                       :: materialIdx
+    logical(defBool)                        :: passed
 
-    passed = (self % minIdx <= state % matIdx) .and. (state % matIdx <= self % maxIdx)
+    materialIdx = state % getMaterialIdx()
+    passed = self % minIdx <= materialIdx .and. materialIdx <= self % maxIdx
 
   end function isPass
 

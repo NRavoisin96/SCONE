@@ -1,30 +1,26 @@
 module baseMgNeutronDatabase_iTest
 
-  use numPrecision
-  use endfConstants
-  use universalVariables
-  use funit
-  use dictionary_class,   only : dictionary
-  use dictParser_func,    only : charToDict
-  use particle_class,     only : particle
-
-  ! Nuclear Data Objects & Interfaces
   use baseMgNeutronDatabase_class, only : baseMgNeutronDatabase, baseMgNeutronDatabase_CptrCast, &
                                           baseMgNeutronDatabase_TptrCast
   use baseMgNeutronMaterial_class, only : baseMgNeutronMaterial, baseMgNeutronMaterial_CptrCast, &
                                           baseMgNeutronMaterial_TptrCast
+  use dictionary_class,            only : dictionary
+  use dictParser_func,             only : charToDict
+  use endfConstants
   use fissionMG_class,             only : fissionMG, fissionMG_TptrCast
+  use funit
+  use materialHandle_inter,        only : materialHandle
+  use materialMenu_mod,            only : mm_init => init, mm_kill => kill
+  use MGNeutron_class,             only : MGNeutron
   use multiScatterMG_class,        only : multiScatterMG, multiScatterMG_CptrCast, &
                                           multiScatterMG_TptrCast
   use multiScatterP1MG_class,      only : multiScatterP1MG, multiScatterP1MG_TptrCast
-  use materialMenu_mod,            only : mm_init => init, mm_kill => kill
-  use nuclearDatabase_inter,       only : nuclearDatabase
-  use materialHandle_inter,        only : materialHandle
-  use nuclideHandle_inter,         only : nuclideHandle
   use neutronXsPackages_class,     only : neutronMacroXSs
+  use nuclearDatabase_inter,       only : nuclearDatabase
+  use nuclideHandle_inter,         only : nuclideHandle
+  use numPrecision
   use reactionHandle_inter,        only : reactionHandle
-
-
+  use universalVariables
 
   implicit none
 
@@ -53,17 +49,15 @@ contains
   !!
 @Test
   subroutine testBaseMgNeutronDatabaseWithP0()
-    type(baseMgNeutronDatabase), target  :: database
-    class(nuclearDatabase), pointer      :: data_ptr
-    type(dictionary)                     :: databaseDef
-    type(dictionary)                     :: matMenuDict
-    type(particle)                       :: p
-    type(neutronMacroXSs)                :: xss
-    type(baseMgNeutronMaterial), pointer  :: mat
     class(baseMgNeutronMaterial), pointer :: matClass
-    class(reactionHandle), pointer       :: reac
-    real(defReal), parameter :: TOL = 1.0E-6_defReal
-
+    class(nuclearDatabase), pointer       :: data_ptr
+    class(reactionHandle), pointer        :: reac
+    type(baseMgNeutronDatabase), target   :: database
+    type(baseMgNeutronMaterial), pointer  :: mat
+    type(dictionary)                      :: databaseDef, matMenuDict
+    type(MGNeutron)                       :: p
+    type(neutronMacroXSs)                 :: xss
+    real(defReal), parameter              :: TOL = 1.0e-6_defReal
 
     data_ptr => database
 
@@ -81,18 +75,18 @@ contains
     @assertEqual(4, database % nGroups())
 
     ! Test getting Transport XS
-    p % G = 1
+    call p % init()
+    call p % setEnergyGroup(1)
     @assertEqual(2.1_defReal, database % getTrackingXS(p, 1, MATERIAL_XS), TOL)
 
     ! Test getting Total XS
-    p % G = 1
     @assertEqual(3.1_defReal, database % getTotalMatXS(p, 2), TOL)
 
-    p % G = 3
+    call p % setEnergyGroup(3)
     @assertEqual(6.0_defReal, database % getTotalMatXS(p, 1), TOL)
 
     ! Test getting Majorant
-    p % G = 1
+    call p % setEnergyGroup(1)
     @assertEqual(2.1_defReal, database % getMajorantXS(p), TOL)
     @assertEqual(2.1_defReal, database % getTrackingXS(p, 1, MAJORANT_XS), TOL)
 
@@ -113,7 +107,7 @@ contains
 
     matClass => baseMgNeutronMaterial_CptrCast(database % getMaterial(1))
     @assertTrue(associated(matClass), "Type Ptr Cast has failed")
-    call matClass % getMacroXSs(4, xss, p % pRNG)
+    call matClass % getMacroXSs(4, xss)
 
     @assertFalse(matClass % isFissile(), "Is fissile but should not")
 
@@ -170,6 +164,7 @@ contains
     call mm_kill()
     call matMenuDict % kill()
     call databaseDef % kill()
+    call p % kill()
 
   end subroutine testBaseMgNeutronDatabaseWithP0
 
@@ -179,17 +174,15 @@ contains
   !!
 @Test
   subroutine testBaseMgNeutronDatabaseWithP1()
-    type(baseMgNeutronDatabase), target  :: database
-    class(nuclearDatabase), pointer      :: data_ptr
-    type(dictionary)                     :: databaseDef
-    type(dictionary)                     :: matMenuDict
-    type(particle)                       :: p
-    type(neutronMacroXSs)                :: xss
-    type(baseMgNeutronMaterial), pointer  :: mat
     class(baseMgNeutronMaterial), pointer :: matClass
-    class(reactionHandle), pointer       :: reac
-    real(defReal), parameter :: TOL = 1.0E-6_defReal
-
+    class(nuclearDatabase), pointer       :: data_ptr
+    class(reactionHandle), pointer        :: reac
+    type(baseMgNeutronDatabase), target   :: database
+    type(baseMgNeutronMaterial), pointer  :: mat
+    type(dictionary)                      :: databaseDef, matMenuDict
+    type(MGNeutron)                       :: p
+    type(neutronMacroXSs)                 :: xss
+    real(defReal), parameter              :: TOL = 1.0e-6_defReal
 
     data_ptr => database
 
@@ -207,25 +200,25 @@ contains
     @assertEqual(4, database % nGroups())
 
     ! Test getting Transport XS
-    p % G = 1
+    call p % init()
+    call p % setEnergyGroup(1)
     @assertEqual(2.1_defReal, database % getTrackingXS(p, 1, MATERIAL_XS), TOL)
 
     ! Test getting Total XS
-    p % G = 1
     @assertEqual(3.1_defReal, database % getTotalMatXS(p, 2), TOL)
 
-    p % G = 3
+    call p % setEnergyGroup(3)
     @assertEqual(6.0_defReal, database % getTotalMatXS(p, 1), TOL)
 
     ! Test getting Majorant
-    p % G = 1
+    call p % setEnergyGroup(1)
     @assertEqual(2.1_defReal, database % getMajorantXS(p), TOL)
     @assertEqual(2.1_defReal, database % getTrackingXS(p, 1, MAJORANT_XS), TOL)
 
     ! Get a material and verify macroXSS
     mat => baseMgNeutronMaterial_TptrCast(database % getMaterial(2))
     @assertTrue(associated(mat), "Type Ptr Cast has failed")
-    call mat % getMacroXSs(1, xss, p % pRNG)
+    call mat % getMacroXSs(1, xss)
 
     ! Check that is fissile
     @assertTrue(mat % isFissile(), "Is not fissile but should")
@@ -239,7 +232,7 @@ contains
 
     matClass => baseMgNeutronMaterial_CptrCast(database % getMaterial(1))
     @assertTrue(associated(matClass), "Type Ptr Cast has failed")
-    call matClass % getMacroXSs(4, xss, p % pRNG)
+    call matClass % getMacroXSs(4, xss)
 
     @assertFalse(matClass % isFissile(), "Is fissile but should not")
 
@@ -296,9 +289,8 @@ contains
     call mm_kill()
     call matMenuDict % kill()
     call databaseDef % kill()
+    call p % kill()
 
   end subroutine testBaseMgNeutronDatabaseWithP1
-
-
 
 end module baseMgNeutronDatabase_iTest

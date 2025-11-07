@@ -1,24 +1,21 @@
 module uniFissSitesField_class
 
+  use dictionary_class,           only : dictionary
+  use errors_mod,                 only : fatalError
+  use field_inter,                only : field
+  use genericProcedures,          only : numToChar
+  use geometry_inter,             only : geometry
+  use neutronMaterial_inter,      only : neutronMaterial, neutronMaterial_CptrCast
+  use nuclearDatabase_inter,      only : nuclearDatabase
+  use nuclearDataReg_mod,         only : ndReg_getNeutronCE => getNeutronCE, ndReg_getNeutronMG => getNeutronMG
   use numPrecision
-  use genericProcedures,     only : fatalError, numToChar
-  use universalVariables,    only : OUTSIDE_MAT, VOID_MAT, P_NEUTRON_CE
-  use dictionary_class,      only : dictionary
-  use particle_class,        only : particle, particleState
-  use field_inter,           only : field
-  use vectorField_inter,     only : vectorField
-  use geometry_inter,        only : geometry
-  use RNG_class,             only : RNG
-
-  ! Tally Maps
-  use tallyMap_inter,        only : tallyMap
-  use tallyMapFactory_func,  only : new_tallyMap
-
-  ! Nuclear Data
-  use neutronMaterial_inter, only : neutronMaterial, neutronMaterial_CptrCast
-  use nuclearDataReg_mod,    only : ndReg_getNeutronCE => getNeutronCE, &
-                                    ndReg_getNeutronMG => getNeutronMG
-  use nuclearDatabase_inter, only : nuclearDatabase
+  use RNG_class,                  only : RNG
+  use tallyMap_inter,             only : tallyMap
+  use tallyMapFactory_func,       only : new_tallyMap
+  use transportObject_inter,      only : transportObject
+  use transportObjectState_class, only : transportObjectState
+  use universalVariables,         only : OUTSIDE_MAT, VOID_MAT, P_NEUTRON_CE
+  use vectorField_inter,          only : vectorField
 
   implicit none
   private
@@ -64,13 +61,10 @@ module uniFissSitesField_class
   !!
   type, public, extends(vectorField) :: uniFissSitesField
     private
-    class(tallyMap), allocatable :: map
-    integer(shortInt)            :: N = 0
-    logical(defBool)             :: uniformVolMap = .false.
-    integer(shortInt)            :: pop
-    real(defReal), dimension(:), allocatable     :: volFraction
-    real(defReal), dimension(:), allocatable     :: sourceFraction
-    real(defReal), dimension(:), allocatable     :: buildSource
+    class(tallyMap), allocatable             :: map
+    integer(shortInt)                        :: N = 0, pop = 0
+    logical(defBool)                         :: uniformVolMap = .false.
+    real(defReal), dimension(:), allocatable :: buildSource, sourceFraction, volFraction
   contains
     ! Superclass interface
     procedure :: init
@@ -90,9 +84,8 @@ contains
   !!
   subroutine init(self, dict)
     class(uniFissSitesField), intent(inout) :: self
-    class(dictionary), intent(in) :: dict
-    integer(shortInt), parameter  :: ALL = 0
-    character(100), parameter     :: Here = 'init (uniFissSitesField_class.f90)'
+    class(dictionary), intent(in)           :: dict
+    integer(shortInt), parameter            :: ALL = 0
 
     ! Initialise overlay map
     call new_tallyMap(self % map, dict % getDictPtr('map'))
@@ -100,12 +93,12 @@ contains
 
     ! Allocate and initialise arrays
     allocate(self % sourceFraction(self % N), self % buildSource(self % N))
-    self % sourceFraction = ONE/self % N
+    self % sourceFraction = ONE / self % N
     self % buildSource = ZERO
 
     ! Settings for volume calculation
-    call dict % getOrDefault(self % uniformVolMap,'uniformVolMap', .false.)
-    if (.not. self % uniformVolMap) call dict % getOrDefault(self % pop,'popVolumes', 1000000)
+    call dict % getOrDefault(self % uniformVolMap, 'uniformVolMap', .false.)
+    if (.not. self % uniformVolMap) call dict % getOrDefault(self % pop, 'popVolumes', 1000000)
 
   end subroutine init
 
@@ -135,24 +128,23 @@ contains
     class(RNG), intent(inout), optional     :: rand
     real(defReal), dimension(6)             :: bounds
     real(defReal), dimension(3)             :: bottom, top
-    real(defReal), dimension(3), save       :: r
-    type(particleState), save               :: state
+    real(defReal), dimension(3)             :: r
+    type(transportObjectState)              :: state
     integer(shortInt)                       :: i
-    integer(shortInt), save                 :: j, binIdx, matIdx, uniqueID
+    integer(shortInt)                       :: j, binIdx, matIdx, uniqueID
     class(nuclearDatabase), pointer         :: nucData
-    class(neutronMaterial), pointer, save   :: mat
+    class(neutronMaterial), pointer         :: mat
     character(*), parameter                 :: Here = 'estimateVol (uniFissSitesField_class.f90)'
-    !$omp threadprivate(r, state, j, binIdx, matIdx, uniqueID, mat)
 
     allocate(self % volFraction(self % N))
 
     ! Check if volume estimation is needed or not
     if (self % uniformVolMap) then
-      self % volFraction = ONE/self % N
-      return
+      self % volFraction = ONE / self % N
 
     else
-
+      self % volFraction = ZERO
+      
       ! Get pointer to appropriate nuclear database
       if (type == P_NEUTRON_CE) then
         nucData => ndReg_getNeutronCE()
@@ -175,32 +167,28 @@ contains
       print *, "VOLUME CALCULATION FOR UFS"
 
       ! Iterate over number of points desired
-      !$omp parallel do
+      !$omp parallel do private(r, state, j, binIdx, matIdx, uniqueID, mat)
       do i = 1, self % pop
-
         j = 0
         rejection : do
           ! Protect against infinite loop
           j = j + 1
-          if (j > 1000) then
-            call fatalError(Here, 'Infinite loop in sampling of fission sites. Please check that&
-                                  & defined volume contains fissile material.')
-          end if
+          if (1000 < j) call fatalError(Here, 'Infinite loop in sampling of fission sites. Please check that&
+                                              & defined volume contains fissile material.')
 
           ! Sample initial positionm.
           call geom % sampleInitialPosition(bottom, top, rand, matIdx, uniqueID, r)
 
           ! Reject if there is no material
-          if (matIdx == VOID_MAT .or. matIdx == OUTSIDE_MAT) cycle rejection
+          if (any([OUTSIDE_MAT, VOID_MAT] == matIdx)) cycle rejection
 
           mat => neutronMaterial_CptrCast(nucData % getMaterial(matIdx))
           if (.not. associated(mat)) call fatalError(Here, "Nuclear data did not return neutron material.")
 
           ! Resample position if material is not fissile
           if (.not. mat % isFissile()) cycle rejection
-
-          state % r = r
-          state % matIdx = matIdx
+          call state % setGlobalPosition(r)
+          call state % setMaterialIdx(matIdx)
 
           ! Read map bin index
           binIdx = self % map % map(state)
@@ -235,25 +223,18 @@ contains
   !!
   !! See vectorField_inter for details
   !!
-  function at(self, p) result(val)
-    class(uniFissSitesField), intent(in) :: self
-    class(particle), intent(inout)       :: p
-    real(defReal), dimension(3)          :: val
-    type(particleState)                  :: state
-    integer(shortInt)                    :: binIdx
-
-    ! Get current particle state
-    state = p
+  function at(self, object) result(val)
+    class(uniFissSitesField), intent(in)  :: self
+    class(transportObject), intent(inout) :: object
+    real(defReal), dimension(3)           :: val
+    integer(shortInt)                     :: binIdx
 
     ! Read map bin index
-    binIdx = self % map % map(state)
+    binIdx = self % map % map(object % updateAndGetCurrentStatePtr())
 
     ! Return if invalid bin index
-    if (binIdx == 0) then
-      val = ONE
-      return
-
-    end if
+    val = ONE
+    if (binIdx == 0) return
     val = [self % volFraction(binIdx), self % sourceFraction(binIdx), ZERO]
 
   end function at
@@ -266,13 +247,13 @@ contains
   !!
   subroutine storeFS(self, state)
     class(uniFissSitesField), intent(inout) :: self
-    type(particleState), intent(in)         :: state
+    class(transportObjectState), intent(in) :: state
     integer(shortInt)                       :: idx
 
     idx = self % map % map(state)
     if (idx == 0) return
     ! Add fission sites where appropriate
-    self % buildSource(idx) = self % buildSource(idx) + state % wgt
+    self % buildSource(idx) = self % buildSource(idx) + state % getWeight()
 
   end subroutine storeFS
 
@@ -287,10 +268,10 @@ contains
     ! Eliminate zeros in the distribution
     do i = 1, self % N
       if (self % buildSource(i) == ZERO) self % buildSource(i) = ONE
+
     end do
     ! Normalise to calculate probability
     self % sourceFraction = self % buildSource / sum(self % buildSource)
-
     self % buildSource = ZERO
 
   end subroutine updateMap

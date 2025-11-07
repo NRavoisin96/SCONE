@@ -1,7 +1,6 @@
 module tallyMap1D_inter
 
   use numPrecision
-  use particle_class,   only : particleState
   use dictionary_class, only : dictionary
   use outputFile_class, only : outputFile
   use tallyMap_inter,   only : tallyMap, kill_super => kill

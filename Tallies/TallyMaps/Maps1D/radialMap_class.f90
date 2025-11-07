@@ -1,13 +1,14 @@
 module radialMap_class
 
+  use dictionary_class,           only : dictionary
+  use errors_mod,                 only : fatalError
+  use genericProcedures,          only : numToChar
+  use grid_class,                 only : grid
   use numPrecision
-  use universalVariables, only : valueOutsideArray, X_AXIS, Y_AXIS, Z_AXIS
-  use genericProcedures,  only : fatalError, numToChar
-  use dictionary_class,   only : dictionary
-  use grid_class,         only : grid
-  use particle_class,     only : particleState
-  use outputFile_class,   only : outputFile
-  use tallyMap1D_inter,   only : tallyMap1D, kill_super => kill
+  use outputFile_class,           only : outputFile
+  use universalVariables,         only : valueOutsideArray, X_AXIS, Y_AXIS, Z_AXIS
+  use tallyMap1D_inter,           only : tallyMap1D, kill_super => kill
+  use transportObjectState_class, only : transportObjectState
 
   implicit none
   private
@@ -36,9 +37,9 @@ module radialMap_class
   type, public, extends (tallyMap1D) :: radialMap
     private
     integer(shortInt), dimension(:), allocatable :: axis
-    real(defReal), dimension(3) :: origin
-    type(grid)                  :: bounds
-    integer(shortInt)           :: N = 0
+    real(defReal), dimension(3)                  :: origin = ZERO
+    type(grid)                                   :: bounds
+    integer(shortInt)                            :: N = 0
 
   contains
     ! Superclass
@@ -209,17 +210,19 @@ contains
   !!
   !! See tallyMap for specification.
   !!
-  elemental function map(self, state) result(idx)
-    class(radialMap), intent(in)     :: self
-    class(particleState), intent(in) :: state
-    integer(shortInt)                :: idx
-    real(defReal)                    :: r
+  function map(self, state) result(idx)
+    class(radialMap), intent(in)            :: self
+    class(transportObjectState), intent(in) :: state
+    integer(shortInt)                       :: idx
+    real(defReal)                           :: d
+    real(defReal), dimension(3)             :: rGlobal
 
-    ! Calculate the distance from the origin
-    r = norm2(state % r(self % axis) - self % origin(self % axis))
+    ! Calculate the distance from the origin.
+    rGlobal = state % getGlobalPosition()
+    d = norm2(rGlobal(self % axis) - self % origin(self % axis))
 
-    ! Search and return 0 if r is out-of-bounds
-    idx = self % bounds % search(r)
+    ! Search and return 0 if d is out-of-bounds
+    idx = self % bounds % search(d)
     if (idx == valueOutsideArray) idx = 0
 
   end function map

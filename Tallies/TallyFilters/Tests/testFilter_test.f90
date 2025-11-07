@@ -1,10 +1,10 @@
 module testFilter_test
 
-  use numPrecision
-  use testFilter_class, only : testFilter
-  use particle_class,     only : particleState
-  use dictionary_class,   only : dictionary
+  use dictionary_class,           only : dictionary
   use funit
+  use numPrecision
+  use testFilter_class,           only : testFilter
+  use transportObjectState_class, only : transportObjectState
 
   implicit none
 
@@ -19,7 +19,7 @@ module testFilter_test
 
 
 contains
-
+@Before
   !!
   !! Sets up test_testFilter object we can use in a number of tests
   !!
@@ -35,6 +35,7 @@ contains
 
   end subroutine setUp
 
+@After
   !!
   !! Kills test_testFilter object we can use in a number of tests
   !!
@@ -53,22 +54,22 @@ contains
 @Test
   subroutine testFiltering(this)
     class(test_testFilter), intent(inout) :: this
-    type(particleState)                   :: state
+    type(transportObjectState)            :: state
     logical(defBool)                      :: filterRes
 
-    state % matIdx = 1
+    call state % setMaterialIdx(1)
     filterRes = this % filter % isPass(state)
     @assertFalse(filterRes)
 
-    state % matIdx = 4
+    call state % setMaterialIdx(4)
     filterRes = this % filter % isPass(state)
     @assertTrue(filterRes)
 
-    state % matIdx = 6
+    call state % setMaterialIdx(6)
     filterRes = this % filter % isPass(state)
     @assertTrue(filterRes)
 
-    state % matIdx = 7
+    call state % setMaterialIdx(7)
     filterRes = this % filter % isPass(state)
     @assertFalse(filterRes)
 

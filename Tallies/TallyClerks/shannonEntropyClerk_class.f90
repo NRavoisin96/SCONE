@@ -4,7 +4,6 @@ module shannonEntropyClerk_class
   use tallyCodes
   use genericProcedures,          only : fatalError
   use dictionary_class,           only : dictionary
-  use particle_class,             only : particle, particleState
   use particleDungeon_class,      only : particleDungeon
   use outputFile_class,           only : outputFile
 
@@ -134,18 +133,20 @@ contains
       cc = self % currentCycle
 
       ! Loop through population, scoring probabilities
-      do i = 1,end % popSize()
-        associate( state => end % get(i) )
+      do i = 1, end % popSize()
+        associate(state => end % get(i))
           idx = self % map % map(state)
-          if (idx > 0) self % prob(idx) = self % prob(idx) + state % wgt
+          if (0 < idx) self % prob(idx) = self % prob(idx) + state % getWeight()
+
         end associate
+
       end do
 
       totWgt = end % popWeight()
-      one_log2 = ONE/log(TWO)
+      one_log2 = ONE / log(TWO)
 
       ! Loop through bins, summing entropy
-      do j = 1,self % N
+      do j = 1, self % N
         self % prob(j) = self % prob(j)/totWgt
         if ((self % prob(j) > ZERO) .AND. (self % prob(j) < ONE)) then
           self % value(cc) = self % value(cc) - self % prob(j) * log(self % prob(j)) * one_log2

@@ -1,14 +1,13 @@
 module homogMatMap_class
 
+  use dictionary_class,           only : dictionary
+  use errors_mod,                 only : fatalError
+  use intMap_class,               only : intMap
+  use materialMenu_mod,           only : mm_matIdx => matIdx, mm_matName => matName
   use numPrecision
-  use genericProcedures,       only : fatalError
-  use dictionary_class,        only : dictionary
-  use intMap_class,            only : intMap
-  use particle_class,          only : particleState
-  use outputFile_class,        only : outputFile
-  use tallyMap1D_inter,        only : tallyMap1D, kill_super => kill
-
-  use materialMenu_mod,        only : mm_matIdx => matIdx, mm_matName => matName
+  use outputFile_class,           only : outputFile
+  use tallyMap1D_inter,           only : tallyMap1D, kill_super => kill
+  use transportObjectState_class, only : transportObjectState
 
   implicit none
   private
@@ -48,10 +47,9 @@ module homogMatMap_class
   !!
   type, public, extends(tallyMap1D) :: homogMatMap
     private
-    type(intMap), dimension(:), allocatable :: binMap
-    type(intMap)                            :: matIndices
-    integer(shortInt)                       :: default = 0
-    integer(shortInt)                       :: Nbins   = 0
+    type(intMap), dimension(:), allocatable       :: binMap
+    type(intMap)                                  :: matIndices
+    integer(shortInt)                             :: default = 0, Nbins = 0
     character(nameLen), dimension(:), allocatable :: binNames
 
   contains
@@ -187,14 +185,15 @@ contains
   !!
   !! See tallyMap for specification
   !!
-  elemental function map(self,state) result(idx)
-    class(homogMatMap), intent(in)     :: self
-    class(particleState), intent(in)   :: state
-    integer(shortInt)                  :: idx, isThere
+  function map(self, state) result(idx)
+    class(homogMatMap), intent(in)          :: self
+    class(transportObjectState), intent(in) :: state
+    integer(shortInt)                       :: idx, isThere
 
-    do idx = 1,size(self % binMap)
-      isThere = self % binMap(idx) % getOrDefault(state % matIdx, self % default)
+    do idx = 1, size(self % binMap)
+      isThere = self % binMap(idx) % getOrDefault(state % getMaterialIdx(), self % default)
       if (isThere == 1) return
+
     end do
 
     idx = self % default

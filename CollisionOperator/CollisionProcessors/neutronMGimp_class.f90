@@ -1,37 +1,29 @@
 module neutronMGimp_class
 
-  use numPrecision
+  use collisionProcessor_inter,    only : collisionProcessor, collisionData ,init_super => init
+  use dictionary_class,            only : dictionary
   use endfConstants
-  use universalVariables,            only : nameWW
-  use genericProcedures,             only : fatalError, rotateVector, numToChar
-  use dictionary_class,              only : dictionary
-  use RNG_class,                     only : RNG
-
-  ! Particle types
-  use particle_class,                only : particle, particleState, printType, P_NEUTRON
-  use particleDungeon_class,         only : particleDungeon
-
-  ! Abstract interface
-  use collisionProcessor_inter,      only : collisionProcessor, collisionData ,init_super => init
-
-  ! Nuclear Data Interface
-  use nuclearDataReg_mod,            only : ndReg_getNeutronMG => getNeutronMG
-  use nuclearDatabase_inter,         only : nuclearDatabase
-  use mgNeutronDatabase_inter,       only : mgNeutronDatabase
-  use mgNeutronMaterial_inter,       only : mgNeutronMaterial, mgNeutronMaterial_CptrCast
-  use reactionHandle_inter,          only : reactionHandle
-  use multiScatterMG_class,          only : multiScatterMG, multiScatterMG_CptrCast
-  use fissionMG_class,               only : fissionMG, fissionMG_TptrCast
-
-  ! Cross section packages
-  use neutronXsPackages_class,       only : neutronMacroXSs
-
-  ! Geometry and fields
-  use geometryReg_mod,                only : gr_fieldIdx => fieldIdx, gr_fieldPtr => fieldPtr
-  use weightWindowsField_class,       only : weightWindowsField, weightWindowsField_TptrCast
-
-  ! Tally interfaces
-  use tallyAdmin_class,       only : tallyAdmin
+  use errors_mod,                  only : fatalError
+  use fissionMG_class,             only : fissionMG, fissionMG_TptrCast
+  use genericProcedures,           only : numToChar, rotateVector
+  use geometryReg_mod,             only : gr_fieldIdx => fieldIdx, gr_fieldPtr => fieldPtr
+  use MGNeutron_class,             only : castMGNeutronPtr, MGNeutron
+  use mgNeutronDatabase_inter,     only : mgNeutronDatabase
+  use mgNeutronMaterial_inter,     only : mgNeutronMaterial, mgNeutronMaterial_CptrCast
+  use MGParticleState_class,       only : castMGParticleStatePtr, MGParticleState
+  use multiScatterMG_class,        only : multiScatterMG, multiScatterMG_CptrCast
+  use neutronXsPackages_class,     only : neutronMacroXSs
+  use nuclearDatabase_inter,       only : nuclearDatabase
+  use nuclearDataReg_mod,          only : ndReg_getNeutronMG => getNeutronMG
+  use numPrecision
+  use particleDungeon_class,       only : particleDungeon
+  use physicalParticle_inter,      only : physicalParticle
+  use physicalParticleState_class, only : castPhysicalParticleStatePtr, physicalParticleState
+  use reactionHandle_inter,        only : reactionHandle
+  use RNG_class,                   only : RNG
+  use tallyAdmin_class,            only : tallyAdmin
+  use universalVariables,          only : nameWW
+  use weightWindowsField_class,    only : weightWindowsField, weightWindowsField_TptrCast
 
   implicit none
   private
@@ -116,29 +108,30 @@ contains
   !! Samples collision without any implicit treatment
   !!
   subroutine sampleCollision(self, p, collDat)
-    class(neutronMGimp), intent(inout)   :: self
-    class(particle), intent(inout)       :: p
-    type(collisionData), intent(inout)   :: collDat
-    type(neutronMacroXSs)                :: macroXSs
-    real(defReal)                        :: randomNumber
-    character(*), parameter              :: Here =' sampleCollision (neutronMGimp_class.f90)'
+    class(neutronMGimp), intent(inout)     :: self
+    class(physicalParticle), intent(inout) :: p
+    type(collisionData), intent(inout)     :: collDat
+    real(defReal)                          :: randomNumber
+    type(MGNeutron), pointer               :: MGNeutronPtr
+    type(neutronMacroXSs)                  :: macroXSs
+    type(RNG), pointer                     :: RNGPtr
+    character(*), parameter                :: Here =' sampleCollision (neutronMGimp_class.f90)'
 
     ! Verify that particle is MG neutron
-    if (.not. p % isMG .or. p % type /= P_NEUTRON) then
-      call fatalError(Here, 'Supports only MG Neutron. Was given CE '//printType(p % type))
-    end if
+    MGNeutronPtr => castMGNeutronPtr(p, .true.)
 
     ! Verify and load nuclear data pointer
     self % xsData => ndReg_getNeutronMG()
-    if (.not.associated(self % xsData)) call fatalError(Here, "Failed to get active database for MG Neutron")
+    if (.not. associated(self % xsData)) call fatalError(Here, "Failed to get active database for MG Neutron")
 
     ! Get and verify material pointer
-    self % mat => mgNeutronMaterial_CptrCast( self % xsData % getMaterial(p % getMatIdx()))
-    if (.not.associated(self % mat)) call fatalError(Here, "Failed to get MG Neutron Material")
+    self % mat => mgNeutronMaterial_CptrCast(self % xsData % getMaterial(MGNeutronPtr % getMaterialIdx()))
+    if (.not. associated(self % mat)) call fatalError(Here, "Failed to get MG Neutron Material")
 
     ! Select Main reaction channel
-    call self % mat % getMacroXSs(p % G, macroXSs, p % pRNG)
-    call p % pRNG % generate(randomNumber)
+    RNGPtr => MGNeutronPtr % getRNGPtr()
+    call self % mat % getMacroXSs(MGNeutronPtr % getEnergyGroup(), macroXSs, RNGPtr)
+    call RNGPtr % generate(randomNumber)
     collDat % MT = macroXSs % invert(randomNumber)
 
   end subroutine sampleCollision
@@ -147,31 +140,34 @@ contains
   !! Preform implicit treatment
   !!
   subroutine implicit(self, p, tally, collDat, thisCycle, nextCycle)
-    class(neutronMGimp), intent(inout)   :: self
-    class(particle), intent(inout)       :: p
-    type(tallyAdmin), intent(inout)      :: tally
-    type(collisionData), intent(inout)   :: collDat
-    class(particleDungeon), intent(inout) :: thisCycle
-    class(particleDungeon), intent(inout) :: nextCycle
-    type(neutronMacroXSs)                :: macroXSs
-    type(fissionMG), pointer              :: fission
-    type(particleState)                  :: pTemp
-    real(defReal), dimension(3)           :: r, dir
-    integer(shortInt)                    :: G_out, n, i
-    real(defReal)                        :: wgt, w0, randomNumber, mu, phi
-    real(defReal)                        :: sig_tot, k_eff, sig_nufiss
-    character(*), parameter :: Here = 'implicit (neutronMGimp_class.f90)'
+    class(neutronMGimp), intent(inout)     :: self
+    class(physicalParticle), intent(inout) :: p
+    type(tallyAdmin), intent(inout)        :: tally
+    type(collisionData), intent(inout)     :: collDat
+    class(particleDungeon), intent(inout)  :: thisCycle, nextCycle
+    type(fissionMG), pointer               :: fission
+    type(MGNeutron), pointer               :: MGNeutronPtr
+    type(MGParticleState), pointer         :: MGParticleStatePtr, preHistoryStatePtr
+    type(neutronMacroXSs)                  :: macroXSs
+    type(RNG), pointer                     :: RNGPtr
+    integer(shortInt)                      :: G, G_out, n, i
+    real(defReal)                          :: k_eff, mu, phi, randomNumber, sig_nufiss, sig_tot, wgt, w0
+    real(defReal), dimension(3)            :: rGlobal, u, uGlobal
+    character(*), parameter                :: Here = 'implicit (neutronMGimp_class.f90)'
 
+    MGNeutronPtr => castMGNeutronPtr(p, .true.)
     if (self % mat % isFissile()) then
       ! Obtain required data
-      wgt   = p % w                ! Current weight
-      w0    = p % preHistory % wgt ! Starting weight
-      k_eff = p % k_eff            ! k_eff for normalisation
-      call p % pRNG % generate(randomNumber)     ! Random number to sample sites
+      wgt = MGNeutronPtr % getWeight()               ! Current weight
+      preHistoryStatePtr => castMGParticleStatePtr(MGNeutronPtr % getPreHistoryStatePtr(), .true.)
+      w0 = preHistoryStatePtr % getWeight() ! Starting weight
+      k_eff = MGNeutronPtr % getKEff()            ! k_eff for normalisation
+      RNGPtr => MGNeutronPtr % getRNGPtr()
+      call RNGPtr % generate(randomNumber)     ! Random number to sample sites
 
-      call self % mat % getMacroXSs(p % G, macroXSs, p % pRNG)
-
-      sig_tot    = macroXSs % total
+      G = MGNeutronPtr % getEnergyGroup()
+      call self % mat % getMacroXSs(G, macroXSs, RNGPtr)
+      sig_tot = macroXSs % total
       sig_nuFiss = macroXSs % nuFission
 
       ! Sample number of fission sites generated
@@ -182,32 +178,33 @@ contains
       if (n < 1) return
 
       ! Get Fission reaction object
-      fission => fissionMG_TptrCast( self % xsData % getReaction(macroFission, collDat % matIdx))
-      if (.not.associated(fission)) call fatalError(Here, 'Failed to getrive fissionMG reaction object')
+      fission => fissionMG_TptrCast(self % xsData % getReaction(macroFission, collDat % matIdx))
+      if (.not. associated(fission)) call fatalError(Here, 'Failed to retrieve fissionMG.')
 
       ! Store new sites in the next cycle dungeon
-      wgt =  sign(w0, wgt)
-      r   = p % rGlobal()
-
-      do i= 1, n
-        call fission % sampleOut(mu, phi, G_out, p % G, p % pRNG)
-        dir = rotateVector(p % dirGlobal(), mu, phi)
+      wgt = sign(w0, wgt)
+      rGlobal = MGNeutronPtr % getGlobalPosition()
+      uGlobal = MGNeutronPtr % getGlobalDirection()
+      do i = 1, n
+        call fission % sampleOut(mu, phi, G_out, G, RNGPtr)
+        u = rotateVector(uGlobal, mu, phi)
 
         ! Copy extra detail from parent particle (i.e. time, flags ect.)
-        pTemp       = p
+        MGParticleStatePtr => castMGParticleStatePtr(MGNeutronPtr % updateAndGetCurrentStatePtr(), .true.)
 
         ! Overwrite position, direction, energy group and weight
-        pTemp % r   = r
-        pTemp % dir = dir
-        pTemp % G   = G_out
-        pTemp % wgt = wgt
+        call MGParticleStatePtr % setGlobalPosition(rGlobal)
+        call MGParticleStatePtr % setGlobalDirection(u)
+        call MGParticleStatePtr % setEnergyGroup(G_out)
+        call MGParticleStatePtr % setWeight(wgt)
 
-        call nextCycle % detain(pTemp)
+        call nextCycle % detain(MGParticleStatePtr)
 
         ! Report birth of new particle
-        call tally % reportSpawn(N_FISSION, p, pTemp)
+        call tally % reportSpawn(N_FISSION, MGNeutronPtr, MGParticleStatePtr)
 
       end do
+
     end if
 
   end subroutine implicit
@@ -216,12 +213,11 @@ contains
   !! Elastic Scattering
   !!
   subroutine elastic(self, p, tally, collDat, thisCycle, nextCycle)
-    class(neutronMGimp), intent(inout)   :: self
-    class(particle), intent(inout)       :: p
-    type(tallyAdmin), intent(inout)      :: tally
-    type(collisionData), intent(inout)   :: collDat
-    class(particleDungeon), intent(inout) :: thisCycle
-    class(particleDungeon), intent(inout) :: nextCycle
+    class(neutronMGimp), intent(inout)     :: self
+    class(physicalParticle), intent(inout) :: p
+    type(tallyAdmin), intent(inout)        :: tally
+    type(collisionData), intent(inout)     :: collDat
+    class(particleDungeon), intent(inout)  :: thisCycle, nextCycle
 
     ! Do nothing. Should not be called
 
@@ -231,34 +227,37 @@ contains
   !! Preform scattering
   !!
   subroutine inelastic(self, p, tally, collDat, thisCycle, nextCycle)
-    class(neutronMGimp), intent(inout)   :: self
-    class(particle), intent(inout)       :: p
-    type(tallyAdmin), intent(inout)      :: tally
-    type(collisionData), intent(inout)   :: collDat
-    class(particleDungeon), intent(inout) :: thisCycle
-    class(particleDungeon), intent(inout) :: nextCycle
-    class(multiScatterMG), pointer        :: scatter
-    integer(shortInt)                    :: G_out   ! Post-collision energy group
-    real(defReal)                        :: phi     ! Azimuthal scatter angle
-    real(defReal)                        :: w_mul   ! Weight multiplier
-    character(100), parameter :: Here = "inelastic (neutronMGimp_class.f90)"
+    class(neutronMGimp), intent(inout)     :: self
+    class(physicalParticle), intent(inout) :: p
+    type(tallyAdmin), intent(inout)        :: tally
+    type(collisionData), intent(inout)     :: collDat
+    class(particleDungeon), intent(inout)  :: thisCycle
+    class(particleDungeon), intent(inout)  :: nextCycle
+    class(multiScatterMG), pointer         :: scatter
+    integer(shortInt)                      :: G, G_out   ! Post-collision energy group
+    real(defReal)                          :: phi, w_mul
+    type(MGNeutron), pointer               :: MGNeutronPtr
+    character(*), parameter                :: Here = "inelastic (neutronMGimp_class.f90)"
+
+    MGNeutronPtr => castMGNeutronPtr(p, .true.)
 
     ! Assign MT number
     collDat % MT = macroIEscatter
 
     ! Get Scatter object
-    scatter => multiScatterMG_CptrCast( self % xsData % getReaction(macroIEscatter, collDat % matIdx))
-    if (.not.associated(scatter)) call fatalError(Here, "Failed to get scattering reaction object for MG neutron")
+    scatter => multiScatterMG_CptrCast(self % xsData % getReaction(macroIEscatter, collDat % matIdx))
+    if (.not. associated(scatter)) call fatalError(Here, "Failed to get scattering reaction object for MG neutron")
 
     ! Sample Mu and G_out
-    call scatter % sampleOut(collDat % muL, phi, G_out, p % G, p % pRNG)
+    G = MGNeutronPtr % getEnergyGroup()
+    call scatter % sampleOut(collDat % muL, phi, G_out, G, MGNeutronPtr % getRNGPtr())
 
     ! Read scattering multiplicity
-    w_mul = scatter % production(p % G, G_out)
+    w_mul = scatter % production(G, G_out)
 
     ! Update neutron state
-    p % G = G_out
-    p % w = p % w * w_mul
+    call MGNeutronPtr % setEnergyGroup(G_out)
+    call MGNeutronPtr % setWeight(MGNeutronPtr % getWeight() * w_mul)
     call p % rotate(collDat % muL, phi)
 
   end subroutine inelastic
@@ -267,14 +266,13 @@ contains
   !! Preform capture
   !!
   subroutine capture(self, p, tally, collDat, thisCycle, nextCycle)
-    class(neutronMGimp), intent(inout)   :: self
-    class(particle), intent(inout)       :: p
-    type(tallyAdmin), intent(inout)      :: tally
-    type(collisionData), intent(inout)   :: collDat
-    class(particleDungeon), intent(inout) :: thisCycle
-    class(particleDungeon), intent(inout) :: nextCycle
+    class(neutronMGimp), intent(inout)     :: self
+    class(physicalParticle), intent(inout) :: p
+    type(tallyAdmin), intent(inout)        :: tally
+    type(collisionData), intent(inout)     :: collDat
+    class(particleDungeon), intent(inout)  :: thisCycle, nextCycle
 
-    p % isDead = .true.
+    call p % setIsDead(.true.)
 
   end subroutine capture
 
@@ -282,14 +280,13 @@ contains
   !! Preform fission
   !!
   subroutine fission(self, p, tally, collDat, thisCycle, nextCycle)
-    class(neutronMGimp), intent(inout)   :: self
-    class(particle), intent(inout)       :: p
-    type(tallyAdmin), intent(inout)      :: tally
-    type(collisionData), intent(inout)   :: collDat
-    class(particleDungeon), intent(inout) :: thisCycle
-    class(particleDungeon), intent(inout) :: nextCycle
+    class(neutronMGimp), intent(inout)     :: self
+    class(physicalParticle), intent(inout) :: p
+    type(tallyAdmin), intent(inout)        :: tally
+    type(collisionData), intent(inout)     :: collDat
+    class(particleDungeon), intent(inout)  :: thisCycle, nextCycle
 
-    p % isDead = .true.
+    call p % setIsDead(.true.)
 
   end subroutine fission
 
@@ -297,16 +294,17 @@ contains
   !! Applay cutoffs or post-collision implicit treatment
   !!
   subroutine cutoffs(self, p, tally, collDat, thisCycle, nextCycle)
-    class(neutronMGimp), intent(inout)   :: self
-    class(particle), intent(inout)       :: p
-    type(tallyAdmin), intent(inout)      :: tally
-    type(collisionData), intent(inout)   :: collDat
-    class(particleDungeon), intent(inout) :: thisCycle
-    class(particleDungeon), intent(inout) :: nextCycle
-    real(defReal), dimension(3)          :: val
-    real(defReal)                        :: minWgt, maxWgt, avWgt
+    class(neutronMGimp), intent(inout)     :: self
+    class(physicalParticle), intent(inout) :: p
+    type(tallyAdmin), intent(inout)        :: tally
+    type(collisionData), intent(inout)     :: collDat
+    class(particleDungeon), intent(inout)  :: thisCycle, nextCycle
+    real(defReal)                          :: avWgt, maxWgt, minWgt, weight
+    real(defReal), dimension(3)            :: val
 
-    if (p % isDead) then
+    weight = p % getWeight()
+
+    if (p % getIsDead()) then
       ! Do nothing !
 
     ! Weight Windows treatment
@@ -318,10 +316,10 @@ contains
 
       ! If a particle is outside the WW map and all the weight limits
       ! are zero nothing happens. NOTE: this holds for positive weights only
-      if ((p % w > maxWgt) .and. (maxWgt /= ZERO) .and. (p % splitCount < self % maxSplit)) then
+      if (maxWgt < weight .and. maxWgt /= ZERO .and. p % getSplitsNumber() < self % maxSplit) then
         call self % split(p, tally, thisCycle, maxWgt)
 
-      elseif (p % w < minWgt) then
+      elseif (weight < minWgt) then
         call self % russianRoulette(p, avWgt)
 
       end if
@@ -334,17 +332,19 @@ contains
   !! Perform Russian roulette on a particle
   !!
   subroutine russianRoulette(self, p, avWgt)
-    class(neutronMGimp), intent(inout) :: self
-    class(particle), intent(inout)     :: p
-    real(defReal), intent(in)          :: avWgt
-    real(defReal)                      :: randomNumber
+    class(neutronMGimp), intent(inout)     :: self
+    class(physicalParticle), intent(inout) :: p
+    real(defReal), intent(in)              :: avWgt
+    real(defReal)                          :: randomNumber
+    type(RNG), pointer                     :: RNGPtr
 
-    call p % pRNG % generate(randomNumber)
-    if (randomNumber < (ONE - p % w/avWgt)) then
-      p % isDead = .true.
+    RNGPtr => p % getRNGPtr()
+    call RNGPtr % generate(randomNumber)
+    if (randomNumber < ONE - p % getWeight() / avWgt) then
+      call p % setIsDead(.true.)
 
     else
-      p % w = avWgt
+      call p % setWeight(avWgt)
 
     end if
 
@@ -354,39 +354,40 @@ contains
   !! Split particle which has too large a weight
   !!
   subroutine split(self, p, tally, thisCycle, maxWgt)
-    class(neutronMGimp), intent(inout)    :: self
-    class(particle), intent(inout)        :: p
-    type(tallyAdmin), intent(inout)       :: tally
-    class(particleDungeon), intent(inout) :: thisCycle
-    real(defReal), intent(in)             :: maxWgt
-    type(particleState)                   :: pTemp
-    integer(shortInt)                     :: mult, i
+    class(neutronMGimp), intent(inout)     :: self
+    class(physicalParticle), intent(inout) :: p
+    type(tallyAdmin), intent(inout)        :: tally
+    class(particleDungeon), intent(inout)  :: thisCycle
+    real(defReal), intent(in)              :: maxWgt
+    class(physicalParticleState), pointer  :: physicalParticleStatePtr
+    integer(shortInt)                      :: i, mult, nSplits
+    real(defReal)                          :: newWeight, weight
 
     ! This value must be at least 2
-    mult = ceiling(p % w/maxWgt)
+    weight = p % getWeight()
+    mult = ceiling(weight / maxWgt)
 
     ! Limit maximum split
-    if (mult + p % splitCount > self % maxSplit) then
-      mult = self % maxSplit - p % splitCount + 1
-    end if
+    nSplits = p % getSplitsNumber()
+    if (self % maxSplit < mult + nSplits) mult = self % maxSplit - nSplits + 1
 
     ! Copy particle to a particle state
     ! Note that particleState doesn't have property splitCount, so it is reset
     ! to 0 for the new particle
-    pTemp = p
-    pTemp % wgt = p % w/mult
+    newWeight = weight / mult
+    physicalParticleStatePtr => castPhysicalParticleStatePtr(p % updateAndGetCurrentStatePtr(), .true.)
+    call physicalParticleStatePtr % setWeight(newWeight)
 
     ! Add split particle's to the dungeon
-    do i = 1, mult-1
-      call thisCycle % detain(pTemp)
-      call tally % reportSpawn(N_N_SPLIT, p, pTemp)
+    do i = 1, mult - 1
+      call thisCycle % detain(physicalParticleStatePtr)
+      call tally % reportSpawn(N_N_SPLIT, p, physicalParticleStatePtr)
+
     end do
 
-    ! Update particle split count
-    p % splitCount = p % splitCount + mult
-
-    ! Decrease original particle weight
-    p % w = p % w/mult
+    ! Update particle split coun and decrease original particle weight.
+    call p % setSplitsNumber(nSplits + mult)
+    call p % setWeight(newWeight)
 
   end subroutine split
 

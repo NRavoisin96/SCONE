@@ -41,22 +41,22 @@ contains
   !! Samples mu and E_out given incident energy E_in and random number generator
   !!
   subroutine sample(self,mu,E_out,E_in,rand)
-    class(kalbach87), intent(in)  :: self
-    real(defReal), intent(out)    :: mu
-    real(defReal), intent(out)    :: E_out
-    real(defReal), intent(in)     :: E_in
-    class(RNG), intent(inout)     :: rand
-    integer(shortInt)             :: idx
-    real(defReal)                 :: E_min_low, E_max_low
-    real(defReal)                 :: E_min_up, E_max_up
-    real(defReal)                 :: E_min, E_max
-    real(defReal)                 :: factor
-    real(defReal)                 :: randomNumber, eps
-    character(100), parameter      :: Here='sample (kalbach87_class.f90)'
+    class(kalbach87), intent(in) :: self
+    real(defReal), intent(out)   :: mu
+    real(defReal), intent(out)   :: E_out
+    real(defReal), intent(in)    :: E_in
+    class(RNG), intent(inout)    :: rand
+    integer(shortInt)            :: idx
+    real(defReal)                :: E_min_low, E_max_low
+    real(defReal)                :: E_min_up, E_max_up
+    real(defReal)                :: E_min, E_max
+    real(defReal)                :: factor
+    real(defReal)                :: randomNumber, eps
+    character(*), parameter      :: Here = 'sample (kalbach87_class.f90)'
 
     ! Find Interval index
-    idx = floorBinarySearch(self % eGrid,E_in)
-    call searchError(idx,Here)
+    idx = floorBinarySearch(self % eGrid, E_in)
+    call searchError(idx, Here)
 
     ! Calculate threshold and sample random number
     eps = (E_in - self % eGrid(idx)) / (self % eGrid(idx+1) - self % eGrid(idx))

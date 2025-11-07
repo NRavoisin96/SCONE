@@ -1,26 +1,25 @@
 module keffImplicitClerk_class
 
-  use numPrecision
-  use tallyCodes
-  use endfConstants
-  use universalVariables
-  use genericProcedures,          only : fatalError, charCmp
   use dictionary_class,           only : dictionary
-  use particle_class,             only : particle
-  use particleDungeon_class,      only : particleDungeon
-  use outputFile_class,           only : outputFile
-
-  ! Nuclear Data Interfaces
-  use nuclearDataReg_mod,         only : ndReg_get => get
-  use nuclearDatabase_inter,      only : nuclearDatabase
+  use endfConstants
+  use errors_mod,                 only : fatalError
+  use genericProcedures,          only : charCmp
+  use keffAnalogClerk_class,      only : keffResult
   use neutronMaterial_inter,      only : neutronMaterial,neutronMaterial_CptrCast
   use neutronXSPackages_class,    only : neutronMacroXSs
-
-  ! Tally Interfaces
+  use nuclearDatabase_inter,      only : nuclearDatabase
+  use nuclearDataReg_mod,         only : ndReg_get => get
+  use numPrecision
+  use outputFile_class,           only : outputFile
+  use particleDungeon_class,      only : particleDungeon
+  use physicalParticle_inter,     only : physicalParticle
   use scoreMemory_class,          only : scoreMemory
-  use tallyResult_class,          only : tallyResult, tallyResultEmpty
   use tallyClerk_inter,           only : tallyClerk, kill_super => kill
-  use keffAnalogClerk_class,      only : keffResult
+  use tallyCodes
+  use tallyResult_class,          only : tallyResult, tallyResultEmpty
+  use transportObject_inter,      only : transportObject
+  use transportObjectState_class, only : transportObjectState
+  use universalVariables
 
   implicit none
   private
@@ -158,13 +157,13 @@ contains
   !!
   subroutine reportInColl(self, p, virtual, xsData, mem)
     class(keffImplicitClerk), intent(inout) :: self
-    class(particle), intent(in)             :: p
+    class(physicalParticle), intent(in)     :: p
     logical(defBool), intent(in)            :: virtual
     class(nuclearDatabase), intent(inout)   :: xsData
     type(scoreMemory), intent(inout)        :: mem
     type(neutronMacroXSs)                   :: xss
     class(neutronMaterial), pointer         :: mat
-    real(defReal)                           :: nuFissXS, absXS, flux, s1, s2
+    real(defReal)                           :: nuFissXS, absXS, flux, s1, s2, weight
     integer(shortInt)                       :: matIdx
     character(*), parameter                 :: Here = 'reportInColl (keffImplicitClerk_class.f90)'
 
@@ -172,25 +171,28 @@ contains
     if ((.not. self % handleVirtual) .and. virtual) return
 
     ! Ensure we're not in void (could happen when scoring virtual collisions)
-    matIdx = p % getMatIdx()
+    matIdx = p % getMaterialIdx()
     if (matIdx == VOID_MAT) return
 
     ! Calculate flux with the right cross section according to virtual collision handling
+    weight = p % getWeight()
     if (self % handleVirtual) then
-      flux = p % w / xsData % getTrackingXS(p, matIdx, TRACKING_XS)
+      flux = weight / xsData % getTrackingXS(p, matIdx, TRACKING_XS)
+
     else
-      flux = p % w / xsData % getTotalMatXS(p, matIdx)
+      flux = weight / xsData % getTotalMatXS(p, matIdx)
+
     end if
 
     ! Get material pointer
     mat => neutronMaterial_CptrCast(xsData % getMaterial(matIdx))
-    if (.not.associated(mat)) call fatalError(Here, 'Unrecognised type of material was retrieved from nuclearDatabase')
+    if (.not. associated(mat)) call fatalError(Here, 'Unrecognised type of material was retrieved from nuclearDatabase')
 
     ! Obtain xss
     call mat % getMacroXSs(p, xss)
 
     nuFissXS = xss % nuFission
-    absXS    = xss % capture + xss % fission
+    absXS = xss % capture + xss % fission
 
     s1 = nuFissXS * flux
     s2 = absXS * flux
@@ -208,33 +210,39 @@ contains
   !!
   subroutine reportOutColl(self, p, MT, muL, xsData, mem)
     class(keffImplicitClerk), intent(inout) :: self
-    class(particle), intent(in)             :: p
+    class(physicalParticle), intent(in)     :: p
     integer(shortInt), intent(in)           :: MT
     real(defReal), intent(in)               :: muL
-    class(nuclearDatabase), intent(inout)    :: xsData
+    class(nuclearDatabase), intent(inout)   :: xsData
     type(scoreMemory), intent(inout)        :: mem
-    real(defReal)                           :: score
+    class(transportObjectState), pointer    :: preCollisionStatePtr
+    real(defReal)                           :: preCollisionWeight, score
 
     ! Select analog score
     ! Assumes N_XNs are by implicit weight change
+    preCollisionStatePtr => p % getPreCollisionStatePtr()
+    preCollisionWeight = preCollisionStatePtr % getWeight()
     select case(MT)
       case(N_2N)
-        score = 1.0_defReal * p % preCollision % wgt
+        score = 1.0_defReal * preCollisionWeight
+
       case(N_3N)
-        score = 2.0_defReal * p % preCollision % wgt
+        score = 2.0_defReal * preCollisionWeight
+
       case(N_4N)
-        score = 3.0_defReal * p % preCollision % wgt
+        score = 3.0_defReal * preCollisionWeight
+
       case(macroAllScatter) ! Catch weight change for MG scattering
-        score = max(p % w - p % preCollision % wgt, ZERO)
+        score = max(p % getWeight() - preCollisionWeight, ZERO)
+
       case default
         score = ZERO
+
     end select
 
     ! Add to scattering production estimator
     ! Use pre collision weight
-    if (score > ZERO) then
-      call mem % score(score, self % getMemAddress() + SCATTER_PROD)
-    end if
+    if (ZERO < score) call mem % score(score, self % getMemAddress() + SCATTER_PROD)
 
   end subroutine reportOutColl
 
@@ -244,21 +252,14 @@ contains
   !!
   !! See tallyClerk_inter for details
   !!
-  subroutine reportHist(self, p, xsData, mem)
+  subroutine reportHist(self, object, xsData, mem)
     class(keffImplicitClerk), intent(inout) :: self
-    class(particle), intent(in)             :: p
-    class(nuclearDatabase), intent(inout)    :: xsData
+    class(transportObject), intent(in)      :: object
+    class(nuclearDatabase), intent(inout)   :: xsData
     type(scoreMemory), intent(inout)        :: mem
-    real(defReal)                           :: histWgt
 
-    if (p % fate == leak_FATE) then
-      ! Obtain and score history weight
-      histWgt = p % w
-
-      ! Score analog leakage
-      call mem % score(histWgt, self % getMemAddress() + ANA_LEAK)
-
-    end if
+    ! Score analog leakage if object has leaked.
+    if (object % getFate() == leak_FATE) call mem % score(object % getWeight(), self % getMemAddress() + ANA_LEAK)
 
   end subroutine reportHist
 

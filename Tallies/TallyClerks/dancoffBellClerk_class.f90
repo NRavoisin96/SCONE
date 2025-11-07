@@ -1,29 +1,27 @@
 module dancoffBellClerk_class
 
-  use numPrecision
-  use tallyCodes
-  use endfConstants
-  use genericProcedures,          only : fatalError, hasDuplicates
   use dictionary_class,           only : dictionary
-  use particle_class,             only : particle, particleState
-  use particleDungeon_class,      only : particleDungeon
-  use outputFile_class,           only : outputFile
-  use intMap_class,               only : intMap
-
-  ! Basic tally modules
-  use scoreMemory_class,          only : scoreMemory
-  use tallyClerk_inter,           only : tallyClerk, kill_super => kill
-  use tallyResult_class,          only : tallyResult
+  use endfConstants
   use energyFilter_class,         only : energyFilter
-
-  ! Nuclear Data
+  use errors_mod,                 only : fatalError
+  use genericProcedures,          only : hasDuplicates
+  use intMap_class,               only : intMap
   use materialMenu_mod,           only : mm_matIdx => matIdx
   use nuclearDatabase_inter,      only : nuclearDatabase
+  use numPrecision
+  use outputFile_class,           only : outputFile
+  use particleDungeon_class,      only : particleDungeon
+  use scoreMemory_class,          only : scoreMemory
+  use tallyClerk_inter,           only : tallyClerk, kill_super => kill
+  use tallyCodes
+  use tallyResult_class,          only : tallyResult
+  use transportObject_inter,      only : transportObject
+  use transportObjectState_class, only : transportObjectState
 
   implicit none
   private
 
-  !! Local parameters. Note that OUSIDE is not arbitraty. Choosen to match invalid idx
+  !! Local parameters. Note that OUTSIDE is not arbitraty. Choosen to match invalid idx
   !! given by a tallyMap
   integer(shortInt), parameter :: FUEL      = -2, &
                                   MODERATOR = -3, &
@@ -93,14 +91,14 @@ contains
   !! See tallyClerk_inter for details
   !!
   subroutine init(self, dict, name)
-    class(dancoffBellClerk), intent(inout)      :: self
-    class(dictionary), intent(in)               :: dict
-    character(nameLen), intent(in)              :: name
-    real(defReal)                               :: Emax, Emin
+    class(dancoffBellClerk), intent(inout)        :: self
+    class(dictionary), intent(in)                 :: dict
+    character(nameLen), intent(in)                :: name
+    real(defReal)                                 :: Emax, Emin
     character(nameLen), dimension(:), allocatable :: fuelNames, modNames
-    integer(shortInt), dimension(:), allocatable :: fuelIdx, modIdx
-    integer(shortInt)                           :: i
-    character(100), parameter :: Here ='init (dancoffBellClerk_class.f90)'
+    integer(shortInt), dimension(:), allocatable  :: fuelIdx, modIdx
+    integer(shortInt)                             :: i
+    character(*), parameter                       :: Here = 'init (dancoffBellClerk_class.f90)'
 
     ! Load name
     call self % setName(name)
@@ -178,38 +176,37 @@ contains
   !!
   !! See tallyClerk_inter for details
   !!
-  subroutine reportTrans(self, p, xsData, mem)
+  subroutine reportTrans(self, object, xsData, mem)
     class(dancoffBellClerk), intent(inout) :: self
-    class(particle), intent(in)            :: p
-    class(nuclearDatabase), intent(inout)   :: xsData
+    class(transportObject), intent(in)     :: object
+    class(nuclearDatabase), intent(inout)  :: xsData
     type(scoreMemory), intent(inout)       :: mem
-    real(defReal)                          :: SigmaTot
-    integer(shortInt)                      :: T_end, T_start
-    real(defReal)                          :: w_end
-    type(particleState)                    :: state
-
-    character(*), parameter :: Here = 'reportTrans (dancoffBellClerk_class.f90)'
+    class(transportObjectState), pointer   :: preTransitionStatePtr
+    integer(shortInt)                      :: preTransitionMaterialIdx, T_end, T_start
+    real(defReal)                          :: SigmaTot, w_end
+    character(*), parameter                :: Here = 'reportTrans (dancoffBellClerk_class.f90)'
 
     ! Find start material type; Exit if not fuel
-    T_start = self % materialSet % getOrDefault(p % preTransition % matIdx, OUTSIDE)
+    preTransitionStatePtr => object % getPreTransitionStatePtr()
+    preTransitionMaterialIdx = preTransitionStatePtr % getMaterialIdx()
+    T_start = self % materialSet % getOrDefault(preTransitionMaterialIdx, OUTSIDE)
     if (T_start /= FUEL) return
 
     ! Exit if outside energy range
-    state = p
-    if (.not.self % filter % isPass(state)) return
+    if (.not. self % filter % isPass(object % updateAndGetCurrentStatePtr())) return
 
     ! Find end material type; Exit if not fuel or moderator
-    T_end = self % materialSet % getOrDefault(p % getMatIdx(), OUTSIDE)
+    T_end = self % materialSet % getOrDefault(object % getMaterialIdx(), OUTSIDE)
     if (T_end == OUTSIDE) return
 
     ! Obtain starting and ending weights
-    w_end   = p % w
+    w_end = object % getWeight()
 
     ! Add to approperiate bins
     select case(T_end)
       case(MODERATOR)
         ! Get XS
-        SigmaTot = xsData % getTotalMatXS(p, p % preTransition % matIdx)
+        SigmaTot = xsData % getTotalMatXS(object, preTransitionMaterialIdx)
 
         call mem % score(w_end * SigmaTot, self % getMemAddress() + ESC_PROB_TOTXS)
 
@@ -239,6 +236,7 @@ contains
       fuelWgt   = mem % getScore(self % getMemAddress() + STAY_PROB)
       print *, escSigmaT, fuelWgt
       call mem % accumulate( escSigmaT / fuelWgt, self % getMemAddress() + D_EFF)
+
     end if
 
   end subroutine reportCycleEnd
@@ -300,6 +298,5 @@ contains
     ! Kill filter whan available
 
   end subroutine kill
-
 
 end module dancoffBellClerk_class

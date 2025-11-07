@@ -1,12 +1,11 @@
 module radialMap_test
 
-  use numPrecision
+  use dictionary_class,           only : dictionary
   use funit
-  use particle_class,   only : particleState
-  use dictionary_class, only : dictionary
-  use outputFile_class, only : outputFile
-
-  use radialMap_class,  only : radialMap
+  use numPrecision
+  use outputFile_class,           only : outputFile
+  use radialMap_class,            only : radialMap
+  use transportObjectState_class, only : transportObjectState
 
   implicit none
 
@@ -14,20 +13,15 @@ module radialMap_test
 @testCase
   type, extends(TestCase) :: test_radialMap
     private
-    type(radialMap) :: map_cyl_linear
-    type(radialMap) :: map_cyl_equivol
-    type(radialMap) :: map_cyl_unstruct
-    type(radialMap) :: map_sph_from_zero
-    type(radialMap) :: map_sph_from_min
-    type(radialMap) :: map_sph_equivol
-
+    type(radialMap) :: map_cyl_linear, map_cyl_equivol, map_cyl_unstruct, &
+                       map_sph_from_zero, map_sph_from_min, map_sph_equivol
   contains
     procedure :: setUp
     procedure :: tearDown
   end type test_radialMap
 
 contains
-
+@Before
   !!
   !! Sets up test_radialMap object we can use in a number of tests
   !!
@@ -98,6 +92,7 @@ contains
 
   end subroutine setUp
 
+@After
   !!
   !! Kills test_radialMap object we can use in a number of tests
   !!
@@ -116,28 +111,30 @@ contains
 !!<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 !! PROPER TESTS BEGIN HERE
 !!<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
-
   !!
   !! Test cylindrical map with different orientation & minimum radius
   !!
 @Test
   subroutine testCylLinear(this)
-    class(test_radialMap), intent(inout)     :: this
-    real(defReal), dimension(4), parameter     :: r = [0.4_defReal, 5.38_defReal, 7.9_defReal, 9.1_defReal]
-    real(defReal), dimension(4), parameter    :: phi = [1.4_defReal, 3.0_defReal, 0.5_defReal, PI/2]
-    real(defReal), dimension(4), parameter    :: z = [1.0_defReal, 39.8_defReal, 0.05_defReal, -12.2_defReal]
-    integer(shortInt), dimension(4), parameter :: RES_IDX = [1, 3, 4, 0]
-    integer(shortInt), dimension(4)           :: idx
-    type(particleState), dimension(4)         :: states
+    class(test_radialMap), intent(inout)       :: this
+    integer(shortInt)                          :: i
+    integer(shortInt), dimension(4)            :: idxs
+    real(defReal), dimension(3, 4)             :: directions
+    type(transportObjectState), dimension(4)   :: states
+    integer(shortInt), dimension(4), parameter :: RES_IDXS = [1, 3, 4, 0]
+    real(defReal), dimension(4), parameter     :: phi = [1.4_defReal, 3.0_defReal, 0.5_defReal, PI/2], &
+                                                  r = [0.4_defReal, 5.38_defReal, 7.9_defReal, 9.1_defReal], &
+                                                  z = [1.0_defReal, 39.8_defReal, 0.05_defReal, -12.2_defReal]
 
-    ! Initialise states
-    states(:) % r(1) = z
-    states(:) % r(2) = r * cos(phi)
-    states(:) % r(3) = r * sin(phi)
+    ! Initialise states.
+    directions = ZERO
+    do i = 1, 4
+      directions(:, i) = [z(i), r(i) * cos(phi(i)), r(i) * sin(phi(i))]
+      call states(i) % setGlobalPosition(directions(:, i))
+      idxs(i) = this % map_cyl_linear % map(states(i))
 
-    idx = this % map_cyl_linear % map(states)
-
-    @assertEqual(RES_IDX, idx)
+    end do
+    @assertEqual(RES_IDXS, idxs)
 
   end subroutine testCylLinear
 
@@ -146,21 +143,25 @@ contains
   !!
 @Test
   subroutine testCylEquivol(this)
-    class(test_radialMap), intent(inout)     :: this
-    real(defReal), dimension(4), parameter     :: r = [1.82_defReal, 4.68_defReal, 7.9_defReal, 9.01_defReal]
-    real(defReal), dimension(4), parameter    :: phi = [1.4_defReal, 3.0_defReal, 0.5_defReal, PI/2]
-    real(defReal), dimension(4), parameter   :: z = [1.0_defReal, 39.8_defReal, 0.05_defReal, -12.2_defReal]
-    integer(shortInt), dimension(4), parameter :: RES_IDX = [0, 1, 4, 5]
-    integer(shortInt), dimension(4)           :: idx
-    type(particleState), dimension(4)         :: states
+    class(test_radialMap), intent(inout)       :: this
+    integer(shortInt)                          :: i
+    integer(shortInt), dimension(4)            :: idxs
+    real(defReal), dimension(3, 4)             :: directions
+    type(transportObjectState), dimension(4)   :: states
+    integer(shortInt), dimension(4), parameter :: RES_IDXS = [0, 1, 4, 5]
+    real(defReal), dimension(4), parameter     :: phi = [1.4_defReal, 3.0_defReal, 0.5_defReal, PI/2], &
+                                                  r = [1.82_defReal, 4.68_defReal, 7.9_defReal, 9.01_defReal], &
+                                                  z = [1.0_defReal, 39.8_defReal, 0.05_defReal, -12.2_defReal]
 
-    ! Initialise states
-    states(:) % r(1) = r * cos(phi)
-    states(:) % r(2) = r * sin(phi)
-    states(:) % r(3) = z
+    ! Initialise states.
+    directions = ZERO
+    do i = 1, 4
+      directions(:, i) = [r(i) * cos(phi(i)), r(i) * sin(phi(i)), z(i)]
+      call states(i) % setGlobalPosition(directions(:, i))
+      idxs(i) = this % map_cyl_equivol % map(states(i))
 
-    idx = this % map_cyl_equivol % map(states)
-    @assertEqual(RES_IDX, idx)
+    end do
+    @assertEqual(RES_IDXS, idxs)
 
   end subroutine testCylEquivol
 
@@ -169,26 +170,25 @@ contains
   !!
 @Test
   subroutine testCylUnstruct(this)
-    class(test_radialMap), intent(inout)     :: this
-    real(defReal), dimension(4), parameter     :: r = [1.52_defReal, 5.5_defReal, 8.9_defReal, 2.88_defReal]
-    real(defReal), dimension(4), parameter    :: phi = [1.4_defReal, 3.0_defReal, 0.5_defReal, PI/2]
-    real(defReal), dimension(4), parameter   :: z = [1.0_defReal, 39.8_defReal, 0.05_defReal, -12.2_defReal]
-    integer(shortInt), dimension(4), parameter :: RES_IDX = [1, 3, 0, 2]
-    integer(shortInt), dimension(4)           :: idx
-    type(particleState), dimension(4)         :: states
+    class(test_radialMap), intent(inout)       :: this
+    integer(shortInt)                          :: i
+    integer(shortInt), dimension(4)            :: idxs
+    real(defReal), dimension(3, 4)             :: directions
+    type(transportObjectState), dimension(4)   :: states
+    integer(shortInt), dimension(4), parameter :: RES_IDXS = [1, 3, 0, 2]
+    real(defReal), dimension(4), parameter     :: phi = [1.4_defReal, 3.0_defReal, 0.5_defReal, PI/2], &
+                                                  r = [1.52_defReal, 5.5_defReal, 8.9_defReal, 2.88_defReal], &
+                                                  z = [1.0_defReal, 39.8_defReal, 0.05_defReal, -12.2_defReal]
 
-    ! Initialise states
-    states(:) % r(1) = r * cos(phi)
-    states(:) % r(2) = r * sin(phi)
-    states(:) % r(3) = z
+    ! Initialise states.
+    directions = ZERO
+    do i = 1, 4
+      directions(:, i) = [r(i) * cos(phi(i)) + ONE, r(i) * sin(phi(i)) + ONE, z(i)]
+      call states(i) % setGlobalPosition(directions(:, i))
+      idxs(i) = this % map_cyl_unstruct % map(states(i))
 
-    ! Shift the origin
-    states(:) % r(1) = states(:) % r(1) + ONE
-    states(:) % r(2) = states(:) % r(2) + ONE
-    states(:) % r(3) = states(:) % r(3)
-
-    idx = this % map_cyl_unstruct % map(states)
-    @assertEqual(RES_IDX, idx)
+    end do
+    @assertEqual(RES_IDXS, idxs)
 
   end subroutine testCylUnstruct
 
@@ -197,21 +197,25 @@ contains
   !!
 @Test
   subroutine testSphFromOrigin(this)
-    class(test_radialMap), intent(inout)     :: this
-    real(defReal), dimension(4), parameter     :: r = [0.4_defReal, 3.58_defReal, 8.9_defReal, 11.0_defReal]
-    real(defReal), dimension(4), parameter    :: phi = [1.4_defReal, 3.98_defReal, 0.5_defReal, PI/2]
-    real(defReal), dimension(4), parameter   :: tht = [ZERO, PI/2, PI/4, -PI/2]
-    integer(shortInt), dimension(4), parameter :: RES_IDX = [1, 8, 18, 0]
-    integer(shortInt), dimension(4)           :: idx
-    type(particleState), dimension(4)         :: states
+    class(test_radialMap), intent(inout)       :: this
+    integer(shortInt)                          :: i
+    integer(shortInt), dimension(4)            :: idxs
+    real(defReal), dimension(3, 4)             :: directions
+    type(transportObjectState), dimension(4)   :: states
+    integer(shortInt), dimension(4), parameter :: RES_IDXS = [1, 8, 18, 0]
+    real(defReal), dimension(4), parameter     :: phi = [1.4_defReal, 3.98_defReal, HALF, PI / TWO], &
+                                                  r = [0.4_defReal, 3.58_defReal, 8.9_defReal, 11.0_defReal], &
+                                                  theta = [ZERO, PI / TWO, PI / 4.0_defReal, -PI / TWO]
 
-    ! Initialise states
-    states(:) % r(1) = r * cos(phi) * sin(tht)
-    states(:) % r(2) = r * sin(phi) * sin(tht)
-    states(:) % r(3) = r * cos(tht)
+    ! Initialise states.
+    directions = ZERO
+    do i = 1, 4
+      directions(:, i) = [r(i) * cos(phi(i)) * sin(theta(i)), r(i) * sin(phi(i)) * sin(theta(i)), r(i) * cos(theta(i))]
+      call states(i) % setGlobalPosition(directions(:, i))
+      idxs(i) = this % map_sph_from_zero % map(states(i))
 
-    idx = this % map_sph_from_zero % map(states)
-    @assertEqual(RES_IDX, idx)
+    end do
+    @assertEqual(RES_IDXS, idxs)
 
   end subroutine testSphFromOrigin
 
@@ -220,26 +224,25 @@ contains
   !!
 @Test
   subroutine testSphFromMin(this)
-    class(test_radialMap), intent(inout)     :: this
-    real(defReal), dimension(4), parameter     :: r = [1.5_defReal, 5.5_defReal, 8.9_defReal, 11.0_defReal]
-    real(defReal), dimension(4), parameter    :: phi = [1.4_defReal, 3.98_defReal, 0.5_defReal, PI/2]
-    real(defReal), dimension(4), parameter   :: tht = [ZERO, PI/2, PI/4, -PI/2]
-    integer(shortInt), dimension(4), parameter :: RES_IDX = [0, 1, 4, 0]
-    integer(shortInt), dimension(4)           :: idx
-    type(particleState), dimension(4)         :: states
+    class(test_radialMap), intent(inout)       :: this
+    integer(shortInt)                          :: i
+    integer(shortInt), dimension(4)            :: idxs
+    real(defReal), dimension(3, 4)             :: directions
+    type(transportObjectState), dimension(4)   :: states
+    integer(shortInt), dimension(4), parameter :: RES_IDXS = [0, 1, 4, 0]
+    real(defReal), dimension(4), parameter     :: phi = [1.4_defReal, 3.98_defReal, HALF, PI / TWO], &
+                                                  r = [1.5_defReal, 5.5_defReal, 8.9_defReal, 11.0_defReal], &
+                                                  theta = [ZERO, PI / TWO, PI / 4.0_defReal, -PI / TWO]
 
-    ! Initialise states
-    states(:) % r(1) = r * cos(phi) * sin(tht)
-    states(:) % r(2) = r * sin(phi) * sin(tht)
-    states(:) % r(3) = r * cos(tht)
+    ! Initialise states.
+    directions = ZERO
+    do i = 1, 4
+      directions(:, i) = [r(i) * cos(phi(i)) * sin(theta(i)), r(i) * sin(phi(i)) * sin(theta(i)), r(i) * cos(theta(i))] + ONE
+      call states(i) % setGlobalPosition(directions(:, i))
+      idxs(i) = this % map_sph_from_min % map(states(i))
 
-    ! Shift the origin
-    states(:) % r(1) = states(:) % r(1) + ONE
-    states(:) % r(2) = states(:) % r(2) + ONE
-    states(:) % r(3) = states(:) % r(3) + ONE
-
-    idx = this % map_sph_from_min % map(states)
-    @assertEqual(RES_IDX, idx)
+    end do
+    @assertEqual(RES_IDXS, idxs)
 
   end subroutine testSphFromMin
 
@@ -248,21 +251,25 @@ contains
   !!
 @Test
   subroutine testSphEquivol(this)
-    class(test_radialMap), intent(inout)     :: this
-    real(defReal), dimension(4), parameter     :: r = [1.5_defReal, 5.5_defReal, 18.9_defReal, 11.0_defReal]
-    real(defReal), dimension(4), parameter    :: phi = [1.4_defReal, 3.98_defReal, 0.5_defReal, PI/2]
-    real(defReal), dimension(4), parameter   :: tht = [ZERO, PI/2, PI/4, -PI/2]
-    integer(shortInt), dimension(4), parameter :: RES_IDX = [0, 1, 7, 2]
-    integer(shortInt), dimension(4)           :: idx
-    type(particleState), dimension(4)         :: states
+    class(test_radialMap), intent(inout)       :: this
+    integer(shortInt)                          :: i
+    integer(shortInt), dimension(4)            :: idxs
+    real(defReal), dimension(3, 4)             :: directions
+    type(transportObjectState), dimension(4)   :: states
+    integer(shortInt), dimension(4), parameter :: RES_IDXS = [0, 1, 7, 2]
+    real(defReal), dimension(4), parameter     :: phi = [1.4_defReal, 3.98_defReal, HALF, PI / TWO], &
+                                                  r = [1.5_defReal, 5.5_defReal, 18.9_defReal, 11.0_defReal], &
+                                                  theta = [ZERO, PI / TWO, PI / 4.0_defReal, -PI / TWO]
 
-    ! Initialise states
-    states(:) % r(1) = r * cos(phi) * sin(tht)
-    states(:) % r(2) = r * sin(phi) * sin(tht)
-    states(:) % r(3) = r * cos(tht)
+    ! Initialise states.
+    directions = ZERO
+    do i = 1, 4
+      directions(:, i) = [r(i) * cos(phi(i)) * sin(theta(i)), r(i) * sin(phi(i)) * sin(theta(i)), r(i) * cos(theta(i))]
+      call states(i) % setGlobalPosition(directions(:, i))
+      idxs(i) = this % map_sph_equivol % map(states(i))
 
-    idx = this % map_sph_equivol % map(states)
-    @assertEqual(RES_IDX, idx)
+    end do
+    @assertEqual(RES_IDXS, idxs)
 
   end subroutine testSphEquivol
 
@@ -274,14 +281,14 @@ contains
     class(test_radialMap), intent(inout) :: this
 
     ! Test that map is 1D
-    @assertEqual(4, this % map_cyl_linear % bins(0),'All bins')
-    @assertEqual(4, this % map_cyl_linear % bins(1),'1st dimension')
-    @assertEqual(0, this % map_cyl_linear % bins(2),'2nd dimension')
-    @assertEqual(3, this % map_cyl_unstruct % bins(1),'1st dimension')
-    @assertEqual(5, this % map_cyl_equivol % bins(1),'1st dimension')
-    @assertEqual(20, this % map_sph_from_zero % bins(1),'1st Dimension')
-    @assertEqual(20, this % map_sph_from_zero % bins(0),'All bins')
-    @assertEqual(0,  this % map_sph_from_min % bins(2),'Invalid Dimension')
+    @assertEqual(4, this % map_cyl_linear % bins(0), 'All bins.')
+    @assertEqual(4, this % map_cyl_linear % bins(1), '1st dimension.')
+    @assertEqual(0, this % map_cyl_linear % bins(2), '2nd dimension.')
+    @assertEqual(3, this % map_cyl_unstruct % bins(1), '1st dimension.')
+    @assertEqual(5, this % map_cyl_equivol % bins(1), '1st dimension.')
+    @assertEqual(20, this % map_sph_from_zero % bins(1), '1st dimension.')
+    @assertEqual(20, this % map_sph_from_zero % bins(0), 'All bins.')
+    @assertEqual(0,  this % map_sph_from_min % bins(2), 'Invalid dimension.')
 
     ! Get dimensionality
     @assertEqual(1, this % map_cyl_linear % dimensions())
@@ -302,30 +309,29 @@ contains
     call out % init('dummyPrinter', fatalErrors = .false.)
 
     call this % map_cyl_linear % print(out)
-    @assertTrue(out % isValid(),'Linear map case (cylindrical)')
+    @assertTrue(out % isValid(), 'Linear map case (cylindrical).')
     call out % reset()
 
     call this % map_cyl_equivol % print(out)
-    @assertTrue(out % isValid(),'Equivolume map case (cylindrical)')
+    @assertTrue(out % isValid(), 'Equivolume map case (cylindrical).')
     call out % reset()
 
     call this % map_cyl_unstruct % print(out)
-    @assertTrue(out % isValid(),'Unstruct map case (cylindrical)')
+    @assertTrue(out % isValid(), 'Unstruct map case (cylindrical).')
     call out % reset()
 
     call this % map_sph_from_zero % print(out)
-    @assertTrue(out % isValid(),'Linear map case from zero (spherical)')
+    @assertTrue(out % isValid(), 'Linear map case from zero (spherical).')
     call out % reset()
 
     call this % map_sph_from_min % print(out)
-    @assertTrue(out % isValid(),'Linear map case from minimum radius (spherical)')
+    @assertTrue(out % isValid(), 'Linear map case from minimum radius (spherical).')
     call out % reset()
 
     call this % map_sph_equivol % print(out)
-    @assertTrue(out % isValid(),'Equivolume map case (spherical)')
+    @assertTrue(out % isValid(), 'Equivolume map case (spherical).')
     call out % reset()
 
   end subroutine testPrint
-
 
 end module radialMap_test

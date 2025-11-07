@@ -1,31 +1,22 @@
 module fixedSourcePhysicsPackage_class
 
-  use numPrecision
-  use universalVariables
-  use genericProcedures,            only : fatalError, printFishLineR, numToChar
+  use collisionOperator_class,      only : collisionOperator
   use dictionary_class,             only : dictionary
+  use errors_mod,                   only : fatalError
+  use genericProcedures,            only : numToChar, printFishLineR
+  use numPrecision
   use outputFile_class,             only : outputFile
-
-  ! Timers
-  use timer_mod,                    only : secToChar
-
-  ! Particle classes and Random number generator
-  use particle_class,               only : particle, P_NEUTRON
   use particleDungeon_class,        only : particleDungeon
-  use RNG_class,                    only : RNG
-
-  ! Physics package interface
   use particlePhysicsPackage_inter, only : collectSpecificResults_super => collectSpecificResults, &
                                            init_super => init, initParticlePhysicsPackagePayload, &
                                            particlePhysicsPackage, kill_super => kill
+  use physicalParticle_inter,       only : physicalParticle
   use physicsPackage_inter,         only : copyPayload, initPhysicsPackagePayload
-
-  ! Operators
-  use collisionOperator_class,      only : collisionOperator
-  use transportOperator_inter,      only : transportOperator
-
-  ! Tallies
+  use RNG_class,                    only : RNG
   use tallyAdmin_class,             only : tallyAdmin
+  use timer_mod,                    only : secToChar
+  use transportOperator_inter,      only : transportOperator
+  use universalVariables
 
   implicit none
   private
@@ -246,29 +237,29 @@ contains
   !!
   !!
   subroutine trackParticleHistory(self, transOp, collOp, p, buffer, tally)
-    class(fixedSourcePhysicsPackage), intent(in) :: self
-    class(transportOperator), intent(inout)      :: transOp
-    type(collisionOperator), intent(inout)       :: collOp
-    type(particle), intent(inout)                :: p
-    type(particleDungeon), intent(inout)         :: buffer
-    type(tallyAdmin), intent(inout)              :: tally
-    integer(shortInt)                            :: bufferExtra, i
-    type(particle)                               :: transfer
+    class(fixedSourcePhysicsPackage), intent(in)        :: self
+    class(transportOperator), intent(inout)             :: transOp
+    type(collisionOperator), intent(inout)              :: collOp
+    class(physicalParticle), allocatable, intent(inout) :: p
+    type(particleDungeon), intent(inout)                :: buffer
+    type(tallyAdmin), intent(inout)                     :: tally
+    class(physicalParticle), allocatable                :: transfer
+    integer(shortInt)                                   :: bufferExtra, i
 
     bufferLoop: do
-      p % k_eff = ONE
-      call self % placeCoord(p % coords)
+      call p % setKEff(ONE)
+      call self % placeCoord(p % getCoordsPtr())
 
       ! Save state
-      call p % savePreHistory()
+      call p % savePreHistoryState()
 
       ! Transport particle until its death
       history: do
         call transOp % transport(p, tally)
-        if (p % isDead) exit history
+        if (p % getIsDead()) exit history
 
         call collOp % collide(p, tally, buffer, buffer)
-        if (p % isDead) exit history
+        if (p % getIsDead()) exit history
 
       end do history
 
@@ -296,7 +287,7 @@ contains
         !$omp critical
         if (.not. self % commonBuffer % isEmpty()) call self % commonBuffer % releaseCritical(p)
         !$omp end critical
-        if (p % isDead) exit bufferLoop
+        if (p % getIsDead()) exit bufferLoop
 
       else
         exit bufferLoop

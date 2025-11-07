@@ -1,10 +1,10 @@
 module testMap_class
 
+  use dictionary_class,           only : dictionary
   use numPrecision
-  use dictionary_class, only : dictionary
-  use particle_class,   only : particleState
-  use outputFile_class, only : outputFile
-  use tallyMap1D_inter,   only : tallyMap1D, kill_super => kill
+  use outputFile_class,           only : outputFile
+  use tallyMap1D_inter,           only : tallyMap1D, kill_super => kill
+  use transportObjectState_class, only : transportObjectState
 
   implicit none
   private
@@ -60,16 +60,13 @@ contains
   !!
   !! Map particle to a single bin. Return 0 for particle out of division
   !!
-  elemental function map(self,state) result(idx)
-    class(testMap), intent(in)       :: self
-    class(particleState), intent(in) :: state
-    integer(shortInt)                :: idx
+  function map(self,state) result(idx)
+    class(testMap), intent(in)              :: self
+    class(transportObjectState), intent(in) :: state
+    integer(shortInt)                       :: idx, materialIdx
 
-    if (state % matIdx < 0 .or. state % matIdx > self % maxIdx) then
-      idx = 0
-    else
-      idx = state % matIdx
-    end if
+    materialIdx = state % getMaterialIdx()
+    idx = merge(0, materialIdx, materialIdx < 0 .or. self % maxIdx < materialIdx)
 
   end function map
 

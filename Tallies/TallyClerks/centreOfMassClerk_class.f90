@@ -1,16 +1,13 @@
 module centreOfMassClerk_class
 
-  use numPrecision
-  use tallyCodes
-  use genericProcedures,          only : fatalError
   use dictionary_class,           only : dictionary
-  use particle_class,             only : particle, particleState
-  use particleDungeon_class,      only : particleDungeon
+  use errors_mod,                 only : fatalError
+  use numPrecision
   use outputFile_class,           only : outputFile
-
-  ! Basic tally modules
+  use particleDungeon_class,      only : particleDungeon
   use scoreMemory_class,          only : scoreMemory
   use tallyClerk_inter,           only : tallyClerk
+  use tallyCodes
 
   implicit none
   private
@@ -107,18 +104,18 @@ contains
     type(scoreMemory), intent(inout)          :: mem
     integer(shortInt)                         :: i, cc
 
-    if ((self % currentCycle) < (self % maxCycles)) then
-
+    if (self % currentCycle < self % maxCycles) then
       self % currentCycle = self % currentCycle + 1
       cc = self % currentCycle
 
       ! Loop through population, scoring probabilities
-      do i = 1,end % popSize()
-        associate( state => end % get(i) )
-          self % value(cc,:) = self % value(cc,:) + state % wgt * state % r
-        end associate
-      end do
+      do i = 1, end % popSize()
+        associate(state => end % get(i))
+          self % value(cc,:) = self % value(cc,:) + state % getWeight() * state % getGlobalPosition()
 
+        end associate
+
+      end do
       self % value(cc,:) = self % value(cc,:) / end % popWeight()
 
     end if

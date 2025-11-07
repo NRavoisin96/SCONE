@@ -1,12 +1,9 @@
 module scatteringKernels_func
 
-  use numPrecision
-  use genericProcedures, only : rotateVector
-  use RNG_class,         only : RNG
-  use particle_class,    only : particle
-
-  ! Nuclear Data
   use ceNeutronNuclide_inter, only : ceNeutronNuclide
+  use genericProcedures,      only : rotateVector
+  use numPrecision
+  use RNG_class,              only : RNG
 
   implicit none
   private
@@ -35,25 +32,21 @@ contains
   !!
   !! Based on MCNP manual chapter 2.
   !!
-  subroutine asymptoticScatter(E,mu,A)
-    real(defReal), intent(inout)               :: E    !! Pre-collision energy in LAB
-    real(defReal), intent(inout)               :: mu   !! Cosine of delection angle
-    real(defReal), intent(in)                  :: A    !! Target mass [neutrons]
-    real(defReal)                              :: E_in
-    real(defReal)                              :: inv_Ap1
+  subroutine asymptoticScatter(E, mu, A)
+    real(defReal), intent(inout)               :: E, mu ! E = pre-collision energy in LAB, mu = cosine of deflection angle
+    real(defReal), intent(in)                  :: A     ! Target mass [neutrons]
+    real(defReal)                              :: A_times_mu, E_in, inv_Ap1
 
-    ! Store initial energy and precalculate 1/(A+1)
+    ! Store initial energy and precalculate 1 / (A + 1) and A * mu
     E_in = E
-    inv_Ap1 = 1.0/ (A + 1.0)
+    inv_Ap1 = ONE / (A + ONE)
+    A_times_mu = A * mu
 
     ! Find post-collision energy
-    E  = (1.0 + A*A + 2 *A*mu) *E_in * inv_Ap1 * inv_Ap1
+    E = (ONE + A * A + TWO * A_times_mu) * E_in * inv_Ap1 * inv_Ap1
 
-    ! Find deflection angle in LAB
-    mu = (A*mu + 1)*sqrt(E_in/E)* inv_Ap1
-
-    ! Correct possible nuclear data shortcomings
-    if (mu > ONE) mu = ONE
+    ! Find deflection angle in LAB and correct possible nuclear data shortcomings.
+    mu = min((ONE + A_times_mu) * sqrt(E_in / E) * inv_Ap1, ONE)
 
   end subroutine asymptoticScatter
 
@@ -68,29 +61,25 @@ contains
   !!
   !! Based on MCNP manual chapter 2.
   !!
-  subroutine asymptoticInelasticScatter(E,mu,E_out,A)
-    real(defReal), intent(inout) :: E     !! Pre-collision energy in Lab
-    real(defReal), intent(inout) :: mu    !! Cosine of delection angle
-    real(defReal), intent(in)    :: E_out !! Post collision energy in CM
-    real(defReal), intent(in)    :: A     !! Target mass [neutrons]
-    real(defReal)                :: E_in
-    real(defReal)                :: inv_Ap1
+  subroutine asymptoticInelasticScatter(E, mu, E_out, A)
+    real(defReal), intent(inout) :: E, mu    ! E = pre-collision energy in Lab, mu = cosine of deflection angle
+    real(defReal), intent(in)    :: E_out, A ! E_out = post-collision energy in CM, A = target mass [neutrons]
+    real(defReal)                :: A_plus_ONE, E_in, inv_Ap1, sqrt_E_in, sqrt_E_out
 
     ! Store initial energy and precalculate 1/(A+1)
     E_in = E
-    inv_Ap1 = 1.0/ (A + 1.0)
+    A_plus_ONE = A + ONE
+    inv_Ap1 = ONE / A_plus_ONE
+    sqrt_E_in = sqrt(E_in)
+    sqrt_E_out = sqrt(E_out)
 
     ! Find post-collision energy
-    E = E_out + (E_in +TWO*mu*(A+ONE)*sqrt(E_in*E_out)) * inv_Ap1 * inv_Ap1
+    E = E_out + (E_in + TWO * mu * A_plus_ONE * sqrt_E_in * sqrt_E_out) * inv_Ap1 * inv_Ap1
 
-    ! Find deflection angle in LAB
-    mu = mu * sqrt(E_out/E) + sqrt(E_in/E)* inv_Ap1
-
-    ! Correct possible nuclear data shortcomings
-    if (mu > ONE) mu = ONE
+    ! Find deflection angle in LAB and correct possible nuclear data shortcomings.
+    mu = min((mu * sqrt_E_out + inv_Ap1 * sqrt_E_in) / sqrt(E), ONE)
 
   end subroutine asymptoticInelasticScatter
-
 
   !!
   !! Function that returns a sample of target velocity using constant XS approximation

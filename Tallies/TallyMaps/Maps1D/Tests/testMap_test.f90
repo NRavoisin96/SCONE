@@ -1,25 +1,24 @@
 module testMap_test
-  use numPrecision
+  
+  use dictionary_class,           only : dictionary
   use funit
-  use particle_class,          only : particleState
-  use dictionary_class,        only : dictionary
-  use testMap_class,           only : testMap
+  use numPrecision
+  use testMap_class,              only : testMap
+  use transportObjectState_class, only : transportObjectState
 
   implicit none
-
 
 @testCase
   type, extends(TestCase) :: test_testMap
     private
     type(testMap) :: map
-
   contains
     procedure :: setUp
     procedure :: tearDown
   end type test_testMap
 
 contains
-
+@Before
   !!
   !! Sets up test_intMap object we can use in a number of tests
   !!
@@ -33,6 +32,7 @@ contains
 
   end subroutine setUp
 
+@After
   !!
   !! Kills test_intMap object we can use in a number of tests
   !!
@@ -53,25 +53,25 @@ contains
 @Test
   subroutine testMapping(this)
     class(test_testMap), intent(inout) :: this
-    type(particleState) :: state
+    type(transportObjectState)         :: state
 
-    state % matIdx = 0
-    @assertEqual(0,this % map % map(state),'Invalid idx case:')
+    call state % setMaterialIdx(0)
+    @assertEqual(0, this % map % map(state), 'Invalid idx case: ')
 
-    state % matIdx = 1
-    @assertEqual(1,this % map % map(state),'Normal idx case:')
+    call state % setMaterialIdx(1)
+    @assertEqual(1, this % map % map(state), 'Normal idx case: ')
 
-    state % matIdx = 2
-    @assertEqual(2,this % map % map(state),'Normal idx case:')
+    call state % setMaterialIdx(2)
+    @assertEqual(2, this % map % map(state), 'Normal idx case: ')
 
-    state % matIdx = 4
-    @assertEqual(4,this % map % map(state),'Normal idx case:')
+    call state % setMaterialIdx(4)
+    @assertEqual(4, this % map % map(state), 'Normal idx case: ')
 
-    state % matIdx = 5
-    @assertEqual(0,this % map % map(state),'Invalid idx case:')
+    call state % setMaterialIdx(5)
+    @assertEqual(0, this % map % map(state), 'Invalid idx case: ')
 
-    state % matIdx = -1
-    @assertEqual(0,this % map % map(state),'Invalid idx case:')
+    call state % setMaterialIdx(-1)
+    @assertEqual(0, this % map % map(state), 'Invalid idx case: ')
 
   end subroutine testMapping
 

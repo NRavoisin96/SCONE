@@ -1,17 +1,18 @@
 module testResponse_test
 
-  use numPrecision
-  use testResponse_class,    only : testResponse
-  use particle_class,        only : particle
-  use dictionary_class,      only : dictionary
+  use dictionary_class,          only : dictionary
   use funit
+  use numPrecision
+  use testResponse_class,        only : testResponse
+  use testTransportObject_class, only : testTransportObject
 
   implicit none
 
 @testCase
   type, extends(TestCase) :: test_testResponse
     private
-    type(testResponse) :: response
+    type(testResponse)        :: response
+    type(testTransportObject) :: testObject
   contains
     procedure :: setUp
     procedure :: tearDown
@@ -31,6 +32,8 @@ contains
     call tempDict % store('value', 1.3_defReal)
     call this % response % init(tempDict)
 
+    call this % testObject % init()
+
   end subroutine setUp
 
   !!
@@ -38,6 +41,8 @@ contains
   !!
   subroutine tearDown(this)
     class(test_testResponse), intent(inout) :: this
+
+    call this % testObject % kill()
 
   end subroutine tearDown
 
@@ -51,12 +56,11 @@ contains
 @Test
   subroutine testResponseing(this)
     class(test_testResponse), intent(inout) :: this
-    type(particle)                          :: p
     real(defReal)                           :: result
-    real(defReal), parameter                :: tol = 1.0e-9_defReal
+    real(defReal), parameter                :: TOL = 1.0e-9_defReal
 
-    call this % response % get(p, result)
-    @assertEqual(1.3_defReal, result, tol)
+    call this % response % get(this % testObject, result)
+    @assertEqual(1.3_defReal, result, TOL)
 
   end subroutine testResponseing
 

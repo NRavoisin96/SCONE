@@ -1,12 +1,12 @@
 module collNumMap_test
-  use numPrecision
+  
+  use collNumMap_class,            only : collNumMap
+  use dictionary_class,            only : dictionary
+  use dictParser_func,             only : charToDict
   use funit
-  use particle_class,          only : particleState
-  use dictionary_class,        only : dictionary
-  use dictParser_func,         only : charToDict
-  use outputFile_class,        only : outputFile
-
-  use collNumMap_class,        only : collNumMap
+  use numPrecision
+  use outputFile_class,            only : outputFile
+  use physicalParticleState_class, only : physicalParticleState
 
   implicit none
 
@@ -25,9 +25,8 @@ module collNumMap_test
   !!
   integer(shortInt), dimension(*), parameter :: COLL_NUMS = [0, 1, 2, 5, 10, 50, 81]
 
-
 contains
-
+@Before
   !!
   !! Sets up test_collNumMap object we can use in a number of tests
   !!
@@ -44,6 +43,7 @@ contains
 
   end subroutine setUp
 
+@After
   !!
   !! Kills test_collNumMap object
   !!
@@ -63,17 +63,17 @@ contains
   !!
 @Test
   subroutine testMapping(this)
-    class(test_collNumMap), intent(inout)    :: this
-    type(particleState)                      :: state
-    integer(shortInt)                        :: i
-    integer(shortInt), dimension(5)           :: bins
+    class(test_collNumMap), intent(inout)      :: this
+    integer(shortInt)                          :: i
+    integer(shortInt), dimension(5)            :: bins
+    type(physicalParticleState)                :: state
     integer(shortInt), dimension(5), parameter :: EXPECTED_BINS = [2, 3, 0, 0, 4]
 
-    do i = 1,5
-      state % collisionN = i
+    do i = 1, 5
+      call state % setCollisionsNumber(i)
       bins(i) = this % map % map(state)
-    end do
 
+    end do
     @assertEqual(EXPECTED_BINS,bins)
 
   end subroutine testMapping
@@ -85,9 +85,9 @@ contains
   subroutine testNumberOfBinsInquiry(this)
     class(test_collNumMap), intent(inout) :: this
 
-    @assertEqual(7, this % map % bins(0), 'Total number of bins')
-    @assertEqual(7, this % map % bins(1), 'Number of bins in dimension 1')
-    @assertEqual(0, this % map % bins(2), 'Number of bins in higher dimension')
+    @assertEqual(7, this % map % bins(0), 'Total number of bins.')
+    @assertEqual(7, this % map % bins(1), 'Number of bins in dimension 1.')
+    @assertEqual(0, this % map % bins(2), 'Number of bins in higher dimension.')
 
   end subroutine testNumberOfBinsInquiry
 
@@ -103,10 +103,9 @@ contains
     call out % init('dummyPrinter', fatalErrors = .false.)
 
     call this % map % print(out)
-    @assertTrue(out % isValid(),'For number of collisions map ')
+    @assertTrue(out % isValid(), 'For number of collisions map.')
     call out % reset()
 
   end subroutine testPrint
-
 
 end module collNumMap_test

@@ -3,20 +3,23 @@ module tallyAdmin_class
   use charMap_class,                   only : charMap
   use dictionary_class,                only : dictionary
   use dynArray_class,                  only : dynIntArray
-  use genericProcedures,               only : fatalError, charCmp
+  use errors_mod,                      only : fatalError
+  use genericProcedures,               only : charCmp
   use normalisationMethod_inter,       only : normalisationMethod
   use normalisationMethodFactory_func, only : newNormalisationMethod
   use nuclearDatabase_inter,           only : nuclearDatabase
   use nuclearDataReg_mod,              only : ndReg_get => get
   use numPrecision
   use outputFile_class,                only : outputFile
-  use particle_class,                  only : particle, particleState
   use particleDungeon_class,           only : particleDungeon
+  use physicalParticle_inter,          only : castPhysicalParticlePtr, physicalParticle
   use scoreMemory_class,               only : scoreMemory
   use tallyClerk_inter,                only : tallyClerk
   use tallyClerkSlot_class,            only : tallyClerkSlot
   use tallyCodes
   use tallyResult_class,               only : tallyResult, tallyResultEmpty
+  use transportObject_inter,           only : transportObject
+  use transportObjectState_class,      only : transportObjectState
 
   implicit none
   private
@@ -95,7 +98,7 @@ module tallyAdmin_class
 
     ! Clerks and clerks name map
     type(tallyClerkSlot), dimension(:), allocatable :: tallyClerks
-    type(charMap)                                 :: clerksNameMap
+    type(charMap)                                   :: clerksNameMap
 
     ! Lists of Clerks to be executed for each report
     type(dynIntArray)  :: inCollClerks
@@ -468,23 +471,22 @@ contains
   !!   None
   !!
   recursive subroutine reportInColl(self, p, virtual)
-    class(tallyAdmin), intent(inout) :: self
-    class(particle), intent(in)      :: p
-    logical(defBool), intent(in)     :: virtual
-    integer(shortInt)                :: i, idx
-    class(nuclearDatabase), pointer  :: xsData
-    character(*), parameter          :: Here = "reportInColl (tallyAdmin_class.f90)"
+    class(tallyAdmin), intent(inout)    :: self
+    class(physicalParticle), intent(in) :: p
+    logical(defBool), intent(in)        :: virtual
+    integer(shortInt)                   :: i
+    class(nuclearDatabase), pointer     :: xsData
+    character(*), parameter             :: here = 'reportInColl (tallyAdmin_class.f90)'
 
     ! Call attachment
     if (associated(self % atch)) call reportInColl(self % atch, p, virtual)
 
     ! Get Data
-    xsData => ndReg_get(p % getType(), where = Here)
+    xsData => ndReg_get(p % getType(), where = here)
 
     ! Go through all clerks that request the report
-    do i= 1, self % inCollClerks % getSize()
-      idx = self % inCollClerks % get(i)
-      call self % tallyClerks(idx) % reportInColl(p, virtual, xsData, self % mem)
+    do i = 1, self % inCollClerks % getSize()
+      call self % tallyClerks(self % inCollClerks % get(i)) % reportInColl(p, virtual, xsData, self % mem)
 
     end do
 
@@ -504,25 +506,25 @@ contains
   !! Errors:
   !!   None
   !!
-  recursive subroutine reportOutColl(self, p, MT, muL)
-    class(tallyAdmin), intent(inout)      :: self
-    class(particle), intent(in)           :: p
-    integer(shortInt), intent(in)         :: MT
-    real(defReal), intent(in)             :: muL
-    integer(shortInt)                     :: i, idx
-    class(nuclearDatabase), pointer        :: xsData
-    character(100), parameter :: Here = "reportOutColl (tallyAdmin_class.f90)"
+  recursive subroutine reportOutColl(self, object, MT, muL)
+    class(tallyAdmin), intent(inout)   :: self
+    class(transportObject), intent(in) :: object
+    integer(shortInt), intent(in)      :: MT
+    real(defReal), intent(in)          :: muL
+    class(nuclearDatabase), pointer    :: xsData
+    class(physicalParticle), pointer   :: p
+    integer(shortInt)                  :: i, idx
+    character(*), parameter            :: here = 'reportOutColl (tallyAdmin_class.f90)'
 
-    ! Call attachment
-    if (associated(self % atch)) then
-      call reportOutColl(self % atch, p, MT, muL)
-    end if
+    ! Call attachment.
+    if (associated(self % atch)) call reportOutColl(self % atch, object, MT, muL)
 
-    ! Get Data
-    xsData => ndReg_get(p % getType(), where = Here)
+    ! Get Data.
+    p => castPhysicalParticlePtr(object, .true.)
+    xsData => ndReg_get(p % getType(), where = here)
 
     ! Go through all clerks that request the report
-    do i= 1, self % outCollClerks % getSize()
+    do i = 1, self % outCollClerks % getSize()
       idx = self % outCollClerks % get(i)
       call self % tallyClerks(idx) % reportOutColl(p, MT, muL, xsData, self % mem)
 
@@ -544,24 +546,24 @@ contains
   !! Errors:
   !!   None
   !!
-  recursive subroutine reportPath(self, p, L)
-    class(tallyAdmin), intent(inout) :: self
-    class(particle), intent(in)      :: p
-    real(defReal), intent(in)        :: L
-    integer(shortInt)                :: i, idx
-    class(nuclearDatabase), pointer  :: xsData
-    character(*), parameter          :: Here = "reportPath (tallyAdmin_class.f90)"
+  recursive subroutine reportPath(self, object, L)
+    class(tallyAdmin), intent(inout)   :: self
+    class(transportObject), intent(in) :: object
+    real(defReal), intent(in)          :: L
+    class(nuclearDatabase), pointer    :: xsData
+    class(physicalParticle), pointer   :: p
+    integer(shortInt)                  :: i, idx
+    character(*), parameter            :: here = 'reportPath (tallyAdmin_class.f90)'
 
     ! Call attachment
-    if (associated(self % atch)) then
-      call reportPath(self % atch, p, L)
-    end if
+    if (associated(self % atch)) call reportPath(self % atch, object, L)
 
-    ! Get Data
-    xsData => ndReg_get(p % getType(), where = Here)
+    ! Get Data.
+    p => castPhysicalParticlePtr(object, .true.)
+    xsData => ndReg_get(p % getType(), where = here)
 
     ! Go through all clerks that request the report
-    do i= 1, self % pathClerks % getSize()
+    do i = 1, self % pathClerks % getSize()
       idx = self % pathClerks % get(i)
       call self % tallyClerks(idx) % reportPath(p, L, self % mem, xsData)
 
@@ -581,23 +583,23 @@ contains
   !! Errors:
   !!   None
   !!
-  recursive subroutine reportTrans(self, p)
-    class(tallyAdmin), intent(inout) :: self
-    class(particle), intent(in)      :: p
-    integer(shortInt)                :: i, idx
-    class(nuclearDatabase), pointer   :: xsData
-    character(100), parameter :: Here = "reportTrans (tallyAdmin_class.f90)"
+  recursive subroutine reportTrans(self, object)
+    class(tallyAdmin), intent(inout)   :: self
+    class(transportObject), intent(in) :: object
+    class(nuclearDatabase), pointer    :: xsData
+    class(physicalParticle), pointer   :: p
+    integer(shortInt)                  :: i, idx
+    character(*), parameter            :: here = 'reportTrans (tallyAdmin_class.f90)'
 
     ! Call attachment
-    if (associated(self % atch)) then
-      call reportTrans(self % atch, p)
-    end if
+    if (associated(self % atch)) call reportTrans(self % atch, object)
 
-    ! Get Data
-    xsData => ndReg_get(p % getType(), where = Here)
+    ! Get Data.
+    p => castPhysicalParticlePtr(object, .true.)
+    xsData => ndReg_get(p % getType(), where = here)
 
     ! Go through all clerks that request the report
-    do i= 1, self % transClerks % getSize()
+    do i = 1, self % transClerks % getSize()
       idx = self % transClerks % get(i)
       call self % tallyClerks(idx) % reportTrans(p, xsData, self % mem)
 
@@ -621,26 +623,25 @@ contains
   !!   None
   !!
   recursive subroutine reportSpawn(self, MT, pOld, pNew)
-    class(tallyAdmin), intent(inout) :: self
-    integer(shortInt), intent(in)    :: MT
-    class(particle), intent(in)      :: pOld
-    class(particleState), intent(in) :: pNew
-    integer(shortInt)                :: i, idx
-    class(nuclearDatabase), pointer   :: xsData
-    character(100), parameter :: Here = "reportSpwan (tallyAdmin_class.f90)"
+    class(tallyAdmin), intent(inout)        :: self
+    integer(shortInt), intent(in)           :: MT
+    class(physicalParticle), intent(in)     :: pOld
+    class(transportObjectState), intent(in) :: pNew
+    integer(shortInt)                       :: i, idx
+    class(nuclearDatabase), pointer         :: xsData
+    character(*), parameter                 :: here = 'reportSpwan (tallyAdmin_class.f90)'
 
     ! Call attachment
-    if (associated(self % atch)) then
-      call reportSpawn(self % atch, MT, pOld, pNew)
-    end if
+    if (associated(self % atch)) call reportSpawn(self % atch, MT, pOld, pNew)
 
     ! Get Data
     xsData => ndReg_get(pOld % getType(), where = Here)
 
     ! Go through all clerks that request the report
-    do i= 1, self % spawnClerks % getSize()
+    do i = 1, self % spawnClerks % getSize()
       idx = self % spawnClerks % get(i)
       call self % tallyClerks(idx) % reportSpawn(MT, pOld, pNew, xsData, self % mem)
+      
     end do
 
   end subroutine reportSpawn
@@ -657,28 +658,25 @@ contains
   !! Errors:
   !!   None
   !!
-  recursive subroutine reportHist(self, p)
-    class(tallyAdmin), intent(inout)  :: self
-    class(particle), intent(in)       :: p
-    integer(shortInt)                 :: i, idx
+  recursive subroutine reportHist(self, object)
+    class(tallyAdmin), intent(inout)   :: self
+    class(transportObject), intent(in) :: object
+    integer(shortInt)                  :: i, objectType
     class(nuclearDatabase), pointer    :: xsData
-    character(100), parameter :: Here = "reportHist (tallyAdmin_class.f90)"
+    character(*), parameter            :: here = "reportHist (tallyAdmin_class.f90)"
 
     ! Call attachment
-    if (associated(self % atch)) then
-      call reportHist(self % atch, p)
-    end if
+    if (associated(self % atch)) call reportHist(self % atch, object)
 
-    ! Get Data
-    xsData => ndReg_get(p % getType(), where = Here)
+    ! Get nuclear data pointer. Throw error in case of physical transport objects.
+    objectType = object % getType()
+    xsData => ndReg_get(objectType, where = here, fatal = 0 < objectType)
 
     ! Go through all clerks that request the report
-    do i= 1, self % histClerks % getSize()
-      idx = self % histClerks % get(i)
-      call self % tallyClerks(idx) % reportHist(p, xsData, self % mem)
+    do i = 1, self % histClerks % getSize()
+      call self % tallyClerks(self % histClerks % get(i)) % reportHist(object, xsData, self % mem)
 
     end do
-
 
   end subroutine reportHist
 
@@ -704,15 +702,14 @@ contains
     !$omp threadprivate(idx)
 
     ! Call attachment
-    if (associated(self % atch)) then
-      call reportCycleStart(self % atch, start)
-    end if
+    if (associated(self % atch)) call reportCycleStart(self % atch, start)
 
     ! Go through all clerks that request the report
     !$omp parallel do
-    do i= 1, self % cycleStartClerks % getSize()
+    do i = 1, self % cycleStartClerks % getSize()
       idx = self % cycleStartClerks % get(i)
       call self % tallyClerks(idx) % reportCycleStart(start, self % mem)
+      
     end do
     !$omp end parallel do
 
@@ -734,7 +731,7 @@ contains
   !! Errors:
   !!   None
   !!
-  recursive subroutine reportCycleEnd(self,end)
+  recursive subroutine reportCycleEnd(self, end)
     class(tallyAdmin), intent(inout)   :: self
     class(particleDungeon), intent(in) :: end
     integer(shortInt)                  :: i

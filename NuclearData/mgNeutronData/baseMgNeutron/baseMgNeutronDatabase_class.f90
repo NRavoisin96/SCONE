@@ -1,30 +1,23 @@
 module baseMgNeutronDatabase_class
 
-  use numPrecision
-  use endfConstants
-  use universalVariables
-  use errors_mod,         only : fatalError
-  use genericProcedures,  only : numToChar
-  use particle_class,     only : particle
-  use charMap_class,      only : charMap
-  use dictionary_class,   only : dictionary
-  use dictParser_func,    only : fileToDict
-
-  ! Nuclear Data Interfaces
-  use nuclearDatabase_inter,   only : nuclearDatabase
-  use mgNeutronDatabase_inter, only : mgNeutronDatabase
-  use materialHandle_inter,    only : materialHandle
-  use nuclideHandle_inter,     only : nuclideHandle
-  use reactionHandle_inter,    only : reactionHandle
-  use materialMenu_mod,        only : materialItem, mm_getMatPtr => getMatPtr, mm_nMat => nMat, &
-                                      mm_nameMap => nameMap
-
-  ! baseMgNeutron Objects
   use baseMgNeutronMaterial_class, only : baseMgNeutronMaterial
-
-  ! Cache
-  use mgNeutronCache_mod,           only : materialCache, trackingCache, &
-                                           cache_init => init
+  use charMap_class,               only : charMap
+  use dictionary_class,            only : dictionary
+  use dictParser_func,             only : fileToDict
+  use endfConstants
+  use errors_mod,                  only : fatalError
+  use genericProcedures,           only : numToChar
+  use materialHandle_inter,        only : materialHandle
+  use materialMenu_mod,            only : materialItem, mm_getMatPtr => getMatPtr, mm_nMat => nMat, mm_nameMap => nameMap
+  use MGNeutron_class,             only : castMGNeutronPtr, MGNeutron
+  use mgNeutronCache_mod,          only : materialCache, trackingCache, cache_init => init
+  use mgNeutronDatabase_inter,     only : mgNeutronDatabase
+  use nuclearDatabase_inter,       only : nuclearDatabase
+  use nuclideHandle_inter,         only : nuclideHandle
+  use numPrecision
+  use reactionHandle_inter,        only : reactionHandle
+  use transportObject_inter,       only : transportObject
+  use universalVariables
 
   implicit none
   private
@@ -87,35 +80,34 @@ contains
   !!
   !! See nuclearDatabase documentation for details
   !!
-  !! Note:
-  !!   DOES NOT check if particle is MG. Will refer to G in the particle and give error
-  !!   if the value is invalid
-  !!
-  function getTrackingXS(self, p, matIdx, what) result(xs)
+  function getTrackingXS(self, object, matIdx, what) result(xs)
     class(baseMgNeutronDatabase), intent(inout) :: self
-    class(particle), intent(in)                 :: p
-    integer(shortInt), intent(in)               :: matIdx
-    integer(shortInt), intent(in)               :: what
+    class(transportObject), intent(in)          :: object
+    integer(shortInt), intent(in)               :: matIdx, what
+    integer(shortInt)                           :: energyGroup
     real(defReal)                               :: xs
-    character(*), parameter :: Here = 'getTrackingXS (baseMgNeutronDatabase_class.f90)'
+    type(MGNeutron), pointer                    :: MGNeutronPtr
+    character(*), parameter                     :: here = 'getTrackingXS (baseMgNeutronDatabase_class.f90)'
 
     ! Process request
+    MGNeutronPtr => castMGNeutronPtr(object, .true.)
+    energyGroup = MGNeutronPtr % getEnergyGroup()
     select case(what)
-
       case (MATERIAL_XS)
-        xs = self % getTrackMatXS(p, matIdx)
+        xs = self % getTrackMatXS(MGNeutronPtr, matIdx)
 
       case (MAJORANT_XS)
-        xs = self % getMajorantXS(p)
+        xs = self % getMajorantXS(MGNeutronPtr)
 
       case (TRACKING_XS)
-
         ! READ ONLY - read from previously updated cache
-        if (p % G == trackingCache(1) % G) then
+        if (energyGroup == trackingCache(1) % G) then
           xs = trackingCache(1) % xs
           return
+
         else
-          call fatalError(Here, 'Tracking cache failed to update during tracking')
+          call fatalError(Here, 'Failed to update cache during tracking')
+
         end if
 
       case default
@@ -124,7 +116,7 @@ contains
     end select
 
     ! Update Cache
-    trackingCache(1) % G  = p % G
+    trackingCache(1) % G  = energyGroup
     trackingCache(1) % xs = xs
 
   end function getTrackingXS
@@ -135,13 +127,13 @@ contains
   !!
   !! See nuclearDatabase documentation for details
   !!
-  function getTrackMatXS(self, p, matIdx) result(xs)
+  function getTrackMatXS(self, object, matIdx) result(xs)
     class(baseMgNeutronDatabase), intent(inout) :: self
-    class(particle), intent(in)                 :: p
+    class(transportObject), intent(in)          :: object
     integer(shortInt), intent(in)               :: matIdx
     real(defReal)                               :: xs
 
-    xs = self % getTotalMatXS(p, matIdx)
+    xs = self % getTotalMatXS(object, matIdx)
 
   end function getTrackMatXS
 
@@ -150,27 +142,25 @@ contains
   !!
   !! See nuclearDatabase documentation for details
   !!
-  !! Note:
-  !!   DOES NOT check if particle is MG. Will refer to G in the particle and give error
-  !!   if the value is invalid
-  !!
-  function getTotalMatXS(self, p, matIdx) result(xs)
+  function getTotalMatXS(self, object, matIdx) result(xs)
     class(baseMgNeutronDatabase), intent(inout) :: self
-    class(particle), intent(in)                 :: p
+    class(transportObject), intent(in)          :: object
     integer(shortInt), intent(in)               :: matIdx
+    integer(shortInt)                           :: energyGroup
     real(defReal)                               :: xs
+    type(MGNeutron), pointer                    :: MGNeutronPtr
 
+    MGNeutronPtr => castMGNeutronPtr(object, .true.)
+    energyGroup = MGNeutronPtr % getEnergyGroup()
     associate (matCache => materialCache(matIdx))
-
-      if (matCache % G_tot /= p % G) then
-        ! Get cross section
-        call self % mats(matIdx) % getTotalXS(p % G, xs, p % pRNG)
-        ! Update cache
+      if (matCache % G_tot /= energyGroup) then
+        ! Get cross section and update cache.
+        call self % mats(matIdx) % getTotalXS(energyGroup, xs, MGNeutronPtr % getRNGPtr())
         matCache % xss % total = xs
-        matCache % G_tot = p % G
+        matCache % G_tot = energyGroup
 
       else
-        ! Retrieve cross section from cache
+        ! Retrieve cross section from cache.
         xs = matCache % xss % total
 
       end if
@@ -184,24 +174,21 @@ contains
   !!
   !! See nuclearDatabase documentation for details
   !!
-  !! Note:
-  !!   DOES NOT check if particle is MG. Will refer to G in the particle and give error
-  !!   if the value is invalid
-  !!
-  function getMajorantXS(self, p) result(xs)
+  function getMajorantXS(self, object) result(xs)
     class(baseMgNeutronDatabase), intent(inout) :: self
-    class(particle), intent(in)                 :: p
+    class(transportObject), intent(in)          :: object
+    integer(shortInt)                           :: energyGroup
     real(defReal)                               :: xs
-    character(*), parameter :: Here = ' getMajorantXS (baseMgNeutronDatabase_class.f90)'
+    type(MGNeutron), pointer                    :: MGNeutronPtr
+    character(*), parameter                     :: here = 'getMajorantXS (baseMgNeutronDatabase_class.f90)'
 
+    MGNeutronPtr => castMGNeutronPtr(object, .true.)
+    energyGroup = MGNeutronPtr % getEnergyGroup()
     ! Verify bounds
-    if (p % G < 1 .or. self % nG < p % G) then
-      call fatalError(Here,'Invalid group number: '//numToChar(p % G)// &
-                           ' Data has only: ' // numToChar(self % nG))
-      xs = ZERO ! Avoid warning
-    end if
-
-    xs = self % majorant(p % G)
+    xs = ZERO
+    if (energyGroup < 1 .or. self % nG < energyGroup) &
+    call fatalError(Here, 'Invalid group number: '//numToChar(energyGroup)//'. Data has only: '//numToChar(self % nG)//'.')
+    xs = self % majorant(energyGroup)
 
   end function getMajorantXS
 
@@ -500,6 +487,5 @@ contains
     end select
 
   end function baseMgNeutronDatabase_CptrCast
-
 
 end module baseMgNeutronDatabase_class

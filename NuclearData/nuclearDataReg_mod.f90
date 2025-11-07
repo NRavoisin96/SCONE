@@ -52,25 +52,22 @@
 !!
 module nuclearDataReg_mod
 
-  use numPrecision
-  use universalVariables,    only : P_NEUTRON_CE, P_NEUTRON_MG
-  use genericProcedures,     only : fatalError, numToChar, printParticleType
-  use charMap_class,         only : charMap
-  use dictionary_class,      only : dictionary
-
-  ! Nuclear Data Interfaces & Classes
-  use nuclearDatabase_inter,   only : nuclearDatabase
-  use ceNeutronDatabase_inter, only : ceNeutronDatabase, ceNeutronDatabase_CptrCast
-  use mgNeutronDatabase_inter, only : mgNeutronDatabase, mgNeutronDatabase_CptrCast
-  use materialMenu_mod,        only : mm_init => init, mm_kill => kill, mm_nMat => nMat,&
-                                      mm_nameMap => nameMap
-
-  ! Implemented Nuclear Databases
-  ! Neutron CE
-  use aceNeutronDatabase_class,       only : aceNeutronDatabase
-
-  ! Neutron MG
+  use aceNeutronDatabase_class,    only : aceNeutronDatabase
   use baseMgNeutronDatabase_class, only : baseMgNeutronDatabase
+  use CENeutronState_class,        only : CENeutronState
+  use charMap_class,               only : charMap
+  use ceNeutronDatabase_inter,     only : ceNeutronDatabase, ceNeutronDatabase_CptrCast
+  use dictionary_class,            only : dictionary
+  use errors_mod,                  only : fatalError
+  use genericProcedures,           only : numToChar, printParticleType
+  use materialMenu_mod,            only : mm_init => init, mm_kill => kill, mm_nMat => nMat,&
+                                          mm_nameMap => nameMap
+  use mgNeutronDatabase_inter,     only : mgNeutronDatabase, mgNeutronDatabase_CptrCast
+  use MGNeutronState_class,        only : MGNeutronState
+  use nuclearDatabase_inter,       only : nuclearDatabase
+  use numPrecision
+  use transportObjectState_class,  only : transportObjectState
+  use universalVariables,          only : P_NEUTRON_CE, P_NEUTRON_MG
 
   implicit none
   private
@@ -87,7 +84,6 @@ module nuclearDataReg_mod
     class(nuclearDatabase), allocatable :: nd
   end type
 
-
   !! Public Interface
   public :: init
   public :: make
@@ -102,6 +98,7 @@ module nuclearDataReg_mod
 
   !! Procedures grouped under name "get"
   interface get
+    module procedure :: get_byState
     module procedure :: get_byType
     module procedure :: get_byName
   end interface
@@ -444,6 +441,47 @@ contains
   end function getNeutronMG
 
   !!
+  !!
+  !!
+  function get_byState(state, where, fatal) result(ptr)
+    class(transportObjectState), intent(in) :: state
+    character(*), intent(in), optional      :: where
+    logical(defBool), intent(in), optional  :: fatal
+    class(nuclearDatabase), pointer         :: ptr
+    character(:), allocatable               :: location
+    logical(defBool)                        :: throwError
+    character(*), parameter                 :: here = 'get_byType (nuclearDataReg_mod.f90)'
+
+    select type(state)
+      type is(CENeutronState)
+        ptr => getNeutronCE()
+
+      type is(MGNeutronState)
+        ptr => getNeutronMG()
+
+      class default
+        ptr => null()
+
+    end select
+
+    ! Throw error if requested.
+    throwError = .false.
+    if (present(fatal)) throwError = fatal
+    if (throwError .and. .not. associated(ptr)) then
+      if (present(where)) then
+        location = where
+
+      else
+        location = here
+
+      end if
+      call fatalError(location, 'Unable to retrieve nuclear data for transport object state.')
+
+    end if
+
+  end function get_byState
+
+  !!
   !! Return pointer to an active Nuclear Database given particle type
   !!
   !! Args:
@@ -454,13 +492,16 @@ contains
   !!   nuclearDatabaseclass pointer
   !!
   !! Errors:
-  !!   fatalError if there no activa database or type is invalid
+  !!   fatalError if there no active database or type is invalid
   !!
-  function get_byType(type, where) result(ptr)
-    integer(shortInt), intent(in)     :: type
-    class(nuclearDatabase), pointer   :: ptr
-    character(*),optional, intent(in) :: where
-    character(100), parameter         :: Here = 'get_byType (nuclearDataReg_mod.f90)'
+  function get_byType(type, where, fatal) result(ptr)
+    integer(shortInt), intent(in)          :: type
+    character(*), intent(in), optional     :: where
+    logical(defBool), intent(in), optional :: fatal
+    class(nuclearDatabase), pointer        :: ptr
+    character(:), allocatable              :: location
+    logical(defBool)                       :: throwError
+    character(*), parameter                :: here = 'get_byType (nuclearDataReg_mod.f90)'
 
     select case(type)
       case(P_NEUTRON_CE)
@@ -471,14 +512,21 @@ contains
 
       case default
         ptr => null()
+
     end select
 
-    ! Throw error if somthing went wrong
-    if (.not.associated(ptr) .and. present(where)) then
-      call fatalError(Where, "There is no data for particle: "//printParticleType(type))
+    ! Throw error if requested.
+    throwError = .false.
+    if (present(fatal)) throwError = fatal
+    if (throwError .and. .not. associated(ptr)) then
+      if (present(where)) then
+        location = where
 
-    else if (.not.associated(ptr)) then
-      call fatalError(Here, "There is no data for particle: "//printParticleType(type))
+      else
+        location = here
+
+      end if
+      call fatalError(location, 'Unable to retrieve nuclear data for transport object of type: '//printParticleType(type)//'.')
 
     end if
 
@@ -522,8 +570,6 @@ contains
 
   end function get_byName
 
-
-
   !!
   !! Return pointer to charMap of materialNames to matIdx from MaterialMenu
   !!
@@ -547,7 +593,6 @@ contains
     ptr => mm_nameMap
 
   end function getMatNames
-
 
   !!
   !! Allocates the database to a specified type
@@ -595,6 +640,5 @@ contains
     end select
 
   end subroutine new_nuclearDatabase
-
 
 end module nuclearDataReg_mod

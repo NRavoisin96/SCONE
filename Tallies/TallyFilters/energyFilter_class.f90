@@ -1,10 +1,13 @@
 module energyFilter_class
 
+  use CEParticleState_class,      only : CEParticleState
+  use dictionary_class,           only : dictionary
+  use errors_mod,                 only : fatalError
+  use genericProcedures,          only : numToChar
+  use MGParticleState_class,      only : MGParticleState
   use numPrecision
-  use genericProcedures, only : fatalError, numToChar
-  use particle_class,    only : particleState
-  use dictionary_class,  only : dictionary
-  use tallyFilter_inter, only : tallyFilter
+  use tallyFilter_inter,          only : tallyFilter
+  use transportObjectState_class, only : transportObjectState
 
   implicit none
   private
@@ -48,16 +51,14 @@ module energyFilter_class
   !!
   type, public, extends(tallyFilter) :: energyFilter
     private
-    real(defReal)     :: Emin
-    real(defReal)     :: Emax
-    integer(shortInt) :: Gtop
-    integer(shortInt) :: Glow
+    real(defReal)     :: Emax = ZERO, Emin = ZERO
+    integer(shortInt) :: Glow = 0, Gtop = 0
   contains
     procedure :: init
     procedure :: isPass
 
     !! Instance specific procedures
-    generic :: build => build_CE, build_MG, build_CEMG
+    generic   :: build => build_CE, build_MG, build_CEMG
     procedure :: build_CE
     procedure :: build_MG
     procedure :: build_CEMG
@@ -82,23 +83,24 @@ contains
 
     if (hasMG .and. hasCE) then
       ! CE-MG case
-      call dict % get(E1,'Emin')
-      call dict % get(E2,'Emax')
-      call dict % get(Gtop,'Gtop')
-      call dict % get(Glow,'Glow')
+      call dict % get(E1, 'Emin')
+      call dict % get(E2, 'Emax')
+      call dict % get(Gtop, 'Gtop')
+      call dict % get(Glow, 'Glow')
       call self % build(E1, E2, Gtop, Glow)
 
     else if (hasMG) then
       ! MG Case
-      call dict % get(Gtop,'Gtop')
-      call dict % get(Glow,'Glow')
+      call dict % get(Gtop, 'Gtop')
+      call dict % get(Glow, 'Glow')
       call self % build(Gtop, Glow)
 
     else
       ! CE Case
-      call dict % get(E1,'Emin')
-      call dict % get(E2,'Emax')
+      call dict % get(E1, 'Emin')
+      call dict % get(E2, 'Emax')
       call self % build(E1, E2)
+
     end if
 
   end subroutine init
@@ -106,24 +108,30 @@ contains
   !!
   !! Returns true if energy value is between specified bounds
   !!
-  elemental function isPass(self,state) result(passed)
-    class(energyFilter), intent(in)  :: self
-    class(particleState), intent(in) :: state
-    logical(defBool)                 :: passed
-    real(defReal)                    :: E
-    integer(shortInt)                :: G
+  function isPass(self, state) result(passed)
+    class(energyFilter), intent(in)         :: self
+    class(transportObjectState), intent(in) :: state
+    logical(defBool)                        :: passed
+    real(defReal)                           :: E
+    integer(shortInt)                       :: G
+    character(*), parameter                 :: here = 'isPass (energyFilter_class.f90)'
 
-    ! MG particle
-    if (state % isMG) then
-      G = state % G
-      passed = (self % Gtop <= G) .and. (G <= self % Glow)
+    ! Determine if test is passed depending on the type of particle fed.
+    select type(ptr => state)
+      class is(CEParticleState)
+        E = ptr % getEnergy()
+        passed = self % Emin <= E .and. E <= self % Emax
 
-    else
-      ! CE paricle
-      E = state % E
-      passed = (self % Emin <= E) .and. (E <= self % Emax)
+      class is(MGParticleState)
+        G = ptr % getEnergyGroup()
+        passed = self % Gtop <= G .and. G <= self % Glow
 
-    end if
+      class default
+        call fatalError(here, 'Invalid state type.')
+        passed = .false.
+
+    end select
+
   end function isPass
 
   !!
@@ -138,21 +146,14 @@ contains
   !!
   subroutine build_CE(self, Emin, Emax)
     class(energyFilter), intent(inout) :: self
-    real(defReal), intent(in)          :: Emin
-    real(defReal), intent(in)          :: Emax
-    character(*), parameter :: Here = 'build_CE (energyFilter_class.f90)'
+    real(defReal), intent(in)          :: Emin, Emax
+    character(*), parameter            :: here = 'build_CE (energyFilter_class.f90)'
 
+    ! Verify bounds then set values.
+    if (Emax <= Emin) &
+    call fatalError(here, 'Emin = '//numToChar(Emin)//' is larger than or equal to Emax = '//numToChar(Emax)//'.')
     self % Emin = Emin
     self % Emax = Emax
-
-    ! Verify bounds
-    if (self % Emax <= self % Emin) then
-      call fatalError(Here,'Emin='// numToChar(self % Emin) //' is larger or equal to Emax=' // numToChar(self % Emax))
-    end if
-
-    ! Set values for MG filter
-    self % Gtop =  huge(self % Gtop)
-    self % Glow = -huge(self % Glow)
 
   end subroutine build_CE
 
@@ -168,21 +169,14 @@ contains
   !!
   subroutine build_MG(self, Gtop, Glow)
     class(energyFilter), intent(inout) :: self
-    integer(shortInt), intent(in)      :: Gtop
-    integer(shortInt), intent(in)      :: Glow
-    character(*), parameter :: Here = 'build_MG (energyFilter_class.f90)'
+    integer(shortInt), intent(in)      :: Gtop, Glow
+    character(*), parameter            :: here = 'build_MG (energyFilter_class.f90)'
 
+    ! Verify bounds then set values.
+    if (Glow < Gtop) &
+    call fatalError(here, 'Gtop = '//numToChar(Gtop)//' is larger than Glow = '//numToChar(Glow)//'.')
     self % Gtop = Gtop
     self % Glow = Glow
-
-    ! Verify bounds
-    if (self % Gtop > self % Glow) then
-      call fatalError(Here,'Gtop='// numToChar(self % Gtop) //' is larger then Glow=' // numToChar(self % Glow))
-    end if
-
-    ! Set values for CE filter
-    self % Emax = -huge(self % Emax)
-    self % Emin =  huge(self % Emin)
 
   end subroutine build_MG
 
@@ -201,29 +195,12 @@ contains
   !!
   subroutine build_CEMG(self, Emin, Emax, Gtop, Glow)
     class(energyFilter), intent(inout) :: self
-    real(defReal), intent(in)          :: Emin
-    real(defReal), intent(in)          :: Emax
-    integer(shortInt), intent(in)      :: Gtop
-    integer(shortInt), intent(in)      :: Glow
-    character(*), parameter :: Here = 'build_CEMG (energyFilter_class.f90)'
+    real(defReal), intent(in)          :: Emin, Emax
+    integer(shortInt), intent(in)      :: Gtop, Glow
 
-    self % Gtop = Gtop
-    self % Glow = Glow
-
-    ! Verify bounds
-    if (self % Gtop > self % Glow) then
-      call fatalError(Here,'Gtop='// numToChar(self % Gtop) //' is larger then Glow=' // numToChar(self % Glow))
-    end if
-
-    self % Emin = Emin
-    self % Emax = Emax
-
-    ! Verify bounds
-    if (self % Emax <= self % Emin) then
-      call fatalError(Here,'Emin='// numToChar(self % Emin) //' is larger or equal to Emax=' // numToChar(self % Emax))
-    end if
+    call self % build_CE(Emin, Emax)
+    call self % build_MG(Gtop, Glow)
 
   end subroutine build_CEMG
-
 
 end module energyFilter_class

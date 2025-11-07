@@ -1,19 +1,14 @@
 module testNeutronDatabase_class
 
+  use charMap_class,             only : charMap
+  use dictionary_class,          only : dictionary
+  use materialHandle_inter,      only : materialHandle
+  use nuclearDatabase_inter,     only : nuclearDatabase
+  use nuclideHandle_inter,       only : nuclideHandle
   use numPrecision
-  use particle_class,        only : particle
-  use dictionary_class,      only : dictionary
-  use charMap_class,         only : charMap
-
-  ! Nuclear Data Interfaces
-  use nuclearDatabase_inter, only : nuclearDatabase
-  use materialHandle_inter,  only : materialHandle
-  use nuclideHandle_inter,   only : nuclideHandle
-  use reactionHandle_inter,  only : reactionHandle
-
-  ! Other Test Neutron Objects
+  use reactionHandle_inter,      only : reactionHandle
   use testNeutronMaterial_class, only : testNeutronMaterial
-
+  use transportObject_inter,     only : transportObject
 
   implicit none
   private
@@ -37,8 +32,8 @@ module testNeutronDatabase_class
   !! }
   !!
   type, public, extends(nuclearDatabase) :: testNeutronDatabase
-    real(defReal)                      :: xsVal = ZERO
-    type(testNeutronMaterial), pointer :: mat => null()
+    real(defReal)                        :: xsVal = ZERO
+    type(testNeutronMaterial), pointer   :: mat => null()
     !
   contains
     ! Superclass Interface
@@ -179,9 +174,9 @@ contains
   !!
   !! See nuclearDatabase_inter for details
   !!
-  function getTrackingXS(self, p, matIdx, what) result(xs)
+  function getTrackingXS(self, object, matIdx, what) result(xs)
     class(testNeutronDatabase), intent(inout) :: self
-    class(particle), intent(in)               :: p
+    class(transportObject), intent(in)        :: object
     integer(shortInt), intent(in)             :: matIdx
     integer(shortInt), intent(in)             :: what
     real(defReal)                             :: xs
@@ -195,9 +190,9 @@ contains
   !!
   !! See nuclearDatabase_inter for details
   !!
-  function getTrackMatXS(self, p, matIdx) result(xs)
+  function getTrackMatXS(self, object, matIdx) result(xs)
     class(testNeutronDatabase), intent(inout) :: self
-    class(particle), intent(in)               :: p
+    class(transportObject), intent(in)        :: object
     integer(shortInt), intent(in)             :: matIdx
     real(defReal)                             :: xs
 
@@ -210,9 +205,9 @@ contains
   !!
   !! See nuclearDatabase_inter for details
   !!
-  function getTotalMatXS(self, p, matIdx) result(xs)
+  function getTotalMatXS(self, object, matIdx) result(xs)
     class(testNeutronDatabase), intent(inout) :: self
-    class(particle), intent(in)               :: p
+    class(transportObject), intent(in)        :: object
     integer(shortInt), intent(in)             :: matIdx
     real(defReal)                             :: xs
 
@@ -225,9 +220,9 @@ contains
   !!
   !! See nuclearDatabase_inter for details
   !!
-  function getMajorantXS(self, p) result(xs)
+  function getMajorantXS(self, object) result(xs)
     class(testNeutronDatabase), intent(inout) :: self
-    class(particle), intent(in)               :: p
+    class(transportObject), intent(in)        :: object
     real(defReal)                             :: xs
 
     xs = self % xsVal

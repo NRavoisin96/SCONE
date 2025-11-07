@@ -1,14 +1,15 @@
 module energyMap_class
 
+  use CEParticleState_class,      only : CEParticleState
+  use dictionary_class,           only : dictionary
+  use errors_mod,                 only : fatalError 
+  use grid_class,                 only : grid  
   use numPrecision
-  use universalVariables
+  use outputFile_class,           only : outputFile
   use preDefEnergyGrids
-  use genericProcedures,   only : fatalError
-  use dictionary_class,    only : dictionary
-  use grid_class,          only : grid
-  use particle_class,      only : particleState
-  use outputFile_class,    only : outputFile
-  use tallyMap1D_inter,    only : tallyMap1D, kill_super => kill
+  use tallyMap1D_inter,           only : tallyMap1D, kill_super => kill
+  use transportObjectState_class, only : transportObjectState
+  use universalVariables
 
   implicit none
   private
@@ -61,7 +62,6 @@ module energyMap_class
     private
     type(grid)        :: binBounds
     integer(shortInt) :: N = 0
-
   contains
     ! Superclass interface implementaction
     procedure  :: init
@@ -273,20 +273,21 @@ contains
   !! NOTE:
   !!   Returns idx = 0 for MG particles
   !!
-  elemental function map(self,state) result(idx)
-    class(energyMap), intent(in)     :: self
-    class(particleState), intent(in) :: state
-    integer(shortInt)                :: idx
+  function map(self, state) result(idx)
+    class(energyMap), intent(in)            :: self
+    class(transportObjectState), intent(in) :: state
+    integer(shortInt)                       :: idx
 
-    ! Catch MG particle
-    if (state % isMG) then
-      idx = 0
-      return
-    end if
+    idx = 0
+    select type(ptr => state)
+      class is(CEParticleState)
+        idx = self % binBounds % search(ptr % getEnergy())
+        if (idx == valueOutsideArray) idx = 0
 
-    ! Find position on the grid
-    idx = self % binBounds % search(state % E)
-    if (idx == valueOutsideArray) idx = 0
+      class default
+        ! Do nothing.
+
+    end select
 
   end function map
 

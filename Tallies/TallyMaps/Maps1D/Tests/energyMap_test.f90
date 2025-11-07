@@ -1,39 +1,53 @@
 module energyMap_test
-  use numPrecision
-  use funit
-  use particle_class,          only : particleState
-  use dictionary_class,        only : dictionary
-  use outputFile_class,        only : outputFile
-
+  
+  use CEParticleState_class, only : CEParticleState
+  use dictionary_class,      only : dictionary
   use energyMap_class,       only : energyMap
+  use funit
+  use MGParticleState_class, only : MGParticleState
+  use numPrecision
+  use outputFile_class,      only : outputFile
 
   implicit none
-
 
 @testCase
   type, extends(TestCase) :: test_energyMap
     private
-    type(energyMap) :: map_lin
-    type(energyMap) :: map_log
-    type(energyMap) :: map_predef
-    type(energyMap) :: map_unstruct
+    type(energyMap) :: map_lin, map_log, map_predef, map_unstruct
   contains
     procedure :: setUp
     procedure :: tearDown
   end type test_energyMap
 
-  real(defReal), dimension(*), parameter :: UNSTRUCT_GRID = [ 0.00000000001_defReal, &
-               0.00000003_defReal, 0.000000058_defReal, 0.00000014_defReal, 0.00000028_defReal, &
-               0.00000035_defReal, 0.000000625_defReal, 0.000000972_defReal, 0.00000102_defReal,&
-               0.000001097_defReal, 0.00000115_defReal, 0.000001855_defReal, 0.000004_defReal,&
-               0.000009877_defReal, 0.000015968_defReal, 0.000148728_defReal, 0.00553_defReal,&
-               0.009118_defReal, 0.111_defReal, 0.5_defReal, 0.821_defReal, 1.353_defReal, &
-               2.231_defReal, 3.679_defReal, 6.0655_defReal, 10.0_defReal]
-
-
+  real(defReal), dimension(*), parameter :: UNSTRUCT_GRID = [0.00000000001_defReal, &
+                                                             0.00000003_defReal, &
+                                                             0.000000058_defReal, &
+                                                             0.00000014_defReal, &
+                                                             0.00000028_defReal, &
+                                                             0.00000035_defReal, &
+                                                             0.000000625_defReal, &
+                                                             0.000000972_defReal, &
+                                                             0.00000102_defReal, &
+                                                             0.000001097_defReal, &
+                                                             0.00000115_defReal, &
+                                                             0.000001855_defReal, &
+                                                             0.000004_defReal, &
+                                                             0.000009877_defReal, &
+                                                             0.000015968_defReal, &
+                                                             0.000148728_defReal, &
+                                                             0.00553_defReal, &
+                                                             0.009118_defReal, &
+                                                             0.111_defReal, &
+                                                             0.5_defReal, &
+                                                             0.821_defReal, &
+                                                             1.353_defReal, &
+                                                             2.231_defReal, &
+                                                             3.679_defReal, &
+                                                             6.0655_defReal, &
+                                                             10.0_defReal]
 
 contains
-
+@Before
   !!
   !! Sets up test_energyMap object we can use in a number of tests
   !!
@@ -77,9 +91,9 @@ contains
     call this % map_unstruct % init(tempDict)
     call tempDict % kill()
 
-
   end subroutine setUp
 
+@After
   !!
   !! Kills test_energyMap object we can use in a number of tests
   !!
@@ -102,16 +116,24 @@ contains
   !!
 @Test
   subroutine testLinearGrid(this)
-    class(test_energyMap), intent(inout) :: this
-    real(defReal), dimension(6), parameter :: E = [7.5774_defReal, 9.3652_defReal, 3.9223_defReal, &
-                                                 6.5548_defReal, 1.7119_defReal, 20.0_defReal]
-    integer(shortInt), dimension(6), parameter :: RES_IDX = [16, 19, 8, 14, 4, 0]
-    integer(shortInt), dimension(6)           :: idx
-    type(particleState), dimension(6)         :: states
+    class(test_energyMap), intent(inout)       :: this
+    integer(shortInt)                          :: i
+    integer(shortInt), dimension(6)            :: idxs
+    type(CEParticleState), dimension(6)        :: states
+    integer(shortInt), dimension(6), parameter :: RES_IDXS = [16, 19, 8, 14, 4, 0]
+    real(defReal), dimension(6), parameter     :: E = [7.5774_defReal, &
+                                                       9.3652_defReal, &
+                                                       3.9223_defReal, &
+                                                       6.5548_defReal, &
+                                                       1.7119_defReal, &
+                                                       20.0_defReal]
 
-    states % E = E
-    idx = this % map_lin % map(states)
-    @assertEqual(RES_IDX, idx)
+    do i = 1, 6
+      call states(i) % setEnergy(E(i))
+      idxs(i) = this % map_lin % map(states(i))
+
+    end do
+    @assertEqual(RES_IDXS, idxs)
 
   end subroutine testLinearGrid
 
@@ -120,20 +142,24 @@ contains
   !!
 @Test
   subroutine testLogGrid(this)
-    class(test_energyMap), intent(inout) :: this
-    real(defReal), dimension(6), parameter :: E = [0.0445008907555061_defReal,   &
-                                                 1.79747463687278e-07_defReal, &
-                                                 1.64204055725811e-05_defReal, &
-                                                 2.34083673923110e-07_defReal, &
-                                                 5.98486350302033e-07_defReal, &
-                                                 20.00000000000000000_defReal]
-    integer(shortInt), dimension(6), parameter :: RES_IDX = [15, 1, 6, 1, 2, 0]
-    integer(shortInt), dimension(6)           :: idx
-    type(particleState), dimension(6)         :: states
+    class(test_energyMap), intent(inout)       :: this
+    integer(shortInt)                          :: i
+    integer(shortInt), dimension(6)            :: idxs
+    type(CEParticleState), dimension(6)        :: states
+    integer(shortInt), dimension(6), parameter :: RES_IDXS = [15, 1, 6, 1, 2, 0]
+    real(defReal), dimension(6), parameter     :: E = [0.0445008907555061_defReal, &
+                                                       1.79747463687278e-07_defReal, &
+                                                       1.64204055725811e-05_defReal, &
+                                                       2.34083673923110e-07_defReal, &
+                                                       5.98486350302033e-07_defReal, &
+                                                       20.00000000000000000_defReal]
 
-    states % E = E
-    idx = this % map_log % map(states)
-    @assertEqual(RES_IDX, idx)
+    do i = 1, 6
+      call states(i) % setEnergy(E(i))
+      idxs(i) = this % map_log % map(states(i))
+
+    end do
+    @assertEqual(RES_IDXS, idxs)
 
   end subroutine testLogGrid
 
@@ -142,20 +168,24 @@ contains
   !!
 @Test
   subroutine testPredefGrid(this)
-    class(test_energyMap), intent(inout) :: this
-    real(defReal), dimension(6), parameter :: E = [0.0445008907555061_defReal,   &
-                                                 1.79747463687278e-07_defReal, &
-                                                 1.64204055725811e-05_defReal, &
-                                                 2.34083673923110e-07_defReal, &
-                                                 5.98486350302033e-07_defReal, &
-                                                 20.00000000000000000_defReal]
-    integer(shortInt), dimension(6), parameter :: RES_IDX = [16, 4, 13, 4, 6, 0]
-    integer(shortInt), dimension(6)           :: idx
-    type(particleState), dimension(6)         :: states
+    class(test_energyMap), intent(inout)       :: this
+    integer(shortInt)                          :: i
+    integer(shortInt), dimension(6)            :: idxs
+    type(CEParticleState), dimension(6)        :: states
+    integer(shortInt), dimension(6), parameter :: RES_IDXS = [16, 4, 13, 4, 6, 0]
+    real(defReal), dimension(6), parameter     :: E = [0.0445008907555061_defReal, &
+                                                       1.79747463687278e-07_defReal, &
+                                                       1.64204055725811e-05_defReal, &
+                                                       2.34083673923110e-07_defReal, &
+                                                       5.98486350302033e-07_defReal, &
+                                                       20.00000000000000000_defReal]
 
-    states % E = E
-    idx = this % map_predef % map(states)
-    @assertEqual(RES_IDX, idx)
+    do i = 1, 6
+      call states(i) % setEnergy(E(i))
+      idxs(i) = this % map_predef % map(states(i))
+
+    end do
+    @assertEqual(RES_IDXS, idxs)
 
   end subroutine testPredefGrid
 
@@ -164,20 +194,24 @@ contains
   !!
 @Test
   subroutine testUnstructGrid(this)
-    class(test_energyMap), intent(inout) :: this
-    real(defReal), dimension(6), parameter :: E = [0.0761191517392624_defReal,   &
-                                                 0.00217742635754091_defReal,  &
-                                                 6.38548311340975e-08_defReal, &
-                                                 2.52734532533842_defReal,     &
-                                                 2.59031729968032e-11_defReal, &
-                                                 20.00000000000000000_defReal]
-    integer(shortInt), dimension(6), parameter :: RES_IDX = [18, 16, 3, 23, 1, 0]
-    integer(shortInt), dimension(6)           :: idx
-    type(particleState), dimension(6)         :: states
+    class(test_energyMap), intent(inout)       :: this
+    integer(shortInt)                          :: i
+    integer(shortInt), dimension(6)            :: idxs
+    type(CEParticleState), dimension(6)        :: states
+    integer(shortInt), dimension(6), parameter :: RES_IDXS = [18, 16, 3, 23, 1, 0]
+    real(defReal), dimension(6), parameter     :: E = [0.0761191517392624_defReal, &
+                                                       0.00217742635754091_defReal, &
+                                                       6.38548311340975e-08_defReal, &
+                                                       2.52734532533842_defReal, &
+                                                       2.59031729968032e-11_defReal, &
+                                                       20.00000000000000000_defReal]
 
-    states % E = E
-    idx = this % map_unstruct % map(states)
-    @assertEqual(RES_IDX, idx)
+    do i = 1, 6
+      call states(i) % setEnergy(E(i))
+      idxs(i) = this % map_unstruct % map(states(i))
+
+    end do
+    @assertEqual(RES_IDXS, idxs)
 
   end subroutine testUnstructGrid
 
@@ -187,26 +221,24 @@ contains
 @Test
   subroutine testMGParticle(this)
     class(test_energyMap), intent(inout) :: this
-    type(particleState)                  :: state
     integer(shortInt)                    :: idx
-
-    state % isMG = .true.
+    type(MGParticleState)                :: state
 
     ! Linear energyMap
     idx = this % map_lin % map(state)
-    @assertEqual(0, idx,'Linear energy Map')
+    @assertEqual(0, idx, 'Linear energy Map.')
 
     ! Log energyMap
     idx = this % map_log % map(state)
-    @assertEqual(0, idx,'Log energy Map')
+    @assertEqual(0, idx, 'Log energy Map.')
 
     ! Predef energyMap
     idx = this % map_predef % map(state)
-    @assertEqual(0, idx,'Predef energy Map')
+    @assertEqual(0, idx, 'Predef energy Map.')
 
     ! Unstructured energyMap
     idx = this % map_unstruct % map(state)
-    @assertEqual(0, idx,'Unstructured energy Map')
+    @assertEqual(0, idx, 'Unstructured energy Map.')
 
   end subroutine testMGParticle
 
@@ -218,24 +250,24 @@ contains
     class(test_energyMap), intent(inout) :: this
 
     ! Linear energyMap
-    @assertEqual(20, this % map_lin % bins(1),'1st Dimension')
-    @assertEqual(20, this % map_lin % bins(0),'All bins')
-    @assertEqual(0,  this % map_lin % bins(-3),'Invalid Dimension')
+    @assertEqual(20, this % map_lin % bins(1), '1st Dimension.')
+    @assertEqual(20, this % map_lin % bins(0), 'All bins.')
+    @assertEqual(0, this % map_lin % bins(-3), 'Invalid Dimension.')
 
     ! Log energyMap
-    @assertEqual(20, this % map_log % bins(1),'1st Dimension')
-    @assertEqual(20, this % map_log % bins(0),'All bins')
-    @assertEqual(0,  this % map_log % bins(-3),'Invalid Dimension')
+    @assertEqual(20, this % map_log % bins(1), '1st Dimension.')
+    @assertEqual(20, this % map_log % bins(0), 'All bins.')
+    @assertEqual(0, this % map_log % bins(-3), 'Invalid Dimension.')
 
     ! Predef energyMap
-    @assertEqual(23, this % map_predef % bins(1),'1st Dimension')
-    @assertEqual(23, this % map_predef % bins(0),'All bins')
-    @assertEqual(0,  this % map_predef % bins(-3),'Invalid Dimension')
+    @assertEqual(23, this % map_predef % bins(1), '1st Dimension.')
+    @assertEqual(23, this % map_predef % bins(0), 'All bins.')
+    @assertEqual(0, this % map_predef % bins(-3), 'Invalid Dimension.')
 
     ! Unstructured energyMap
-    @assertEqual(25, this % map_unstruct % bins(1),'1st Dimension')
-    @assertEqual(25, this % map_unstruct % bins(0),'All bins')
-    @assertEqual(0,  this % map_unstruct % bins(-3),'Invalid Dimension')
+    @assertEqual(25, this % map_unstruct % bins(1), '1st Dimension.')
+    @assertEqual(25, this % map_unstruct % bins(0), 'All bins.')
+    @assertEqual(0, this % map_unstruct % bins(-3), 'Invalid Dimension.')
 
   end subroutine testBinNumber
 
@@ -251,22 +283,21 @@ contains
     call out % init('dummyPrinter', fatalErrors = .false.)
 
     call this % map_lin % print(out)
-    @assertTrue(out % isValid(),'Linear map case')
+    @assertTrue(out % isValid(), 'Linear map case.')
     call out % reset()
 
     call this % map_log % print(out)
-    @assertTrue(out % isValid(),'Logarithmic map case')
+    @assertTrue(out % isValid(), 'Logarithmic map case.')
     call out % reset()
 
     call this % map_predef % print(out)
-    @assertTrue(out % isValid(),'Predefined map case')
+    @assertTrue(out % isValid(), 'Predefined map case.')
     call out % reset()
 
     call this % map_unstruct % print(out)
-    @assertTrue(out % isValid(),'Unstructured map case')
+    @assertTrue(out % isValid(), 'Unstructured map case.')
     call out % reset()
 
   end subroutine testPrint
-
 
 end module energyMap_test

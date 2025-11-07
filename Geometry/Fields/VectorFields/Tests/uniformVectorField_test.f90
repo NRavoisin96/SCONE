@@ -1,59 +1,73 @@
 module uniformVectorField_test
 
-  use numPrecision
-  use dictionary_class,         only : dictionary
-  use particle_class,           only : particle
-  use field_inter,              only : field
-  use vectorField_inter,        only : vectorField, vectorField_CptrCast
-  use uniformVectorField_class, only : uniformVectorField, uniformVectorField_TptrCast
+  use dictionary_class,          only : dictionary
+  use field_inter,               only : field
   use funit
+  use numPrecision
+  use testTransportObject_class, only : testTransportObject
+  use uniformVectorField_class,  only : uniformVectorField, uniformVectorField_TptrCast
+  use vectorField_inter,         only : vectorField, vectorField_CptrCast
 
   implicit none
 
+  ! Variables.
+  type(testTransportObject)        :: testObject
+  type(uniformVectorField), target :: fieldT
+
 contains
+@Before
+  !!
+  !!
+  !!
+  subroutine setUp()
+    type(dictionary) :: dict
+
+    ! Initialise field.
+    call dict % init(2)
+    call dict % store('type', 'uniformVectorField')
+    call dict % store('value', [9.6_defReal, -8.0_defReal, 9.7_defReal])
+    call fieldT % init(dict)
+
+  end subroutine setUp
+
+@After
+  !!
+  !!
+  !!
+  subroutine tearDown()
+
+    ! Clean up.
+    call fieldT % kill()
+
+  end subroutine tearDown
 
   !!
   !! Test Uniform Scalar Field
   !!
 @Test
   subroutine test_uniformVectorField()
-    type(uniformVectorField), target  :: fieldT
     class(field), pointer             :: ref
-    class(vectorField), pointer       :: ptr
-    type(uniformVectorField), pointer :: ptr2
+    class(vectorField), pointer       :: vectorFieldPtr
     type(dictionary)                  :: dict
-    type(particle)                    :: p
-    real(defReal), parameter :: TOL = 1.0E-7_defReal
+    type(uniformVectorField), pointer :: uniformVectorFieldPtr
+    real(defReal), parameter          :: TOL = 1.0E-7_defReal
 
     ! Test invalid pointers
     ref => null()
-
-    ptr => vectorField_CptrCast(ref)
-    ptr2 => uniformVectorField_TptrCast(ref)
-    @assertFalse(associated(ptr))
-    @assertFalse(associated(ptr2))
+    vectorFieldPtr => vectorField_CptrCast(ref)
+    uniformVectorFieldPtr => uniformVectorField_TptrCast(ref)
+    @assertFalse(associated(vectorFieldPtr))
+    @assertFalse(associated(uniformVectorFieldPtr))
 
     ! Test valid pointers
     ref => fieldT
-
-    ptr => vectorField_CptrCast(ref)
-    ptr2 => uniformVectorField_TptrCast(ref)
-
-    @assertTrue(associated(ptr, fieldT))
-    @assertTrue(associated(ptr2, fieldT))
-
-    ! Initialise field
-    call dict % init(2)
-    call dict % store('type', 'uniformVectorField')
-    call dict % store('value', [9.6_defReal, -8.0_defReal, 9.7_defReal])
-
-    call fieldT % init(dict)
+    vectorFieldPtr => vectorField_CptrCast(ref)
+    uniformVectorFieldPtr => uniformVectorField_TptrCast(ref)
+    @assertTrue(associated(vectorFieldPtr, fieldT))
+    @assertTrue(associated(uniformVectorFieldPtr, fieldT))
 
     ! Check value
-    @assertEqual([9.6_defReal, -8.0_defReal, 9.7_defReal], fieldT % at(p), TOL)
-
-    ! Kill
-    call fieldT % kill()
+    @assertEqual([9.6_defReal, -8.0_defReal, 9.7_defReal], fieldT % at(testObject), TOL)
 
   end subroutine test_uniformVectorField
 

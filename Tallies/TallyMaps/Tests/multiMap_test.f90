@@ -1,25 +1,25 @@
 module multiMap_test
-  use numPrecision
+  
+  use dictionary_class,           only : dictionary
+  use dictParser_func,            only : charToDict
   use funit
-  use particle_class,          only : particleState
-  use dictionary_class,        only : dictionary
-  use dictParser_func,         only : charToDict
-  use multiMap_class,          only : multiMap
-  use outputFile_class,        only : outputFile
-  implicit none
+  use multiMap_class,             only : multiMap
+  use numPrecision
+  use outputFile_class,           only : outputFile
+  use transportObjectState_class, only : transportObjectState
 
+  implicit none
 
 @testCase
   type, extends(TestCase) :: test_multiMap
     type(multiMap) :: map
-
   contains
     procedure :: setUp
     procedure :: tearDown
   end type test_multiMap
 
 contains
-
+@Before
   !!
   !! Sets up test_intMap object we can use in a number of tests
   !!
@@ -33,13 +33,14 @@ contains
       &map2 {type spaceMap; axis y; grid unstruct; bins (0.0 2.0 4.0 6.0); } &
       &map3 {type spaceMap; axis z; grid unstruct; bins (0.0 3.0 6.0); }     "
 
-
     call charToDict(tempDict, def)
     call this % map % init(tempDict)
 
     call tempDict % kill()
+
   end subroutine setUp
 
+@After
   !!
   !! Kills test_intMap object we can use in a number of tests
   !!
@@ -81,34 +82,38 @@ contains
 @Test
   subroutine testMapping(this)
     class(test_multiMap), intent(inout) :: this
-    type(particleState)                 :: state
+    real(defReal), dimension(3)         :: r
+    type(transportObjectState)          :: state
 
     ! Map to bin (1 1 1) -> idx == 1
-    state % r = [0.1_defReal, 0.1_defReal, 0.1_defReal]
+    r = [0.1_defReal, 0.1_defReal, 0.1_defReal]
+    call state % setGlobalPosition(r)
     @assertEqual(1, this % map % map(state))
 
     ! Map to bin (2 3 2) -> idx == 12
-    state % r = [1.1_defReal, 5.1_defReal, 5.1_defReal]
+    r = [1.1_defReal, 5.1_defReal, 5.1_defReal]
+    call state % setGlobalPosition(r)
     @assertEqual(12, this % map % map(state))
 
     ! Map to bin (2, 2, 1) -> idx == 4
-    state % r = [1.1_defReal, 3.1_defReal, 2.1_defReal]
+    r = [1.1_defReal, 3.1_defReal, 2.1_defReal]
+    call state % setGlobalPosition(r)
     @assertEqual(4, this % map % map(state))
 
     ! Map outside division -> idx == 0
-    state % r = [-1.1_defReal, 5.1_defReal, 5.1_defReal]
+    r = [-1.1_defReal, 5.1_defReal, 5.1_defReal]
+    call state % setGlobalPosition(r)
     @assertEqual(0, this % map % map(state))
 
-    state % r = [1.1_defReal, 50.1_defReal, 5.1_defReal]
+    r = [1.1_defReal, 50.1_defReal, 5.1_defReal]
+    call state % setGlobalPosition(r)
     @assertEqual(0, this % map % map(state))
 
-    state % r = [1.1_defReal, 5.1_defReal, -5.1_defReal]
+    r = [1.1_defReal, 5.1_defReal, -5.1_defReal]
+    call state % setGlobalPosition(r)
     @assertEqual(0, this % map % map(state))
 
   end subroutine testMapping
-
-
-
 
   !!
   !! Test correctness of calls when printing
@@ -121,10 +126,9 @@ contains
     call out % init('dummyPrinter', fatalErrors = .false.)
 
     call this % map % print(out)
-    @assertTrue(out % isValid(),'Incorrect printing sequence: ')
+    @assertTrue(out % isValid(), 'Incorrect printing sequence: ')
     call out % reset()
 
   end subroutine testPrint
-
 
 end module multiMap_test

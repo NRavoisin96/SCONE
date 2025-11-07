@@ -3,7 +3,8 @@ program scone
   use commandLineUI,              only : addClOption, clOptionIsPresent, getFromCL, getInputFile, killCommandLineOptions => kill
   use dictionary_class,           only : dictionary
   use dictParser_func,            only : fileToDict
-  use genericProcedures,          only : fatalError, printStart
+  use errors_mod,                 only : fatalError
+  use genericProcedures,          only : printStart
   use geometry_inter,             only : geometry
   use geometryFactory_func,       only : new_geometry
   use geometryReg_mod,            only : geomIdx, geomPtr, killGeometryRegistry => kill

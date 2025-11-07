@@ -1,35 +1,30 @@
 module materialMap_test
-  use numPrecision
+  
+  use dictionary_class,           only : dictionary
+  use dictParser_func,            only : charToDict
   use funit
-  use particle_class,          only : particleState
-  use dictionary_class,        only : dictionary
-  use dictParser_func,         only : charToDict
-  use outputFile_class,        only : outputFile
-
-  ! May not be ideal but there is a dependance on Global materialMenu
-  use materialMenu_mod,        only : mm_init => init, mm_kill => kill
-
-  use materialMap_class,       only : materialMap
+  use materialMap_class,          only : materialMap
+  use materialMenu_mod,           only : mm_init => init, mm_kill => kill
+  use numPrecision
+  use outputFile_class,           only : outputFile
+  use transportObjectState_class, only : transportObjectState
 
   implicit none
-
 
 @testCase
   type, extends(TestCase) :: test_materialMap
     private
-    type(materialMap), allocatable :: map_noUndef
-    type(materialMap), allocatable :: map_Undef
+    type(materialMap), allocatable :: map_noUndef, map_Undef
   contains
     procedure :: setUp
     procedure :: tearDown
   end type test_materialMap
 
-
   !!
   !! Test parameters
   !!
-  character(*), dimension(*), parameter :: MAT_NAMES=['mat1','mat2','mat3','mat4','mat5']
-  character(*), dimension(*), parameter :: MAT_IN_MAP =['mat2','mat3','mat5']
+  character(*), dimension(*), parameter :: MAT_NAMES = ['mat1', 'mat2', 'mat3', 'mat4', 'mat5']
+  character(*), dimension(*), parameter :: MAT_IN_MAP = ['mat2', 'mat3', 'mat5']
 
   !!
   !! Material Definitions
@@ -41,19 +36,14 @@ module materialMap_test
   & mat4 { temp 17; composition {} } &
   & mat5 { temp 17; composition {} } "
 
-
-
 contains
-
+@Before
   !!
   !! Sets up test_intMap object we can use in a number of tests
   !!
   subroutine setUp(this)
     class(test_materialMap), intent(inout) :: this
-    type(dictionary)                  :: dict
-    type(dictionary)                  :: mapDict1
-
-
+    type(dictionary)                       :: dict, mapDict1
 
 !    !*** Provisional -> allow registry without handles
 !    call tempDict2 % store('myMat','datalessMaterials')
@@ -87,6 +77,7 @@ contains
 
   end subroutine setUp
 
+@After
   !!
   !! Kills test_intMap object we can use in a number of tests
   !!
@@ -102,48 +93,45 @@ contains
 !!<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 !! PROPER TESTS BEGIN HERE
 !!<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
-
   !!
   !! Mapping test without undefined bin
   !!
 @Test
   subroutine testMappingNoUndefined(this)
-    class(test_materialMap), intent(inout)   :: this
-    type(particleState)                      :: state
-    integer(shortInt)                        :: i
-    integer(shortInt), dimension(5)           :: bins
+    class(test_materialMap), intent(inout)     :: this
+    integer(shortInt)                          :: i
+    integer(shortInt), dimension(5)            :: bins
+    type(transportObjectState)                 :: state
     integer(shortInt), dimension(5), parameter :: EXPECTED_BINS = [0, 1, 2, 0, 3]
 
-    do i= 1, 5
-      state % matIdx = i
+    do i = 1, 5
+      call state % setMaterialIdx(i)
       bins(i) = this % map_noUndef % map(state)
-    end do
 
+    end do
     @assertEqual(EXPECTED_BINS,bins)
 
   end subroutine testMappingNoUndefined
-
 
   !!
   !! Mapping test with undefined bin
   !!
 @Test
   subroutine testMappingUndefined(this)
-    class(test_materialMap), intent(inout)   :: this
-    type(particleState)                      :: state
-    integer(shortInt)                        :: i
-    integer(shortInt), dimension(5)           :: bins
+    class(test_materialMap), intent(inout)     :: this
+    integer(shortInt)                          :: i
+    integer(shortInt), dimension(5)            :: bins
+    type(transportObjectState)                 :: state
     integer(shortInt), dimension(5), parameter :: EXPECTED_BINS = [4, 1, 2, 4, 3]
 
-    do i= 1, 5
-      state % matIdx = i
+    do i = 1, 5
+      call state % setMaterialIdx(i)
       bins(i) = this % map_undef % map(state)
-    end do
 
+    end do
     @assertEqual(EXPECTED_BINS,bins)
 
   end subroutine testMappingUndefined
-
 
   !!
   !! Test number of bins inquiry
@@ -152,11 +140,11 @@ contains
   subroutine testNumberOfBinsInquiry(this)
     class(test_materialMap), intent(inout) :: this
 
-    @assertEqual(3, this % map_noUndef % bins(1),'materialMap without undefined bin')
-    @assertEqual(4, this % map_undef % bins(1),'materialMap with undefined bin')
-    @assertEqual(3, this % map_noUndef % bins(0), 'Number of all bins')
-    @assertEqual(0, this % map_noUndef % bins(2), 'higher dimension')
-    @assertEqual(0, this % map_noUndef % bins(-2),'invalid dimension')
+    @assertEqual(3, this % map_noUndef % bins(1), 'materialMap without undefined bin.')
+    @assertEqual(4, this % map_undef % bins(1), 'materialMap with undefined bin.')
+    @assertEqual(3, this % map_noUndef % bins(0), 'Number of all bins.')
+    @assertEqual(0, this % map_noUndef % bins(2), 'Higher dimension.')
+    @assertEqual(0, this % map_noUndef % bins(-2), 'Invalid dimension.')
 
   end subroutine testNumberOfBinsInquiry
 
@@ -172,15 +160,13 @@ contains
     call out % init('dummyPrinter', fatalErrors = .false.)
 
     call this % map_noUndef % print(out)
-    @assertTrue(out % isValid(),'For map with no undefined material bin: ')
+    @assertTrue(out % isValid(), 'For map with no undefined material bin: ')
     call out % reset()
 
     call this % map_undef % print(out)
-    @assertTrue(out % isValid(),'For map with undefined material bin: ')
+    @assertTrue(out % isValid(), 'For map with undefined material bin: ')
     call out % reset()
 
   end subroutine testPrint
-
-
 
 end module materialMap_test

@@ -1,13 +1,14 @@
 module directionMap_class
 
+  use dictionary_class,           only : dictionary
+  use errors_mod,                 only : fatalError
+  use genericProcedures,          only : numToChar
+  use grid_class,                 only : grid
   use numPrecision
-  use universalVariables, only : valueOutsideArray, X_AXIS, Y_AXIS, Z_AXIS
-  use genericProcedures,  only : fatalError, numToChar
-  use dictionary_class,   only : dictionary
-  use grid_class,         only : grid
-  use particle_class,     only : particleState
-  use outputFile_class,   only : outputFile
-  use tallyMap1D_inter,   only : tallyMap1D, kill_super => kill
+  use outputFile_class,           only : outputFile
+  use tallyMap1D_inter,           only : tallyMap1D, kill_super => kill
+  use transportObjectState_class, only : transportObjectState
+  use universalVariables,         only : valueOutsideArray, X_AXIS, Y_AXIS, Z_AXIS
 
   implicit none
   private
@@ -41,10 +42,7 @@ module directionMap_class
   type, public, extends (tallyMap1D) :: directionMap
     private
     type(grid)                  :: bounds
-    integer(shortInt)           :: N = 0
-    integer(shortInt)           :: DIM1 = 0
-    integer(shortInt)           :: DIM2 = 0
-
+    integer(shortInt)           :: DIM1 = 0, DIM2 = 0, N = 0
   contains
     ! Superclass
     procedure :: init
@@ -53,7 +51,6 @@ module directionMap_class
     procedure :: map
     procedure :: print
     procedure :: kill
-
   end type directionMap
 
 contains
@@ -152,15 +149,17 @@ contains
   !!
   !! See tallyMap for specification.
   !!
-  elemental function map(self, state) result(idx)
-    class(directionMap), intent(in)  :: self
-    class(particleState), intent(in) :: state
-    integer(shortInt)                :: idx
-    real(defReal)                    :: x, y, theta
+  function map(self, state) result(idx)
+    class(directionMap), intent(in)         :: self
+    class(transportObjectState), intent(in) :: state
+    integer(shortInt)                       :: idx
+    real(defReal)                           :: x, y, theta
+    real(defReal), dimension(3)             :: uGlobal
 
-    ! Map the angle
-    x = state % dir(self % DIM1)
-    y = state % dir(self % DIM2)
+    ! Map the angle.
+    uGlobal = state % getGlobalDirection()
+    x = uGlobal(self % DIM1)
+    y = uGlobal(self % DIM2)
 
     ! Returns angle in radians in the range -PI to PI
     theta = atan2(y,x)
@@ -172,6 +171,7 @@ contains
     if (idx == valueOutsideArray) then
       idx = 0
       return
+
     end if
 
   end function map

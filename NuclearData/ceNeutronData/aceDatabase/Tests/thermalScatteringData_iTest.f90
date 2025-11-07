@@ -1,17 +1,18 @@
 module thermalScatteringData_iTest
 
-  use numPrecision
+  use aceNeutronDatabase_class, only : aceNeutronDatabase
+  use aceNeutronNuclide_class,  only : aceNeutronNuclide, aceNeutronNuclide_CptrCast
+  use CENeutron_class,          only : CENeutron
+  use ceNeutronCache_mod,       only : nuclideCache
+  use ceNeutronNuclide_inter,   only : ceNeutronNuclide, ceNeutronNuclide_CptrCast
+  use CEParticleState_class,    only : buildCEParticleStatePayload
   use dictionary_class,         only : dictionary
   use dictParser_func,          only : charToDict
-  use particle_class,           only : particle
-  use aceNeutronDatabase_class, only : aceNeutronDatabase
-  use nuclearDatabase_inter,    only : nuclearDatabase
-  use ceNeutronNuclide_inter,   only : ceNeutronNuclide, ceNeutronNuclide_CptrCast
-  use aceNeutronNuclide_class,  only : aceNeutronNuclide, aceNeutronNuclide_CptrCast
-  use neutronXSPackages_class,  only : neutronMicroXSs
-  use materialMenu_mod,         only : mm_init => init
-  use ceNeutronCache_mod,       only : nuclideCache
   use funit
+  use materialMenu_mod,         only : mm_init => init
+  use neutronXSPackages_class,  only : neutronMicroXSs
+  use nuclearDatabase_inter,    only : nuclearDatabase
+  use numPrecision
 
   implicit none
 
@@ -59,17 +60,17 @@ contains
   !!
 @Test
   subroutine test_thermalScatteringData()
-    class(nuclearDatabase), pointer   :: ptr
-    type(dictionary)                  :: matDict
-    type(dictionary)                  :: dataDict
     class(aceNeutronNuclide), pointer :: ACENuc, C12, H1, H1_2, O16
+    class(ceNeutronNuclide), pointer  :: nuc
+    class(nuclearDatabase), pointer   :: ptr
+    integer(shortInt)                 :: C12_Idx, H1_Idx, H1_2_Idx, i, O16_Idx
     real(defReal)                     :: val
     real(defReal), dimension(2)       :: eBounds, kTBounds
-    class(ceNeutronNuclide), pointer  :: nuc
-    type(particle)                    :: p
+    type(buildCEParticleStatePayload) :: payload
+    type(CENeutron)                   :: p
+    type(dictionary)                  :: dataDict, matDict
     type(neutronMicroXSs)             :: microXSs
-    integer(shortInt)                 :: C12_Idx, H1_Idx, H1_2_Idx, i, O16_Idx
-    real(defReal), parameter          :: TOL = 1.0E-6
+    real(defReal), parameter          :: TOL = 1.0e-6_defReal
 
     ! Prepare dictionaries
     call charToDict(matDict, MAT_INPUT_STR)
@@ -81,7 +82,7 @@ contains
     ! Initialise data
     ptr => data
     call data % init(dataDict, ptr, silent = .true.)
-    call data % activate(([1,2,3]), silent = .true.)
+    call data % activate(([1, 2, 3]), silent = .true.)
 
     !!<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
     !! Perform tests
@@ -178,12 +179,12 @@ contains
     !<><><><><><><><><><><><><><><><><><><><><><><><>
     ! Test Getting material XSs
     ! water
-
-    call p % build([ZERO, ZERO, ZERO], [ONE, ZERO, ZERO], 1.0E-6_defReal, ONE)
+    payload % uGlobal = [ONE, ZERO, ZERO]
+    call p % init(payload)
 
     ! Total XS of water
-    p % E = 1.8E-6_defReal
-    @assertEqual(ONE, data % getTotalMatXS(p, 1) / 0.0459700882_defReal , TOL)
+    call p % setEnergy(1.8e-6_defReal)
+    @assertEqual(ONE, data % getTotalMatXS(p, 1) / 0.0459700882_defReal, TOL)
 
     !<><><><><><><><><><><><><><><><><><><><><><><><>
     ! Test getting XSs
@@ -191,7 +192,7 @@ contains
     nuc => ceNeutronNuclide_CptrCast(data % getNuclide(H1_Idx))
     nuclideCache(H1_Idx) % E_tot = ONE
 
-    call nuc % getMicroXSs(1.8E-6_defReal, ZERO, microXSs, p % pRNG)
+    call nuc % getMicroXSs(1.8E-6_defReal, ZERO, microXSs, p % getRNGPtr())
 
     @assertEqual(ONE, 21.05810233858_defReal / microXSs % total, TOL)
     @assertEqual(ONE, 21.01865432_defReal / microXSs % inelasticScatter, TOL)

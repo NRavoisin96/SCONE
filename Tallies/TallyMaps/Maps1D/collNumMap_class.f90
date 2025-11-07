@@ -1,12 +1,14 @@
 module collNumMap_class
 
+  use dictionary_class,            only : dictionary
+  use errors_mod,                  only : fatalError
+  use genericProcedures,           only : numToChar
+  use intMap_class,                only : intMap
   use numPrecision
-  use genericProcedures,       only : fatalError, numToChar
-  use dictionary_class,        only : dictionary
-  use intMap_class,            only : intMap
-  use particle_class,          only : particleState
-  use outputFile_class,        only : outputFile
-  use tallyMap1D_inter,        only : tallyMap1D, kill_super => kill
+  use outputFile_class,            only : outputFile
+  use physicalParticleState_class, only : castPhysicalParticleStatePtr, physicalParticleState
+  use tallyMap1D_inter,            only : tallyMap1D, kill_super => kill
+  use transportObjectState_class,  only : transportObjectState
 
   implicit none
   private
@@ -40,8 +42,7 @@ module collNumMap_class
   type, public, extends(tallyMap1D) :: collNumMap
     private
     type(intMap)                                 :: binMap
-    integer(shortInt)                            :: default = 0
-    integer(shortInt)                            :: Nbins   = 0
+    integer(shortInt)                            :: default = 0, Nbins = 0
     integer(shortInt), dimension(:), allocatable :: collisionNumbers
 
   contains
@@ -137,12 +138,16 @@ contains
   !!
   !! See tallyMap for specification
   !!
-  elemental function map(self,state) result(idx)
-    class(collNumMap), intent(in)    :: self
-    class(particleState), intent(in) :: state
-    integer(shortInt)                :: idx
+  function map(self, state) result(idx)
+    class(collNumMap), intent(in)           :: self
+    class(transportObjectState), intent(in) :: state
+    class(physicalParticleState), pointer   :: physicalParticleStatePtr
+    integer(shortInt)                       :: idx
 
-    idx = self % binMap % getOrDefault( state % collisionN, self % default)
+    idx = 0
+    physicalParticleStatePtr => castPhysicalParticleStatePtr(state, .false.)
+    if (.not. associated(physicalParticleStatePtr)) return
+    idx = self % binMap % getOrDefault(physicalParticleStatePtr % getCollisionsNumber(), self % default)
 
   end function map
 

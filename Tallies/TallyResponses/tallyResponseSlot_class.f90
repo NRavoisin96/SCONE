@@ -1,13 +1,11 @@
 module tallyResponseSlot_class
 
-  use numPrecision
   use dictionary_class,          only : dictionary
-  use particle_class,            only : particle
+  use nuclearDatabase_inter,     only : nuclearDatabase
+  use numPrecision
   use tallyResponse_inter,       only : tallyResponse
   use tallyResponseFactory_func, only : new_tallyResponse
-
-  ! Nuclear Data interface
-  use nuclearDatabase_inter, only : nuclearDatabase
+  use transportObject_inter,     only : transportObject
 
   implicit none
   private
@@ -67,13 +65,13 @@ contains
   !! Errors:
   !!   If slot is unallocated (uninitialised) result is undefined (probably SEG ERROR)
   !!
-  subroutine get(self, p, value, xsData)
+  subroutine get(self, object, value, xsData)
     class(tallyResponseSlot), intent(in)            :: self
-    class(particle), intent(in)                     :: p
+    class(transportObject), intent(in)              :: object
     real(defReal), intent(out)                      :: value
     class(nuclearDatabase), intent(inout), optional :: xsData
 
-    call self % slot % get(p, value, xsData)
+    call self % slot % get(object, value, xsData)
 
   end subroutine get
 

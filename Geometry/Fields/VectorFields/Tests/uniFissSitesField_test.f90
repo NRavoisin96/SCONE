@@ -1,16 +1,16 @@
 module uniFissSitesField_test
   
-  use dictionary_class,         only : dictionary
-  use dictParser_func,          only : charToDict
+  use dictionary_class,           only : dictionary
+  use dictParser_func,            only : charToDict
   use funit
-  use geometry_inter,           only : geometry
+  use geometry_inter,             only : geometry
   use numPrecision
-  use particle_class,           only : particle, particleState
-  use uniFissSitesField_class,  only : uniFissSitesField
-  use universalVariables,       only : ONE, ZERO
+  use testTransportObject_class,  only : testTransportObject
+  use transportObjectState_class, only : transportObjectState
+  use uniFissSitesField_class,    only : uniFissSitesField
+  use universalVariables,         only : ONE, ZERO
 
   implicit none
-
 
 @testCase
   type, extends(TestCase) :: test_uniFissSitesField
@@ -28,16 +28,19 @@ module uniFissSitesField_test
   " type spaceMap;  axis z;  grid unstruct; &
     &bins (0.0 20.0 40.0 60.0 80.0); "
 
-contains
+  ! Variables.
+  type(testTransportObject) :: testObject
 
+contains
+@Before
   !!
   !! Sets up test_weightWindows object we can use in a number of tests
   !!
   subroutine setUp(this)
     class(test_uniFissSitesField), intent(inout) :: this
-    type(dictionary)                             :: dict, dictMap
     class(geometry), pointer                     :: geom
     integer(shortInt)                            :: type
+    type(dictionary)                             :: dict, dictMap
 
     call charToDict(dictMap, DICT_DEF)
 
@@ -48,12 +51,15 @@ contains
     call dict % store('type', 'uniFissSitesField')
     call dict % store('uniformVolMap', 1)
     call dict % store('map', dictMap)
-
     call this % ufsField % init(dict)
     call this % ufsField % estimateVol(geom, type)
 
+    ! Initialise test transport object.
+    call testObject % init()
+
   end subroutine setUp
 
+@After
   !!
   !! Kills test_weightWindows object
   !!
@@ -61,6 +67,7 @@ contains
     class(test_uniFissSitesField), intent(inout) :: this
 
     call this % ufsField % kill()
+    call testObject % kill()
 
   end subroutine tearDown
 
@@ -74,42 +81,38 @@ contains
 @Test
   subroutine testGetValue(this)
     class(test_uniFissSitesField), intent(inout) :: this
-    type(particle)                               :: p
-    type(particleState)                          :: state
     real(defReal), dimension(3)                  :: bins, EXPECTED_BINS
+    type(transportObjectState)                   :: testState
+    real(defReal), parameter                     :: TOL = 1.0e-6_defReal
 
     ! Test case in the map
-    call p % coords % setPosition([0.5_defReal, 7.0_defReal, 50.0_defReal], 1)
-
-    bins = this % ufsField % at(p)
+    call testObject % setGlobalPosition([0.5_defReal, 7.0_defReal, 50.0_defReal])
+    bins = this % ufsField % at(testObject)
     EXPECTED_BINS = [0.25_defReal, 0.25_defReal, ZERO]
-    @assertEqual(EXPECTED_BINS, bins, tolerance=1.0e-6_defReal)
+    @assertEqual(EXPECTED_BINS, bins, tolerance = TOL)
 
     ! Test case outside the map
-    call p % coords % setPosition([0.5_defReal, 7.0_defReal, 100.0_defReal], 1)
-
-    bins = this % ufsField % at(p)
+    call testObject % setGlobalPosition([0.5_defReal, 7.0_defReal, 100.0_defReal])
+    bins = this % ufsField % at(testObject)
     EXPECTED_BINS = [ONE, ONE, ONE]
-    @assertEqual(EXPECTED_BINS,bins)
+    @assertEqual(EXPECTED_BINS, bins, tolerance = TOL)
 
     ! Modify the map by storing fission sites
-    state % r   = [0.5_defReal, 7.0_defReal, 12.0_defReal]
-    state % wgt = 0.2_defReal
+    call testState % setGlobalPosition([0.5_defReal, 7.0_defReal, 12.0_defReal])
+    call testState % setWeight(0.2_defReal)
+    call this % ufsField % storeFS(testState)
 
-    call this % ufsField % storeFS(state)
-
-    state % r   = [0.5_defReal, 7.0_defReal, 23.2_defReal]
-    state % wgt = 0.8_defReal
-    call this % ufsField % storeFS(state)
+    call testState % setGlobalPosition([0.5_defReal, 7.0_defReal, 23.2_defReal])
+    call testState % setWeight(0.8_defReal)
+    call this % ufsField % storeFS(testState)
 
     call this % ufsField % updateMap()
 
     ! Test case in the updated map
-    call p % coords % setPosition([0.5_defReal, 7.0_defReal, 18.1_defReal], 1)
-
-    bins = this % ufsField % at(p)
+    call testObject % setGlobalPosition([0.5_defReal, 7.0_defReal, 18.1_defReal])
+    bins = this % ufsField % at(testObject)
     EXPECTED_BINS = [0.25_defReal, 0.06666666667_defReal, ZERO]
-    @assertEqual(EXPECTED_BINS, bins, tolerance=1.0e-6_defReal)
+    @assertEqual(EXPECTED_BINS, bins, tolerance = TOL)
 
   end subroutine testGetValue
 

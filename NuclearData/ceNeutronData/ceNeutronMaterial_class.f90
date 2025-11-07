@@ -1,5 +1,6 @@
 module ceNeutronMaterial_class
 
+  use CENeutron_class,         only : castCENeutronPtr, CENeutron
   use ceNeutronCache_mod,      only : materialCache, nuclideCache
   use ceNeutronDatabase_inter, only : ceNeutronDatabase
   use ceNeutronNuclide_inter,  only : ceNeutronNuclide, ceNeutronNuclide_CptrCast
@@ -8,10 +9,10 @@ module ceNeutronMaterial_class
   use neutronMaterial_inter,   only : neutronMaterial
   use neutronXsPackages_class, only : neutronMacroXSs
   use numPrecision
-  use particle_class,          only : particle
   use RNG_class,               only : RNG
   use scalarField_inter,       only : getTemperatureFieldPtr, scalarField
   use scatteringKernels_func,  only : relativeEnergy_constXS, dopplerCorrectionFactor
+  use transportObject_inter,   only : transportObject
   use universalVariables
 
   implicit none
@@ -47,15 +48,11 @@ module ceNeutronMaterial_class
   type, public, extends(neutronMaterial) :: ceNeutronMaterial
     character(nameLen)                           :: name = ''
     integer(shortInt)                            :: matIdx = 0
-    real(defReal)                                :: kT = ZERO
     class(ceNeutronDatabase), pointer            :: data => null()
     real(defReal), dimension(:), allocatable     :: dens
     integer(shortInt), dimension(:), allocatable :: nuclides
-    logical(defBool)                             :: fissile = .false.
-    logical(defBool)                             :: hasTMS  = .false.
-    real(defReal)                                :: eUpperSab = ZERO
-    real(defReal)                                :: eLowerURR = ZERO
-
+    logical(defBool)                             :: fissile = .false., hasTMS = .false.
+    real(defReal)                                :: eLowerURR = ZERO, eUpperSab = ZERO, kT = ZERO
   contains
     ! Superclass procedures
     procedure :: kill
@@ -99,28 +96,23 @@ contains
   !!
   !! See neutronMaterial_inter for details
   !!
-  subroutine getMacroXSs_byP(self, p, xss)
+  subroutine getMacroXSs_byP(self, object, xss)
     class(ceNeutronMaterial), intent(in) :: self
-    class(particle), intent(in)          :: p
+    class(transportObject), intent(in)   :: object
     type(neutronMacroXSs), intent(out)   :: xss
+    class(CENeutron), pointer            :: CENeutronPtr
     class(scalarField), pointer          :: temperatureFieldPtr
     real(defReal)                        :: kT, temperature
-    character(*), parameter              :: Here = 'getMacroXSs_byP (ceNeutronMaterial_class.f90)'
 
-    if (.not. p % isMG) then
-      kT = self % kT
-      temperatureFieldPtr => getTemperatureFieldPtr()
-      if (associated(temperatureFieldPtr)) then
-        temperature = temperatureFieldPtr % at(p % coords)
-        if (ZERO < temperature) kT = kBoltzmann * temperature / joulesPerMeV
-
-      end if
-      call self % getMacroXSs(p % E, xss, kT, p % pRNG)
-
-    else
-      call fatalError(Here,'MG neutron given to CE data')
+    CENeutronPtr => castCENeutronPtr(object, .true.)
+    kT = self % kT
+    temperatureFieldPtr => getTemperatureFieldPtr()
+    if (associated(temperatureFieldPtr)) then
+      temperature = temperatureFieldPtr % at(CENeutronPtr % getCoordsPtr())
+      if (ZERO < temperature) kT = kBoltzmann * temperature / joulesPerMeV
 
     end if
+    call self % getMacroXSs(CENeutronPtr % getEnergy(), xss, kT, CENeutronPtr % getRNGPtr())
 
   end subroutine getMacroXSs_byP
 
@@ -674,6 +666,5 @@ contains
     end select
 
   end function ceNeutronMaterial_TptrCast
-
 
 end module ceNeutronMaterial_class

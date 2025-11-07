@@ -75,8 +75,12 @@ module universalVariables
                                   Z_AXIS = 3
 
   ! Particle Type Enumeration
-  integer(shortInt), parameter :: P_NEUTRON_CE = 1, &
-                                  P_NEUTRON_MG = 2
+  integer(shortInt), parameter :: P_RANDOM_WALKER = -1, &
+                                  P_TEST_TRANSPORT_OBJECT = 0, &
+                                  P_NEUTRON_CE = 1, &
+                                  P_NEUTRON_MG = 2, &
+                                  P_PHOTON_CE = 3, &
+                                  P_PHOTON_MG = 4
 
   ! Search error codes
   integer(shortInt), parameter :: valueOutsideArray = -1, &

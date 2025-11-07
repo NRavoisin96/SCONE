@@ -1,25 +1,20 @@
 module collisionProbabilityClerk_class
 
-  use numPrecision
-  use tallyCodes
-  use genericProcedures,          only : fatalError
   use dictionary_class,           only : dictionary
-  use particle_class,             only : particle, particleState
-  use particleDungeon_class,      only : particleDungeon
+  use errors_mod,                 only : fatalError
+  use neutronMaterial_inter,      only : neutronMaterial, neutronMaterial_CptrCast
+  use nuclearDatabase_inter,      only : nuclearDatabase
+  use numPrecision
   use outputFile_class,           only : outputFile
-
-  ! Basic tally modules
+  use physicalParticle_inter,     only : physicalParticle
   use scoreMemory_class,          only : scoreMemory
   use tallyClerk_inter,           only : tallyClerk, kill_super => kill
-  use tallyResult_class,          only : tallyResult
-
-  ! Nuclear Data
-  use nuclearDatabase_inter,      only : nuclearDatabase
-  use neutronMaterial_inter,      only : neutronMaterial, neutronMaterial_CptrCast
-
-  ! Tally Maps
+  use tallyCodes
   use tallyMap_inter,             only : tallyMap
   use tallyMapFactory_func,       only : new_tallyMap
+  use tallyResult_class,          only : tallyResult
+  use transportObjectState_class, only : transportObjectState
+  use particleDungeon_class,      only : particleDungeon
 
   implicit none
   private
@@ -167,11 +162,10 @@ contains
   !!
   subroutine reportInColl(self, p, virtual, xsData, mem)
     class(collisionProbabilityClerk), intent(inout) :: self
-    class(particle), intent(in)                     :: p
+    class(physicalParticle), intent(in)             :: p
     logical(defBool), intent(in)                    :: virtual
     class(nuclearDatabase), intent(inout)           :: xsData
     type(scoreMemory), intent(inout)                :: mem
-    type(particleState)                             :: state
     integer(shortInt)                               :: sIdx, cIdx
     integer(longInt)                                :: addr
     real(defReal)                                   :: score
@@ -182,18 +176,17 @@ contains
     if (virtual) return
 
     ! Get material or return if it is not a neutron
-    mat => neutronMaterial_CptrCast(xsData % getMaterial(p % getMatIdx()))
+    mat => neutronMaterial_CptrCast(xsData % getMaterial(p % getMaterialIdx()))
 
     if (.not.associated(mat)) return
 
     ! Find starting index in the map
     ! It is important that preCollision is not changed by a collisionProcessor
     ! before the particle is fed to the tally, otherwise results will be meaningless
-    sIdx = self % map % map(p % preCollision)
+    sIdx = self % map % map(p % getPreCollisionStatePtr())
 
     ! Find collision index in the map
-    state = p
-    cIdx = self % map % map(state)
+    cIdx = self % map % map(p % updateAndGetCurrentStatePtr())
 
     ! Invalid indices are allowed given that CPs must sum to one - this will include
     ! neutrons which collide outside the mapped region of phase space
@@ -205,7 +198,7 @@ contains
     ! For collision probability, top and bottom will cancel -- for other probabilities,
     ! this need not be the case
     !score = self % resp % get(p, xsData) * p % w / xsData % getTotalMatXS(p, p % matIdx())
-    score = p % w
+    score = p % getWeight()
 
     ! I think this is right but I need to double check!
     ! Score element of the matrix

@@ -1,29 +1,20 @@
 module collisionOperator_class
 
-  use numPrecision
-  use genericProcedures,     only : fatalError, numToChar
-  use dictionary_class,      only : dictionary
-  use particle_class,        only : particle, P_NEUTRON, P_PHOTON, printType
-  use particleDungeon_class, only : particleDungeon
-
-  ! Tally interfaces
-  use tallyAdmin_class,      only : tallyAdmin
-
-  ! Collision Processors
   use collisionProcessor_inter,       only : collisionProcessor
   use collisionProcessorFactory_func, only : new_collisionProcessor
+  use dictionary_class,               only : dictionary
+  use errors_mod,                     only : fatalError
+  use genericProcedures,              only : numToChar
+  use intMap_class,                   only : intMap
+  use numPrecision
+  use particleDungeon_class,          only : particleDungeon
+  use physicalParticle_inter,         only : castPhysicalParticlePtr, physicalParticle
+  use tallyAdmin_class,               only : tallyAdmin
+  use transportObject_inter,          only : transportObject
+  use universalVariables,             only : NOT_PRESENT
 
   implicit none
   private
-
-  !!
-  !! Local parameters
-  !!
-  integer(shortInt), parameter :: MAX_P_ID = max(P_NEUTRON, P_PHOTON)
-  integer(shortInt), parameter :: P_MG = 1, P_CE = 2
-  integer(shortInt), parameter :: UNDEF_PHYSICS = -1
-  integer(shortInt), parameter :: MAX_PHYSICS = 3
-
 
   !!
   !! Local helper type to store polymorphic collisionProcessors in an array
@@ -31,7 +22,6 @@ module collisionOperator_class
   type, private :: collProc
     class(collisionProcessor), allocatable :: proc
   end type collProc
-
 
   !!
   !! Scalar collision operator
@@ -50,38 +40,48 @@ module collisionOperator_class
   !!
   type, public :: collisionOperator
     private
-    type(collProc), dimension(MAX_PHYSICS)    :: physicsTable
-    integer(shortInt), dimension(2, MAX_P_ID) :: lookupTable = UNDEF_PHYSICS
-
+    type(collProc), dimension(:), allocatable :: collisionProcessors
+    type(intMap)                              :: particleTypeToCollisionProcessorMap
   contains
     ! Build procedures
     procedure :: init
     procedure :: kill
-
     ! Use procedures
     procedure :: collide
-
-
   end type collisionOperator
 
 contains
-
   !!
   !! Initialise collision operator
   !!
   subroutine init(self, dict)
-    class(collisionOperator), intent(inout) :: self
-    class(dictionary), intent(in)           :: dict
+    class(collisionOperator), intent(inout)       :: self
+    class(dictionary), intent(in)                 :: dict
+    character(nameLen), dimension(:), allocatable :: processorNames
+    character(nameLen)                            :: processorName
+    integer(shortInt)                             :: i, nProcessors, particleType
+    character(*), parameter                       :: here = 'init (collisionOperator_class.f90)'
 
-    if (dict % isPresent('neutronCE')) then
-      call new_collisionProcessor(self % physicsTable(1) % proc, dict % getDictPtr('neutronCE'))
-      self % lookupTable(P_CE, P_NEUTRON) = 1
-    end if
+    ! First retrieve all the processors' definitions from the dictionary and compute the number of processors
+    ! to be generated.
+    call dict % keys(processorNames, 'dict')
+    nProcessors = size(processorNames)
 
-    if (dict % isPresent('neutronMG')) then
-      call new_collisionProcessor(self % physicsTable(2) % proc, dict % getDictPtr('neutronMG'))
-      self % lookupTable(P_MG, P_NEUTRON) = 2
-    end if
+    ! Allocate memory and initialise intMap.
+    allocate(self % collisionProcessors(nProcessors))
+    call self % particleTypeToCollisionProcessorMap % init(nProcessors)
+
+    ! Loop over all collision processors and build them.
+    do i = 1, nProcessors
+      call new_collisionProcessor(dict % getDictPtr(processorNames(i)), self % collisionProcessors(i) % proc, &
+                                  particleType)
+
+      ! Add the particle type to the map. Return an error if a processor for the current particle type already exists.
+      if (self % particleTypeToCollisionProcessorMap % getOrDefault(particleType, NOT_PRESENT) /= NOT_PRESENT) &
+      call fatalError(here, 'A collision processor already exists for this type of particle.')
+      call self % particleTypeToCollisionProcessorMap % add(particleType, i)
+
+    end do
 
   end subroutine init
 
@@ -92,43 +92,42 @@ contains
     class(collisionOperator), intent(inout) :: self
     integer(shortInt)                       :: i
 
-    ! Set default to lookup table
-    self % lookupTable = UNDEF_PHYSICS
+    ! Deallocate collision processors.
+    if (allocated(self % collisionProcessors)) then
+      do i = 1, size(self % collisionProcessors)
+        if (allocated(self % collisionProcessors(i) % proc)) deallocate(self % collisionProcessors(i) % proc)
 
-    ! Deallocate collision processors
-    do i= 1, size(self % physicsTable)
-      if (allocated(self % physicsTable(i) % proc)) then
-        deallocate( self % physicsTable(i) % proc)
-      end if
-    end do
+      end do
+      deallocate(self % collisionProcessors)
+
+    end if
+
+    ! Kill map.
+    call self % particleTypeToCollisionProcessorMap % kill()
 
   end subroutine kill
 
   !!
   !! Determine type of the particle and call approperiate collisionProcessor
   !!
-  subroutine collide(self, p, tally, thisCycle, nextCycle)
+  subroutine collide(self, object, tally, thisCycle, nextCycle)
     class(collisionOperator), intent(inout) :: self
-    class(particle), intent(inout)          :: p
+    class(transportObject), intent(inout)   :: object
     type(tallyAdmin), intent(inout)         :: tally
     class(particleDungeon), intent(inout)   :: thisCycle, nextCycle
-    integer(shortInt)                       :: idx, procType
-    character(*), parameter :: Here = 'collide (collisionOperator_class.f90)'
+    class(physicalParticle), pointer        :: p
+    integer(shortInt)                       :: idx
+    character(*), parameter                 :: here = 'collide (collisionOperator_class.f90)'
 
-    ! Select processing index with ternary expression
-    procType = merge(P_MG, P_CE, p % isMG)
+    ! Downcast transportObject to physicalParticle.
+    p => castPhysicalParticlePtr(object, .true.)
 
-    ! Varify that type is valid
-    if (p % type < 1 .or. p % type > MAX_P_ID) call fatalError(Here, 'Invalid particle type: '//numToChar(p % type)//'.')
+    ! Get index from map.
+    idx = self % particleTypeToCollisionProcessorMap % getOrDefault(p % getType(), NOT_PRESENT)
+    if (idx == NOT_PRESENT) call fatalError(here, 'Physics are not defined for this type of particle.')
 
-    ! Get index
-    idx = self % lookupTable(procType, p % type)
-
-    ! Verify index
-    if (idx == UNDEF_PHYSICS) call fatalError(Here,'Physics are not defined for particle of type: '//p % typeToChar()//'.')
-
-    ! Call physics
-    call self % physicsTable(idx) % proc % collide(p, tally, thisCycle, nextCycle)
+    ! Call physics.
+    call self % collisionProcessors(idx) % proc % collide(p, tally, thisCycle, nextCycle)
 
   end subroutine collide
 

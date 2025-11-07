@@ -1,32 +1,31 @@
 module spaceMap_test
   
-  use dictionary_class,  only : dictionary
+  use dictionary_class,           only : dictionary
   use funit
   use numPrecision
-  use outputFile_class,  only : outputFile
-  use particle_class,    only : particleState
-  use spaceMap_class,    only : spaceMap
-  use universalVariables
+  use outputFile_class,           only : outputFile
+  use spaceMap_class,             only : spaceMap
+  use transportObjectState_class, only : transportObjectState
 
   implicit none
-
 
 @testCase
   type, extends(testCase) :: test_spaceMap
     private
-    type(spaceMap), dimension(3) :: structuredMaps
-    type(spaceMap), dimension(3) :: unstructuredMaps
+    type(spaceMap), dimension(3) :: structuredMaps, unstructuredMaps
   contains
     procedure :: setUp
     procedure :: tearDown
   end type test_spaceMap
 
 contains
+@Before
   !!
   !!
   !!
   subroutine setUp(this)
     class(test_spaceMap), intent(inout)    :: this
+    integer(shortInt)                      :: i
     type(dictionary)                       :: tempDict
     real(defReal), dimension(*), parameter :: BIN_DIV = [-10.0_defReal, &
                                                          -8.0_defReal, &
@@ -39,7 +38,6 @@ contains
                                                          6.0_defReal, &
                                                          8.0_defReal, &
                                                          10.0_defReal]
-    integer(shortInt)                      :: i
 
     ! Create structured grids for each axis.
     do i = 1, 3
@@ -89,6 +87,7 @@ contains
 
   end subroutine setUp
 
+@After
   !!
   !!
   !!
@@ -111,23 +110,25 @@ contains
 !!<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 !! PROPER TESTS BEGIN HERE
 !!<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
-
   !!
   !! Test structured grid
   !!
 @Test
   subroutine testStructuredGrid(this)
     class(test_spaceMap), intent(inout)        :: this
-    real(defReal), dimension(2), parameter     :: positions = [0.5_defReal, -10.1_defReal]
-    integer(shortInt), dimension(2), parameter :: results = [11, 0]
-    integer(shortInt)                          :: i
+    integer(shortInt)                          :: i, j
     integer(shortInt), dimension(2)            :: idxs
-    type(particleState), dimension(2)          :: states
+    type(transportObjectState), dimension(2)   :: states
+    integer(shortInt), dimension(2), parameter :: RESULTS = [11, 0]
+    real(defReal), dimension(2), parameter     :: POSITIONS = [0.5_defReal, -10.1_defReal]
 
     do i = 1, size(this % structuredMaps)
-      states % r(i) = positions
-      idxs = this % structuredMaps(i) % map(states)
-      @assertEqual(results, idxs)
+      do j = 1, 2
+        call states(j) % setGlobalPosition(i, POSITIONS(j))
+        idxs(j) = this % structuredMaps(i) % map(states(j))
+
+      end do
+      @assertEqual(RESULTS, idxs)
 
     end do
 
@@ -136,16 +137,19 @@ contains
 @Test
   subroutine testUnstructuredGrid(this)
     class(test_spaceMap), intent(inout)        :: this
-    real(defReal), dimension(2), parameter     :: positions = [0.5_defReal, -10.1_defReal]
-    integer(shortInt), dimension(2), parameter :: results = [6, 0]
-    integer(shortInt)                          :: i
+    integer(shortInt)                          :: i, j
     integer(shortInt), dimension(2)            :: idxs
-    type(particleState), dimension(2)          :: states
+    type(transportObjectState), dimension(2)   :: states
+    integer(shortInt), dimension(2), parameter :: RESULTS = [6, 0]
+    real(defReal), dimension(2), parameter     :: POSITIONS = [0.5_defReal, -10.1_defReal]
 
     do i = 1, size(this % unstructuredMaps)
-      states % r(i) = positions
-      idxs = this % unstructuredMaps(i) % map(states)
-      @assertEqual(results, idxs)
+      do j = 1, 2
+        call states(j) % setGlobalPosition(i, POSITIONS(j))
+        idxs(j) = this % unstructuredMaps(i) % map(states(j))
+
+      end do
+      @assertEqual(RESULTS, idxs)
 
     end do
 
@@ -158,17 +162,17 @@ contains
 
     ! Structured grids
     do i = 1, size(this % structuredMaps)
-      @assertEqual(20, this % structuredMaps(i) % bins(1), 'Normal use')
-      @assertEqual(20, this % structuredMaps(i) % bins(0), 'All bins')
-      @assertEqual(0, this % structuredMaps(i) % bins(-2), 'Invalid dimension')
+      @assertEqual(20, this % structuredMaps(i) % bins(1), 'Normal use.')
+      @assertEqual(20, this % structuredMaps(i) % bins(0), 'All bins.')
+      @assertEqual(0, this % structuredMaps(i) % bins(-2), 'Invalid dimension.')
 
     end do
 
     ! Unstructured grids
     do i = 1, size(this % unstructuredMaps)
-      @assertEqual(10, this % unstructuredMaps(i) % bins(1), 'Normal use')
-      @assertEqual(10, this % unstructuredMaps(i) % bins(0), 'All bins')
-      @assertEqual(0, this % unstructuredMaps(i) % bins(-2), 'Invalid dimension')
+      @assertEqual(10, this % unstructuredMaps(i) % bins(1), 'Normal use.')
+      @assertEqual(10, this % unstructuredMaps(i) % bins(0), 'All bins.')
+      @assertEqual(0, this % unstructuredMaps(i) % bins(-2), 'Invalid dimension.')
 
     end do
 

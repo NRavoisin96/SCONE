@@ -6,7 +6,7 @@ module materialHandle_inter
   private
 
   !!
-  !! Material Handle allows to interact with diffrent types of materials
+  !! Material Handle allows to interact with different types of materials
   !!
   !! This is top abstract class for all materials.
   !! Diffrent types of materials like MG Neutron, CE Neutron etc. are its subclasses
@@ -15,8 +15,9 @@ module materialHandle_inter
   !!   kill -> returns to uninitialised state
   !!
   type, public, abstract :: materialHandle
+    private
   contains
-    procedure(kill),deferred :: kill
+    procedure(kill), deferred :: kill
   end type materialHandle
 
   abstract interface
@@ -26,7 +27,8 @@ module materialHandle_inter
     elemental subroutine kill(self)
       import :: materialHandle
       class(materialHandle), intent(inout) :: self
-
     end subroutine kill
+
   end interface
+
 end module materialHandle_inter

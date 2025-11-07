@@ -27,14 +27,14 @@ contains
 
     ! Set Nesting
     call coords % setNesting(3)
-    call coords % setMatIdx(2)
+    call coords % setMaterialIdx(2)
     call coords % setUniqueId(7)
 
     ! Set Level 1
     call coords % setPosition([ONE, ZERO, -ONE], 1)
     call coords % setDirection([ZERO, ONE, ZERO], 1)
-    call coords % setUniIdx(1, 1)
-    call coords % setUniRootId(1, 1)
+    call coords % setUniverseIdx(1, 1)
+    call coords % setUniverseRootId(1, 1)
     call coords % setLocalId(1, 1)
     call coords % setCellIdx(1, 1)
 
@@ -46,8 +46,8 @@ contains
     mat(2,3) = ONE
     call coords % setPosition([ONE, ZERO, -ONE], 2)
     call coords % setDirection([ZERO, ZERO, -ONE], 2)
-    call coords % setUniIdx(2, 2)
-    call coords % setUniRootId(6, 2)
+    call coords % setUniverseIdx(2, 2)
+    call coords % setUniverseRootId(6, 2)
     call coords % setLocalId(3, 2)
     call coords % setIsRotated(.true., 2)
     call coords % setRotationMatrix(mat, 2)
@@ -57,8 +57,8 @@ contains
     ! Translation to origin
     call coords % setPosition([ZERO, ZERO, ZERO], 3)
     call coords % setDirection([ZERO, ZERO, -ONE], 3)
-    call coords % setUniIdx(4, 3)
-    call coords % setUniRootId(12, 3)
+    call coords % setUniverseIdx(4, 3)
+    call coords % setUniverseRootId(12, 3)
     call coords % setLocalId(2, 3)
     call coords % setCellIdx(0, 3)
 

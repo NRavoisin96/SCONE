@@ -1,10 +1,11 @@
 module densityResponse_test
 
+  use CENeutron_class,       only : CENeutron
+  use CEPhoton_class,        only : CEPhoton
   use densityResponse_class, only : densityResponse
   use dictionary_class,      only : dictionary
   use funit
   use numPrecision
-  use particle_class,        only : particle, P_NEUTRON, P_PHOTON
   use universalVariables,    only : neutronMass, lightSpeed
 
   implicit none
@@ -13,6 +14,8 @@ module densityResponse_test
   type, extends(TestCase) :: test_densityResponse
     private
     type(densityResponse) :: response
+    type(CENeutron)       :: testNeutron
+    type(CEPhoton)        :: testPhoton
   contains
     procedure :: setUp
     procedure :: tearDown
@@ -28,6 +31,9 @@ contains
     class(test_densityResponse), intent(inout) :: this
     type(dictionary)                           :: tempDict
 
+    call this % testNeutron % init()
+    call this % testPhoton % init()
+
   end subroutine setUp
 
   !!
@@ -35,6 +41,9 @@ contains
   !!
   subroutine tearDown(this)
     class(test_densityResponse), intent(inout) :: this
+
+    call this % testNeutron % kill()
+    call this % testPhoton % kill()
 
   end subroutine tearDown
 
@@ -48,27 +57,25 @@ contains
 @Test
   subroutine densityResponseing(this)
     class(test_densityResponse), intent(inout) :: this
-    type(particle)                             :: p
-    real(defReal)                              :: ref, result
+    real(defReal)                              :: E, ref, result
     real(defReal), parameter                   :: tol = 1.0e-9_defReal
 
     ! Test neutron density with different particle energies
-    p % type = P_NEUTRON
-    p % isMG = .false.
-    p % E = ONE
-    ref = ONE / lightSpeed / sqrt(TWO * p % E / neutronMass)
-    call this % response % get(p, result)
+    E = ONE
+    call this % testNeutron % setEnergy(E)
+    ref = ONE / lightSpeed / sqrt(TWO * E / neutronMass)
+    call this % response % get(this % testNeutron, result)
     @assertEqual(ref, result, ref * tol)
 
-    p % E = 1.6e-06_defReal
-    ref = ONE / lightSpeed / sqrt(TWO * p % E / neutronMass)
-    call this % response % get(p, result)
+    E = 1.6e-06_defReal
+    call this % testNeutron % setEnergy(E)
+    ref = ONE / lightSpeed / sqrt(TWO * E / neutronMass)
+    call this % response % get(this % testNeutron, result)
     @assertEqual(ref, result, ref * tol)
 
     ! Test photon density
-    p % type = P_PHOTON
     ref = ONE / lightSpeed
-    call this % response % get(p, result)
+    call this % response % get(this % testPhoton, result)
     @assertEqual(ref, result, ref * tol)
 
   end subroutine densityResponseing

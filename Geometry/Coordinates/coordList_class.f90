@@ -3,7 +3,7 @@ module coordList_class
   use coord_class,        only : coord
   use genericProcedures,  only : fatalError, numToChar, rotateVector
   use numPrecision
-  use publicObjects,      only : coordData
+  use publicObjects,      only : coordData, transportObjectStateCoordUpdateData
   use universalVariables, only : HARDCODED_MAX_NEST
 
   !!
@@ -27,8 +27,7 @@ module coordList_class
   !!   uniqueId -> Unique cell Id at the current position
   !!
   !! Interface:
-  !!   init              -> Initialise and place ABOVE GEOMETRY, given position and
-  !!                          normalised direction
+  !!   init              -> Initialise and place ABOVE GEOMETRY, given position and normalised direction
   !!   kill              -> Returns to uninitialised state
   !!   isPlaced          -> True if co-ordinates are PLACED IN GEOMETRY
   !!   isAbove           -> True of co-ordinates are ABOVE GEOMETRY
@@ -45,58 +44,61 @@ module coordList_class
   !!
   type, public :: coordList
     private
-    integer(shortInt)                          :: nesting = 0
+    integer(shortInt)                          :: geometryIdx = 0, materialIdx = -3, nesting = 0, uniqueId = -3
     type(coord), dimension(HARDCODED_MAX_NEST) :: lvl
-    integer(shortInt)                          :: matIdx   = -3
-    integer(shortInt)                          :: uniqueId = -3
   contains
     ! Build procedures
-    procedure :: init
-    procedure :: kill
+    generic            :: init => init_fromPositionAndDirection, init_fromTransportObjectState
+    procedure, private :: init_fromPositionAndDirection
+    procedure, private :: init_fromTransportObjectState
+    procedure          :: kill
     ! State enquiry procedures
-    procedure :: isPlaced
-    procedure :: isAbove
-    procedure :: isUninitialised
-    procedure :: isValid
+    procedure          :: isPlaced
+    procedure          :: isAbove
+    procedure          :: isUninitialised
+    procedure          :: isValid
     ! Interface procedures
-    procedure :: addLevel
-    procedure :: assignDirection
-    procedure :: assignPosition
-    procedure :: decreaseLevel
-    procedure :: getCellIdx
-    procedure :: getCoordinatesData
-    procedure :: getDirection
-    procedure :: getLocalId
-    procedure :: getLowestCellIdx
-    procedure :: getLowestMeshIdx
-    procedure :: getLowestElementIdx
-    procedure :: getMatIdx
-    procedure :: getMeshIdx
-    procedure :: getNesting
-    procedure :: getPosition
-    procedure :: getUniIdx
-    procedure :: getUniqueId
-    procedure :: getUniRootId
-    procedure :: moveGlobal
-    procedure :: moveLocal
-    procedure :: rotate
-    procedure :: setCellIdx
-    procedure :: setCoordinates
-    procedure :: setDirection
-    procedure :: setElementIdx
-    procedure :: setIsRotated
-    procedure :: setLocalId
-    procedure :: setMatIdx
-    procedure :: setMeshIdx
-    procedure :: setNesting
-    procedure :: setPosition
-    procedure :: setPositionAndDirection
-    procedure :: setRotationMatrix
-    procedure :: setUniIdx
-    procedure :: setUniqueId
-    procedure :: setUniRootId
-    procedure :: takeAboveGeom
-    procedure :: updateCoordinatesFromData
+    procedure          :: addLevel
+    procedure          :: assignDirection
+    procedure          :: assignPosition
+    procedure          :: decreaseLevel
+    procedure          :: getCellIdx
+    procedure          :: getCoordinatesData
+    procedure          :: getDirection
+    procedure          :: getGeometryIdx
+    procedure          :: getLocalId
+    procedure          :: getLowestCellIdx
+    procedure          :: getLowestMeshIdx
+    procedure          :: getLowestElementIdx
+    procedure          :: getMaterialIdx
+    procedure          :: getMeshIdx
+    procedure          :: getNesting
+    procedure          :: getPosition
+    procedure          :: getTransportObjectStateUpdateData
+    procedure          :: getUniqueId
+    procedure          :: getUniverseIdx
+    procedure          :: getUniverseRootId
+    procedure          :: moveGlobal
+    procedure          :: moveLocal
+    procedure          :: rotate
+    procedure          :: setCellIdx
+    procedure          :: setCoordinates
+    procedure          :: setDirection
+    procedure          :: setElementIdx
+    procedure          :: setGeometryIdx
+    procedure          :: setIsRotated
+    procedure          :: setLocalId
+    procedure          :: setMaterialIdx
+    procedure          :: setMeshIdx
+    procedure          :: setNesting
+    procedure          :: setPosition
+    procedure          :: setPositionAndDirection
+    procedure          :: setRotationMatrix
+    procedure          :: setUniqueId
+    procedure          :: setUniverseIdx
+    procedure          :: setUniverseRootId
+    procedure          :: takeAboveGeom
+    procedure          :: updateCoordinatesFromData
   end type coordList
 
 contains
@@ -129,19 +131,17 @@ contains
     class(coordList), intent(inout)         :: self
     real(defReal), dimension(3), intent(in) :: u
     integer(shortInt)                       :: i
+    real(defReal), dimension(3)             :: uNew
 
-    ! Assign new direction in global frame
-    call self % lvl(1) % setDirection(u)
-
-    ! Propagate changes to lower levels
-    do i = 2, self % nesting
-      if (self % lvl(i) % getIsRotated()) then
-        call self % lvl(i) % setDirection(matmul(self % lvl(i) % getRotationMatrix(), self % lvl(i - 1) % getDirection()))
-
-      else
-        call self % lvl(i) % setDirection(self % lvl(i - 1) % getDirection())
+    ! Initialise uNew = u then propagate changes to all levels.
+    uNew = u
+    do i = 1, self % nesting
+      if (1 < i .and. self % lvl(i) % getIsRotated()) then
+        uNew = matmul(self % lvl(i) % getRotationMatrix(), uNew)
 
       end if
+      call self % lvl(i) % setDirection(uNew)
+
     end do
 
   end subroutine assignDirection
@@ -162,7 +162,7 @@ contains
   end subroutine assignPosition
 
   !!
-  !! Decrease nestting to level n
+  !! Decrease nesting to level n
   !!
   !! Args:
   !!   n [in] -> New nesting level
@@ -173,11 +173,10 @@ contains
   subroutine decreaseLevel(self, n)
     class(coordList), intent(inout) :: self
     integer(shortInt), intent(in)   :: n
-    character(100), parameter       :: Here = 'decreaseLevel (coord_class.f90)'
+    character(*), parameter         :: Here = 'decreaseLevel (coordList_class.f90)'
 
-    if (n > self % nesting .or. n < 1) call fatalError(Here,'New nesting: '//numToChar(n)//' is invalid. Current nesting is: '//&
-    numToChar(self % nesting)//'.')
-
+    if (n < 1 .or. self % nesting < n) &
+    call fatalError(Here, 'New nesting: '//numToChar(n)//' is invalid. Current nesting is: '//numToChar(self % nesting)//'.')
     self % nesting = n
 
   end subroutine decreaseLevel
@@ -217,6 +216,17 @@ contains
     u = self % lvl(lvl) % getDirection()
 
   end function getDirection
+
+  !!
+  !!
+  !!
+  elemental function getGeometryIdx(self) result(geometryIdx)
+    class(coordList), intent(in) :: self
+    integer(shortInt)            :: geometryIdx
+
+    geometryIdx = self % geometryIdx
+
+  end function getGeometryIdx
 
   !!
   !!
@@ -272,13 +282,13 @@ contains
   !!
   !!
   !!
-  elemental function getMatIdx(self) result(matIdx)
+  elemental function getMaterialIdx(self) result(materialIdx)
     class(coordList), intent(in) :: self
-    integer(shortInt)            :: matIdx
+    integer(shortInt)            :: materialIdx
 
-    matIdx = self % matIdx
+    materialIdx = self % materialIdx
 
-  end function getMatIdx
+  end function getMaterialIdx
 
   !!
   !!
@@ -306,6 +316,26 @@ contains
   !!
   !!
   !!
+  elemental function getTransportObjectStateUpdateData(self) result(data)
+    class(coordList), intent(in)              :: self
+    integer(shortInt)                         :: level
+    type(transportObjectStateCoordUpdateData) :: data
+
+    ! Copy into data.
+    level = max(1, self % nesting)
+    data % geometryIdx = self % geometryIdx
+    data % lowestCellIdx = self % lvl(level) % getCellIdx()
+    data % lowestElementIdx = self % lvl(level) % getElementIdx()
+    data % materialIdx = self % materialIdx
+    data % uniqueId = self % uniqueId
+    data % rGlobal = self % lvl(1) % getPosition()
+    data % uGlobal = self % lvl(1) % getDirection()
+
+  end function getTransportObjectStateUpdateData
+
+  !!
+  !!
+  !!
   pure function getPosition(self, lvl) result(r)
     class(coordList), intent(in)  :: self
     integer(shortInt), intent(in) :: lvl
@@ -314,18 +344,6 @@ contains
     r = self % lvl(lvl) % getPosition()
 
   end function getPosition
-
-  !!
-  !!
-  !!
-  elemental function getUniIdx(self, lvl) result(uniIdx)
-    class(coordList), intent(in)  :: self
-    integer(shortInt), intent(in) :: lvl
-    integer(shortInt)             :: uniIdx
-
-    uniIdx = self % lvl(lvl) % getUniIdx()
-
-  end function getUniIdx
 
   !!
   !!
@@ -341,14 +359,26 @@ contains
   !!
   !!
   !!
-  elemental function getUniRootId(self, lvl) result(uniRootId)
+  elemental function getUniverseIdx(self, lvl) result(uniIdx)
+    class(coordList), intent(in)  :: self
+    integer(shortInt), intent(in) :: lvl
+    integer(shortInt)             :: uniIdx
+
+    uniIdx = self % lvl(lvl) % getUniverseIdx()
+
+  end function getUniverseIdx
+
+  !!
+  !!
+  !!
+  elemental function getUniverseRootId(self, lvl) result(uniRootId)
     class(coordList), intent(in)  :: self
     integer(shortInt), intent(in) :: lvl
     integer(shortInt)             :: uniRootId
 
-    uniRootId = self % lvl(lvl) % getUniRootId()
+    uniRootId = self % lvl(lvl) % getUniverseRootId()
 
-  end function getUniRootId
+  end function getUniverseRootId
 
   !!
   !! Initialise coordList
@@ -357,12 +387,12 @@ contains
   !!
   !! Args:
   !!   r [in] -> Position in level 1
-  !!   u [in] -> Normalised direction in level 1 (norm2(u)=1.0)
+  !!   u [in] -> Normalised direction in level 1 (norm2(u) = ONE)
   !!
   !! NOTE:
   !!   Does not check if u is normalised!
   !!
-  pure subroutine init(self, r, u)
+  pure subroutine init_fromPositionAndDirection(self, r, u)
     class(coordList), intent(inout)         :: self
     real(defReal), dimension(3), intent(in) :: r, u
 
@@ -371,7 +401,23 @@ contains
     call self % lvl(1) % setDirection(u)
     self % nesting = 1
 
-  end subroutine init
+  end subroutine init_fromPositionAndDirection
+
+  !!
+  !!
+  !!
+  elemental subroutine init_fromTransportObjectState(self, data)
+    class(coordList), intent(inout)                       :: self
+    type(transportObjectStateCoordUpdateData), intent(in) :: data
+
+    self % geometryIdx = data % geometryIdx
+    self % materialIdx = data % materialIdx
+    self % uniqueId = data % uniqueId
+    call self % lvl(1) % setPosition(data % rGlobal)
+    call self % lvl(1) % setDirection(data % uGlobal)
+    self % nesting = 1
+
+  end subroutine init_fromTransportObjectState
 
   !!
   !! Return true if co-ordinates are above geometry
@@ -386,7 +432,7 @@ contains
     class(coordList), intent(in) :: self
     logical(defBool)             :: isIt
 
-    isIt = (self % matIdx < 0) .and. (self % uniqueId < 0) .and. (self % nesting == 1)
+    isIt = self % materialIdx < 0 .and. self % nesting == 1 .and. self % uniqueId < 0
 
   end function isAbove
 
@@ -403,7 +449,7 @@ contains
     class(coordList), intent(in) :: self
     logical(defBool)             :: isIt
 
-    isIt = (self % matIdx > 0) .and. (self % uniqueId > 0) .and. (self % nesting >= 1)
+    isIt = 0 < self % materialIdx .and. 0 < self % uniqueId .and. 1 <= self % nesting
 
   end function isPlaced
 
@@ -420,7 +466,7 @@ contains
     class(coordList), intent(in) :: self
     logical(defBool)             :: isIt
 
-    isIt = .not.( self % isPlaced() .or. self % isAbove() )
+    isIt = .not. (self % isPlaced() .or. self % isAbove())
 
   end function isUninitialised
 
@@ -442,8 +488,9 @@ contains
   elemental subroutine kill(self)
     class(coordList), intent(inout) :: self
 
-    self % nesting  = 0
-    self % matIdx   = -3
+    self % geometryIdx = 0
+    self % materialIdx = -3
+    self % nesting = 0
     self % uniqueId = -3
 
     ! Kill coordinates
@@ -581,6 +628,17 @@ contains
   !!
   !!
   !!
+  elemental subroutine setGeometryIdx(self, geometryIdx)
+    class(coordList), intent(inout) :: self
+    integer(shortInt), intent(in)   :: geometryIdx
+
+    self % geometryIdx = geometryIdx
+
+  end subroutine setGeometryIdx
+
+  !!
+  !!
+  !!
   elemental subroutine setIsRotated(self, isRotated, lvl)
     class(coordList), intent(inout) :: self
     logical(defBool), intent(in)    :: isRotated
@@ -604,13 +662,13 @@ contains
   !!
   !!
   !!
-  elemental subroutine setMatIdx(self, matIdx)
+  elemental subroutine setMaterialIdx(self, materialIdx)
     class(coordList), intent(inout) :: self
-    integer(shortInt), intent(in)   :: matIdx
+    integer(shortInt), intent(in)   :: materialIdx
 
-    self % matIdx = matIdx
+    self % materialIdx = materialIdx
 
-  end subroutine setMatIdx
+  end subroutine setMaterialIdx
 
   !!
   !!
@@ -673,17 +731,6 @@ contains
   !!
   !!
   !!
-  elemental subroutine setUniIdx(self, uniIdx, lvl)
-    class(coordList), intent(inout) :: self
-    integer(shortInt), intent(in)   :: uniIdx, lvl
-
-    call self % lvl(lvl) % setUniIdx(uniIdx)
-
-  end subroutine setUniIdx
-
-  !!
-  !!
-  !!
   elemental subroutine setUniqueId(self, uniqueId)
     class(coordList), intent(inout) :: self
     integer(shortInt), intent(in)   :: uniqueId
@@ -692,13 +739,27 @@ contains
 
   end subroutine setUniqueId
 
-  elemental subroutine setUniRootId(self, uniRootId, lvl)
+  !!
+  !!
+  !!
+  elemental subroutine setUniverseIdx(self, universeIdx, lvl)
     class(coordList), intent(inout) :: self
-    integer(shortInt), intent(in)   :: uniRootId, lvl
+    integer(shortInt), intent(in)   :: universeIdx, lvl
 
-    call self % lvl(lvl) % setUniRootId(uniRootId)
+    call self % lvl(lvl) % setUniverseIdx(universeIdx)
 
-  end subroutine setUniRootId
+  end subroutine setUniverseIdx
+
+  !!
+  !!
+  !!
+  elemental subroutine setUniverseRootId(self, universeRootId, lvl)
+    class(coordList), intent(inout) :: self
+    integer(shortInt), intent(in)   :: universeRootId, lvl
+
+    call self % lvl(lvl) % setUniverseRootId(universeRootId)
+
+  end subroutine setUniverseRootId
 
   !!
   !! Takes coordinates above the geometry
@@ -714,8 +775,8 @@ contains
   elemental subroutine takeAboveGeom(self)
     class(coordList), intent(inout) :: self
 
+    self % materialIdx = -3
     self % nesting = 1
-    self % matIdx = -3
     self % uniqueId = -3
 
   end subroutine takeAboveGeom
@@ -728,6 +789,7 @@ contains
     integer(shortInt), intent(in)   :: lvl
     type(coordData), intent(in)     :: data
 
+    ! Update coordinates at lowest level then update metadata.
     call self % lvl(lvl) % updateFromData(data)
 
   end subroutine updateCoordinatesFromData

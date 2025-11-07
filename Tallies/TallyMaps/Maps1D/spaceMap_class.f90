@@ -1,13 +1,13 @@
 module spaceMap_class
 
+  use dictionary_class,           only : dictionary
+  use errors_mod,                 only : fatalError
+  use grid_class,                 only : grid
   use numPrecision
+  use outputFile_class,           only : outputFile
+  use tallyMap1D_inter,           only : tallyMap1D, kill_super => kill
+  use transportObjectState_class, only : transportObjectState
   use universalVariables
-  use genericProcedures, only : fatalError
-  use dictionary_class,  only : dictionary
-  use grid_class,        only : grid
-  use particle_class,    only : particleState
-  use outputFile_class,  only : outputFile
-  use tallyMap1D_inter,  only : tallyMap1D, kill_super => kill
 
   implicit none
   private
@@ -55,8 +55,7 @@ module spaceMap_class
   type, public, extends(tallyMap1D) :: spaceMap
     private
     type(grid)        :: binBounds
-    integer(shortInt) :: N      = 0
-    integer(shortInt) :: dir    = -17
+    integer(shortInt) :: dir = -17, N = 0
   contains
     ! Superclass interface implementaction
     procedure  :: init
@@ -208,14 +207,12 @@ contains
   !!
   !! See tallyMap for specification
   !!
-  elemental function map(self,state) result(idx)
-    class(spaceMap), intent(in)      :: self
-    class(particleState), intent(in) :: state
-    integer(shortInt)                :: idx
-    real(defReal)                    :: r
+  function map(self, state) result(idx)
+    class(spaceMap), intent(in)             :: self
+    class(transportObjectState), intent(in) :: state
+    integer(shortInt)                       :: idx
 
-    r = state % r(self % dir)
-    idx = self % binBounds % search(r)
+    idx = self % binBounds % search(state % getGlobalPosition(self % dir))
     if (idx == valueOutsideArray) idx = 0
 
   end function map

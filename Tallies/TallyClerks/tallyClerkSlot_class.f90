@@ -1,20 +1,19 @@
 module tallyClerkSlot_class
 
+  use dictionary_class,           only : dictionary
+  use errors_mod,                 only : fatalError
   use numPrecision
-  use genericProcedures,      only : fatalError
-  use dictionary_class,       only : dictionary
-  use particle_class,         only : particle, particleState
-  use particleDungeon_class,  only : particleDungeon
-  use tallyClerk_inter,       only : tallyClerk, setMemAddress_super => setMemAddress, &
-                                                 setName_super       => setName, &
-                                                 kill_super          => kill
-  use tallyClerkFactory_func, only : new_tallyClerk
-  use scoreMemory_class,      only : scoreMemory
-  use outputFile_class,       only : outputFile
-  use tallyResult_class,      only : tallyResult
-
-  ! Nuclear Data Interface
-  use nuclearDatabase_inter,  only : nuclearDatabase
+  use nuclearDatabase_inter,      only : nuclearDatabase
+  use outputFile_class,           only : outputFile
+  use particleDungeon_class,      only : particleDungeon
+  use physicalParticle_inter,     only : physicalParticle
+  use scoreMemory_class,          only : scoreMemory
+  use tallyClerk_inter,           only : tallyClerk, setMemAddress_super => setMemAddress, &
+                                         setName_super => setName, kill_super => kill
+  use tallyClerkFactory_func,     only : new_tallyClerk
+  use tallyResult_class,          only : tallyResult
+  use transportObject_inter,      only : transportObject
+  use transportObjectState_class, only : transportObjectState
 
   implicit none
   private
@@ -193,7 +192,7 @@ contains
   !!
   subroutine reportInColl(self, p, virtual, xsData, mem)
     class(tallyClerkSlot), intent(inout)  :: self
-    class(particle), intent(in)           :: p
+    class(physicalParticle), intent(in)   :: p
     logical(defBool), intent(in)          :: virtual
     class(nuclearDatabase), intent(inout) :: xsData
     type(scoreMemory), intent(inout)      :: mem
@@ -211,7 +210,7 @@ contains
   !!
   subroutine reportOutColl(self, p, MT, muL, xsData, mem)
     class(tallyClerkSlot), intent(inout)  :: self
-    class(particle), intent(in)           :: p
+    class(physicalParticle), intent(in)   :: p
     integer(shortInt), intent(in)         :: MT
     real(defReal), intent(in)             :: muL
     class(nuclearDatabase), intent(inout) :: xsData
@@ -229,7 +228,7 @@ contains
   !!
   subroutine reportPath(self, p, L, mem, xsData)
     class(tallyClerkSlot), intent(inout)            :: self
-    class(particle), intent(in)                     :: p
+    class(physicalParticle), intent(in)             :: p
     real(defReal), intent(in)                       :: L
     type(scoreMemory), intent(inout)                :: mem
     class(nuclearDatabase), intent(inout), optional :: xsData
@@ -244,14 +243,14 @@ contains
   !!
   !! See tallyClerk_inter for details
   !!
-  subroutine reportTrans(self, p, xsData, mem)
+  subroutine reportTrans(self, object, xsData, mem)
     class(tallyClerkSlot), intent(inout)  :: self
-    class(particle), intent(in)           :: p
+    class(transportObject), intent(in)    :: object
     class(nuclearDatabase), intent(inout) :: xsData
     type(scoreMemory), intent(inout)      :: mem
 
     ! Pass call to instance in the slot
-    call self % slot % reportTrans(p, xsData, mem)
+    call self % slot % reportTrans(object, xsData, mem)
 
   end subroutine reportTrans
 
@@ -261,12 +260,12 @@ contains
   !! See tallyClerk_inter for details
   !!
   subroutine reportSpawn(self, MT, pOld, pNew, xsData, mem)
-    class(tallyClerkSlot), intent(inout)  :: self
-    integer(shortInt), intent(in)         :: MT
-    class(particle), intent(in)           :: pOld
-    class(particleState), intent(in)      :: pNew
-    class(nuclearDatabase), intent(inout) :: xsData
-    type(scoreMemory), intent(inout)      :: mem
+    class(tallyClerkSlot), intent(inout)    :: self
+    integer(shortInt), intent(in)           :: MT
+    class(physicalParticle), intent(in)     :: pOld
+    class(transportObjectState), intent(in) :: pNew
+    class(nuclearDatabase), intent(inout)   :: xsData
+    type(scoreMemory), intent(inout)        :: mem
 
     ! Pass call to instance in the slot
     call self % slot % reportSpawn(MT, pOld, pNew, xsData, mem)
@@ -278,14 +277,14 @@ contains
   !!
   !! See tallyClerk_inter for details
   !!
-  subroutine reportHist(self, p, xsData, mem)
-    class(tallyClerkSlot), intent(inout)  :: self
-    class(particle), intent(in)           :: p
-    class(nuclearDatabase), intent(inout) :: xsData
-    type(scoreMemory), intent(inout)      :: mem
+  subroutine reportHist(self, object, xsData, mem)
+    class(tallyClerkSlot), intent(inout)           :: self
+    class(transportObject), intent(in)             :: object
+    class(nuclearDatabase), pointer, intent(inout) :: xsData
+    type(scoreMemory), intent(inout)               :: mem
 
     ! Pass call to instance in the slot
-    call self % slot % reportHist(p, xsData, mem)
+    call self % slot % reportHist(object, xsData, mem)
 
   end subroutine reportHist
 

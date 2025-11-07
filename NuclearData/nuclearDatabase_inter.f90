@@ -1,13 +1,13 @@
 module nuclearDatabase_inter
 
-  use charMap_class,        only : charMap
-  use dictionary_class,     only : dictionary
-  use errors_mod,           only : fatalError
-  use materialHandle_inter, only : materialHandle
-  use nuclideHandle_inter,  only : nuclideHandle
+  use charMap_class,         only : charMap
+  use dictionary_class,      only : dictionary
+  use errors_mod,            only : fatalError
+  use materialHandle_inter,  only : materialHandle
+  use nuclideHandle_inter,   only : nuclideHandle
   use numPrecision
-  use particle_class,       only : particle
-  use reactionHandle_inter, only : reactionHandle
+  use reactionHandle_inter,  only : reactionHandle
+  use transportObject_inter, only : transportObject
 
   implicit none
   private
@@ -59,7 +59,7 @@ module nuclearDatabase_inter
     !!   FatalError is ptr is not assosiated with self
     !!
     subroutine init(self, dict, ptr, silent)
-      import :: nuclearDatabase, dictionary, defBool
+      import                                        :: defBool, dictionary, nuclearDatabase
       class(nuclearDatabase), target, intent(inout) :: self
       class(dictionary), intent(in)                 :: dict
       class(nuclearDatabase), pointer, intent(in)   :: ptr
@@ -79,7 +79,7 @@ module nuclearDatabase_inter
     !!   fatalError if activeMat contains materials not defined in the instance
     !!
     subroutine activate(self, activeMat, silent)
-      import :: nuclearDatabase, shortInt, defBool
+      import                                      :: defBool, nuclearDatabase, shortInt
       class(nuclearDatabase), intent(inout)       :: self
       integer(shortInt), dimension(:), intent(in) :: activeMat
       logical(defBool), optional, intent(in)      :: silent
@@ -104,12 +104,11 @@ module nuclearDatabase_inter
     !!   Undefined behaviour if the state of the particle is invalid e.g. -ve energy
     !!   Undefined behavior if matIdx does not correspond to a defined material
     !!
-    function getTrackingXS(self, p, matIdx, what) result(xs)
-      import :: nuclearDatabase, particle, shortInt, defReal
+    function getTrackingXS(self, object, matIdx, what) result(xs)
+      import                                :: defReal, nuclearDatabase, shortInt, transportObject
       class(nuclearDatabase), intent(inout) :: self
-      class(particle), intent(in)           :: p
-      integer(shortInt), intent(in)         :: matIdx
-      integer(shortInt), intent(in)         :: what
+      class(transportObject), intent(in)    :: object
+      integer(shortInt), intent(in)         :: matIdx, what
       real(defReal)                         :: xs
     end function getTrackingXS
 
@@ -131,10 +130,10 @@ module nuclearDatabase_inter
     !!   Undefined behaviour if the state of the particle is invalid e.g. -ve energy
     !!   Undefined behavior if matIdx does not correspond to a defined material
     !!
-    function getTrackMatXS(self, p, matIdx) result(xs)
-      import :: nuclearDatabase, particle, shortInt, defReal
+    function getTrackMatXS(self, object, matIdx) result(xs)
+      import                                :: defReal, nuclearDatabase, shortInt, transportObject
       class(nuclearDatabase), intent(inout) :: self
-      class(particle), intent(in)           :: p
+      class(transportObject), intent(in)    :: object
       integer(shortInt), intent(in)         :: matIdx
       real(defReal)                         :: xs
     end function getTrackMatXS
@@ -155,10 +154,10 @@ module nuclearDatabase_inter
     !!   Undefined behaviour if the state of the particle is invalid e.g. -ve energy
     !!   Undefined behavior if matIdx does not correspond to a defined material
     !!
-    function getTotalMatXS(self, p, matIdx) result(xs)
-      import :: nuclearDatabase, particle, shortInt, defReal
+    function getTotalMatXS(self, object, matIdx) result(xs)
+      import                                :: defReal, nuclearDatabase, shortInt, transportObject
       class(nuclearDatabase), intent(inout) :: self
-      class(particle), intent(in)           :: p
+      class(transportObject), intent(in)    :: object
       integer(shortInt), intent(in)         :: matIdx
       real(defReal)                         :: xs
     end function getTotalMatXS
@@ -178,10 +177,10 @@ module nuclearDatabase_inter
     !! Errors:
     !!   Undefined behaviour if the state of the particle is invalid e.g. -ve energy
     !!
-    function getMajorantXS(self, p) result(xs)
-      import :: nuclearDatabase, particle, shortInt, defReal
+    function getMajorantXS(self, object) result(xs)
+      import                                :: defReal, nuclearDatabase, shortInt, transportObject
       class(nuclearDatabase), intent(inout) :: self
-      class(particle), intent(in)           :: p
+      class(transportObject), intent(in)    :: object
       real(defReal)                         :: xs
     end function getMajorantXS
 
@@ -195,7 +194,7 @@ module nuclearDatabase_inter
     !!   fatalError if the map is not initialised
     !!
     function matNamesMap(self) result(map)
-      import :: nuclearDatabase, charMap
+      import                             :: charMap, nuclearDatabase
       class(nuclearDatabase), intent(in) :: self
       type(charMap), pointer             :: map
     end function matNamesMap
@@ -217,7 +216,7 @@ module nuclearDatabase_inter
     !!   Return null() pointer for invalid material index (not present in database)
     !!
     function getMaterial(self, matIdx) result(mat)
-      import :: nuclearDatabase, shortInt, materialHandle
+      import                             :: materialHandle, nuclearDatabase, shortInt
       class(nuclearDatabase), intent(in) :: self
       integer(shortInt), intent(in)      :: matIdx
       class(materialHandle), pointer     :: mat
@@ -241,7 +240,7 @@ module nuclearDatabase_inter
     !!   Return null() pointer for invalid nuclide index (not present in database)
     !!
     function getNuclide(self, nucIdx) result(nuc)
-      import :: nuclearDatabase, shortInt, nuclideHandle
+      import                             :: nuclearDatabase, nuclideHandle, shortInt
       class(nuclearDatabase), intent(in) :: self
       integer(shortInt), intent(in)      :: nucIdx
       class(nuclideHandle), pointer      :: nuc
@@ -273,18 +272,18 @@ module nuclearDatabase_inter
     !!   pointer is returned.
     !!
     function getReaction(self, MT, idx) result(reac)
-      import :: nuclearDatabase, shortInt, reactionHandle
+      import                             :: nuclearDatabase, reactionHandle, shortInt
       class(nuclearDatabase), intent(in) :: self
       integer(shortInt), intent(in)      :: MT
       integer(shortInt), intent(in)      :: idx
-      class(reactionHandle), pointer      :: reac
+      class(reactionHandle), pointer     :: reac
     end function getReaction
 
     !!
     !! Return to uninitialised state
     !!
     subroutine kill(self)
-      import :: nuclearDatabase
+      import                                :: nuclearDatabase
       class(nuclearDatabase), intent(inout) :: self
     end subroutine kill
 

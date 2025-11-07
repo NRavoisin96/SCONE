@@ -81,7 +81,7 @@ module scoreMemory_class
     private
     real(defReal), dimension(:, :), allocatable :: bins, parallelBins !! Space for storing cumul data (2nd dim size is always 2!)
     integer(longInt)                            :: N = 0_longInt         !! Size of memory (number of bins)
-    integer(shortInt)                           :: batchN = 0, batchSize = 0, cycles = 0, id = 0, nThreads = 0
+    integer(shortInt)                           :: batchN = 0, batchSize = 1, cycles = 0, id = 0, nThreads = 0
   contains
     ! Interface procedures
     procedure          :: init
@@ -114,21 +114,20 @@ contains
   !! Allocate space for the bins given number of bins N
   !! Optionaly change batchSize from 1 to any +ve number
   !!
-  subroutine init(self, N, id, batchSize )
-    class(scoreMemory), intent(inout)      :: self
-    integer(longInt), intent(in)           :: N
-    integer(shortInt), intent(in)          :: id
-    integer(shortInt),optional, intent(in) :: batchSize
-    character(*), parameter :: Here  = 'init (scoreMemory_class.f90)'
+  subroutine init(self, N, id, batchSize)
+    class(scoreMemory), intent(inout)       :: self
+    integer(longInt), intent(in)            :: N
+    integer(shortInt), intent(in)           :: id
+    integer(shortInt), intent(in), optional :: batchSize
+    character(*), parameter                 :: Here = 'init (scoreMemory_class.f90)'
 
     ! Allocate space and zero all bins
-    allocate( self % bins(N, DIM2))
+    allocate(self % bins(N, DIM2))
     self % bins = ZERO
-
     self % nThreads = ompGetMaxThreads()
 
     ! Note the array padding to avoid false sharing
-    allocate( self % parallelBins(N + array_pad, self % nThreads))
+    allocate(self % parallelBins(N + array_pad, self % nThreads))
     self % parallelBins = ZERO
 
     ! Save size of memory
@@ -137,18 +136,9 @@ contains
     ! Assign memory id
     self % id = id
 
-    ! Set batchN, cycles and batchSize to default values
-    self % batchN    = 0
-    self % cycles    = 0
-    self % batchSize = 1
-
-    if (present(batchSize)) then
-      if (batchSize > 0) then
-        self % batchSize = batchSize
-      else
-        call fatalError(Here,'Batch Size of: '// numToChar(batchSize) //' is invalid')
-      end if
-    end if
+    ! Set batchSize if present.
+    if (present(batchSize)) self % batchSize = batchSize
+    if (self % batchSize < 1) call fatalError(Here, 'Invalid batch size: '//numToChar(self % batchSize)//'.')
 
   end subroutine init
 
@@ -276,23 +266,21 @@ contains
     self % cycles = self % cycles + 1
 
     if (mod(self % cycles, self % batchSize) == 0) then ! Close Batch
-
       !$omp parallel do private(res)
       do i = 1, self % N
-
         ! Normalise scores
-        self % parallelBins(i,:) = self % parallelBins(i,:) * normFactor
-        res = sum(self % parallelBins(i,:))
+        self % parallelBins(i, :) = self % parallelBins(i, :) * normFactor
+        res = sum(self % parallelBins(i, :))
 
         ! Zero all score bins
-        self % parallelBins(i,:) = ZERO
+        self % parallelBins(i, :) = ZERO
 
         ! Increment cumulative sums
         !$omp atomic update
-        self % bins(i,CSUM)  = self % bins(i,CSUM) + res
+        self % bins(i, CSUM) = self % bins(i, CSUM) + res
 
         !$omp atomic update
-        self % bins(i,CSUM2) = self % bins(i,CSUM2) + res * res
+        self % bins(i, CSUM2) = self % bins(i, CSUM2) + res * res
 
       end do
       !$omp end parallel do

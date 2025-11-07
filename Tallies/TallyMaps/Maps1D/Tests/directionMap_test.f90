@@ -1,29 +1,25 @@
 module directionMap_test
-  use numPrecision
+  
+  use dictionary_class,           only : dictionary
+  use directionMap_class,         only : directionMap
   use funit
-  use particle_class,     only : particleState
-  use dictionary_class,   only : dictionary
-  use outputFile_class,   only : outputFile
-
-  use directionMap_class, only : directionMap
+  use numPrecision
+  use outputFile_class,           only : outputFile
+  use transportObjectState_class, only : transportObjectState
 
   implicit none
-
 
 @testCase
   type, extends(TestCase) :: test_directionMap
     private
-    type(directionMap) :: map1
-    type(directionMap) :: map2
-
+    type(directionMap) :: map1, map2
   contains
     procedure :: setUp
     procedure :: tearDown
-
   end type test_directionMap
 
 contains
-
+@Before
   !!
   !! Sets up test_directionMap object
   !!
@@ -33,7 +29,7 @@ contains
 
     ! Build map with yz plane
     call tempDict % init(2)
-    call tempDict % store('plane','yz')
+    call tempDict % store('plane', 'yz')
     call tempDict % store('N', 4)
 
     call this % map1 % init(tempDict)
@@ -50,6 +46,7 @@ contains
 
   end subroutine setUp
 
+@After
   !!
   !! Kills test_directionMap objects
   !!
@@ -64,28 +61,30 @@ contains
 !!<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 !! PROPER TESTS BEGIN HERE
 !!<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
-
   !!
   !! Test first map
   !!
 @Test
   subroutine testMap1(this)
-    class(test_directionMap), intent(inout)  :: this
+    class(test_directionMap), intent(inout)    :: this
+    integer(shortInt)                          :: i
+    integer(shortInt), dimension(4)            :: idxs
+    real(defReal), dimension(3, 4)             :: directions
+    type(transportObjectState), dimension(4)   :: states
+    integer(shortInt), dimension(4), parameter :: RES_IDXS = [4, 3, 2, 1]
     real(defReal), dimension(4), parameter     :: x = [0.44_defReal, 15.8_defReal, 83.2_defReal, 999.1_defReal], &
                                                   phi = [100.1_defReal, 20.84_defReal, 333.9_defReal, 264.8_defReal] * &
                                                   PI / 180.0_defReal
-    integer(shortInt), dimension(4), parameter :: RES_IDX = [4, 3, 2, 1]
-    integer(shortInt), dimension(4)           :: idx
-    type(particleState), dimension(4)         :: states
 
-    ! Initialise states
-    states(:) % dir(1) = x
-    states(:) % dir(2) = cos(phi)
-    states(:) % dir(3) = sin(phi)
+    ! Initialise states.
+    directions = ZERO
+    do i = 1, 4
+      directions(:, i) = [x(i), cos(phi(i)), sin(phi(i))]
+      call states(i) % setGlobalDirection(directions(:, i))
+      idxs(i) = this % map1 % map(states(i))
 
-    idx = this % map1 % map(states)
-
-    @assertEqual(RES_IDX, idx)
+    end do
+    @assertEqual(RES_IDXS, idxs)
 
   end subroutine testMap1
 
@@ -94,22 +93,25 @@ contains
   !!
 @Test
   subroutine testMap2(this)
-    class(test_directionMap), intent(inout)  :: this
+    class(test_directionMap), intent(inout)    :: this
+    integer(shortInt)                          :: i
+    integer(shortInt), dimension(4)            :: idxs
+    real(defReal), dimension(3, 4)             :: directions
+    type(transportObjectState), dimension(4)   :: states
+    integer(shortInt), dimension(4), parameter :: RES_IDXS = [9, 1, 5, 0]
     real(defReal), dimension(4), parameter     :: z = [0.44_defReal, 15.8_defReal, 83.2_defReal, 999.1_defReal], &
                                                   phi = [170.1_defReal, 90.84_defReal, 133.9_defReal, 264.8_defReal] * &
                                                   PI / 180.0_defReal
-    integer(shortInt), dimension(4), parameter :: RES_IDX = [9, 1, 5, 0]
-    integer(shortInt), dimension(4)           :: idx
-    type(particleState), dimension(4)         :: states
 
-    ! Initialise states
-    states(:) % dir(1) = cos(phi)
-    states(:) % dir(2) = sin(phi)
-    states(:) % dir(3) = z
+    ! Initialise states.
+    directions = ZERO
+    do i = 1, 4
+      directions(:, i) = [cos(phi(i)), sin(phi(i)), z(i)]
+      call states(i) % setGlobalDirection(directions(:, i))
+      idxs(i) = this % map2 % map(states(i))
 
-    idx = this % map2 % map(states)
-
-    @assertEqual(RES_IDX, idx)
+    end do
+    @assertEqual(RES_IDXS, idxs)
 
   end subroutine testMap2
 
@@ -121,10 +123,10 @@ contains
     class(test_directionMap), intent(inout) :: this
 
     ! Test that map is 1D
-    @assertEqual(4, this % map1 % bins(0),'All bins')
-    @assertEqual(4, this % map1 % bins(1),'1st dimension')
-    @assertEqual(0, this % map2 % bins(2),'2nd dimension')
-    @assertEqual(9, this % map2 % bins(1),'1st dimension')
+    @assertEqual(4, this % map1 % bins(0), 'All bins.')
+    @assertEqual(4, this % map1 % bins(1), '1st dimension.')
+    @assertEqual(0, this % map2 % bins(2), '2nd dimension.')
+    @assertEqual(9, this % map2 % bins(1), '1st dimension.')
 
     ! Get dimensionality
     @assertEqual(1, this % map1 % dimensions())
@@ -144,14 +146,13 @@ contains
     call out % init('dummyPrinter', fatalErrors = .false.)
 
     call this % map2 % print(out)
-    @assertTrue(out % isValid(),'Radial map case')
+    @assertTrue(out % isValid(), 'Radial map case.')
     call out % reset()
 
     call this % map1 % print(out)
-    @assertTrue(out % isValid(),'Unstruct map case')
+    @assertTrue(out % isValid(), 'Unstructured map case.')
     call out % reset()
 
   end subroutine testPrint
-
 
 end module directionMap_test

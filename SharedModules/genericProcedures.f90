@@ -1,14 +1,18 @@
 module genericProcedures
-  ! Intrinsic fortran Modules
-  use iso_fortran_env, only : compiler_version
 
-  use numPrecision
-  use openmp_func, only : ompGetMaxThreads
-  use errors_mod,  only : fatalError
   use endfConstants
+  use errors_mod,        only : fatalError, unassociatedPtrError
+  use iso_fortran_env,   only : compiler_version
+  use numPrecision
+  use openmp_func,       only : ompGetMaxThreads
   use universalVariables
 
   implicit none
+
+  interface anyAreEqual
+    module procedure anyAreEqual_defRealArray_defReal
+    module procedure anyAreEqual_defRealArray_defRealArray
+  end interface
 
   interface append
     module procedure append_defReal
@@ -16,8 +20,17 @@ module genericProcedures
     module procedure append_shortIntArray
   end interface
 
+  interface areEqual
+    module procedure areEqual_defReal
+    module procedure areEqual_defRealArray
+  end interface
+
   interface ceilingBinarySearch
     module procedure binaryCeilingIdxClosed_Real
+  end interface
+
+  interface concatenate
+    module procedure concatenateArrays_Real
   end interface
 
   interface countCharacters
@@ -25,46 +38,9 @@ module genericProcedures
     module procedure countCharacters_longInt
     module procedure countCharacters_defReal
   end interface
-  
-  interface swap
-    module procedure swap_shortInt
-    module procedure swap_shortIntArray
-    module procedure swap_defReal
-    module procedure swap_char_nameLen
-    module procedure swap_defReal_defReal
-  end interface
 
-  interface quickSort
-    module procedure quickSort_shortInt
-    module procedure quickSort_defReal
-    module procedure quickSort_defReal_defReal
-  end interface
-
-  interface hasDuplicates
-    module procedure hasDuplicates_char
-    module procedure hasDuplicates_shortInt
-    module procedure hasDuplicates_defReal
-  end interface
-
-  interface hasDuplicatesSorted
-    module procedure hasDuplicatesSorted_defReal
-  end interface
-
-  interface removeDuplicates
-    module procedure removeDuplicates_Char
-    module procedure removeDuplicates_shortInt
-    module procedure removeDuplicates_Real
-  end interface removeDuplicates
-
-  interface removeDuplicatesSorted
-    module procedure removeDuplicatesSorted_Real
-  end interface
-
-  interface linFind
-    module procedure linFind_Char
-    module procedure linFind_defReal
-    module procedure linFind_defReal_withTOL
-    module procedure linFind_shortInt
+  interface endfInterpolate
+    module procedure RealReal_endf_interpolate
   end interface
 
   interface findCommon
@@ -87,12 +63,23 @@ module genericProcedures
     module procedure binaryFloorIdxClosed_Real
   end interface
 
-  interface endfInterpolate
-    module procedure RealReal_endf_interpolate
+  interface hasDuplicates
+    module procedure hasDuplicates_char
+    module procedure hasDuplicates_shortInt
+    module procedure hasDuplicates_defReal
+  end interface
+
+  interface hasDuplicatesSorted
+    module procedure hasDuplicatesSorted_defReal
   end interface
 
   interface interpolate
     module procedure RealReal_linlin_elemental_interpolate
+  end interface
+
+  interface isDescending
+    module procedure isDescending_defReal
+    module procedure isDescending_shortInt
   end interface
 
   interface isSorted
@@ -100,9 +87,11 @@ module genericProcedures
     module procedure isSorted_shortInt
   end interface
 
-  interface isDescending
-    module procedure isDescending_defReal
-    module procedure isDescending_shortInt
+  interface linFind
+    module procedure linFind_Char
+    module procedure linFind_defReal
+    module procedure linFind_defReal_withTOL
+    module procedure linFind_shortInt
   end interface
 
   interface numToChar
@@ -113,18 +102,33 @@ module genericProcedures
     module procedure numToChar_defRealArray
   end interface
 
-  interface concatenate
-    module procedure concatenateArrays_Real
+  interface quickSort
+    module procedure quickSort_shortInt
+    module procedure quickSort_defReal
+    module procedure quickSort_defReal_defReal
   end interface
 
-  interface areEqual
-    module procedure areEqual_defReal
-    module procedure areEqual_defRealArray
+  interface removeDuplicates
+    module procedure removeDuplicates_Char
+    module procedure removeDuplicates_shortInt
+    module procedure removeDuplicates_Real
+  end interface removeDuplicates
+
+  interface removeDuplicatesSorted
+    module procedure removeDuplicatesSorted_Real
   end interface
 
-  interface anyAreEqual
-    module procedure anyAreEqual_defRealArray_defReal
-    module procedure anyAreEqual_defRealArray_defRealArray
+  interface readPtrValue
+    module procedure readPtrValue_defReal
+    module procedure readPtrValue_shortInt
+  end interface
+  
+  interface swap
+    module procedure swap_shortInt
+    module procedure swap_shortIntArray
+    module procedure swap_defReal
+    module procedure swap_char_nameLen
+    module procedure swap_defReal_defReal
   end interface
 
 contains
@@ -1943,6 +1947,32 @@ contains
     end if
 
   end subroutine quickSort_defReal_defReal
+
+  !!
+  !!
+  !!
+  function readPtrValue_defReal(ptr) result(value)
+    real(defReal), pointer, intent(in) :: ptr
+    real(defReal)                      :: value
+    character(*), parameter            :: HERE = 'readPtrValue_defReal (genericProcedures.f90)'
+
+    if (.not. associated(ptr)) call unassociatedPtrError(HERE)
+    value = ptr
+
+  end function readPtrValue_defReal
+
+  !!
+  !!
+  !!
+  function readPtrValue_shortInt(ptr) result(value)
+    integer(shortInt), pointer, intent(in) :: ptr
+    integer(shortInt)                      :: value
+    character(*), parameter                :: HERE = 'readPtrValue_shortInt (genericProcedures.f90)'
+
+    if (.not. associated(ptr)) call unassociatedPtrError(HERE)
+    value = ptr
+
+  end function readPtrValue_shortInt
 
   !!
   !! Swap two integers

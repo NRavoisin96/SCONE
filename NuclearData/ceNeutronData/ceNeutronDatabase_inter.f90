@@ -1,5 +1,6 @@
 module ceNeutronDatabase_inter
 
+  use CENeutron_class,       only : castCENeutronPtr, CENeutron
   use ceNeutronCache_mod,    only : materialCache, majorantCache, trackingCache
   use charMap_class,         only : charMap
   use genericProcedures,     only : fatalError
@@ -8,10 +9,10 @@ module ceNeutronDatabase_inter
   use nuclearDatabase_inter, only : nuclearDatabase
   use nuclideHandle_inter,   only : nuclideHandle
   use numPrecision
-  use particle_class,        only : particle, P_NEUTRON, printType
   use reactionHandle_inter,  only : reactionHandle
   use RNG_class,             only : RNG
   use scalarField_inter,     only : getTemperatureFieldPtr, scalarField
+  use transportObject_inter, only : transportObject
   use universalVariables
 
   implicit none
@@ -287,7 +288,6 @@ module ceNeutronDatabase_inter
   end interface
 
 contains
-
   !!
   !! Return tracking XS requested
   !!
@@ -296,40 +296,42 @@ contains
   !! Error:
   !!   fatalError if particle is not CE Neutron
   !!
-  function getTrackingXS(self, p, matIdx, what) result(xs)
+  function getTrackingXS(self, object, matIdx, what) result(xs)
     class(ceNeutronDatabase), intent(inout) :: self
-    class(particle), intent(in)             :: p
-    integer(shortInt), intent(in)           :: matIdx
-    integer(shortInt), intent(in)           :: what
-    real(defReal)                           :: xs
-    character(*), parameter :: Here = 'getTrackingXS (ceNeutronDatabase_inter.f90)'
+    class(transportObject), intent(in)      :: object
+    integer(shortInt), intent(in)           :: matIdx, what
+    class(CENeutron), pointer               :: CENeutronPtr
+    real(defReal)                           :: energy, xs
+    character(*), parameter                 :: here = 'getTrackingXS (ceNeutronDatabase_inter.f90)'
 
-    ! Process request
+    ! Check dynamic type of physical particle then process request.
+    CENeutronPtr => castCENeutronPtr(object, .true.)
+    energy = CENeutronPtr % getEnergy()
     select case(what)
-
       case (MATERIAL_XS)
-        xs = self % getTrackMatXS(p, matIdx)
+        xs = self % getTrackMatXS(CENeutronPtr, matIdx)
 
       case (MAJORANT_XS)
-        xs = self % getMajorantXS(p)
+        xs = self % getMajorantXS(CENeutronPtr)
 
       case (TRACKING_XS)
-
         ! READ ONLY - read from previously updated cache
-        if (p % E == trackingCache(1) % E) then
+        if (energy == trackingCache(1) % E) then
           xs = trackingCache(1) % xs
           return
+
         else
-          call fatalError(Here, 'Tracking cache failed to update during tracking')
+          call fatalError(here, 'Failed to update cache during tracking.')
+
         end if
 
       case default
-        call fatalError(Here, 'Neither material xs nor majorant xs was asked')
+        call fatalError(here, 'Neither material xs nor majorant xs was asked')
 
     end select
 
     ! Update Cache
-    trackingCache(1) % E  = p % E
+    trackingCache(1) % E = energy
     trackingCache(1) % xs = xs
 
   end function getTrackingXS
@@ -345,23 +347,22 @@ contains
   !! Error:
   !!   fatalError if particle is not CE Neutron
   !!
-  function getTrackMatXS(self, p, matIdx) result(xs)
+  function getTrackMatXS(self, object, matIdx) result(xs)
     class(ceNeutronDatabase), intent(inout) :: self
-    class(particle), intent(in)             :: p
+    class(transportObject), intent(in)      :: object
     integer(shortInt), intent(in)           :: matIdx
-    real(defReal)                           :: kT, xs
-    character(*), parameter                 :: Here = 'getTrackMatXS (ceNeutronDatabase_inter.f90)'
+    real(defReal)                           :: energy, kT, xs
+    type(CENeutron), pointer                :: CENeutronPtr
 
     ! Check dynamic type of the particle
-    if (p % isMG .or. p % type /= P_NEUTRON) then
-      call fatalError(Here, 'Dynamic type of the partcle is not CE Neutron but:'//p % typeToChar()//'.')
-
-    end if
+    CENeutronPtr => castCENeutronPtr(object, .true.)
 
     ! Check Cache and update if needed
     associate(matCache => materialCache(matIdx))
-      kT = self % get_kT(p, matIdx)
-      if (matCache % E_track /= p % E .or. matCache % kT /= kT) call self % updateTrackMatXS(p % E, kT, matIdx, p % pRNG)
+      kT = self % get_kT(CENeutronPtr, matIdx)
+      energy = CENeutronPtr % getEnergy()
+      if (matCache % E_track /= energy .or. matCache % kT /= kT) &
+      call self % updateTrackMatXS(energy, kT, matIdx, CENeutronPtr % getRNGPtr())
 
       ! Return Cross-Section
       xs = matCache % trackXS
@@ -378,23 +379,23 @@ contains
   !! Error:
   !!   fatalError if particle is not CE Neutron
   !!
-  function getTotalMatXS(self, p, matIdx) result(xs)
+  function getTotalMatXS(self, object, matIdx) result(xs)
     class(ceNeutronDatabase), intent(inout) :: self
-    class(particle), intent(in)             :: p
+    class(transportObject), intent(in)      :: object
     integer(shortInt), intent(in)           :: matIdx
-    real(defReal)                           :: kT, xs
+    real(defReal)                           :: energy, kT, xs
+    type(CENeutron), pointer                :: CENeutronPtr
     character(*), parameter                 :: Here = 'getTotalMatXS (ceNeutronDatabase_inter.f90)'
 
-    ! Check dynamic type of the particle
-    if (p % isMG .or. p % type /= P_NEUTRON) then
-      call fatalError(Here, 'Dynamic type of the partcle is not CE Neutron but:'//p % typeToChar())
-
-    end if
+    ! Check dynamic type of the particle.
+    CENeutronPtr => castCENeutronPtr(object, .true.)
 
     associate(matCache => materialCache(matIdx))
       ! Check Cache and update if needed
-      kT = self % get_kT(p, matIdx)
-      if (matCache % E_tot /= p % E .or. matCache % kT /= kT) call self % updateTotalMatXS(p % E, kT, matIdx, p % pRNG)
+      kT = self % get_kT(CENeutronPtr, matIdx)
+      energy = CENeutronPtr % getEnergy()
+      if (matCache % E_tot /= energy .or. matCache % kT /= kT) &
+      call self % updateTotalMatXS(energy, kT, matIdx, CENeutronPtr % getRNGPtr())
 
       ! Return Cross-Section
       xs = matCache % xss % total
@@ -406,9 +407,9 @@ contains
   !!
   !!
   !!
-  function get_kT(self, p, matIdx) result(kT)
+  function get_kT(self, n_CE, matIdx) result(kT)
     class(ceNeutronDatabase), intent(in) :: self
-    class(particle), intent(in)          :: p
+    type(CENeutron), intent(in)          :: n_CE
     integer(shortInt), intent(in)        :: matIdx
     class(scalarField), pointer          :: temperatureFieldPtr
     real(defReal)                        :: kT, temperature
@@ -417,7 +418,7 @@ contains
     kT = self % getMaterial_kT(matIdx)
     temperatureFieldPtr => getTemperatureFieldPtr()
     if (associated(temperatureFieldPtr)) then
-      temperature = temperatureFieldPtr % at(p % coords)
+      temperature = temperatureFieldPtr % at(n_CE % getCoordsPtr())
       if (ZERO < temperature) kT = kBoltzmann * temperature / joulesPerMeV
 
     end if
@@ -432,20 +433,19 @@ contains
   !! Error:
   !!   fatalError if particle is not CE Neutron
   !!
-  function getMajorantXS(self, p) result(xs)
+  function getMajorantXS(self, object) result(xs)
     class(ceNeutronDatabase), intent(inout) :: self
-    class(particle), intent(in)             :: p
-    real(defReal)                           :: xs
-    character(*), parameter :: Here = 'getMajorantXS (ceNeutronDatabase_inter.f90)'
+    class(transportObject), intent(in)      :: object
+    real(defReal)                           :: energy, xs
+    type(CENeutron), pointer                :: CENeutronPtr
+    character(*), parameter                 :: here = 'getMajorantXS (ceNeutronDatabase_inter.f90)'
 
     ! Check dynamic type of the particle
-    if (p % isMG .or. p % type /= P_NEUTRON) then
-      call fatalError(Here, 'Dynamic type of the partcle is not CE Neutron but:'//p % typeToChar())
-    end if
-
+    CENeutronPtr => castCENeutronPtr(object, .true.)
+    energy = CENeutronPtr % getEnergy()
     associate(majCache => majorantCache(1))
       ! Check Cache and update if needed
-      if (majorantCache(1) % E /= p % E) call self % updateMajorantXS(p % E, p % pRNG)
+      if (majorantCache(1) % E /= energy) call self % updateMajorantXS(energy, CENeutronPtr % getRNGPtr())
 
       ! Return Cross-Section
       xs = majorantCache(1) % xs
@@ -477,6 +477,5 @@ contains
     end select
 
   end function ceNeutronDatabase_CptrCast
-
 
 end module ceNeutronDatabase_inter

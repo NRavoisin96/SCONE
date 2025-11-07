@@ -1,41 +1,29 @@
 module eigenPhysicsPackage_class
 
-  use numPrecision
-  use universalVariables
-  use genericProcedures,            only : fatalError, printFishLineR, numToChar
+  use collisionOperator_class,      only : collisionOperator
   use dictionary_class,             only : dictionary
+  use errors_mod,                   only : fatalError
+  use field_inter,                  only : field
+  use fieldFactory_func,            only : new_field
+  use genericProcedures,            only : printFishLineR, numToChar
+  use geometryReg_mod,              only : gr_fieldIdx => fieldIdx, gr_fieldPtr => fieldPtr
+  use keffAnalogClerk_class,        only : keffResult
+  use numPrecision
   use outputFile_class,             only : outputFile
-
-  ! Timers
-  use timer_mod,                    only : secToChar
-
-  ! Particle classes and Random number generator
-  use particle_class,               only : particle
   use particleDungeon_class,        only : particleDungeon
-  use RNG_class,                    only : RNG
-
-  ! Physics package interface
   use particlePhysicsPackage_inter, only : collectSpecificResults_super => collectSpecificResults, &
                                            init_super => init, initParticlePhysicsPackagePayload, &
                                            particlePhysicsPackage, kill_super => kill
+  use physicalParticle_inter,       only : physicalParticle
+  use physicalParticleState_class,  only : physicalParticleState
   use physicsPackage_inter,         only : copyPayload, initPhysicsPackagePayload
-
-  ! Geometry
-  use geometryReg_mod,              only : gr_fieldIdx => fieldIdx, gr_fieldPtr => fieldPtr
-
-  ! Fields
-  use field_inter,                  only : field
-  use uniFissSitesField_class,      only : uniFissSitesField, uniFissSitesField_TptrCast
-  use fieldFactory_func,            only : new_field
-
-  ! Operators
-  use collisionOperator_class,      only : collisionOperator
-  use transportOperator_inter,      only : transportOperator
-
-  ! Tallies
+  use RNG_class,                    only : RNG
   use tallyAdmin_class,             only : tallyAdmin
   use tallyResult_class,            only : tallyResult
-  use keffAnalogClerk_class,        only : keffResult
+  use transportOperator_inter,      only : transportOperator
+  use timer_mod,                    only : secToChar
+  use uniFissSitesField_class,      only : uniFissSitesField, uniFissSitesField_TptrCast
+  use universalVariables
 
   implicit none
   private
@@ -397,6 +385,7 @@ contains
     tempCycle => self % nextCycle
     self % nextCycle => currentCyclePtr
     call self % setCurrentCyclePtr(tempCycle)
+    currentCyclePtr => self % getCurrentCyclePtr()
 
     ! Get new k_eff.
     call attachmentPtr % getResult(result, 'keff')
@@ -410,7 +399,7 @@ contains
         call fatalError(here, 'Invalid result type.')
 
     end select
-    self % nextCycle % k_eff = self % k_eff
+    call self % nextCycle % setKEff(self % k_eff)
 
   end subroutine processEndOfCycle
 
@@ -449,27 +438,27 @@ contains
   !!
   !!
   subroutine trackParticleHistory(self, transOp, collOp, p, buffer, tally)
-    class(eigenPhysicsPackage), intent(in)  :: self
-    class(transportOperator), intent(inout) :: transOp
-    type(collisionOperator), intent(inout)  :: collOp
-    type(particle), intent(inout)           :: p
-    type(particleDungeon), intent(inout)    :: buffer
-    type(tallyAdmin), intent(inout)         :: tally
+    class(eigenPhysicsPackage), intent(in)              :: self
+    class(transportOperator), intent(inout)             :: transOp
+    type(collisionOperator), intent(inout)              :: collOp
+    class(physicalParticle), allocatable, intent(inout) :: p
+    type(particleDungeon), intent(inout)                :: buffer
+    type(tallyAdmin), intent(inout)                     :: tally
 
     bufferLoop: do
       ! Initialize the particle's state for this history.
-      p % k_eff = self % k_eff
-      call self % placeCoord(p % coords)
-      call p % savePreHistory()
+      call p % setKEff(self % k_eff)
+      call self % placeCoord(p % getCoordsPtr())
+      call p % savePreHistoryState()
 
       ! Transport the particle until it dies
       history: do
         call transOp % transport(p, tally)
-        if (p % isDead) exit history
+        if (p % getIsDead()) exit history
 
         ! CRITICAL: Secondaries are sent to self % nextCycle
         call collOp % collide(p, tally, buffer, self % nextCycle)
-        if (p % isDead) exit history
+        if (p % getIsDead()) exit history
 
       end do history
 
@@ -478,7 +467,7 @@ contains
         exit bufferLoop ! The entire family history is complete
 
       else
-        call buffer % release(p) ! Get the next particle from the buffer
+        call buffer % release(p)
 
       end if
 

@@ -1,11 +1,9 @@
 module neutronMaterial_inter
 
-  use numPrecision
-  use particle_class,       only : particle
-
-  ! Nuclear Data Interfaces
   use materialHandle_inter,    only : materialHandle
   use neutronXsPackages_class, only : neutronMacroXSs
+  use numPrecision
+  use transportObject_inter,   only : transportObject
 
   implicit none
   private
@@ -30,7 +28,7 @@ module neutronMaterial_inter
     private
   contains
     generic                              :: getMacroXSs => getMacroXSs_byP
-    procedure(isFissile),       deferred :: isFissile
+    procedure(isFissile), deferred       :: isFissile
     procedure(getMacroXSs_byP), deferred :: getMacroXSs_byP
   end type neutronMaterial
 
@@ -45,7 +43,7 @@ module neutronMaterial_inter
     !!   None
     !!
     elemental function isFissile(self) result(isIt)
-      import :: neutronMaterial, defBool
+      import                             :: defBool, neutronMaterial
       class(neutronMaterial), intent(in) :: self
       logical(defBool)                   :: isIt
     end function isFissile
@@ -61,10 +59,10 @@ module neutronMaterial_inter
     !!   fatalError if energy value/group is outside bounds
     !!   fatalError if MG particle is given to CE data and vice versa
     !!
-    subroutine getMacroXSs_byP(self, p, xss)
-      import :: neutronMaterial, particle, neutronMacroXSs
+    subroutine getMacroXSs_byP(self, object, xss)
+      import                             :: neutronMacroXSs, neutronMaterial, transportObject
       class(neutronMaterial), intent(in) :: self
-      class(particle), intent(in)        :: p
+      class(transportObject), intent(in) :: object
       type(neutronMacroXSs), intent(out) :: xss
     end subroutine getMacroXSs_byP
 
@@ -96,6 +94,5 @@ contains
     end select
 
   end function neutronMaterial_CptrCast
-
 
 end module neutronMaterial_inter

@@ -1,20 +1,22 @@
 module collisionClerk_class
 
-  use dictionary_class,        only : dictionary
-  use errors_mod,              only : fatalError
-  use nuclearDatabase_inter,   only : nuclearDatabase
+  use dictionary_class,            only : dictionary
+  use errors_mod,                  only : fatalError
+  use nuclearDatabase_inter,       only : nuclearDatabase
   use numPrecision
-  use outputFile_class,        only : outputFile
-  use particle_class,          only : particle, particleState
-  use scoreMemory_class,       only : scoreMemory
+  use outputFile_class,            only : outputFile
+  use physicalParticle_inter,      only : physicalParticle
+  use physicalParticleState_class, only : castPhysicalParticleStatePtr, physicalParticleState
+  use scoreMemory_class,           only : scoreMemory
   use tallyCodes
-  use tallyClerk_inter,        only : tallyClerk, kill_super => kill
-  use tallyFilter_inter,       only : tallyFilter
-  use tallyFilterFactory_func, only : new_tallyFilter
-  use tallyMap_inter,          only : tallyMap
-  use tallyMapFactory_func,    only : new_tallyMap
-  use tallyResponseSlot_class, only : tallyResponseSlot
-  use tallyResult_class,       only : tallyResult, tallyResultArrays
+  use tallyClerk_inter,            only : tallyClerk, kill_super => kill
+  use tallyFilter_inter,           only : tallyFilter
+  use tallyFilterFactory_func,     only : new_tallyFilter
+  use tallyMap_inter,              only : tallyMap
+  use tallyMapFactory_func,        only : new_tallyMap
+  use tallyResponseSlot_class,     only : tallyResponseSlot
+  use tallyResult_class,           only : tallyResult, tallyResultArrays
+  use transportObjectState_class,  only : transportObjectState
   use universalVariables
 
   implicit none
@@ -128,7 +130,7 @@ contains
     if (dict % isPresent('map')) call new_tallyMap(self % map, dict % getDictPtr('map'))
 
     ! Get names of response dictionaries
-    call dict % get(responseNames,'response')
+    call dict % get(responseNames, 'response')
 
     ! Set width
     self % width = size(responseNames)
@@ -342,47 +344,42 @@ contains
   !! See tallyClerk_inter for details
   !!
   subroutine reportInColl(self, p, virtual, xsData, mem)
-    class(collisionClerk), intent(inout)  :: self
-    class(particle), intent(in)           :: p
-    logical(defBool), intent(in)          :: virtual
-    class(nuclearDatabase), intent(inout) :: xsData
-    type(scoreMemory), intent(inout)      :: mem
-    type(particleState)                   :: state
-    integer(shortInt)                     :: binIdx, i
-    integer(longInt)                      :: addr
-    real(defReal)                         :: scoreVal, flux
-    character(*), parameter               :: Here = 'reportInColl (collisionClerk_class.f90)'
+    class(collisionClerk), intent(inout)     :: self
+    class(physicalParticle), intent(in)      :: p
+    logical(defBool), intent(in)             :: virtual
+    class(nuclearDatabase), intent(inout)    :: xsData
+    type(scoreMemory), intent(inout)         :: mem
+    class(transportObjectState), pointer     :: currentStatePtr
+    integer(shortInt)                        :: binIdx, i
+    integer(longInt)                         :: addr
+    real(defReal)                            :: scoreVal, flux
+    character(*), parameter                  :: Here = 'reportInColl (collisionClerk_class.f90)'
 
     ! Return if collision is virtual but virtual collision handling is off
-    if ((.not. self % handleVirtual) .and. virtual) return
+    if (virtual .and. .not. self % handleVirtual) return
 
     ! Get current particle state
-    state = p
+    currentStatePtr => p % updateAndGetCurrentStatePtr()
 
     ! Check if within filter
     if (allocated(self % filter)) then
-      if (self % filter % isFail(state)) return
+      if (self % filter % isFail(currentStatePtr)) return
 
     end if
 
     ! Find bin index
-    if (allocated(self % map)) then
-      binIdx = self % map % map(state)
-
-    else
-      binIdx = 1
-
-    end if
+    binIdx = 1
+    if (allocated(self % map)) binIdx = self % map % map(currentStatePtr)
 
     ! Return if invalid bin index
     if (binIdx == 0) return
 
     ! Calculate flux with the right cross section according to virtual collision handling
     if (self % handleVirtual) then
-      flux = p % w / xsData % getTrackingXS(p, p % getMatIdx(), TRACKING_XS)
+      flux = p % getWeight() / xsData % getTrackingXS(p, p % getMaterialIdx(), TRACKING_XS)
 
     else
-      flux = p % w / xsData % getTotalMatXS(p, p % getMatIdx())
+      flux = p % getWeight() / xsData % getTotalMatXS(p, p % getMaterialIdx())
 
     end if
 

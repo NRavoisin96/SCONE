@@ -1,17 +1,16 @@
 module urrProbabilityTables_iTest
 
-  use numPrecision
+  use aceNeutronDatabase_class, only : aceNeutronDatabase
+  use aceNeutronNuclide_class,  only : aceNeutronNuclide, aceNeutronNuclide_CptrCast
+  use ceNeutronCache_mod,       only : zaidCache, nuclideCache
+  use ceNeutronNuclide_inter,   only : ceNeutronNuclide, ceNeutronNuclide_CptrCast
   use dictionary_class,         only : dictionary
   use dictParser_func,          only : charToDict
-  use particle_class,           only : particle
-  use aceNeutronDatabase_class, only : aceNeutronDatabase
-  use nuclearDatabase_inter,    only : nuclearDatabase
-  use ceNeutronNuclide_inter,   only : ceNeutronNuclide, ceNeutronNuclide_CptrCast
-  use aceNeutronNuclide_class,  only : aceNeutronNuclide, aceNeutronNuclide_CptrCast
-  use neutronXSPackages_class,  only : neutronMicroXSs
-  use materialMenu_mod,         only : mm_init => init
-  use ceNeutronCache_mod,       only : zaidCache, nuclideCache
   use funit
+  use materialMenu_mod,         only : mm_init => init
+  use neutronXSPackages_class,  only : neutronMicroXSs
+  use nuclearDatabase_inter,    only : nuclearDatabase
+  use numPrecision
 
   implicit none
 
@@ -44,17 +43,15 @@ contains
   !!
 @Test
   subroutine test_urrProbabilityTables()
-    class(nuclearDatabase), pointer   :: ptr
-    type(dictionary)                  :: matDict
-    type(dictionary)                  :: dataDict
     class(aceNeutronNuclide), pointer :: ACENuc, O16, U235
-    real(defReal), dimension(3)       :: val
-    real(defReal), dimension(2)       :: eBounds
     class(ceNeutronNuclide), pointer  :: nuc
-    type(particle)                    :: p
-    type(neutronMicroXSs)             :: microXSs
+    class(nuclearDatabase), pointer   :: ptr
     integer(shortInt)                 :: i, O16_Idx, U235_Idx
-    real(defReal), parameter          :: TOL = 1.0E-6
+    real(defReal), dimension(2)       :: eBounds
+    real(defReal), dimension(3)       :: val
+    type(dictionary)                  :: dataDict, matDict
+    type(neutronMicroXSs)             :: microXSs
+    real(defReal), parameter          :: TOL = 1.0e-6_defReal
 
     ! Prepare dictionaries
     call charToDict(matDict, MAT_INPUT_STR)
@@ -112,7 +109,7 @@ contains
 
     @assertEqual(0.98499622_defReal, val(1), TOL)
     @assertEqual(0.83939802_defReal, val(2), TOL)
-    @assertEqual(0.8515398_defReal,  val(3), TOL)
+    @assertEqual(0.8515398_defReal, val(3), TOL)
 
     !<><><><><><><><><><><><><><><><><><><><><><><><>
     ! Test getting XSs
@@ -123,16 +120,15 @@ contains
     zaidCache(U235_Idx) % xi = 0.347_defReal
     nuclideCache(U235_Idx) % E_tot = ONE
 
-    call nuc % getMicroXSs(9.1E-3_defReal, ZERO, microXSs, p % pRNG)
+    call nuc % getMicroXSs(9.1E-3_defReal, ZERO, microXSs)
 
-    @assertEqual(ONE, 15.317184903738868_defReal/ microXSs % total,            TOL)
-    @assertEqual(ONE, 11.662135262310867_defReal/ microXSs % elasticScatter,   TOL)
+    @assertEqual(ONE, 15.317184903738868_defReal/ microXSs % total, TOL)
+    @assertEqual(ONE, 11.662135262310867_defReal/ microXSs % elasticScatter, TOL)
     @assertEqual(ONE, 0.5743300000E-5_defReal   / microXSs % inelasticScatter, TOL)
-    @assertEqual(ONE, 0.999051523404001_defReal / microXSs % capture,          TOL)
-    @assertEqual(ONE, 2.655992374724002_defReal / microXSs % fission,          TOL)
-    @assertEqual(ONE, 6.462838469906821_defReal / microXSs % nuFission,        TOL)
+    @assertEqual(ONE, 0.999051523404001_defReal / microXSs % capture, TOL)
+    @assertEqual(ONE, 2.655992374724002_defReal / microXSs % fission, TOL)
+    @assertEqual(ONE, 6.462838469906821_defReal / microXSs % nuFission, TOL)
 
   end subroutine test_urrProbabilityTables
-
 
 end module urrProbabilityTables_iTest

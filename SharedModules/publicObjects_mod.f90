@@ -94,6 +94,14 @@ module publicObjects
     class(RNG), pointer :: rand => null()
   end type particleData
 
+  !!
+  !!
+  !!
+  type :: transportObjectStateCoordUpdateData
+    integer(shortInt)           :: geometryIdx = 0, lowestCellIdx = 0, lowestElementIdx = 0, materialIdx = 0, uniqueId = 0
+    real(defReal), dimension(3) :: rGlobal = ZERO, uGlobal = ZERO
+  end type transportObjectStateCoordUpdateData
+
 contains
   !!
   !!

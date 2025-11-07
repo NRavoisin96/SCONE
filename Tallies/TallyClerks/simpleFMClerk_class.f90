@@ -1,30 +1,22 @@
 module simpleFMClerk_class
 
-  use numPrecision
-  use tallyCodes
-  use endfConstants
-  use universalVariables
-  use genericProcedures,          only : fatalError
   use dictionary_class,           only : dictionary
-  use particle_class,             only : particle, particleState
-  use particleDungeon_class,      only : particleDungeon
+  use endfConstants
+  use errors_mod,                 only : fatalError
+  use macroResponse_class,        only : macroResponse
+  use neutronMaterial_inter,      only : neutronMaterial, neutronMaterial_CptrCast
+  use nuclearDatabase_inter,      only : nuclearDatabase
+  use numPrecision
   use outputFile_class,           only : outputFile
-
-  ! Basic tally modules
+  use particleDungeon_class,      only : particleDungeon
+  use physicalParticle_inter,     only : physicalParticle
   use scoreMemory_class,          only : scoreMemory
   use tallyClerk_inter,           only : tallyClerk, kill_super => kill
-  use tallyResult_class,          only : tallyResult
-
-  ! Nuclear Data
-  use nuclearDatabase_inter,      only : nuclearDatabase
-  use neutronMaterial_inter,      only : neutronMaterial, neutronMaterial_CptrCast
-
-  ! Tally Maps
+  use tallyCodes
   use tallyMap_inter,             only : tallyMap
   use tallyMapFactory_func,       only : new_tallyMap
-
-  ! Tally Response
-  use macroResponse_class,        only : macroResponse
+  use tallyResult_class,          only : tallyResult
+  use universalVariables
 
   implicit none
   private
@@ -179,7 +171,8 @@ contains
 
       associate (state => start % get(i))
         idx = self % map % map(state)
-        if (idx > 0) self % startWgt(idx) = self % startWgt(idx) + state % wgt
+        if (idx > 0) self % startWgt(idx) = self % startWgt(idx) + state % getWeight()
+
       end associate
 
     end do
@@ -193,23 +186,21 @@ contains
   !!
   subroutine reportInColl(self, p, virtual, xsData, mem)
     class(simpleFMClerk), intent(inout)   :: self
-    class(particle), intent(in)           :: p
+    class(physicalParticle), intent(in)   :: p
     logical(defBool), intent(in)          :: virtual
     class(nuclearDatabase), intent(inout) :: xsData
     type(scoreMemory), intent(inout)      :: mem
     class(neutronMaterial), pointer       :: mat
-    type(particleState)                   :: state
-    integer(shortInt)                     :: sIdx, cIdx
+    integer(shortInt)                     :: cIdx, matIdx, sIdx
     integer(longInt)                      :: addr
-    real(defReal)                         :: score, flux
-    integer(shortInt)                     :: matIdx
+    real(defReal)                         :: flux, score, weight
     character(*), parameter               :: Here = 'reportInColl (simpleFMClerk_class.f90)'
 
     ! Return if collision is virtual but virtual collision handling is off
     if ((.not. self % handleVirtual) .and. virtual) return
 
     ! Ensure we're not in void (could happen when scoring virtual collisions)
-    matIdx = p % getMatIdx()
+    matIdx = p % getMaterialIdx()
     if (matIdx == VOID_MAT) return
 
     ! Get material pointer.
@@ -220,18 +211,18 @@ contains
     if (.not. mat % isFissile()) return
 
     ! Calculate flux with the right cross section according to virtual collision handling
+    weight = p % getWeight()
     if (self % handleVirtual) then
-      flux = p % w / xsData % getTrackingXS(p, matIdx, TRACKING_XS)
+      flux = weight / xsData % getTrackingXS(p, matIdx, TRACKING_XS)
     else
-      flux = p % w / xsData % getTotalMatXS(p, matIdx)
+      flux = weight / xsData % getTotalMatXS(p, matIdx)
     end if
 
     ! Find starting index in the map
-    sIdx = self % map % map(p % preHistory)
+    sIdx = self % map % map(p % getPreHistoryStatePtr())
 
     ! Find collision index in the map
-    state = p
-    cIdx = self % map % map(state)
+    cIdx = self % map % map(p % updateAndGetCurrentStatePtr())
 
     ! Defend against invalid collision or starting bin
     if (cIdx == 0 .or. sIdx == 0) return

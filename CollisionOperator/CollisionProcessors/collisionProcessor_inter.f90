@@ -1,16 +1,16 @@
 module collisionProcessor_inter
 
-  use numPrecision
+  use dictionary_class,       only : dictionary
   use endfConstants
-  use genericProcedures,     only : fatalError, numToChar
-  use dictionary_class,      only : dictionary
-  use RNG_class,             only : RNG
-  use particle_class,        only : particle
-  use particleDungeon_class, only : particleDungeon
-
-  ! Tally interfaces
+  use errors_mod,             only : fatalError
+  use genericProcedures,      only : numToChar
+  use numPrecision
+  use particleDungeon_class,  only : particleDungeon
+  use physicalParticle_inter, only : castPhysicalParticlePtr, physicalParticle
+  use RNG_class,              only : RNG
   use tallyCodes
-  use tallyAdmin_class,      only : tallyAdmin
+  use tallyAdmin_class,       only : tallyAdmin
+  use transportObject_inter,  only : transportObject
 
   implicit none
   private
@@ -88,9 +88,9 @@ module collisionProcessor_inter
     !! processing of sollision event (scatter, fission etc.)
     !!
     subroutine collisionAction(self, p, tally, collDat, thisCycle, nextCycle)
-      import :: collisionProcessor, collisionData, tallyAdmin, particle, particleDungeon
+      import :: collisionProcessor, collisionData, tallyAdmin, particleDungeon, physicalParticle
       class(collisionProcessor), intent(inout) :: self
-      class(particle), intent(inout)           :: p
+      class(physicalParticle), intent(inout)   :: p
       type(tallyAdmin), intent(inout)          :: tally
       type(collisionData), intent(inout)       :: collDat
       class(particleDungeon), intent(inout)    :: thisCycle, nextCycle
@@ -100,9 +100,9 @@ module collisionProcessor_inter
     !!
     !!
     subroutine sampleCollision(self, p, collDat)
-      import :: collisionProcessor, collisionData, defReal, particle
+      import :: collisionProcessor, collisionData, defReal, physicalParticle
       class(collisionProcessor), intent(inout) :: self
-      class(particle), intent(inout)           :: p
+      class(physicalParticle), intent(inout)   :: p
       type(collisionData), intent(inout)       :: collDat
     end subroutine sampleCollision
     
@@ -113,38 +113,34 @@ contains
   !!
   !! Generic flow of collision processing
   !!
-  subroutine collide(self, p, tally, thisCycle, nextCycle)
+  subroutine collide(self, object, tally, thisCycle, nextCycle)
     class(collisionProcessor), intent(inout) :: self
-    class(particle), intent(inout)           :: p
+    class(transportObject), intent(inout)    :: object
     type(tallyAdmin), intent(inout)          :: tally
     class(particleDungeon), intent(inout)    :: thisCycle, nextCycle
-    type(collisionData)                      :: collDat
+    class(physicalParticle), pointer         :: p
     logical(defBool)                         :: virtual
-    integer(shortInt)                        :: addCollision
-    character(*), parameter                  :: Here = 'collide (collisionProcessor.f90)'
+    type(collisionData)                      :: collDat
+    character(*), parameter                  :: here = 'collide (collisionProcessor.f90)'
+
+    ! Downcast transportObject to physicalParticle.
+    p => castPhysicalParticlePtr(object, .true.)
 
     ! Load material index into data package
-    collDat % matIdx = p % getMatIdx()
+    collDat % matIdx = p % getMaterialIdx()
 
     ! Choose collision nuclide and general type (Scatter, Capture or Fission)
     call self % sampleCollision(p, collDat)
 
     ! In case of a TMS rejection, set collision as virtual
-    if (collDat % MT == noInteraction) then
-      virtual = .true.
-      addCollision = 0
-    else
-      virtual = .false.
-      addCollision = 1
-    end if
+    virtual = collDat % MT == noInteraction
 
     ! Report in-collision & save pre-collison state
     ! Note: the ordering must not be changed between feeding the particle to the tally
     ! and updating the particle's preCollision state, otherwise this may cause certain
     ! tallies (e.g., collisionProbability) to return dubious results
     call tally % reportInColl(p, virtual)
-
-    call p % savePreCollision()
+    call p % savePreCollisionState()
 
     ! Perform implicit treatment
     if (collDat % MT /= noInteraction) call self % implicit(p, tally, collDat, thisCycle, nextCycle)
@@ -167,7 +163,7 @@ contains
         ! Do nothing
 
       case default
-        call fatalError(Here, 'Unsupported MT number: '// numToChar(collDat % MT))
+        call fatalError(here, 'Unsupported MT number: '//numToChar(collDat % MT)//'.')
 
     end select
 
@@ -175,15 +171,16 @@ contains
     call self % cutoffs(p, tally, collDat, thisCycle, nextCycle)
 
     ! Update particle collision counter
-    p % collisionN = p % collisionN + addCollision
+    call p % incrementCollisionsNumber(merge(0, 1, virtual))
 
     ! Report out-of-collision
     call tally % reportOutColl(p, collDat % MT, collDat % muL)
 
     ! Report end-of-history if particle was killed
-    if (p % isDead) then
-      p % fate = ABS_FATE
+    if (p % getIsDead()) then
+      call p % setFate(ABS_FATE)
       call tally % reportHist(p)
+
     end if
 
   end subroutine collide

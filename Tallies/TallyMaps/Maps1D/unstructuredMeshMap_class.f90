@@ -1,17 +1,18 @@
 module unstructuredMeshMap_class
 
-  use dictionary_class,        only : dictionary
-  use element_class,           only : elementBox
-  use genericProcedures,       only : fatalError, numToChar
-  use geometry_inter,          only : geometry
-  use geometryReg_mod,         only : geomNum, geomPtr
-  use intMap_class,            only : intMap
-  use mesh_inter,              only : mesh
+  use dictionary_class,           only : dictionary
+  use element_class,              only : elementBox
+  use errors_mod,                 only : fatalError
+  use genericProcedures,          only : numToChar
+  use geometry_inter,             only : geometry
+  use geometryReg_mod,            only : geomNum, geomPtr
+  use intMap_class,               only : intMap
+  use mesh_inter,                 only : mesh
   use numPrecision
-  use outputFile_class,        only : outputFile
-  use particle_class,          only : particleState
-  use tallyMap1D_inter,        only : kill_super => kill, tallyMap1D
-  use unstructuredMesh_inter,  only : getCastUnstructuredMeshPtr, unstructuredMesh
+  use outputFile_class,           only : outputFile
+  use tallyMap1D_inter,           only : kill_super => kill, tallyMap1D
+  use transportObjectState_class, only : transportObjectState
+  use unstructuredMesh_inter,     only : getCastUnstructuredMeshPtr, unstructuredMesh
 
   implicit none
   private
@@ -161,12 +162,12 @@ contains
   !!
   !!
   !!
-  elemental function map(self, state) result(idx)
-    class(unstructuredMeshMap), intent(in) :: self
-    class(particleState), intent(in)       :: state
-    integer(shortInt)                      :: idx
+  function map(self, state) result(idx)
+    class(unstructuredMeshMap), intent(in)  :: self
+    class(transportObjectState), intent(in) :: state
+    integer(shortInt)                       :: idx
 
-    idx = self % activeElementIdxsToParentElementBinsMap % getOrDefault(state % elementIdx, 0)
+    idx = self % activeElementIdxsToParentElementBinsMap % getOrDefault(state % getElementIdx(), 0)
 
   end function map
 

@@ -196,10 +196,10 @@ contains
 
     do i = start, HARDCODED_MAX_NEST
       ! Find cell fill
-      call self % geom % getFill(coords % getUniRootId(i), coords % getLocalId(i), fill, uniqueId)
+      call self % geom % getFill(coords % getUniverseRootId(i), coords % getLocalId(i), fill, uniqueId)
 
       if (0 <= fill) then ! Found material cell
-        call coords % setMatIdx(fill)
+        call coords % setMaterialIdx(fill)
         call coords % setUniqueId(uniqueId)
         return
 
@@ -210,7 +210,7 @@ contains
 
       ! Get current universe
       data = newCoordData(coords % getPosition(i) - &
-                          self % geom % getUniverseCellOffset(coords % getUniIdx(i), coords % getLocalId(i)), &
+                          self % geom % getUniverseCellOffset(coords % getUniverseIdx(i), coords % getLocalId(i)), &
                           coords % getDirection(i), universeRootId = uniqueId)
 
       ! Enter nested universe
@@ -500,7 +500,7 @@ contains
     call self % placeCoord(coords)
 
     ! If point is outside apply boundary transformations
-    if (coords % getMatIdx() == OUTSIDE_MAT) then
+    if (coords % getMaterialIdx() == OUTSIDE_MAT) then
       data = newCoordData(coords % getPosition(1), coords % getDirection(1))
       call self % geom % transformSurfaceBoundaryConditions(self % geom % getBorderIdx(), data % r, data % u)
 
@@ -538,7 +538,7 @@ contains
     call self % placeCoord(coords)
 
     ! Return material & uniqueID
-    matIdx = coords % getMatIdx()
+    matIdx = coords % getMaterialIdx()
     uniqueID = coords % getUniqueId()
 
     ! Get temperature if requested.

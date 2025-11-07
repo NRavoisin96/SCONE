@@ -1,14 +1,13 @@
 module multiMap_class
 
+  use dictionary_class,           only : dictionary
+  use errors_mod,                 only : fatalError
   use numPrecision
-  use genericProcedures, only : fatalError
-  use dictionary_class,  only : dictionary
-  use outputFile_class,  only : outputFile
-  use particle_class,    only : particleState
-
-  use tallyMap_inter,         only : tallyMap
-  use tallyMap1D_inter,       only : tallyMap1D
-  use tallyMap1DFactory_func, only : new_tallyMap1D
+  use outputFile_class,           only : outputFile
+  use tallyMap_inter,             only : tallyMap
+  use tallyMap1D_inter,           only : tallyMap1D
+  use tallyMap1DFactory_func,     only : new_tallyMap1D
+  use transportObjectState_class, only : transportObjectState
 
   implicit none
   private
@@ -151,23 +150,22 @@ contains
   !!
   !! See tallyMap for specification.
   !!
-  elemental function map(self, state) result(idx)
-    class(multiMap), intent(in)      :: self
-    class(particleState), intent(in) :: state
-    integer(shortInt)                :: idx, binIdx
-    integer(shortInt)                :: i
+  function map(self, state) result(idx)
+    class(multiMap), intent(in)             :: self
+    class(transportObjectState), intent(in) :: state
+    integer(shortInt)                       :: i, idx, binIdx
 
     idx = 1
-    do i= 1, size(self % maps)
+    do i = 1, size(self % maps)
       binIdx = self % maps(i) % slot % map(state)
 
       ! Short-circuit evaluation if out-of division
       if (binIdx == 0) then
         idx = 0
         return
-      end if
 
-      idx = idx + (binIdx-1) * self % multi(i)
+      end if
+      idx = idx + (binIdx - 1) * self % multi(i)
 
     end do
 

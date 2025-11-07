@@ -1,27 +1,22 @@
 module mgXsClerk_class
 
-  use numPrecision
-  use tallyCodes
-  use endfConstants
-  use universalVariables
-  use genericProcedures,          only : fatalError
   use dictionary_class,           only : dictionary
-  use particle_class,             only : particle, particleState
-  use particleDungeon_class,      only : particleDungeon
-  use outputFile_class,           only : outputFile
-
-  ! Nuclear Data interface
-  use nuclearDatabase_inter,      only : nuclearDatabase
-  use neutronXSPackages_class,    only : neutronMacroXSs
+  use endfConstants
+  use errors_mod,                 only : fatalError
   use neutronMaterial_inter,      only : neutronMaterial,neutronMaterial_CptrCast
-
-  ! Tally Maps
-  use tallyMap_inter,             only : tallyMap
-  use tallyMapFactory_func,       only : new_tallyMap
-
-  ! Tally Interfaces
+  use neutronXSPackages_class,    only : neutronMacroXSs
+  use nuclearDatabase_inter,      only : nuclearDatabase
+  use numPrecision
+  use outputFile_class,           only : outputFile
+  use particleDungeon_class,      only : particleDungeon
+  use physicalParticle_inter,     only : physicalParticle
   use scoreMemory_class,          only : scoreMemory
   use tallyClerk_inter,           only : tallyClerk, kill_super => kill
+  use tallyCodes
+  use tallyMap_inter,             only : tallyMap
+  use tallyMapFactory_func,       only : new_tallyMap
+  use transportObjectState_class, only : transportObjectState
+  use universalVariables
 
   implicit none
   private
@@ -81,19 +76,19 @@ module mgXsClerk_class
   type, public, extends(tallyClerk) :: mgXsClerk
     private
     ! Maps
-    class(tallyMap), allocatable :: spaceMap
-    class(tallyMap), allocatable :: energyMap
+    class(tallyMap), allocatable :: energyMap, spaceMap
 
     ! Useful data
-    integer(shortInt) :: energyN = 0
-    integer(shortInt) :: matN = 0
-    integer(shortInt) :: width = 0
+    integer(shortInt) :: energyN = 0, matN = 0, width = 0
     logical(defBool)  :: PN = .false.
 
     ! Settings
     logical(defBool) :: handleVirtual = .true.
 
   contains
+    procedure, private :: computeEnergyIdx
+    procedure, private :: computeSpaceIdx
+
     ! Procedures used during build
     procedure  :: init
     procedure  :: kill
@@ -110,11 +105,35 @@ module mgXsClerk_class
     procedure  :: processRes
     procedure  :: processPN
     procedure  :: display
-
   end type mgXsClerk
 
 
 contains
+  !!
+  !!
+  !!
+  function computeEnergyIdx(self, state) result(energyIdx)
+    class(mgXsClerk), intent(in)            :: self
+    class(transportObjectState), intent(in) :: state
+    integer(shortInt)                       :: energyIdx
+
+    energyIdx = 1
+    if (allocated(self % energyMap)) energyIdx = self % energyN + 1 - self % energyMap % map(state)
+
+  end function computeEnergyIdx
+
+  !!
+  !!
+  !!
+  function computeSpaceIdx(self, state) result(spaceIdx)
+    class(mgXsClerk), intent(in)            :: self
+    class(transportObjectState), intent(in) :: state
+    integer(shortInt)                       :: spaceIdx
+
+    spaceIdx = 1
+    if (allocated(self % spaceMap)) spaceIdx = self % spaceMap % map(state)
+
+  end function computeSpaceIdx
 
   !!
   !! Initialise clerk from dictionary and name
@@ -223,38 +242,28 @@ contains
   !! See tallyClerk_inter for details
   !!
   subroutine reportInColl(self, p, virtual, xsData, mem)
-    class(mgXsClerk), intent(inout)       :: self
-    class(particle), intent(in)           :: p
-    logical(defBool), intent(in)          :: virtual
-    class(nuclearDatabase), intent(inout) :: xsData
-    type(scoreMemory), intent(inout)      :: mem
-    type(particleState)                   :: state
-    type(neutronMacroXSs)                 :: xss
-    class(neutronMaterial), pointer       :: mat
-    real(defReal)                         :: nuFissXS, captXS, fissXS, scattXS, flux
-    integer(shortInt)                     :: enIdx, matIdx, locIdx, binIdx
-    integer(longInt)                      :: addr
-    character(*), parameter               :: Here =' reportInColl (mgXsClerk_class.f90)'
+    class(mgXsClerk), intent(inout)          :: self
+    class(physicalParticle), intent(in)      :: p
+    logical(defBool), intent(in)             :: virtual
+    class(nuclearDatabase), intent(inout)    :: xsData
+    type(scoreMemory), intent(inout)         :: mem
+    class(transportObjectState), pointer     :: currentStatePtr
+    type(neutronMacroXSs)                    :: xss
+    class(neutronMaterial), pointer          :: mat
+    real(defReal)                            :: nuFissXS, captXS, fissXS, scattXS, flux, weight
+    integer(shortInt)                        :: enIdx, matIdx, locIdx, binIdx
+    integer(longInt)                         :: addr
+    character(*), parameter                  :: Here =' reportInColl (mgXsClerk_class.f90)'
 
     ! Return if collision is virtual but virtual collision handling is off
     if ((.not. self % handleVirtual) .and. virtual) return
 
     ! Get current particle state
-    state = p
+    currentStatePtr => p % updateAndGetCurrentStatePtr()
 
     ! Find bin indexes
-    ! Energy
-    if (allocated(self % energyMap)) then
-      enIdx = self % energyN + 1 - self % energyMap % map(state)
-    else
-      enIdx = 1
-    end if
-    ! Space
-    if (allocated(self % spaceMap)) then
-      locIdx = self % spaceMap % map(state)
-    else
-      locIdx = 1
-    end if
+    enIdx = self % computeEnergyIdx(currentStatePtr)
+    locIdx = self % computeSpaceIdx(currentStatePtr)
 
     ! Return if invalid bin index
     if ((enIdx == self % energyN + 1) .or. locIdx == 0) return
@@ -264,11 +273,14 @@ contains
     addr = self % getMemAddress() + self % width * (binIdx - 1) - 1
 
     ! Calculate flux with the right cross section according to virtual collision handling
-    matIdx = p % getMatIdx()
+    matIdx = p % getMaterialIdx()
+    weight = p % getWeight()
     if (self % handleVirtual) then
-      flux = p % w / xsData % getTrackingXS(p, matIdx, TRACKING_XS)
+      flux = weight / xsData % getTrackingXS(p, matIdx, TRACKING_XS)
+
     else
-      flux = p % w / xsData % getTotalMatXS(p, matIdx)
+      flux = weight / xsData % getTotalMatXS(p, matIdx)
+
     end if
 
     ! Check if the particle is in void. This call might happen when handling virtual collisions.
@@ -316,52 +328,45 @@ contains
   !! See tallyClerk_inter for details
   !!
   subroutine reportOutColl(self, p, MT, muL, xsData, mem)
-    class(mgXsClerk), intent(inout)      :: self
-    class(particle), intent(in)          :: p
-    integer(shortInt), intent(in)        :: MT
-    real(defReal), intent(in)            :: muL
-    class(nuclearDatabase), intent(inout) :: xsData
-    type(scoreMemory), intent(inout)     :: mem
-    type(particleState)                  :: preColl, postColl
-    real(defReal)                        :: score, prod, mu, mu2, mu3, mu4, mu5
-    integer(shortInt)                    :: enIdx, locIdx, binIdx, binEnOut
-    integer(longInt)                     :: addr
+    class(mgXsClerk), intent(inout)          :: self
+    class(physicalParticle), intent(in)      :: p
+    integer(shortInt), intent(in)            :: MT
+    real(defReal), intent(in)                :: muL
+    class(nuclearDatabase), intent(inout)    :: xsData
+    type(scoreMemory), intent(inout)         :: mem
+    class(transportObjectState), pointer     :: currentStatePtr, preCollisionStatePtr
+    real(defReal)                            :: preCollisionWeight, score, prod, mu, mu2, mu3, mu4, mu5
+    integer(shortInt)                        :: enIdx, locIdx, binIdx, binEnOut
+    integer(longInt)                         :: addr
 
     ! Get pre and post collision particle state
-    preColl  = p % preCollision
-    postColl = p
+    preCollisionStatePtr => p % getPreCollisionStatePtr()
+    currentStatePtr => p % updateAndGetCurrentStatePtr()
 
     ! Find multipliers to account for scattering multiplicity
     select case(MT)
       case(N_2N, N_2Na, N_2Nd, N_2Nf, N_2Np, N_2N2a, N_2Nl(1):N_2Nl(16))
-        score = 2.0_defReal
+        score = TWO
+
       case(N_3N, N_3Na, N_3Nf, N_3Np)
         score = 3.0_defReal
+
       case(N_4N)
         score = 4.0_defReal
+
       case default
         score = ONE
+
     end select
 
     ! Score in case of scattering events
     select case(MT)
-      case ( N_N_ELASTIC, N_N_INELASTIC, N_N_ThermINEL, N_Nl(1):N_Nl(40), N_Ncont, &
-             N_2N, N_2Na, N_2Nd, N_2Nf, N_2Np, N_2N2a, N_2Nl(1):N_2Nl(16),  &
-             N_3N, N_3Na, N_3Nf, N_3Np, N_4N, N_Na, N_Np, N_Nd, N_Nt)
-
+      case (N_N_ELASTIC, N_N_INELASTIC, N_N_ThermINEL, N_Nl(1):N_Nl(40), N_Ncont, &
+            N_2N, N_2Na, N_2Nd, N_2Nf, N_2Np, N_2N2a, N_2Nl(1):N_2Nl(16),  &
+            N_3N, N_3Na, N_3Nf, N_3Np, N_4N, N_Na, N_Np, N_Nd, N_Nt)
         ! Find bin indexes
-        ! Energy
-        if (allocated(self % energyMap)) then
-          enIdx = self % energyN + 1 - self % energyMap % map(preColl)
-        else
-          enIdx = 1
-        end if
-        ! Space
-        if (allocated(self % spaceMap)) then
-          locIdx = self % spaceMap % map(preColl)
-        else
-          locIdx = 1
-        end if
+        enIdx = self % computeEnergyIdx(preCollisionStatePtr)
+        locIdx = self % computeSpaceIdx(preCollisionStatePtr)
 
         ! Return if invalid bin index
         if ((enIdx == self % energyN + 1) .or. locIdx == 0) return
@@ -371,28 +376,26 @@ contains
         addr = self % getMemAddress() + self % width * (binIdx - 1) - 1
 
         ! Score a scattering event from group g
-        call mem % score(preColl % wgt, addr + SCATT_EV_idx)
+        preCollisionWeight = preCollisionStatePtr % getWeight()
+        call mem % score(preCollisionWeight, addr + SCATT_EV_idx)
 
         ! Get bin of outgoing energy
-        if (allocated(self % energyMap)) then
-          binEnOut = self % energyN + 1 - self % energyMap % map(postColl)
-        else
-          binEnOut = 1
-        end if
+        binEnOut = 1
+        if (allocated(self % energyMap)) binEnOut = self % energyN + 1 - self % energyMap % map(currentStatePtr)
 
         ! Return if invalid bin index
         if (binEnOut == self % energyN + 1) return
 
         ! Score scattering event from group g to g'
-        call mem % score(preColl % wgt, addr + SCATT_EV_idx + binEnOut)
+        call mem % score(preCollisionWeight, addr + SCATT_EV_idx + binEnOut)
 
         ! Score outgoing scattering angle for P1 matrix
-        mu = muL * preColl % wgt
+        mu = muL * preCollisionWeight
         call mem % score(mu, addr + SCATT_EV_idx + self % energyN + binEnOut)
 
         ! Score multiplicity matrix
-        prod = score * preColl % wgt
-        call mem % score(prod, addr + SCATT_EV_idx + 2*self % energyN + binEnOut)
+        prod = score * preCollisionWeight
+        call mem % score(prod, addr + SCATT_EV_idx + 2 * self % energyN + binEnOut)
 
         ! Higher order scattering matrices
         if (self % PN) then
@@ -404,30 +407,30 @@ contains
           mu5 = mu4 * muL
 
           ! Score outgoing scattering angle for P2 matrix
-          mu = HALF * (3.0_defReal*mu2 - ONE) * preColl % wgt
-          call mem % score(mu, addr + SCATT_EV_idx + 3*self % energyN + binEnOut)
+          mu = HALF * (3.0_defReal * mu2 - ONE) * preCollisionWeight
+          call mem % score(mu, addr + SCATT_EV_idx + 3 * self % energyN + binEnOut)
 
           ! Score outgoing scattering angle for P3 matrix
-          mu = HALF * (5.0_defReal*mu3 - 3.0_defReal*muL) * preColl % wgt
-          call mem % score(mu, addr + SCATT_EV_idx + 4*self % energyN + binEnOut)
+          mu = HALF * (5.0_defReal * mu3 - 3.0_defReal * muL) * preCollisionWeight
+          call mem % score(mu, addr + SCATT_EV_idx + 4 * self % energyN + binEnOut)
 
           ! Score outgoing scattering angle for P4 matrix
-          mu = (35.0_defReal*mu4 - 30.0_defReal*mu2 + 3.0_defReal)/8.0_defReal * preColl % wgt
-          call mem % score(mu, addr + SCATT_EV_idx + 5*self % energyN + binEnOut)
+          mu = (35.0_defReal * mu4 - 30.0_defReal * mu2 + 3.0_defReal) / 8.0_defReal * preCollisionWeight
+          call mem % score(mu, addr + SCATT_EV_idx + 5 * self % energyN + binEnOut)
 
           ! Score outgoing scattering angle for P5 matrix
-          mu = (63.0_defReal*mu5 - 70.0_defReal*mu3 + 15.0_defReal*muL)/8.0_defReal * preColl % wgt
-          call mem % score(mu, addr + SCATT_EV_idx + 6*self % energyN + binEnOut)
+          mu = (63.0_defReal * mu5 - 70.0_defReal * mu3 + 15.0_defReal * muL) / 8.0_defReal * preCollisionWeight
+          call mem % score(mu, addr + SCATT_EV_idx + 6 * self % energyN + binEnOut)
 
           ! Score outgoing scattering angle for P6 matrix
-          mu = (231.0_defReal*mu5*muL - 315.0_defReal*mu4 + 105.0_defReal*mu2 &
-                - 5.0_defReal)/16.0_defReal * preColl % wgt
-          call mem % score(mu, addr + SCATT_EV_idx + 7*self % energyN + binEnOut)
+          mu = (231.0_defReal * mu5 * muL - 315.0_defReal * mu4 + 105.0_defReal * mu2 &
+                - 5.0_defReal) / 16.0_defReal * preCollisionWeight
+          call mem % score(mu, addr + SCATT_EV_idx + 7 * self % energyN + binEnOut)
 
           ! Score outgoing scattering angle for P7 matrix
-          mu = (429.0_defReal*mu5*mu2 - 693.0_defReal*mu5 + 315.0_defReal*mu3 &
-                - 35.0_defReal*muL)/16.0_defReal * preColl % wgt
-          call mem % score(mu, addr + SCATT_EV_idx + 8*self % energyN + binEnOut)
+          mu = (429.0_defReal * mu5 * mu2 - 693.0_defReal * mu5 + 315.0_defReal * mu3 &
+                - 35.0_defReal * muL) / 16.0_defReal * preCollisionWeight
+          call mem % score(mu, addr + SCATT_EV_idx + 8 * self % energyN + binEnOut)
 
         end if
 
@@ -444,29 +447,18 @@ contains
   !! See tallyClerk_inter for details
   !!
   subroutine reportSpawn(self, MT, pOld, pNew, xsData, mem)
-    class(mgXsClerk), intent(inout)       :: self
-    integer(shortInt), intent(in)         :: MT
-    class(particle), intent(in)           :: pOld
-    class(particleState), intent(in)      :: pNew
-    class(nuclearDatabase), intent(inout) :: xsData
-    type(scoreMemory), intent(inout)      :: mem
-    integer(longInt)                      :: addr, binIdx, enIdx, locIdx
+    class(mgXsClerk), intent(inout)         :: self
+    integer(shortInt), intent(in)           :: MT
+    class(physicalParticle), intent(in)     :: pOld
+    class(transportObjectState), intent(in) :: pNew
+    class(nuclearDatabase), intent(inout)   :: xsData
+    type(scoreMemory), intent(inout)        :: mem
+    integer(longInt)                        :: addr, binIdx, enIdx, locIdx
 
     if (MT == N_FISSION) then
-
       ! Find bin indexes
-      ! Energy
-      if (allocated(self % energyMap)) then
-        enIdx = self % energyN + 1 - self % energyMap % map(pNew)
-      else
-        enIdx = 1
-      end if
-      ! Space
-      if (allocated(self % spaceMap)) then
-        locIdx = self % spaceMap % map(pNew)
-      else
-        locIdx = 1
-      end if
+      enIdx = self % computeEnergyIdx(pNew)
+      locIdx = self % computeSpaceIdx(pNew)
 
       ! Return if invalid bin index
       if ((enIdx == self % energyN + 1) .or. locIdx == 0) return
@@ -476,7 +468,7 @@ contains
       addr = self % getMemAddress() + self % width * (binIdx - 1) - 1
 
       ! Score energy group of fission neutron
-      call mem % score(ONE,  addr + CHI_idx)
+      call mem % score(ONE, addr + CHI_idx)
 
     end if
 

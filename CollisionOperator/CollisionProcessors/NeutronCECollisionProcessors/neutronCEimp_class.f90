@@ -1,32 +1,24 @@
 module neutronCEimp_class
 
-  use numPrecision
-  use endfConstants
-  use universalVariables,                only : nameUFS, nameWW
-  use genericProcedures,                 only : fatalError, rotateVector, numToChar
-  use dictionary_class,                  only : dictionary
-
-  ! Particle types
-  use particle_class,                    only : particle, particleState
-  use particleDungeon_class,             only : particleDungeon
-
-  ! Abstract interface
+  use CENeutron_class,                   only : castCENeutronPtr, CENeutron
+  use CEParticleState_class,             only : castCEParticleStatePtr, CEParticleState
   use collisionProcessor_inter,          only : collisionData
-  use neutronCECollisionProcessor_inter, only : init_super => init, neutronCECollisionProcessor
-
-  ! Nuclear reactions
+  use dictionary_class,                  only : dictionary
+  use endfConstants
+  use errors_mod,                        only : fatalError
   use fissionCE_class,                   only : fissionCE, fissionCE_TptrCast
-
-  ! Geometry and fields
+  use genericProcedures,                 only : numToChar, rotateVector
   use geometryReg_mod,                   only : gr_fieldIdx => fieldIdx, gr_fieldPtr => fieldPtr
-  use uniFissSitesField_class,           only : uniFissSitesField, uniFissSitesField_TptrCast
-  use weightWindowsField_class,          only : weightWindowsField, weightWindowsField_TptrCast
-
-  ! Cross-Section Packages
+  use neutronCECollisionProcessor_inter, only : init_super => init, neutronCECollisionProcessor
   use neutronXsPackages_class,           only : neutronMicroXSs
-
-  ! Tally interfaces
+  use numPrecision
+  use particleDungeon_class,             only : particleDungeon
+  use physicalParticle_inter,            only : physicalParticle
+  use RNG_class,                         only : RNG
   use tallyAdmin_class,                  only : tallyAdmin
+  use uniFissSitesField_class,           only : uniFissSitesField, uniFissSitesField_TptrCast
+  use universalVariables,                only : nameUFS, nameWW
+  use weightWindowsField_class,          only : weightWindowsField, weightWindowsField_TptrCast
 
   implicit none
   private
@@ -164,35 +156,39 @@ contains
   !! Perform implicit treatment
   !!
   subroutine implicit(self, p, tally, collDat, thisCycle, nextCycle)
-    class(neutronCEimp), intent(inout)    :: self
-    class(particle), intent(inout)        :: p
-    type(tallyAdmin), intent(inout)       :: tally
-    type(collisionData), intent(inout)    :: collDat
-    class(particleDungeon), intent(inout) :: thisCycle, nextCycle
-    type(fissionCE), pointer              :: fission
-    type(neutronMicroXSs)                 :: microXSs
-    type(particleState)                   :: pTemp
-    real(defReal), dimension(3)           :: r, dir, val
-    integer(shortInt)                     :: n, i
-    real(defReal)                         :: wgt, randomNumber, E_out, mu, phi
-    real(defReal)                         :: sig_nufiss, sig_tot, k_eff, &
-                                             sig_scatter, totalElastic
-    logical(defBool)                      :: fiss_and_implicit
-    character(*), parameter               :: Here = 'implicit (neutronCEimp_class.f90)'
+    class(neutronCEimp), intent(inout)       :: self
+    class(physicalParticle), intent(inout)   :: p
+    type(tallyAdmin), intent(inout)          :: tally
+    type(collisionData), intent(inout)       :: collDat
+    class(particleDungeon), intent(inout)    :: thisCycle, nextCycle
+    integer(shortInt)                        :: i, n
+    logical(defBool)                         :: fiss_and_implicit
+    real(defReal)                            :: E, E_max, E_out, mu, k_eff, phi, randomNumber, &
+                                                sig_scatter, sig_nufiss, sig_tot, totalElastic, wgt
+    real(defReal), dimension(3)              :: r, u, uGlobal, val
+    type(CENeutron), pointer                 :: CENeutronPtr
+    type(CEParticleState), pointer           :: CEParticleStatePtr
+    type(fissionCE), pointer                 :: fission
+    type(neutronMicroXSs)                    :: microXSs
+    type(RNG), pointer                       :: RNGPtr
+    character(*), parameter                  :: Here = 'implicit (neutronCEimp_class.f90)'
+
+    CENeutronPtr => castCENeutronPtr(p, .true.)
 
     ! Generate fission sites if nuclide is fissile
     fiss_and_implicit = self % getNuclideIsFissile() .and. self % implicitSites
 
-    if (fiss_and_implicit) then
+    ! Get pointer to RNG.
+    RNGPtr => CENeutronPtr % getRNGPtr()
 
+    if (fiss_and_implicit) then
       ! Obtain required data
-      wgt   = p % w                ! Current weight
-      k_eff = p % k_eff            ! k_eff for normalisation
-      call p % pRNG % generate(randomNumber)     ! Random number to sample sites
+      wgt = CENeutronPtr % getWeight()                ! Current weight
+      k_eff = CENeutronPtr % getKEff()            ! k_eff for normalisation
+      call RNGPtr % generate(randomNumber)     ! Random number to sample sites
 
       ! Retrieve cross section at the energy used for reaction sampling
-      call self % getNuclideMicroXS(collDat % E, collDat % kT, p % pRNG, microXSs)
-
+      call self % getNuclideMicroXS(collDat % E, collDat % kT, RNGPtr, microXSs)
       sig_nufiss = microXSs % nuFission
       sig_tot    = microXSs % total
 
@@ -202,9 +198,11 @@ contains
         val = self % ufsField % at(p)
         n = int(abs((wgt * sig_nufiss) / (sig_tot * k_eff)) * val(1) / val(2) + randomNumber, shortInt)
         wgt =  val(2) / val(1)
+
       else
         n = int(abs((wgt * sig_nufiss) / (sig_tot * k_eff)) + randomNumber, shortInt)
         wgt =  sign(ONE, wgt)
+
       end if
 
       ! Shortcut particle generation if no particles were sampled
@@ -212,49 +210,52 @@ contains
 
       ! Get fission Reaction
       fission => fissionCE_TptrCast(self % getReaction(N_FISSION, collDat % nucIdx))
-      if (.not.associated(fission)) call fatalError(Here, "Failed to get fissionCE")
+      if (.not. associated(fission)) call fatalError(Here, 'Failed to retrieve fissionCE.')
 
       ! Store new sites in the next cycle dungeon
-      r   = p % rGlobal()
-
-      do i = 1,n
-        call fission % sampleOut(mu, phi, E_out, p % E, p % pRNG)
-        dir = rotateVector(p % dirGlobal(), mu, phi)
-        E_out = min(E_out, self % getMaximumEnergy())
+      E = CENeutronPtr % getEnergy()
+      E_max = self % getMaximumEnergy()
+      r = CENeutronPtr % getGlobalPosition()
+      uGlobal = CENeutronPtr % getGlobalDirection()
+      do i = 1, n
+        call fission % sampleOut(mu, phi, E_out, E, RNGPtr)
+        u = rotateVector(uGlobal, mu, phi)
+        E_out = min(E_out, E_max)
 
         ! Copy extra detail from parent particle (i.e. time, flags ect.)
-        pTemp = p
+        CEParticleStatePtr => castCEParticleStatePtr(CENeutronPtr % updateAndGetCurrentStatePtr(), .true.)
 
         ! Overwrite position, direction, energy and weight
-        pTemp % r = r
-        pTemp % dir = dir
-        pTemp % E = E_out
-        pTemp % wgt = wgt
-        pTemp % collisionN = 0
+        call CEParticleStatePtr % setGlobalPosition(r)
+        call CEParticleStatePtr % setGlobalDirection(u)
+        call CEParticleStatePtr % setEnergy(E_out)
+        call CEParticleStatePtr % setWeight(wgt)
+        call CEParticleStatePtr % setCollisionsNumber(0)
 
-        call nextCycle % detain(pTemp)
-        if (self % uniFissSites) call self % ufsField % storeFS(pTemp)
+        call nextCycle % detain(CEParticleStatePtr)
+        if (self % uniFissSites) call self % ufsField % storeFS(CEParticleStatePtr)
 
         ! Report birth of new particle
-        call tally % reportSpawn(N_FISSION, p, pTemp)
+        call tally % reportSpawn(N_FISSION, CENeutronPtr, CEParticleStatePtr)
 
       end do
+
     end if
 
     ! Perform implicit absorption
     if (self % implicitAbsorption) then
-      if (.not.fiss_and_implicit) then
-        call self % getNuclideMicroXS(collDat % E, collDat % kT, p % pRNG, microXSs)
+      if (.not. fiss_and_implicit) then
+        call self % getNuclideMicroXS(collDat % E, collDat % kT, RNGPtr, microXSs)
 
       end if
 
       sig_scatter = microXSs % elasticScatter + microXSs % inelasticScatter
       sig_tot = microXSs % total
-      p % w = p % w * sig_scatter/sig_tot
+      call CENeutronPtr % setWeight(CENeutronPtr % getWeight() * sig_scatter / sig_tot)
+      
       ! Sample between elastic and inelastic
       totalElastic = microXSs % elasticScatter + microXSs % inelasticScatter
-
-      call p % pRNG % generate(randomNumber)
+      call RNGPtr % generate(randomNumber)
       collDat % MT = merge(N_N_elastic, N_N_inelastic, randomNumber < microXSs % elasticScatter / totalElastic)
 
     end if
@@ -265,31 +266,33 @@ contains
   !! Process fission reaction
   !!
   subroutine fission(self, p, tally, collDat, thisCycle, nextCycle)
-    class(neutronCEimp), intent(inout)   :: self
-    class(particle), intent(inout)       :: p
-    type(tallyAdmin), intent(inout)      :: tally
-    type(collisionData), intent(inout)   :: collDat
-    class(particleDungeon), intent(inout) :: thisCycle
-    class(particleDungeon), intent(inout) :: nextCycle
-    type(neutronMicroXSs)                :: microXSs
-    type(fissionCE), pointer             :: fiss
-    type(particleState)                  :: pTemp
-    real(defReal), dimension(3)           :: r, dir, val
-    integer(shortInt)                    :: n, i
-    real(defReal)                        :: wgt, randomNumber, E_out, mu, phi
-    real(defReal)                        :: sig_nufiss, sig_fiss, k_eff
-    character(*), parameter              :: Here = 'fission (neutronCEimp_class.f90)'
+    class(neutronCEimp), intent(inout)     :: self
+    class(physicalParticle), intent(inout) :: p
+    type(tallyAdmin), intent(inout)        :: tally
+    type(collisionData), intent(inout)     :: collDat
+    class(particleDungeon), intent(inout)  :: thisCycle, nextCycle
+    integer(shortInt)                      :: n, i
+    real(defReal)                          :: E, E_max, E_out, k_eff, mu, phi, randomNumber, &
+                                              sig_nufiss, sig_fiss, wgt
+    real(defReal), dimension(3)            :: r, u, uGlobal, val
+    type(CENeutron), pointer               :: CENeutronPtr
+    type(CEParticleState), pointer         :: CEParticleStatePtr
+    type(fissionCE), pointer               :: fiss
+    type(neutronMicroXSs)                  :: microXSs
+    type(RNG), pointer                     :: RNGPtr
+    character(*), parameter                :: Here = 'fission (neutronCEimp_class.f90)'
 
-    p % isDead =.true.
-
+    CENeutronPtr => castCENeutronPtr(p, .true.)
+    call CENeutronPtr % setIsDead(.true.)
+    RNGPtr => CENeutronPtr % getRNGPtr()
     if (.not. self % implicitSites) then
       ! Obtain required data
-      wgt = p % w                ! Current weight
-      k_eff = p % k_eff            ! k_eff for normalisation
-      call p % pRNG % generate(randomNumber)     ! Random number to sample sites
+      wgt = CENeutronPtr % getWeight()                ! Current weight
+      k_eff = CENeutronPtr % getKEff()            ! k_eff for normalisation
+      call RNGPtr % generate(randomNumber)     ! Random number to sample sites
 
       ! Retrieve cross section at the energy used for reaction sampling
-      call self % getNuclideMicroXS(collDat % E, collDat % kT, p % pRNG, microXSs)
+      call self % getNuclideMicroXS(collDat % E, collDat % kT, RNGPtr, microXSs)
       sig_nufiss = microXSs % nuFission
       sig_fiss = microXSs % fission
 
@@ -298,11 +301,11 @@ contains
       ! Note change of denominator (sig_fiss) wrt implicit generation
       if (self % uniFissSites) then
         val = self % ufsField % at(p)
-        n = int(abs( (wgt * sig_nufiss) / (sig_fiss * k_eff)) * val(1) / val(2) + randomNumber, shortInt)
+        n = int(abs((wgt * sig_nufiss) / (sig_fiss * k_eff)) * val(1) / val(2) + randomNumber, shortInt)
         wgt =  val(2) / val(1)
 
       else
-        n = int(abs( (wgt * sig_nufiss) / (sig_fiss * k_eff)) + randomNumber, shortInt)
+        n = int(abs((wgt * sig_nufiss) / (sig_fiss * k_eff)) + randomNumber, shortInt)
         wgt = sign(ONE, wgt)
 
       end if
@@ -312,31 +315,33 @@ contains
 
       ! Get fission Reaction
       fiss => fissionCE_TptrCast(self % getReaction(N_FISSION, collDat % nucIdx))
-      if (.not. associated(fiss)) call fatalError(Here, "Failed to get fissionCE")
+      if (.not. associated(fiss)) call fatalError(Here, 'Failed to retrieve fissionCE.')
 
       ! Store new sites in the next cycle dungeon
-      r = p % rGlobal()
-
+      E = CENeutronPtr % getEnergy()
+      E_max = self % getMaximumEnergy()
+      r = CENeutronPtr % getGlobalPosition()
+      uGlobal = CENeutronPtr % getGlobalDirection()
       do i = 1, n
-        call fiss % sampleOut(mu, phi, E_out, p % E, p % pRNG)
-        dir = rotateVector(p % dirGlobal(), mu, phi)
-        E_out = min(E_out, self % getMaximumEnergy())
+        call fiss % sampleOut(mu, phi, E_out, E, RNGPtr)
+        u = rotateVector(uGlobal, mu, phi)
+        E_out = min(E_out, E_max)
 
         ! Copy extra detail from parent particle (i.e. time, flags ect.)
-        pTemp = p
+        CEParticleStatePtr => castCEParticleStatePtr(CENeutronPtr % updateAndGetCurrentStatePtr(), .true.)
 
         ! Overwrite position, direction, energy and weight
-        pTemp % r = r
-        pTemp % dir = dir
-        pTemp % E = E_out
-        pTemp % wgt = wgt
-        pTemp % collisionN = 0
+        call CEParticleStatePtr % setGlobalPosition(r)
+        call CEParticleStatePtr % setGlobalDirection(u)
+        call CEParticleStatePtr % setEnergy(E)
+        call CEParticleStatePtr % setWeight(wgt)
+        call CEParticleStatePtr % setCollisionsNumber(0)
 
-        call nextCycle % detain(pTemp)
-        if (self % uniFissSites) call self % ufsField % storeFS(pTemp)
+        call nextCycle % detain(CEParticleStatePtr)
+        if (self % uniFissSites) call self % ufsField % storeFS(CEParticleStatePtr)
 
         ! Report birth of new particle
-        call tally % reportSpawn(N_FISSION, p, pTemp)
+        call tally % reportSpawn(N_FISSION, CENeutronPtr, CEParticleStatePtr)
 
       end do
 
@@ -348,46 +353,47 @@ contains
   !! Apply cutoffs
   !!
   subroutine cutoffs(self, p, tally, collDat, thisCycle, nextCycle)
-    class(neutronCEimp), intent(inout)   :: self
-    class(particle), intent(inout)       :: p
-    type(tallyAdmin), intent(inout)      :: tally
-    type(collisionData), intent(inout)   :: collDat
-    class(particleDungeon), intent(inout) :: thisCycle
-    class(particleDungeon), intent(inout) :: nextCycle
-    real(defReal), dimension(3)          :: val
-    real(defReal)                        :: minWgt, maxWgt, avWgt
+    class(neutronCEimp), intent(inout)     :: self
+    class(physicalParticle), intent(inout) :: p
+    type(tallyAdmin), intent(inout)        :: tally
+    type(collisionData), intent(inout)     :: collDat
+    class(particleDungeon), intent(inout)  :: thisCycle, nextCycle
+    real(defReal)                          :: avWgt, maxWgt, minWgt, weight
+    real(defReal), dimension(3)            :: val
+    type(CENeutron), pointer               :: CENeutronPtr
 
-    if (p % isDead) then
+    CENeutronPtr => castCENeutronPtr(p, .true.)
+    weight = CENeutronPtr % getWeight()
+    if (CENeutronPtr % getIsDead()) then
       ! Do nothing !
 
-    elseif (p % E < self % getMinimumEnergy()) then
-      p % isDead = .true.
+    elseif (CENeutronPtr % getEnergy() < self % getMinimumEnergy()) then
+      call CENeutronPtr % setIsDead(.true.)
 
     ! Weight Windows treatment
     elseif (self % weightWindows) then
-      val = self % weightWindowsMap % at(p)
+      val = self % weightWindowsMap % at(CENeutronPtr)
       minWgt = val(1)
       maxWgt = val(2)
       avWgt  = val(3)
 
       ! If a particle is outside the WW map and all the weight limits
       ! are zero nothing happens. NOTE: this holds for positive weights only
+      if (maxWgt < weight .and. maxWgt /= ZERO .and. CENeutronPtr % getSplitsNumber() < self % maxSplit) then
+        call self % split(CENeutronPtr, tally, thisCycle, maxWgt)
 
-      if (maxWgt < p % w .and. maxWgt /= ZERO .and. p % splitCount < self % maxSplit) then
-        call self % split(p, tally, thisCycle, maxWgt)
-
-      elseif (p % w < minWgt) then
-        call self % russianRoulette(p, avWgt)
+      elseif (weight < minWgt) then
+        call self % russianRoulette(CENeutronPtr, avWgt)
 
       end if
 
     ! Splitting with fixed threshold
-    elseif (self % splitting .and. self % maxWgt < p % w) then
-      call self % split(p, tally, thisCycle, self % maxWgt)
+    elseif (self % splitting .and. self % maxWgt < weight) then
+      call self % split(CENeutronPtr, tally, thisCycle, self % maxWgt)
 
     ! Roulette with fixed threshold and survival weight
-    elseif (self % roulette .and. p % w < self % minWgt) then
-      call self % russianRoulette(p, self % avWgt)
+    elseif (self % roulette .and. weight < self % minWgt) then
+      call self % russianRoulette(CENeutronPtr, self % avWgt)
 
     end if
 
@@ -396,18 +402,20 @@ contains
   !!
   !! Perform Russian roulette on a particle
   !!
-  subroutine russianRoulette(self, p, avWgt)
+  subroutine russianRoulette(self, n_CE, avWgt)
     class(neutronCEimp), intent(inout) :: self
-    class(particle), intent(inout)     :: p
+    class(CENeutron), intent(inout)    :: n_CE
     real(defReal), intent(in)          :: avWgt
     real(defReal)                      :: randomNumber
+    type(RNG), pointer                 :: RNGPtr
 
-    call p % pRNG % generate(randomNumber)
-    if (randomNumber < (ONE - p % w/avWgt)) then
-      p % isDead = .true.
+    RNGPtr => n_CE % getRNGPtr()
+    call RNGPtr % generate(randomNumber)
+    if (randomNumber < (ONE - n_CE % getWeight() / avWgt)) then
+      call n_CE % setIsDead(.true.)
 
     else
-      p % w = avWgt
+      call n_CE % setWeight(avWgt)
 
     end if
 
@@ -416,39 +424,41 @@ contains
   !!
   !! Split particle which has too large a weight
   !!
-  subroutine split(self, p, tally, thisCycle, maxWgt)
+  subroutine split(self, n_CE, tally, thisCycle, maxWgt)
     class(neutronCEimp), intent(inout)    :: self
-    class(particle), intent(inout)        :: p
+    class(CENeutron), intent(inout)       :: n_CE
     type(tallyAdmin), intent(inout)       :: tally
     class(particleDungeon), intent(inout) :: thisCycle
     real(defReal), intent(in)             :: maxWgt
-    type(particleState)                   :: pTemp
-    integer(shortInt)                     :: mult, i
+    integer(shortInt)                     :: i, mult, nSplits
+    real(defReal)                         :: newWeight, weight
+    type(CEParticleState), pointer        :: CEParticleStatePtr
 
+    nSplits = n_CE % getSplitsNumber()
+    weight = n_CE % getWeight()
+    
     ! This value must be at least 2
-    mult = ceiling(p % w / maxWgt)
+    mult = ceiling(weight / maxWgt)
 
-    ! Limit maximum split
-    if (self % maxSplit < mult + p % splitCount) mult = self % maxSplit - p % splitCount + 1
+    ! Limit maximum split and compute newWeight.
+    if (self % maxSplit < mult + nSplits) mult = self % maxSplit - nSplits + 1
+    newWeight = weight / mult
 
     ! Copy particle to a particle state
     ! Note that particleState doesn't have property splitCount, so it is reset
     ! to 0 for the new particle
-    pTemp = p
-    pTemp % wgt = p % w / mult
+    CEParticleStatePtr => castCEParticleStatePtr(n_CE % updateAndGetCurrentStatePtr(), .true.)
+    call CEParticleStatePtr % setWeight(newWeight)
 
     ! Add split particle's to the dungeon
     do i = 1, mult - 1
-      call thisCycle % detain(pTemp)
-      call tally % reportSpawn(N_N_SPLIT, p, pTemp)
+      call thisCycle % detain(CEParticleStatePtr)
+      call tally % reportSpawn(N_N_SPLIT, n_CE, CEParticleStatePtr)
 
     end do
-
-    ! Update particle split count
-    p % splitCount = p % splitCount + mult
-
-    ! Decrease original particle weight
-    p % w = p % w / mult
+    ! Update particle split count and weight.
+    call n_CE % setSplitsNumber(nSplits + mult)
+    call n_CE % setWeight(newWeight)
 
   end subroutine split
 

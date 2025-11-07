@@ -1,12 +1,10 @@
 module fluxResponse_class
 
-  use numPrecision
-  use dictionary_class,    only : dictionary
-  use particle_class,      only : particle
-  use tallyResponse_inter, only : tallyResponse
-
-  ! Nuclear Data interface
+  use dictionary_class,      only : dictionary
   use nuclearDatabase_inter, only : nuclearDatabase
+  use numPrecision
+  use tallyResponse_inter,   only : tallyResponse
+  use transportObject_inter, only : transportObject
 
   implicit none
   private
@@ -47,9 +45,9 @@ contains
   !!
   !! See tallyResponse_inter for details
   !!
-  subroutine get(self, p, val, xsData)
+  subroutine get(self, object, val, xsData)
     class(fluxResponse), intent(in)                 :: self
-    class(particle), intent(in)                     :: p
+    class(transportObject), intent(in)              :: object
     real(defReal), intent(out)                      :: val
     class(nuclearDatabase), intent(inout), optional :: xsData
 

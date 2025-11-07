@@ -62,10 +62,7 @@ module intMap_class
   !!
   type, public :: intMap
     private
-    integer(shortInt)                        :: Nexp
-    integer(shortInt)                        :: N     = 0
-    integer(shortInt)                        :: Load  = 0
-    integer(shortInt)                        :: L     = 0
+    integer(shortInt)                        :: L = 0, Load = 0, N = 0, Nexp = 0
     type(content), dimension(:), allocatable :: map
   contains
     procedure :: init

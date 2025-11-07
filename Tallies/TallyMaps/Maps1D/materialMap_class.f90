@@ -1,15 +1,14 @@
 module materialMap_class
 
+  use dictionary_class,           only : dictionary
+  use errors_mod,                 only : fatalError
+  use intMap_class,               only : intMap
+  use materialMenu_mod,           only : mm_matIdx => matIdx, mm_matName => matName
   use numPrecision
-  use universalVariables,      only : NOT_FOUND
-  use genericProcedures,       only : fatalError
-  use dictionary_class,        only : dictionary
-  use intMap_class,            only : intMap
-  use particle_class,          only : particleState
-  use outputFile_class,        only : outputFile
-  use tallyMap1D_inter,        only : tallyMap1D, kill_super => kill
-
-  use materialMenu_mod,        only : mm_matIdx => matIdx, mm_matName => matName
+  use outputFile_class,           only : outputFile
+  use universalVariables,         only : NOT_FOUND
+  use tallyMap1D_inter,           only : tallyMap1D, kill_super => kill
+  use transportObjectState_class, only : transportObjectState
 
   implicit none
   private
@@ -43,10 +42,9 @@ module materialMap_class
   !!
   type, public, extends(tallyMap1D) :: materialMap
     private
-    type(intMap)                                  :: binMap
-    integer(shortInt)                             :: default = 0
-    integer(shortInt)                             :: Nbins   = 0
-    integer(shortInt), dimension(:), allocatable  :: matIndices
+    type(intMap)                                 :: binMap
+    integer(shortInt)                            :: default = 0, Nbins = 0
+    integer(shortInt), dimension(:), allocatable :: matIndices
 
   contains
     ! Superclass interface implementation
@@ -169,12 +167,12 @@ contains
   !!
   !! See tallyMap for specification
   !!
-  elemental function map(self,state) result(idx)
-    class(materialMap), intent(in)     :: self
-    class(particleState), intent(in)   :: state
-    integer(shortInt)                  :: idx
+  function map(self,state) result(idx)
+    class(materialMap), intent(in)          :: self
+    class(transportObjectState), intent(in) :: state
+    integer(shortInt)                       :: idx
 
-    idx = self % binMap % getOrDefault( state % matIdx, self % default)
+    idx = self % binMap % getOrDefault(state % getMaterialIdx(), self % default)
 
   end function map
 

@@ -1,24 +1,20 @@
 module homogMatMap_test
-  use numPrecision
+  
+  use dictionary_class,           only : dictionary
+  use dictParser_func,            only : charToDict
   use funit
-  use particle_class,          only : particleState
-  use dictionary_class,        only : dictionary
-  use dictParser_func,         only : charToDict
-  use outputFile_class,        only : outputFile
-
-  ! May not be ideal but there is a dependance on Global materialMenu
-  use materialMenu_mod,        only : mm_init => init, mm_kill => kill
-
-  use homogMatMap_class,       only : homogMatMap
+  use homogMatMap_class,          only : homogMatMap
+  use numPrecision
+  use materialMenu_mod,           only : mm_init => init, mm_kill => kill
+  use outputFile_class,           only : outputFile
+  use transportObjectState_class, only : transportObjectState
 
   implicit none
-
 
 @testCase
   type, extends(TestCase) :: test_homogMatMap
     private
-    type(homogMatMap), allocatable :: map_noUndef
-    type(homogMatMap), allocatable :: map_Undef
+    type(homogMatMap), allocatable :: map_noUndef, map_Undef
   contains
     procedure :: setUp
     procedure :: tearDown
@@ -28,8 +24,8 @@ module homogMatMap_test
   !!
   !! Test parameters
   !!
-  character(*), dimension(*), parameter :: BIN_NAMES   = ['bin1','bin2','bin3']
-  character(*), dimension(*), parameter :: MAT_IN_BIN1 = ['mat3','mat4']
+  character(*), dimension(*), parameter :: BIN_NAMES = ['bin1', 'bin2', 'bin3']
+  character(*), dimension(*), parameter :: MAT_IN_BIN1 = ['mat3', 'mat4']
   character(*), dimension(*), parameter :: MAT_IN_BIN2 = ['mat1']
   character(*), dimension(*), parameter :: MAT_IN_BIN3 = ['mat5']
 
@@ -43,10 +39,8 @@ module homogMatMap_test
   & mat4 { temp 17; composition {} } &
   & mat5 { temp 17; composition {} } "
 
-
-
 contains
-
+@Before
   !!
   !! Sets up test_intMap object we can use in a number of tests
   !!
@@ -74,6 +68,7 @@ contains
 
   end subroutine setUp
 
+@After
   !!
   !! Kills test_intMap object we can use in a number of tests
   !!
@@ -89,24 +84,23 @@ contains
 !!<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 !! PROPER TESTS BEGIN HERE
 !!<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
-
   !!
   !! Mapping test without undefined bin
   !!
 @Test
   subroutine testMappingNoUndefined(this)
-    class(test_homogMatMap), intent(inout)   :: this
-    type(particleState)                      :: state
-    integer(shortInt)                        :: i
-    integer(shortInt), dimension(6)           :: bins
+    class(test_homogMatMap), intent(inout)     :: this
+    integer(shortInt)                          :: i
+    integer(shortInt), dimension(6)            :: bins
+    type(transportObjectState)                 :: state
     integer(shortInt), dimension(6), parameter :: EXPECTED_BINS = [2, 0, 1, 1, 3, 0]
 
-    do i = 1,6
-      state % matIdx = i
+    do i = 1, 6
+      call state % setMaterialIdx(i)
       bins(i) = this % map_noUndef % map(state)
-    end do
 
-    @assertEqual(EXPECTED_BINS,bins)
+    end do
+    @assertEqual(EXPECTED_BINS, bins)
 
   end subroutine testMappingNoUndefined
 
@@ -116,18 +110,18 @@ contains
   !!
 @Test
   subroutine testMappingUndefined(this)
-    class(test_homogMatMap), intent(inout)   :: this
-    type(particleState)                      :: state
-    integer(shortInt)                        :: i
-    integer(shortInt), dimension(6)           :: bins
+    class(test_homogMatMap), intent(inout)     :: this
+    integer(shortInt)                          :: i
+    integer(shortInt), dimension(6)            :: bins
+    type(transportObjectState)                 :: state
     integer(shortInt), dimension(6), parameter :: EXPECTED_BINS = [2, 4, 1, 1, 3, 4]
 
-    do i = 1,6
-      state % matIdx = i
+    do i = 1, 6
+      call state % setMaterialIdx(i)
       bins(i) = this % map_undef % map(state)
-    end do
 
-    @assertEqual(EXPECTED_BINS,bins)
+    end do
+    @assertEqual(EXPECTED_BINS, bins)
 
   end subroutine testMappingUndefined
 
@@ -139,11 +133,11 @@ contains
   subroutine testNumberOfBinsInquiry(this)
     class(test_homogMatMap), intent(inout) :: this
 
-    @assertEqual(3, this % map_noUndef % bins(1), 'homogMatMap without undefined bin')
-    @assertEqual(4, this % map_undef % bins(1),   'homogMatMap with undefined bin')
-    @assertEqual(3, this % map_noUndef % bins(0), 'Number of all bins')
-    @assertEqual(0, this % map_noUndef % bins(2), 'higher dimension')
-    @assertEqual(0, this % map_noUndef % bins(-2),'invalid dimension')
+    @assertEqual(3, this % map_noUndef % bins(1), 'homogMatMap without undefined bin.')
+    @assertEqual(4, this % map_undef % bins(1), 'homogMatMap with undefined bin.')
+    @assertEqual(3, this % map_noUndef % bins(0), 'Number of all bins.')
+    @assertEqual(0, this % map_noUndef % bins(2), 'higher dimension.')
+    @assertEqual(0, this % map_noUndef % bins(-2), 'invalid dimension.')
 
   end subroutine testNumberOfBinsInquiry
 
@@ -159,15 +153,13 @@ contains
     call out % init('dummyPrinter', fatalErrors = .false.)
 
     call this % map_noUndef % print(out)
-    @assertTrue(out % isValid(),'For map with no undefined material bin: ')
+    @assertTrue(out % isValid(), 'For map with no undefined material bin: ')
     call out % reset()
 
     call this % map_undef % print(out)
-    @assertTrue(out % isValid(),'For map with undefined material bin: ')
+    @assertTrue(out % isValid(), 'For map with undefined material bin: ')
     call out % reset()
 
   end subroutine testPrint
-
-
 
 end module homogMatMap_test

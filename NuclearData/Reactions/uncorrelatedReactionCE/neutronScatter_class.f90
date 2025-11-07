@@ -204,7 +204,7 @@ contains
       call self % corrLaw % sample(mu, E_out, E_in, rand)
 
     else
-      mu    = self % muLaw % sample(E_in,rand)
+      mu = self % muLaw % sample(E_in,rand)
       E_out = self % eLaw  % sample(E_in,rand)
 
     end if

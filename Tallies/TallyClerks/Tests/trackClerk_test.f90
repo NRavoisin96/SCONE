@@ -1,13 +1,14 @@
 module trackClerk_test
 
-  use dictionary_class,          only : dictionary
+  use dictionary_class,            only : dictionary
   use funit
-  use genericProcedures,         only : numToChar
+  use genericProcedures,           only : numToChar
   use numPrecision
-  use outputFile_class,          only : outputFile
-  use particle_class,            only : particle
-  use scoreMemory_class,         only : scoreMemory
-  use trackClerk_class,          only : trackClerk
+  use outputFile_class,            only : outputFile
+  use physicalParticleState_class, only : castPhysicalParticleStatePtr, physicalParticleState
+  use scoreMemory_class,           only : scoreMemory
+  use testPhysicalParticle_class,  only : testPhysicalParticle
+  use trackClerk_class,            only : trackClerk
 
   implicit none
 
@@ -21,9 +22,7 @@ module trackClerk_test
 @testCase(constructor=newTest)
   type, extends(ParameterizedTestCase) :: test_trackClerk
     private
-    logical(defBool)                            :: hasFilter
-    logical(defBool)                            :: hasMap
-    logical(defBool)                            :: has2Res
+    logical(defBool)                            :: hasFilter = .false., hasMap = .false., has2Res = .false.
     integer(longInt), dimension(:), allocatable :: bins
     real(defReal), dimension(:), allocatable    :: results
   end type test_trackClerk
@@ -49,7 +48,7 @@ contains
     character(:), allocatable :: string
     character(nameLen)        :: str
 
-    write (str,*) this % i
+    write (str, *) this % i
     string = str
 
   end function toString
@@ -67,8 +66,8 @@ contains
 
     ! Set test parameters
     tst % hasFilter = mod(testNum, 2)   == 1
-    tst % hasMap    = mod(testNum/2, 2) == 1
-    tst % has2Res   = mod(testNum/4, 2) == 1
+    tst % hasMap = mod(testNum/2, 2) == 1
+    tst % has2Res = mod(testNum/4, 2) == 1
 
     ! Load expected results
 
@@ -129,28 +128,29 @@ contains
 @Test(cases=[1,2,3,4,5,6,7,8])
   subroutine testScoring(this)
     class(test_trackClerk), intent(inout) :: this
-    logical(defBool)                      :: hasFilter, hasMap, has2Res
-    character(:), allocatable             :: case
-    type(trackClerk)                      :: clerk
-    type(scoreMemory)                     :: mem
-    type(particle)                        :: p
-    type(outputFile)                      :: outF
-    type(dictionary)                      :: filterDict, mapDict, res1Dict, res2Dict, clerkDict
     character(nameLen)                    :: res1Name, res2Name, clerkName
+    character(:), allocatable             :: case
     integer(shortInt)                     :: i
+    logical(defBool)                      :: hasFilter, hasMap, has2Res
     real(defReal)                         :: res, L
+    type(dictionary)                      :: filterDict, mapDict, res1Dict, res2Dict, clerkDict
+    type(outputFile)                      :: outF
+    type(physicalParticleState), pointer  :: prePathStatePtr
+    type(scoreMemory)                     :: mem
+    type(testPhysicalParticle)            :: p
+    type(trackClerk)                      :: clerk
     real(defReal), parameter              :: TOL = 1.0E-9
 
     ! Copy test settings
     hasFilter = this % hasFilter
-    hasMap    = this % hasMap
-    has2Res   = this % has2Res
+    hasMap = this % hasMap
+    has2Res = this % has2Res
 
     ! Build case description
     case = 'Vanila case with: '
     if (hasFilter) case = case // ' Filter '
-    if (hasMap)    case = case // ' Map '
-    if (has2Res)   case = case // ' 2nd Response '
+    if (hasMap) case = case // ' Map '
+    if (has2Res) case = case // ' 2nd Response '
 
     ! Define filter dictionary
     call filterDict % init(3)
@@ -182,17 +182,19 @@ contains
 
     ! Store filter or map
     if (hasFilter) call clerkDict % store('filter', filterDict)
-    if (hasMap)    call clerkDict % store('map', mapDict)
+    if (hasMap) call clerkDict % store('map', mapDict)
 
     ! Store responses used
     if (has2Res) then
       call clerkDict % store('response', [res1Name, res2Name])
+
     else
       call clerkDict % store('response', [res1Name])
+
     end if
 
     ! Build Clerk
-    clerkName ='myClerk'
+    clerkName = 'myClerk'
     call clerk % init(clerkDict, clerkName)
 
     ! Create score memory
@@ -202,13 +204,17 @@ contains
     ! Set track lenght
     L = 0.3_defReal
 
+    ! Initialise test particle.
+    call p % init()
+    prePathStatePtr => castPhysicalParticleStatePtr(p % getPrePathStatePtr(), .true.)
+
     ! Perform scoring
-    p % prePath % matIdx = 1
-    p % w = 0.7_defReal
+    call prePathStatePtr % setMaterialIdx(1)
+    call p % setWeight(0.7_defReal)
     call clerk % reportPath(p, L, mem)
 
-    p % prePath % matIdx = 6
-    p % w = 1.3_defReal
+    call prePathStatePtr % setMaterialIdx(6)
+    call p % setWeight(1.3_defReal)
     call clerk % reportPath(p, L, mem)
 
     call mem % closeCycle(ONE)
@@ -217,6 +223,7 @@ contains
     do i= 1, size(this % bins)
       call mem % getResult(res, this % bins(i))
       @assertEqual(this % results(i), res, TOL, case // 'BIN : ' //numToChar(i) )
+
     end do
 
     ! Verify that size of memory returned is correct
@@ -234,6 +241,7 @@ contains
     call mapDict % kill()
     call res1Dict % kill()
     call res2Dict % kill()
+    call p % kill()
 
   end subroutine testScoring
 

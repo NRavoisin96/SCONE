@@ -1,15 +1,17 @@
 module tallyClerk_inter
 
-  use dictionary_class,      only : dictionary
-  use errors_mod,            only : fatalError
-  use nuclearDatabase_inter, only : nuclearDatabase
+  use dictionary_class,           only : dictionary
+  use errors_mod,                 only : fatalError
+  use nuclearDatabase_inter,      only : nuclearDatabase
   use numPrecision
-  use outputFile_class,      only : outputFile
-  use particle_class,        only : particle, particleState
-  use particleDungeon_class, only : particleDungeon
-  use scoreMemory_class,     only : scoreMemory
+  use outputFile_class,           only : outputFile
+  use particleDungeon_class,      only : particleDungeon
+  use physicalParticle_inter,     only : physicalParticle
+  use scoreMemory_class,          only : scoreMemory
   use tallyCodes
-  use tallyResult_class,     only : tallyResult, tallyResultEmpty
+  use tallyResult_class,          only : tallyResult, tallyResultEmpty
+  use transportObject_inter,      only : transportObject
+  use transportObjectState_class, only : transportObjectState
 
   implicit none
   private
@@ -254,13 +256,13 @@ contains
   !!
   subroutine reportInColl(self, p, virtual, xsData, mem)
     class(tallyClerk), intent(inout)      :: self
-    class(particle), intent(in)           :: p
+    class(physicalParticle), intent(in)   :: p
     logical(defBool), intent(in)          :: virtual
     class(nuclearDatabase), intent(inout) :: xsData
     type(scoreMemory), intent(inout)      :: mem
-    character(*), parameter               :: Here = 'reportInColl (tallyClerk_inter.f90)'
+    character(*), parameter               :: here = 'reportInColl (tallyClerk_inter.f90)'
 
-    call fatalError(Here, 'Report was sent to an instance that does not support it.')
+    call fatalError(here, 'Unsupported procedure.')
 
   end subroutine reportInColl
 
@@ -282,7 +284,7 @@ contains
   !!
   subroutine reportOutColl(self, p, MT, muL, xsData, mem)
     class(tallyClerk), intent(inout)      :: self
-    class(particle), intent(in)           :: p
+    class(physicalParticle), intent(in)   :: p
     integer(shortInt), intent(in)         :: MT
     real(defReal), intent(in)             :: muL
     class(nuclearDatabase), intent(inout) :: xsData
@@ -309,7 +311,7 @@ contains
   !!
   subroutine reportPath(self, p, L, mem, xsData)
     class(tallyClerk), intent(inout)                :: self
-    class(particle), intent(in)                     :: p
+    class(physicalParticle), intent(in)             :: p
     real(defReal), intent(in)                       :: L
     type(scoreMemory), intent(inout)                :: mem
     class(nuclearDatabase), intent(inout), optional :: xsData
@@ -332,12 +334,12 @@ contains
   !! Errors:
   !!   Depend on specific Clerk
   !!
-  subroutine reportTrans(self, p, xsData, mem)
+  subroutine reportTrans(self, object, xsData, mem)
     class(tallyClerk), intent(inout)      :: self
-    class(particle), intent(in)           :: p
+    class(transportObject), intent(in)    :: object
     class(nuclearDatabase), intent(inout) :: xsData
     type(scoreMemory), intent(inout)      :: mem
-    character(100), parameter  :: Here = 'reportTrans (tallyClerk_inter.f90)'
+    character(*), parameter               :: Here = 'reportTrans (tallyClerk_inter.f90)'
 
     call fatalError(Here,'Report was sent to an instance that does not support it.')
 
@@ -359,13 +361,13 @@ contains
   !!   Depend on specific Clerk
   !!
   subroutine reportSpawn(self, MT, pOld, pNew, xsData, mem)
-    class(tallyClerk), intent(inout)      :: self
-    integer(shortInt), intent(in)         :: MT
-    class(particle), intent(in)           :: pOld
-    class(particleState), intent(in)      :: pNew
-    class(nuclearDatabase), intent(inout) :: xsData
-    type(scoreMemory), intent(inout)      :: mem
-    character(100), parameter  :: Here = 'reportSpawn (tallyClerk_inter.f90)'
+    class(tallyClerk), intent(inout)        :: self
+    integer(shortInt), intent(in)           :: MT
+    class(physicalParticle), intent(in)     :: pOld
+    class(transportObjectState), intent(in) :: pNew
+    class(nuclearDatabase), intent(inout)   :: xsData
+    type(scoreMemory), intent(inout)        :: mem
+    character(*), parameter                 :: Here = 'reportSpawn (tallyClerk_inter.f90)'
 
     call fatalError(Here,'Report was sent to an instance that does not support it.')
 
@@ -384,14 +386,14 @@ contains
   !! Errors:
   !!   Depend on specific Clerk
   !!
-  subroutine reportHist(self, p, xsData, mem)
-    class(tallyClerk), intent(inout)      :: self
-    class(particle), intent(in)           :: p
-    class(nuclearDatabase), intent(inout) :: xsData
-    type(scoreMemory), intent(inout)      :: mem
-    character(100), parameter  :: Here = 'reportHist (tallyClerk_inter.f90)'
+  subroutine reportHist(self, object, xsData, mem)
+    class(tallyClerk), intent(inout)               :: self
+    class(transportObject), intent(in)             :: object
+    class(nuclearDatabase), pointer, intent(inout) :: xsData
+    type(scoreMemory), intent(inout)               :: mem
+    character(*), parameter                        :: here = 'reportHist (tallyClerk_inter.f90)'
 
-    call fatalError(Here,'Report was sent to an instance that does not support it.')
+    call fatalError(here, 'Unsupported procedure.')
 
   end subroutine reportHist
 

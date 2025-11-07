@@ -2,14 +2,15 @@ module particlePhysicsPackage_inter
 
   use collisionOperator_class,       only : collisionOperator
   use dictionary_class,              only : dictionary
+  use errors_mod,                    only : fatalError
   use fieldFactory_func,             only : new_field
-  use genericProcedures,             only : fatalError, numToChar
+  use genericProcedures,             only : numToChar
   use nuclearDatabase_inter,         only : nuclearDatabase
   use nuclearDataReg_mod,            only : activateNuclearDataRegistry => activate, getNuclearDataRegistry => get
   use numPrecision
   use outputFile_class,              only : outputFile
-  use particle_class,                only : particle
   use particleDungeon_class,         only : particleDungeon
+  use physicalParticle_inter,        only : physicalParticle
   use RNG_class,                     only : RNG
   use source_inter,                  only : source
   use sourceFactory_func,            only : new_source
@@ -109,11 +110,11 @@ module particlePhysicsPackage_inter
     !!
     !!
     subroutine trackParticleHistory(self, transOp, collOp, p, buffer, tally)
-      import :: collisionOperator, particle, particleDungeon, particlePhysicsPackage, tallyAdmin, transportOperator
+      import :: collisionOperator, particleDungeon, particlePhysicsPackage, physicalParticle, tallyAdmin, transportOperator
       class(particlePhysicsPackage), intent(in) :: self
       class(transportOperator), intent(inout)   :: transOp
       type(collisionOperator), intent(inout)    :: collOp
-      type(particle), intent(inout)             :: p
+      class(physicalParticle), intent(inout)    :: p
       type(particleDungeon), intent(inout)      :: buffer
       type(tallyAdmin), intent(inout)           :: tally
     end subroutine trackParticleHistory
@@ -323,9 +324,8 @@ contains
     else
       if (payloadPtr % isSourceRequired) call fatalError(here, 'Missing "source" dictionary.')
       ! Build source.
-      call sourceDict % init(3)
-      call sourceDict % store('type', 'fissionSource')
-      call sourceDict % store('data', trim(energy))
+      call sourceDict % init(1)
+      call sourceDict % store('type', merge('CEFissionSource', 'MGFissionSource', self % particleType == P_NEUTRON_CE))
       call new_source(self % particleSource, sourceDict, payloadPtr % geometry)
       call sourceDict % kill()
 
@@ -392,10 +392,10 @@ contains
     type(collisionOperator), intent(inout)       :: collOp
     type(particleDungeon), intent(inout)         :: buffer
     type(tallyAdmin), pointer, intent(inout)     :: tally
-    integer(shortInt)                            :: i, nFinalParticles, nInitialParticles, timerMain
+    class(physicalParticle), allocatable         :: p
+    integer(shortInt)                            :: geometryIdx, i, nFinalParticles, nInitialParticles, timerMain
     real(defReal)                                :: elapsedTime, endTime
-    type(particle)                               :: p
-    type(RNG), target                            :: pRNG
+    type(RNG)                                    :: pRNG
 
     !$omp master
     ! Prepare current cycle.
@@ -408,18 +408,18 @@ contains
     ! Wait for master thread before launching parallel execution.
     !$omp barrier
 
-    ! Initialise particle.
-    p % geomIdx = self % getGeometryIdx()
+    geometryIdx = self % getGeometryIdx()
   
-    !$omp do schedule(dynamic)
+    !$omp do schedule(dynamic) private(p, pRNG)
     do i = 1, nInitialParticles
-      ! Create RNG which can be thread private
+      ! Create RNG which can be thread private.
       pRNG = self % pRNG
-      p % pRNG => pRNG
-      call p % pRNG % stride(i)
 
-      ! Obtain particle current cycle dungeon and prepare particle.
-      call self % currentCycle % copy(p, i)
+      ! Generate a particle from the dungeon, prepate it and track its history.
+      p = self % currentCycle % copy(i)
+      call p % setGeometryIdx(geometryIdx)
+      call p % setRNGPtr(pRNG)
+      call p % strideRNG(i)
       call self % trackParticleHistory(transOp, collOp, p, buffer, tally)
 
     end do

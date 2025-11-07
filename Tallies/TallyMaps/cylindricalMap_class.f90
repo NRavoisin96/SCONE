@@ -1,13 +1,14 @@
 module cylindricalMap_class
 
+  use dictionary_class,           only : dictionary
+  use errors_mod,                 only : fatalError
+  use genericProcedures,          only : numToChar
+  use grid_class,                 only : grid
   use numPrecision
-  use universalVariables, only : valueOutsideArray, X_AXIS, Y_AXIS, Z_AXIS
-  use genericProcedures,  only : fatalError, numToChar
-  use dictionary_class,   only : dictionary
-  use grid_class,         only : grid
-  use particle_class,     only : particleState
-  use outputFile_class,   only : outputFile
-  use tallyMap_inter,     only : tallyMap, kill_super => kill
+  use outputFile_class,           only : outputFile
+  use tallyMap_inter,             only : tallyMap, kill_super => kill
+  use transportObjectState_class, only : transportObjectState
+  use universalVariables,         only : valueOutsideArray, X_AXIS, Y_AXIS, Z_AXIS
 
   implicit none
   private
@@ -282,32 +283,35 @@ contains
   !!
   !! See tallyMap for specification.
   !!
-  elemental function map(self, state) result(idx)
-    class(cylindricalMap), intent(in) :: self
-    class(particleState), intent(in)  :: state
-    integer(shortInt)                 :: idx, aIdx, N
-    real(defReal)                     :: r, x, y, theta
+  function map(self, state) result(idx)
+    class(cylindricalMap), intent(in)       :: self
+    class(transportObjectState), intent(in) :: state
+    integer(shortInt)                       :: idx, aIdx, N
+    real(defReal)                           :: d, x, y, theta
+    real(defReal), dimension(3)             :: rGlobal
 
     ! Calculate the distance from the origin
-    r = norm2(state % r([self % DIM1, self % DIM2]) - self % origin)
+    rGlobal = state % getGlobalPosition()
+    d = norm2(rGlobal([self % DIM1, self % DIM2]) - self % origin)
 
-    ! Search and return 0 if r is out-of-bounds
-    idx = self % rBounds % search(r)
+    ! Search and return 0 if d is out-of-bounds
+    idx = self % rBounds % search(d)
     N = self % rN
 
     if (idx == valueOutsideArray) then
       idx = 0
       return
+
     end if
 
     ! Update if there is axial dimension
     if (self % axN /= 1) then
-
       ! Search along the axial dimension and return 0 if index is out-of-bounds
-      aIdx = self % axBounds % search(state % r(self % DIM3))
+      aIdx = self % axBounds % search(rGlobal(self % DIM3))
       if (aIdx == valueOutsideArray) then
         idx = 0
         return
+
       end if
 
       ! Compute new index and update number of bins
@@ -317,11 +321,10 @@ contains
 
     ! Update if there is azimuthal dimension
     if (self % azN /= 1) then
+      x = rGlobal(self % DIM1) - self % origin(1)
+      y = rGlobal(self % DIM2) - self % origin(2)
 
-      x = state % r(self % DIM1) - self % origin(1)
-      y = state % r(self % DIM2) - self % origin(2)
-
-      theta = atan2(y,x)
+      theta = atan2(y, x)
       ! Search along the azimuthal dimension and return 0 if index is out-of-bounds
       aIdx = self % azBounds % search(theta)
       ! Compute new index

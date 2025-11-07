@@ -1,16 +1,15 @@
 module weightWindowsField_class
 
+  use dictionary_class,      only : dictionary
+  use dictParser_func,       only : fileToDict
+  use errors_mod,            only : fatalError
+  use field_inter,           only : field
+  use genericProcedures,     only : numToChar
   use numPrecision
-  use genericProcedures, only : fatalError, numToChar
-  use dictionary_class,  only : dictionary
-  use dictParser_func,   only : fileToDict
-  use particle_class,    only : particle, particleState
-  use field_inter,       only : field
-  use vectorField_inter, only : vectorField
-
-  ! Tally Maps
-  use tallyMap_inter,             only : tallyMap
-  use tallyMapFactory_func,       only : new_tallyMap
+  use tallyMap_inter,        only : tallyMap
+  use tallyMapFactory_func,  only : new_tallyMap
+  use transportObject_inter, only : transportObject
+  use vectorField_inter,     only : vectorField
 
   implicit none
   private
@@ -51,11 +50,10 @@ module weightWindowsField_class
   !!   vectorField interface
   !!
   type, public, extends(vectorField) :: weightWindowsField
-    class(tallyMap), allocatable :: net
-    integer(shortInt)            :: N
-    real(defReal), dimension(:), allocatable :: lowerW
-    real(defReal), dimension(:), allocatable :: upperW
-    real(defReal) :: constSurvival = ZERO
+    class(tallyMap), allocatable             :: net
+    integer(shortInt)                        :: N = 0
+    real(defReal)                            :: constSurvival = ZERO
+    real(defReal), dimension(:), allocatable :: lowerW, upperW
   contains
     ! Superclass interface
     procedure :: init
@@ -114,10 +112,15 @@ contains
   elemental subroutine kill(self)
     class(weightWindowsField), intent(inout) :: self
 
-    call self % net % kill()
-    if (allocated(self % net)) deallocate(self % net)
+    if (allocated(self % net)) then
+      call self % net % kill()
+      deallocate(self % net)
+
+    end if
     self % N = 0
     self % constSurvival = ZERO
+    if (allocated(self % lowerW)) deallocate(self % lowerW)
+    if (allocated(self % upperW)) deallocate(self % upperW)
 
   end subroutine kill
 
@@ -126,25 +129,18 @@ contains
   !!
   !! See vectorField_inter for details
   !!
-  function at(self, p) result(val)
+  function at(self, object) result(val)
     class(weightWindowsField), intent(in) :: self
-    class(particle), intent(inout)        :: p
+    class(transportObject), intent(inout) :: object
     real(defReal), dimension(3)           :: val
-    type(particleState)                   :: state
     integer(shortInt)                     :: binIdx
 
-    ! Get current particle state
-    state = p
-
     ! Read map bin index
-    binIdx = self % net % map(state)
+    binIdx = self % net % map(object % updateAndGetCurrentStatePtr())
 
     ! Return if invalid bin index
-    if (binIdx == 0) then
-      val = ZERO
-      return
-    end if
-
+    val = ZERO
+    if (binIdx == 0) return
     val(1) = self % lowerW(binIdx)
     val(2) = self % upperW(binIdx)
     val(3) = val(1) * self % constSurvival
@@ -171,9 +167,9 @@ contains
 
       class default
         ptr => null()
+
     end select
 
   end function weightWindowsField_TptrCast
-
 
 end module weightWindowsField_class

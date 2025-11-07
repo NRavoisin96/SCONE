@@ -324,7 +324,7 @@ contains
       event = LOST_EV
       do while (event /= COLL_EV)
         ! Save pre-movement state
-        matIdx = coords % getMatIdx()
+        matIdx = coords % getMaterialIdx()
         uniqueId = coords % getUniqueId()
         maxDist = distance
         if (self % robust) then
@@ -375,7 +375,7 @@ contains
 
       ! Kill the ray
       call rand % generate(randomNumber)
-      if (randomNumber < self % abs_prob .or. coords % getMatIdx() == OUTSIDE_MAT) exit hist
+      if (randomNumber < self % abs_prob .or. coords % getMaterialIdx() == OUTSIDE_MAT) exit hist
 
       ! Scatter the ray
       call rand % generateMu(mu)

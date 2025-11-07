@@ -1,21 +1,16 @@
 module macroResponse_class
 
-  use numPrecision
+  use dictionary_class,        only : dictionary
   use endfConstants
-  use universalVariables,         only : VOID_MAT
-  use genericProcedures,          only : fatalError, numToChar
-  use dictionary_class,           only : dictionary
-  use particle_class,             only : particle, P_NEUTRON
-  use tallyResponse_inter,        only : tallyResponse
-
-  ! Nuclear Data interfaces
-  use nuclearDatabase_inter,      only : nuclearDatabase
-  use neutronMaterial_inter,      only : neutronMaterial, neutronMaterial_CptrCast
-  use neutronXsPackages_class,    only : neutronMacroXSs
+  use errors_mod,              only : fatalError
+  use genericProcedures,       only : numToChar
+  use nuclearDatabase_inter,   only : nuclearDatabase
+  use numPrecision
+  use tallyResponse_inter,     only : tallyResponse
+  use transportObject_inter,   only : transportObject
 
   implicit none
   private
-
 
   !!
   !! tallyResponse for scoring a single macroscopicXSs
@@ -85,7 +80,7 @@ contains
   subroutine build(self, MT)
     class(macroResponse), intent(inout) :: self
     integer(shortInt), intent(in)       :: MT
-    character(*), parameter :: Here = 'build ( macroResponse_class.f90)'
+    character(*), parameter             :: Here = 'build ( macroResponse_class.f90)'
 
     ! Check that MT number is valid
     select case(MT)
@@ -112,33 +107,13 @@ contains
   !! Errors:
   !!   Return ZERO if particle is not a Neutron
   !!
-  subroutine get(self, p, val, xsData)
+  subroutine get(self, object, val, xsData)
     class(macroResponse), intent(in)                :: self
-    class(particle), intent(in)                     :: p
+    class(transportObject), intent(in)              :: object
     real(defReal), intent(out)                      :: val
     class(nuclearDatabase), intent(inout), optional :: xsData
-    integer(shortInt)                               :: matIdx
-    type(neutronMacroXSs)                           :: xss
-    class(neutronMaterial), pointer                 :: mat
-    character(*), parameter                         :: here = 'get (macroResponse_class.f90)'
 
-    val = ZERO
-
-    ! Return zero if particle is not neutron or if the particle is in void
-    if (p % type /= P_NEUTRON) return
-
-    matIdx = p % getMatIdx()
-    if (matIdx == VOID_MAT) return
-
-    ! Get pointer to active material data
-    if (.not. present(xsData)) call fatalError(here, 'Nuclear database was not provided.')
-    mat => neutronMaterial_CptrCast(xsData % getMaterial(matIdx))
-
-    ! Return if material is not a neutronMaterial
-    if (.not. associated(mat)) return
-
-    call mat % getMacroXSs(p, xss)
-    val = xss % get(self % MT)
+    call self % getNeutronMacroXS(object, self % MT, val, xsData = xsData)
 
   end subroutine get
 

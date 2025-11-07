@@ -1,47 +1,32 @@
 module aceNeutronDatabase_class
 
-  use numPrecision
+  use aceCard_class,           only : aceCard
+  use aceLibrary_mod,          only : new_neutronAce, new_moderACE, aceLib_load => load, aceLib_kill => kill
+  use aceNeutronNuclide_class, only : aceNeutronNuclide
+  use aceSabCard_class,        only : aceSabCard
+  use ceNeutronCache_mod,      only : cache_nuclideCache => nuclideCache, cache_materialCache => materialCache, &
+                                      cache_majorantCache => majorantCache, cache_zaidCache => zaidCache, &
+                                      cache_init => init, cache_kill => kill
+  use ceNeutronDatabase_inter, only : ceNeutronDatabase, ceNeutronDatabase_CptrCast
+  use ceNeutronMaterial_class, only : ceNeutronMaterial
+  use charMap_class,           only : charMap
+  use dictionary_class,        only : dictionary
   use endfConstants
-  use universalVariables
-  use errors_mod,         only : fatalError
-  use genericProcedures,  only : numToChar, removeDuplicatesSorted, floorBinarySearch
-  use geometryReg_mod,    only : fieldPtrByName
-  use dictionary_class,   only : dictionary
-  use RNG_class,          only : RNG
-  use charMap_class,      only : charMap
-  use intMap_class,       only : intMap
-  use scalarField_inter,  only : getTemperatureFieldPtr, scalarField
-
-  ! Nuclear Data Interfaces
-  use nuclearDatabase_inter,        only : nuclearDatabase
-  use materialHandle_inter,         only : materialHandle
-  use nuclideHandle_inter,          only : nuclideHandle
-  use reactionHandle_inter,         only : reactionHandle
-  use ceNeutronDatabase_inter,      only : ceNeutronDatabase, ceNeutronDatabase_CptrCast
-  use neutronXSPackages_class,      only : neutronMicroXSs
-  use ceNeutronMaterial_class,      only : ceNeutronMaterial
-
-  ! Material Menu
-  use materialMenu_mod,             only : materialItem, nuclideInfo, mm_nMat => nMat, &
-                                           mm_getMatPtr => getMatPtr, mm_nameMap => nameMap
-
-  ! ACE CE Nuclear Data Objects
-  use aceLibrary_mod,               only : new_neutronAce, new_moderACE, aceLib_load => load, aceLib_kill => kill
-  use aceCard_class,                only : aceCard
-  use aceSabCard_class,             only : aceSabCard
-  use aceNeutronNuclide_class,      only : aceNeutronNuclide
-
-
-  ! CE NEUTRON CACHE
-  use ceNeutronCache_mod,           only : cache_nuclideCache => nuclideCache, &
-                                           cache_materialCache => materialCache, &
-                                           cache_majorantCache => majorantCache, &
-                                           cache_zaidCache => zaidCache, &
-                                           cache_init => init, &
-                                           cache_kill => kill
-
-  ! Scattering procedures
+  use errors_mod,              only : fatalError
+  use genericProcedures,       only : floorBinarySearch, numToChar, removeDuplicatesSorted
+  use geometryReg_mod,         only : fieldPtrByName
+  use intMap_class,            only : intMap
+  use materialHandle_inter,    only : materialHandle
+  use materialMenu_mod,        only : materialItem, nuclideInfo, mm_nMat => nMat, mm_getMatPtr => getMatPtr, mm_nameMap => nameMap
+  use neutronXSPackages_class, only : neutronMicroXSs
+  use nuclearDatabase_inter,   only : nuclearDatabase
+  use nuclideHandle_inter,     only : nuclideHandle
+  use numPrecision
+  use reactionHandle_inter,    only : reactionHandle
+  use RNG_class,               only : RNG
+  use scalarField_inter,       only : getTemperatureFieldPtr, scalarField
   use scatteringKernels_func,  only : relativeEnergy_constXS, dopplerCorrectionFactor
+  use universalVariables
 
   implicit none
   private

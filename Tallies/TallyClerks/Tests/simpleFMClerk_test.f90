@@ -1,29 +1,31 @@
 module simpleFMClerk_test
 
-  use dictionary_class,          only : dictionary
+  use dictionary_class,            only : dictionary
   use funit
   use numPrecision
-  use outputFile_class,          only : outputFile
-  use particle_class,            only : particle, particleState, P_NEUTRON
-  use particleDungeon_class,     only : particleDungeon
-  use scoreMemory_class,         only : scoreMemory
-  use simpleFMClerk_class,       only : simpleFMClerk, FMResult
-  use tallyResult_class,         only : tallyResult
-  use testNeutronDatabase_class, only : testNeutronDatabase
+  use outputFile_class,            only : outputFile
+  use particleDungeon_class,       only : particleDungeon
+  use physicalParticleState_class, only : castPhysicalParticleStatePtr, physicalParticleState
+  use scoreMemory_class,           only : scoreMemory
+  use simpleFMClerk_class,         only : simpleFMClerk, FMResult
+  use tallyResult_class,           only : tallyResult
+  use testNeutronDatabase_class,   only : testNeutronDatabase
+  use testPhysicalParticle_class,  only : testPhysicalParticle
 
   implicit none
 
 @testCase
   type, extends(TestCase) :: test_simpleFMClerk
     private
-    type(simpleFMClerk) :: clerk
+    type(simpleFMClerk)        :: clerk
+    type(testPhysicalParticle) :: testParticle
   contains
     procedure :: setUp
     procedure :: tearDown
   end type test_simpleFMClerk
 
 contains
-
+@Before
   !!
   !! Sets up test_simpleFMClerk object we can use in a number of tests
   !!
@@ -31,14 +33,12 @@ contains
   !!
   subroutine setUp(this)
     class(test_simpleFMClerk), intent(inout) :: this
-    type(dictionary)                         :: dict
-    type(dictionary)                         :: mapDict
     character(nameLen)                       :: name
+    type(dictionary)                         :: dict, mapDict
 
     call mapDict % init(2)
     call mapDict % store('type','testMap')
     call mapDict % store('maxIdx',3)
-
 
     ! Build intput dictionary
     call dict % init(2)
@@ -47,12 +47,14 @@ contains
 
     name = 'testClerk'
     call this % clerk % init(dict,name)
-
+    call this % testParticle % init()
 
     call mapDict % kill()
     call dict % kill()
+
   end subroutine setUp
 
+@After
   !!
   !! Kills test_simpleFMClerk object we can use in a number of tests
   !!
@@ -60,6 +62,7 @@ contains
     class(test_simpleFMClerk), intent(inout) :: this
 
     call this % clerk % kill()
+    call this % testParticle % kill()
 
   end subroutine tearDown
 
@@ -67,25 +70,23 @@ contains
 !! PROPER TESTS BEGIN HERE
 !!<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 
-
   !!
   !! Test correctness in a simple use case
   !!
 @Test
   subroutine testSimpleUseCase(this)
     class(test_simpleFMClerk), intent(inout) :: this
-    type(scoreMemory)                        :: mem
-    type(particle)                           :: p
-    type(particleState)                      :: phase
-    type(particleDungeon)                    :: pop
-    type(testNeutronDatabase)                :: xsData
-    real(defReal)                            :: val
     class(tallyResult), allocatable          :: res
-    real(defReal), parameter :: TOL = 1.0E-7
-
+    real(defReal)                            :: val
+    type(particleDungeon)                    :: pop
+    type(physicalParticleState)              :: phase
+    type(physicalParticleState), pointer     :: preHistoryStatePtr
+    type(scoreMemory)                        :: mem
+    type(testNeutronDatabase)                :: xsData
+    real(defReal), parameter                 :: TOL = 1.0e-7_defReal
 
     ! Create score memory
-    call mem % init(int(this % clerk % getSize(), longInt) , 1, batchSize = 1)
+    call mem % init(int(this % clerk % getSize(), longInt), 1, batchSize = 1)
     call this % clerk % setMemAddress(1_longInt)
 
     ! Create test transport Nuclear Data
@@ -95,33 +96,31 @@ contains
     ! One particle born in matIdx 1 and other in 2
     call pop % init(3)
 
-    phase % wgt = ONE
-    phase % matIdx = 2
+    call phase % setMaterialIdx(2)
     call pop % detain(phase)
 
-    phase % wgt = ONE
-    phase % matIdx = 1
+    call phase % setMaterialIdx(1)
     call pop % detain(phase)
 
     call this % clerk % reportCycleStart(pop, mem)
 
     ! Score some events
-    p % type = P_NEUTRON
+    call this % testParticle % setMaterialIdx(2)
+    call this % testParticle % setWeight(0.7_defReal)
+    preHistoryStatePtr => castPhysicalParticleStatePtr(this % testParticle % getPreHistoryStatePtr(), .true.)
+    call preHistoryStatePtr % setMaterialIdx(2)
+    call this % clerk % reportInColl(this % testParticle, .false., xsData, mem)
 
-    call p % setMatIdx(2)
-    p % w = 0.7
-    p % preHistory % matIdx = 2
-    call this % clerk % reportInColl(p, .false., xsData, mem)
+    call this % testParticle % setMaterialIdx(1)
+    call this % testParticle % setWeight(1.1_defReal)
+    call preHistoryStatePtr % setMaterialIdx(2)
+    call this % clerk % reportInColl(this % testParticle, .false., xsData, mem)
 
-    call p % setMatIdx(1)
-    p % w = 1.1
-    p % preHistory % matIdx = 2
-    call this % clerk % reportInColl(p, .false., xsData, mem)
 
-    call p % setMatIdx(1)
-    p % w = 1.0
-    p % preHistory % matIdx = 1
-    call this % clerk % reportInColl(p, .false., xsData, mem)
+    call this % testParticle % setMaterialIdx(1)
+    call this % testParticle % setWeight(ONE)
+    call preHistoryStatePtr % setMaterialIdx(1)
+    call this % clerk % reportInColl(this % testParticle, .false., xsData, mem)
 
     call this % clerk % reportCycleEnd(pop, mem)
 
@@ -133,7 +132,7 @@ contains
     ! Fission matrix
     ! 1 -> 1 Transition
     call mem % getResult(val, 1_longInt)
-    @assertEqual(1.818181818181_defReal ,val, TOL)
+    @assertEqual(1.818181818181_defReal, val, TOL)
 
     ! 1 -> 2 Transition
     call mem % getResult(val, 2_longInt)
@@ -159,25 +158,26 @@ contains
         @assertEqual(3, res % N)
 
         ! 1 -> 1 Transition
-        @assertEqual(1.818181818181_defReal ,res % FM(1,1,1) , TOL)
+        @assertEqual(1.818181818181_defReal, res % FM(1, 1, 1) , TOL)
 
         ! 1 -> 2 Transition
-        @assertEqual(ZERO, res  % FM(2,1,1), TOL)
+        @assertEqual(ZERO, res % FM(2, 1, 1), TOL)
 
         ! 1 -> 3 Transition
-        @assertEqual(ZERO, res % FM(3,1,1), TOL)
+        @assertEqual(ZERO, res % FM(3, 1, 1), TOL)
 
         ! 2 -> 1 Transition
-        @assertEqual(2.0_defReal, res % FM(1,2,1), TOL)
+        @assertEqual(2.0_defReal, res % FM(1, 2, 1), TOL)
 
         ! 2 -> 2 Transition
-        @assertEqual(1.27272727272727_defReal, res % FM(2,2,1), TOL)
+        @assertEqual(1.27272727272727_defReal, res % FM(2, 2, 1), TOL)
 
         ! Clean all entries
         res % FM = ZERO
 
       class default
         @assertEqual(1,2)
+
     end select
 
     ! Get result again -> verify correcness of reallocation logic by code coverage
@@ -185,12 +185,12 @@ contains
     select type(res)
       class is (FMresult)
         ! 1 -> 1 Transition
-        @assertEqual(1.818181818181_defReal ,res % FM(1,1,1) , TOL)
+        @assertEqual(1.818181818181_defReal, res % FM(1, 1, 1), TOL)
 
         ! Change size of matrix
         res % N = 2
         deallocate(res % FM)
-        allocate(res % FM(2,2,1))
+        allocate(res % FM(2, 2, 1))
 
     end select
     ! Get result yet again. This time with wrong size
@@ -199,7 +199,7 @@ contains
     select type(res)
       class is (FMresult)
         @assertEqual(3, res % N)
-        @assertEqual([3,3,2], shape(res % FM))
+        @assertEqual([3, 3, 2], shape(res % FM))
     end select
 
     ! Clean
@@ -207,8 +207,6 @@ contains
     call pop % kill()
 
   end subroutine testSimpleUseCase
-
-
 
   !!
   !! Test correctness of the printing calls
@@ -220,12 +218,12 @@ contains
     type(scoreMemory)                        :: mem
 
     ! Create score memory
-    call mem % init(int(this % clerk % getSize(), longInt) , 1)
+    call mem % init(int(this % clerk % getSize(), longInt), 1)
     call this % clerk % setMemAddress(1_longInt)
 
     ! Verify that output calls are correct
     call outF % init('dummyPrinter', fatalErrors = .false.)
-    call this % clerk % print (outF, mem)
+    call this % clerk % print(outF, mem)
 
     @assertTrue(outF % isValid())
 

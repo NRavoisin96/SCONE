@@ -1,20 +1,21 @@
 module trackClerk_class
 
-  use dictionary_class,        only : dictionary
-  use errors_mod,              only : fatalError
-  use nuclearDatabase_inter,   only : nuclearDatabase
+  use dictionary_class,           only : dictionary
+  use errors_mod,                 only : fatalError
+  use nuclearDatabase_inter,      only : nuclearDatabase
   use numPrecision
-  use outputFile_class,        only : outputFile
-  use particle_class,          only : particle, particleState
-  use scoreMemory_class,       only : scoreMemory
-  use tallyClerk_inter,        only : tallyClerk, kill_super => kill
+  use outputFile_class,           only : outputFile
+  use physicalParticle_inter,     only : physicalParticle
+  use scoreMemory_class,          only : scoreMemory
+  use tallyClerk_inter,           only : tallyClerk, kill_super => kill
   use tallyCodes
-  use tallyFilter_inter,       only : tallyFilter
-  use tallyFilterFactory_func, only : new_tallyFilter
-  use tallyMap_inter,          only : tallyMap
-  use tallyMapFactory_func,    only : new_tallyMap
-  use tallyResponseSlot_class, only : tallyResponseSlot
-  use tallyResult_class,       only : tallyResult, tallyResultArrays
+  use tallyFilter_inter,          only : tallyFilter
+  use tallyFilterFactory_func,    only : new_tallyFilter
+  use tallyMap_inter,             only : tallyMap
+  use tallyMapFactory_func,       only : new_tallyMap
+  use tallyResponseSlot_class,    only : tallyResponseSlot
+  use tallyResult_class,          only : tallyResult, tallyResultArrays
+  use transportObjectState_class, only : transportObjectState
 
   implicit none
   private
@@ -381,34 +382,29 @@ contains
   !!
   subroutine reportPath(self, p, L, mem, xsData)
     class(trackClerk), intent(inout)                :: self
-    class(particle), intent(in)                     :: p
+    class(physicalParticle), intent(in)             :: p
     real(defReal), intent(in)                       :: L
     type(scoreMemory), intent(inout)                :: mem
     class(nuclearDatabase), intent(inout), optional :: xsData
-    type(particleState)                             :: state
-    type(particle)                                  :: pTmp
+    class(physicalParticle), allocatable            :: pTmp
+    class(transportObjectState), pointer            :: prePathStatePtr
     integer(shortInt)                               :: binIdx, i
     integer(longInt)                                :: adrr
     real(defReal)                                   :: scoreVal, flx
     character(*), parameter                         :: Here = 'reportPath (trackClerk_class.f90)'
 
     ! Get pre-transition particle state
-    state = p % prePath
+    prePathStatePtr => p % getPrePathStatePtr()
 
     ! Check if within filter
     if (allocated(self % filter)) then
-      if (self % filter % isFail(state)) return
+      if (self % filter % isFail(prePathStatePtr)) return
 
     end if
 
     ! Find bin index
-    if (allocated(self % map)) then
-      binIdx = self % map % map(state)
-
-    else
-      binIdx = 1
-
-    end if
+    binIdx = 1
+    if (allocated(self % map)) binIdx = self % map % map(prePathStatePtr)
 
     ! Return if invalid bin index
     if (binIdx == 0) return
@@ -418,7 +414,7 @@ contains
 
     ! tranfer information about Prestate material to a temporary particle
     pTmp = p
-    call pTmp % coords % setMatIdx(state % matIdx)
+    call pTmp % setMaterialIdx(prePathStatePtr % getMaterialIdx())
 
     ! Calculate flux sample L = path travelled
     flx = L
@@ -426,7 +422,7 @@ contains
     ! Append all bins
     do i = 1, self % width
       call self % responses(i) % get(pTmp, scoreVal, xsData)
-      call mem % score(scoreVal * p % w * flx, adrr + i)
+      call mem % score(scoreVal * p % getWeight() * flx, adrr + i)
 
     end do
 

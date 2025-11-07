@@ -1,17 +1,14 @@
 module mgNeutronMaterial_inter
 
-  use numPrecision
-  use genericProcedures, only : fatalError
-  use RNG_class,         only : RNG
-  use particle_class,    only : particle
-
-  ! Nuclear Data Handles
+  use errors_mod,              only : fatalError
   use materialHandle_inter,    only : materialHandle
+  use MGNeutron_class,         only : castMGNeutronPtr, MGNeutron
+  use mgNeutronCache_mod,      only : cache_materialCache => materialCache
   use neutronMaterial_inter,   only : neutronMaterial
   use neutronXsPackages_class, only : neutronMacroXSs
-
-  ! MG NEUTRON CACHE
-  use mgNeutronCache_mod,      only : cache_materialCache => materialCache
+  use numPrecision
+  use RNG_class,               only : RNG
+  use transportObject_inter,   only : transportObject
 
   implicit none
   private
@@ -41,25 +38,19 @@ module mgNeutronMaterial_inter
   type, public, abstract, extends(neutronMaterial) :: mgNeutronMaterial
     private
     logical(defBool) :: fissile = .false.
-
   contains
     ! Superclass procedures
-    procedure :: kill
-    generic   :: getMacroXSs => getMacroXSs_byG
-    procedure :: getMacroXSs_byP
-
+    procedure                            :: kill
+    generic                              :: getMacroXSs => getMacroXSs_byG
+    procedure                            :: getMacroXSs_byP
     ! Local procedures
-    procedure(getMacroXSs_byG), deferred    :: getMacroXSs_byG
-    procedure(getTotalXS), deferred         :: getTotalXS
-    procedure                               :: isFissile
-    procedure                               :: set
-
+    procedure(getMacroXSs_byG), deferred :: getMacroXSs_byG
+    procedure(getTotalXS), deferred      :: getTotalXS
+    procedure                            :: isFissile
+    procedure                            :: set
   end type mgNeutronMaterial
 
-
-
   abstract interface
-
     !!
     !! Return Macroscopic XSs for the material
     !!
@@ -96,38 +87,34 @@ module mgNeutronMaterial_inter
       real(defReal), intent(out)           :: xs
       class(RNG), intent(inout), optional  :: rand
     end subroutine getTotalXS
+
   end interface
 
-
-
 contains
-
   !!
   !! Return Macroscopic XSs for the material given particle
   !!
   !! See neutronMaterial_inter for details
   !!
-  subroutine getMacroXSs_byP(self, p, xss)
+  subroutine getMacroXSs_byP(self, object, xss)
     class(mgNeutronMaterial), intent(in) :: self
-    class(particle), intent(in)          :: p
+    class(transportObject), intent(in)   :: object
     type(neutronMacroXSs), intent(out)   :: xss
-    integer(shortInt)                    :: matIdx
-    character(*), parameter              :: Here = 'getMacroXSs_byP (mgNeutronMateerial_inter.f90)'
+    class(MGNeutron), pointer            :: MGNeutronPtr
+    integer(shortInt)                    :: energyGroup, materialIdx
+    character(*), parameter              :: here = 'getMacroXSs_byP (mgNeutronMateerial_inter.f90)'
 
-    if (.not. p % isMG) call fatalError(Here, 'CE particle was given to MG data')
+    MGNeutronPtr => castMGNeutronPtr(object, .true.)
 
-    !!
-    !! Here it is necessary to store p % matIdx() in a dedicated variable to avoid compilation errors with gfortran >= 13.2
-    !!
-    matIdx = p % getMatIdx()
-    associate (matCache => cache_materialCache(matIdx))
-
-      if (matCache % G_tail /= p % G) then
+    materialIdx = MGNeutronPtr % getMaterialIdx()
+    associate (matCache => cache_materialCache(materialIdx))
+      energyGroup = MGNeutronPtr % getEnergyGroup()
+      if (matCache % G_tail /= energyGroup) then
         ! Get cross sections
-        call self % getMacroXSs(p % G, xss, p % pRNG)
+        call self % getMacroXSs(energyGroup, xss, MGNeutronPtr % getRNGPtr())
         ! Update cache
         matCache % xss = xss
-        matCache % G_tail = p % G
+        matCache % G_tail = energyGroup
 
       else
         ! Retrieve cross sections from cache

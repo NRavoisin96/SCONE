@@ -1,27 +1,28 @@
 module shannonEntropyClerk_test
 
-  use numPrecision
-  use shannonEntropyClerk_class,      only : shannonEntropyClerk
-  use particle_class,                 only : particle, particleState
-  use particleDungeon_class,          only : particleDungeon
-  use dictionary_class,               only : dictionary
-  use scoreMemory_class,              only : scoreMemory
-  use outputFile_class,               only : outputFile
+  use dictionary_class,            only : dictionary
   use funit
+  use numPrecision
+  use outputFile_class,            only : outputFile
+  use particleDungeon_class,       only : particleDungeon
+  use physicalParticleState_class, only : physicalParticleState
+  use scoreMemory_class,           only : scoreMemory
+  use shannonEntropyClerk_class,   only : shannonEntropyClerk
 
   implicit none
 
 @testCase
   type, extends(TestCase) :: test_shannonEntropyClerk
     private
-    type(shannonEntropyClerk) :: clerk
+    type(physicalParticleState) :: state
+    type(shannonEntropyClerk)   :: clerk
   contains
     procedure :: setUp
     procedure :: tearDown
   end type test_shannonEntropyClerk
 
 contains
-
+@Before
   !!
   !! Sets up test_simpleFMClerk object we can use in a number of tests
   !!
@@ -29,14 +30,12 @@ contains
   !!
   subroutine setUp(this)
     class(test_shannonEntropyClerk), intent(inout) :: this
-    type(dictionary)                               :: dict
-    type(dictionary)                               :: mapDict
     character(nameLen)                             :: name
+    type(dictionary)                               :: dict, mapDict
 
     call mapDict % init(2)
     call mapDict % store('type','testMap')
     call mapDict % store('maxIdx',2)
-
 
     ! Build intput dictionary
     call dict % init(2)
@@ -49,8 +48,10 @@ contains
 
     call mapDict % kill()
     call dict % kill()
+
   end subroutine setUp
 
+@After
   !!
   !! Kills test_shannonEntropyClerk object we can use in a number of tests
   !!
@@ -58,6 +59,7 @@ contains
     class(test_shannonEntropyClerk), intent(inout) :: this
 
     call this % clerk % kill()
+    call this % state % kill()
 
   end subroutine tearDown
 
@@ -72,26 +74,23 @@ contains
 @Test
   subroutine testSimpleUseCase(this)
     class(test_shannonEntropyClerk), intent(inout) :: this
-    type(scoreMemory)                              :: mem
-    type(particleState)                            :: phase
     type(particleDungeon)                          :: pop
-    real(defReal), parameter :: TOL = 1.0E-7
+    type(scoreMemory)                              :: mem
+    real(defReal), parameter                       :: TOL = 1.0E-7
 
     ! Create score memory
-    call mem % init(int(this % clerk % getSize(), longInt) , 1, batchSize = 1)
+    call mem % init(int(this % clerk % getSize(), longInt), 1, batchSize = 1)
     call this % clerk % setMemAddress(1_longInt)
 
     ! Crate dungeon of original events
     ! One particle born in matIdx 1 and other in 2
     call pop % init(3)
 
-    phase % wgt = ONE
-    phase % matIdx = 2
-    call pop % detain(phase)
+    call this % state % setMaterialIdx(2)
+    call pop % detain(this % state)
 
-    phase % wgt = ONE
-    phase % matIdx = 1
-    call pop % detain(phase)
+    call this % state % setMaterialIdx(1)
+    call pop % detain(this % state)
 
     call this % clerk % reportCycleEnd(pop, mem)
 
@@ -104,8 +103,8 @@ contains
     ! Move particles to the same bin
     call pop % kill()
     call pop % init(3)
-    call pop % detain(phase)
-    call pop % detain(phase)
+    call pop % detain(this % state)
+    call pop % detain(this % state)
 
     call this % clerk % reportCycleEnd(pop,  mem)
 
@@ -117,9 +116,8 @@ contains
 
     ! Clean
     call pop % kill()
+
   end subroutine testSimpleUseCase
-
-
 
   !!
   !! Test correctness of the printing calls

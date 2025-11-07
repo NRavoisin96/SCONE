@@ -32,12 +32,12 @@ module coord_class
   !!   display    -> Prints coordinates to the console
   !!   kill       -> Returns to uninitialised state
   !!
-  type, public                    :: coord
+  type, public                     :: coord
     private
-    real(defReal), dimension(3)   :: r = ZERO, dir = ZERO
-    logical(defBool)              :: isRotated = .false.
-    real(defReal), dimension(3,3) :: rotMat = ZERO
-    integer(shortInt)             :: cellIdx = 0, elementIdx = 0, localId = 0, meshIdx = 0, uniIdx = 0, uniRootId = 0
+    real(defReal), dimension(3)    :: r = ZERO, dir = ZERO
+    logical(defBool)               :: isRotated = .false.
+    real(defReal), dimension(3, 3) :: rotMat = ZERO
+    integer(shortInt)              :: cellIdx = 0, elementIdx = 0, localId = 0, meshIdx = 0, universeIdx = 0, universeRootId = 0
   contains
     procedure :: display
     procedure :: getCellIdx
@@ -49,8 +49,8 @@ module coord_class
     procedure :: getMeshIdx
     procedure :: getPosition
     procedure :: getRotationMatrix
-    procedure :: getUniIdx
-    procedure :: getUniRootId
+    procedure :: getUniverseIdx
+    procedure :: getUniverseRootId
     procedure :: isValid
     procedure :: kill
     procedure :: offsetPosition
@@ -64,8 +64,8 @@ module coord_class
     procedure :: setPosition
     procedure :: setPositionAndDirection
     procedure :: setRotationMatrix
-    procedure :: setUniIdx
-    procedure :: setUniRootId
+    procedure :: setUniverseIdx
+    procedure :: setUniverseRootId
     procedure :: updateFromData
   end type coord
 
@@ -76,10 +76,11 @@ contains
   subroutine display(self)
     class(coord), intent(in) :: self
 
-    print *, "R: ", self % r
-    print *, "U: ", self % dir
-    print *, "UniIdx: ", numToChar(self % uniIdx), " LocalId: ", numToChar(self % localId), &
-             "UniRootId", numToChar(self % uniRootId)
+    print *, 'Position: ', self % r
+    print *, 'Direction: ', self % dir
+    print *, 'Universe index: ', numToChar(self % universeIdx)
+    print *, 'Local id: ', numToChar(self % localId)
+    print *, 'Universe root id: ', numToChar(self % universeRootId)
 
   end subroutine display
 
@@ -107,8 +108,8 @@ contains
     data % elementIdx = self % elementIdx
     data % localId = self % localId
     data % meshIdx = self % meshIdx
-    data % universeIdx = self % uniIdx
-    data % universeRootId = self % uniRootId
+    data % universeIdx = self % universeIdx
+    data % universeRootId = self % universeRootId
 
   end function getData
 
@@ -202,24 +203,24 @@ contains
   !!
   !!
   !!
-  elemental function getUniIdx(self) result(uniIdx)
+  elemental function getUniverseIdx(self) result(universeIdx)
     class(coord), intent(in) :: self
-    integer(shortInt)        :: uniIdx
+    integer(shortInt)        :: universeIdx
 
-    uniIdx = self % uniIdx
+    universeIdx = self % universeIdx
 
-  end function getUniIdx
+  end function getUniverseIdx
 
   !!
   !!
   !!
-  elemental function getUniRootId(self) result(uniRootId)
+  elemental function getUniverseRootId(self) result(universeRootId)
     class(coord), intent(in) :: self
-    integer(shortInt)        :: uniRootId
+    integer(shortInt)        :: universeRootId
 
-    uniRootId = self % uniRootId
+    universeRootId = self % universeRootId
 
-  end function getUniRootId
+  end function getUniverseRootId
 
   !!
   !! Returns .true. if coordinates are valid
@@ -236,10 +237,9 @@ contains
 
     ! Direction vector is normalised within floating point tolerance
     correct = areEqual(norm2(self % dir), ONE)
-
-    correct = correct .and. self % uniIdx  > 0
-    correct = correct .and. self % localId > 0
-    correct = correct .and. self % uniRootId > 0
+    correct = correct .and. 0 < self % localId
+    correct = correct .and. 0 < self % universeIdx
+    correct = correct .and. 0 < self % universeRootId
 
   end function isValid
 
@@ -249,16 +249,16 @@ contains
   elemental subroutine kill(self)
     class(coord), intent(inout) :: self
 
-    self % r = ZERO
+    self % cellIdx = 0
     self % dir = ZERO
+    self % elementIdx = 0
     self % isRotated = .false.
-    self % rotMat = ZERO
-    self % uniIdx = 0
-    self % uniRootId = 0
     self % localId = 0
     self % meshIdx = 0
-    self % cellIdx = 0
-    self % elementIdx = 0
+    self % universeIdx = 0
+    self % universeRootId = 0
+    self % r = ZERO
+    self % rotMat = ZERO
 
   end subroutine kill
 
@@ -387,24 +387,24 @@ contains
   !!
   !!
   !!
-  elemental subroutine setUniIdx(self, uniIdx)
+  elemental subroutine setUniverseIdx(self, universeIdx)
     class(coord), intent(inout)   :: self
-    integer(shortInt), intent(in) :: uniIdx
+    integer(shortInt), intent(in) :: universeIdx
 
-    self % uniIdx = uniIdx
+    self % universeIdx = universeIdx
 
-  end subroutine setUniIdx
+  end subroutine setUniverseIdx
 
   !!
   !!
   !!
-  elemental subroutine setUniRootId(self, uniRootId)
+  elemental subroutine setUniverseRootId(self, universeRootId)
     class(coord), intent(inout)   :: self
-    integer(shortInt), intent(in) :: uniRootId
+    integer(shortInt), intent(in) :: universeRootId
 
-    self % uniRootId = uniRootId
+    self % universeRootId = universeRootId
 
-  end subroutine setUniRootId
+  end subroutine setUniverseRootId
 
   !!
   !!
@@ -415,8 +415,8 @@ contains
 
     self % r = data % r
     self % dir = data % u
-    self % uniIdx = data % universeIdx
-    self % uniRootId = data % universeRootId
+    self % universeIdx = data % universeIdx
+    self % universeRootId = data % universeRootId
     self % cellIdx = data % cellIdx
     self % elementIdx = data % elementIdx
     self % meshIdx = data % meshIdx

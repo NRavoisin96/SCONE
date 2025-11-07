@@ -131,7 +131,7 @@ contains
 
     @assertEqual(r_ref, coords % getPosition(1), TOL)
     @assertEqual(u_ref, coords % getDirection(1), TOL)
-    @assertEqual(idx, coords % getMatIdx())
+    @assertEqual(idx, coords % getMaterialIdx())
 
     !*** Test global movement
     r = [ZERO, ZERO, ZERO]
@@ -150,7 +150,7 @@ contains
     @assertEqual(r_ref, coords % getPosition(1), TOL)
     @assertEqual(u_ref, coords % getDirection(1), TOL)
     @assertEqual(COLL_EV, event)
-    @assertEqual(idx, coords % getMatIdx())
+    @assertEqual(idx, coords % getMaterialIdx())
     @assertEqual(1.0_defReal, maxDist, TOL)
 
     ! Boundary Hit
@@ -165,7 +165,7 @@ contains
     @assertEqual(r_ref, coords % getPosition(1), TOL)
     @assertEqual(u_ref, coords % getDirection(1), TOL)
     @assertEqual(BOUNDARY_EV, event)
-    @assertEqual(idx, coords % getMatIdx())
+    @assertEqual(idx, coords % getMaterialIdx())
     @assertEqual(0.26_defReal, maxDist, TOL)
 
     !*** Normal Movement (easy case)
@@ -185,7 +185,7 @@ contains
     @assertEqual(r_ref, coords % getPosition(1), TOL)
     @assertEqual(u_ref, coords % getDirection(1), TOL)
     @assertEqual(CROSS_EV, event)
-    @assertEqual(idx, coords % getMatIdx())
+    @assertEqual(idx, coords % getMaterialIdx())
     @assertEqual(0.5_defReal, maxDist, TOL)
 
     ! Boundary Hit
@@ -199,7 +199,7 @@ contains
     @assertEqual(r_ref, coords % getPosition(1), TOL)
     @assertEqual(u_ref, coords % getDirection(1), TOL)
     @assertEqual(BOUNDARY_EV, event)
-    @assertEqual(idx, coords % getMatIdx())
+    @assertEqual(idx, coords % getMaterialIdx())
     @assertEqual(0.13_defReal, maxDist, TOL)
 
     ! Collision
@@ -213,7 +213,7 @@ contains
     @assertEqual(r_ref, coords % getPosition(1), TOL)
     @assertEqual(u_ref, coords % getDirection(1), TOL)
     @assertEqual(COLL_EV, event)
-    @assertEqual(idx, coords % getMatIdx())
+    @assertEqual(idx, coords % getMaterialIdx())
     @assertEqual(0.08_defReal, maxDist, TOL)
 
     ! Kill geometry

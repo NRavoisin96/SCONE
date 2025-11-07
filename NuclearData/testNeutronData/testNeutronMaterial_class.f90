@@ -1,9 +1,9 @@
 module testNeutronMaterial_class
 
+  use neutronMaterial_inter,   only : neutronMaterial
+  use neutronXsPackages_class, only : neutronMacroXSs
   use numPrecision
-  use particle_class,           only : particle
-  use neutronMaterial_inter,    only : neutronMaterial
-  use neutronXsPackages_class,  only : neutronMacroXSs
+  use transportObject_inter,   only : transportObject
 
   implicit none
   private
@@ -27,7 +27,6 @@ module testNeutronMaterial_class
     procedure :: kill
     procedure :: isFissile
     procedure :: getMacroXSs_byP
-
   end type testNeutronMaterial
 
 contains
@@ -60,9 +59,9 @@ contains
   !!
   !! See neutronMaterial_inter for more details
   !!
-  subroutine getMacroXSs_byP(self, p, xss)
+  subroutine getMacroXSs_byP(self, object, xss)
    class(testNeutronMaterial), intent(in) :: self
-   class(particle), intent(in)            :: p
+   class(transportObject), intent(in)     :: object
    type(neutronMacroXSs), intent(out)     :: xss
 
    xss = self % xss

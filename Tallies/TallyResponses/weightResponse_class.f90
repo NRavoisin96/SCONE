@@ -1,19 +1,18 @@
 module weightResponse_class
 
-  use numPrecision
+  use dictionary_class,       only : dictionary
   use endfConstants
-  use genericProcedures,          only : fatalError, numToChar
-  use dictionary_class,           only : dictionary
-  use particle_class,             only : particle, P_NEUTRON
-  use tallyResponse_inter,        only : tallyResponse
-
-  ! Nuclear Data interfaces
-  use nuclearDatabase_inter,      only : nuclearDatabase
-  use neutronMaterial_inter,      only : neutronMaterial, neutronMaterial_CptrCast
+  use errors_mod,             only : fatalError
+  use genericProcedures,      only : numToChar
+  use numPrecision
+  use nuclearDatabase_inter,  only : nuclearDatabase
+  use neutronMaterial_inter,  only : neutronMaterial, neutronMaterial_CptrCast
+  use physicalParticle_inter, only : castPhysicalParticlePtr, physicalParticle
+  use tallyResponse_inter,    only : tallyResponse
+  use transportObject_inter,  only : transportObject
 
   implicit none
   private
-
 
   !!
   !! tallyResponse for scoring particle weights
@@ -29,7 +28,7 @@ module weightResponse_class
   !!
   type, public, extends(tallyResponse) :: weightResponse
     private
-    integer(shortInt)    :: moment
+    integer(shortInt) :: moment = 0
   contains
     ! Superclass Procedures
     procedure  :: init
@@ -48,12 +47,11 @@ contains
   subroutine init(self, dict)
     class(weightResponse), intent(inout) :: self
     class(dictionary), intent(in)        :: dict
-    character(100), parameter :: Here ='init (weightResponse_class.f90)'
+    character(*), parameter              :: here = 'init (weightResponse_class.f90)'
 
     ! Get response moment to be calculated
     call dict % getOrDefault(self % moment, 'moment', 1)
-
-    if (self % moment < 0) call fatalError(Here, 'Moment must be bigger or equal zero.')
+    if (self % moment < 0) call fatalError(here, 'Moment must be larger than or equal to 0.')
 
   end subroutine init
 
@@ -65,33 +63,40 @@ contains
   !! Errors:
   !!   Return ZERO if particle is not a Neutron
   !!
-  subroutine get(self, p, val, xsData)
+  subroutine get(self, object, val, xsData)
     class(weightResponse), intent(in)               :: self
-    class(particle), intent(in)                     :: p
+    class(transportObject), intent(in)              :: object
     real(defReal), intent(out)                      :: val
     class(nuclearDatabase), intent(inout), optional :: xsData
-    integer(shortInt)                               :: matIdx
     class(neutronMaterial), pointer                 :: mat
+    class(physicalParticle), pointer                :: p
+    integer(shortInt)                               :: matIdx
+    real(defReal)                                   :: factor, weight
     character(*), parameter                         :: here = 'get (weightResponse_class.f90)'
 
     val = ZERO
 
-    ! Return 0.0 if particle is not neutron
-    if (p % type /= P_NEUTRON) return
+    ! Return if particle is not neutron.
+    p => castPhysicalParticlePtr(object)
+    if (.not. associated(p)) return
 
     ! Get pointer to active material data
-    matIdx = p % getMatIdx()
+    matIdx = p % getMaterialIdx()
     if (.not. present(xsData)) call fatalError(here, 'Nuclear database was not provided.')
     mat => neutronMaterial_CptrCast(xsData % getMaterial(matIdx))
 
     ! Return if material is not a neutronMaterial
     if (.not.associated(mat)) return
 
+    weight = p % getWeight()
     if (self % moment == 0) then
-      val = xsData % getTotalMatXS(p, matIdx) / (p % w)
+      factor = ONE / weight
+
     else
-      val = xsData % getTotalMatXS(p, matIdx) * ((p % w) ** (self % moment - 1))
+      factor = weight * (self % moment - 1)
+
     end if
+    val = xsData % getTotalMatXS(p, matIdx) * factor
 
   end subroutine get
 
@@ -101,7 +106,7 @@ contains
   elemental subroutine kill(self)
     class(weightResponse), intent(inout) :: self
 
-    ! Do nothing for nothing can be done
+    self % moment = 0
 
   end subroutine kill
 

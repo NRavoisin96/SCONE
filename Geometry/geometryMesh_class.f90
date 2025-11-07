@@ -280,7 +280,7 @@ contains
       event = BOUNDARY_EV
       boundaryConditions = meshPtr % getFaceBoundaryConditions(updateData % faceIdx)
       if (boundaryConditions(TRANSPORT_BCs) == VACUUM_BC) then
-        call coords % setMatIdx(OUTSIDE_FILL)
+        call coords % setMaterialIdx(OUTSIDE_FILL)
         call coords % setUniqueId(0)
 
       else
@@ -295,7 +295,7 @@ contains
       event = CROSS_EV
       updateData % r = coords % getPosition(1)
       call coords % updateCoordinatesFromData(1, updateData)
-      call coords % setMatIdx(self % fills(self % localIdOffsets(updateData % meshIdx) + updateData % localId))
+      call coords % setMaterialIdx(self % fills(self % localIdOffsets(updateData % meshIdx) + updateData % localId))
       call coords % setUniqueId(self % elementIdOffsets(updateData % meshIdx) + updateData % elementIdx)
 
     end if
@@ -342,7 +342,7 @@ contains
 
     ! Get material corresponding to localId in mesh.
     if (0 < data % meshIdx) then
-      call coords % setMatIdx(self % fills(self % localIdOffsets(data % meshIdx) + data % localId))
+      call coords % setMaterialIdx(self % fills(self % localIdOffsets(data % meshIdx) + data % localId))
       call coords % setUniqueId(self % elementIdOffsets(data % meshIdx) + data % elementIdx)
 
     end if
@@ -432,7 +432,7 @@ contains
     call self % placeCoord(coords)
 
     ! Return material & uniqueID
-    matIdx = coords % getMatIdx()
+    matIdx = coords % getMaterialIdx()
     uniqueID = coords % getUniqueId()
 
   end subroutine whatIsAt

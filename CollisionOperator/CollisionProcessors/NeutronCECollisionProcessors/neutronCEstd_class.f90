@@ -1,28 +1,20 @@
 module neutronCEstd_class
 
-  use numPrecision
-  use endfConstants
-  use genericProcedures,                 only : fatalError, rotateVector, numToChar
-  use dictionary_class,                  only : dictionary
-  use RNG_class,                         only : RNG
-
-  ! Particle types
-  use particle_class,                    only : particle, particleState
-  use particleDungeon_class,             only : particleDungeon
-
-  ! Abstarct interface
+  use CENeutron_class,                   only : castCENeutronPtr, CENeutron
+  use CENeutronState_class,              only : castCENeutronStatePtr, CENeutronState, newCENeutronState
+  use CEParticleState_class,             only : buildCEParticleStatePayload
   use collisionProcessor_inter,          only : collisionData
-  use neutronCECollisionProcessor_inter, only : neutronCECollisionProcessor, init_super => init
-
-  ! Nuclear Data Interfaces
-
-  ! Nuclear reactions
+  use dictionary_class,                  only : dictionary
+  use endfConstants
+  use errors_mod,                        only : fatalError
   use fissionCE_class,                   only : fissionCE, fissionCE_TptrCast
-
-  ! Cross-Section Packages
+  use genericProcedures,                 only : numToChar, rotateVector
+  use neutronCECollisionProcessor_inter, only : neutronCECollisionProcessor, init_super => init
   use neutronXsPackages_class,           only : neutronMicroXSs
-
-  ! Tally interfaces
+  use numPrecision
+  use particleDungeon_class,             only : particleDungeon
+  use physicalParticle_inter,            only : physicalParticle
+  use RNG_class,                         only : RNG
   use tallyAdmin_class,                  only : tallyAdmin
 
   implicit none
@@ -87,31 +79,38 @@ contains
   !! Perform implicit treatment
   !!
   subroutine implicit(self, p, tally, collDat, thisCycle, nextCycle)
-    class(neutronCEstd), intent(inout)    :: self
-    class(particle), intent(inout)        :: p
-    type(tallyAdmin), intent(inout)       :: tally
-    type(collisionData), intent(inout)    :: collDat
-    class(particleDungeon), intent(inout) :: thisCycle, nextCycle
-    type(fissionCE), pointer              :: fission
-    type(neutronMicroXSs)                 :: microXSs
-    type(particleState)                   :: pTemp
-    real(defReal), dimension(3)           :: r, dir
-    integer(shortInt)                     :: n, i
-    real(defReal)                         :: wgt, w0, randomNumber, E_out, mu, phi, &
-                                             sig_nufiss, sig_tot, k_eff
-    character(*), parameter               :: Here = 'implicit (neutronCEstd_class.f90)'
+    class(neutronCEstd), intent(inout)     :: self
+    class(physicalParticle), intent(inout) :: p
+    type(tallyAdmin), intent(inout)        :: tally
+    type(collisionData), intent(inout)     :: collDat
+    class(particleDungeon), intent(inout)  :: thisCycle, nextCycle
+    type(buildCEParticleStatePayload)      :: payload
+    type(CENeutron), pointer               :: CENeutronPtr
+    type(CENeutronState)                   :: newState
+    type(CENeutronState), pointer          :: preHistoryStatePtr
+    type(fissionCE), pointer               :: fission
+    type(neutronMicroXSs)                  :: microXSs
+    type(RNG), pointer                     :: RNGPtr
+    real(defReal)                          :: E, E_max, E_out, k_eff, mu, phi, randomNumber, &
+                                              sig_nufiss, sig_tot, wgt, w0
+    real(defReal), dimension(3)            :: uGlobal
+    integer(shortInt)                      :: i, n
+    character(*), parameter                :: Here = 'implicit (neutronCEstd_class.f90)'
+
+    CENeutronPtr => castCENeutronPtr(p, .true.)
 
     ! Generate fission sites if nuclide is fissile
     if (self % getNuclideIsFissile()) then
       ! Obtain required data
-      wgt = p % w                ! Current weight
-      w0 = p % preHistory % wgt ! Starting weight
-      k_eff = p % k_eff            ! k_eff for normalisation
-      call p % pRNG % generate(randomNumber)     ! Random number to sample sites
+      wgt = CENeutronPtr % getWeight()                ! Current weight
+      preHistoryStatePtr => castCENeutronStatePtr(CENeutronPtr % getPreHistoryStatePtr(), .true.)
+      w0 = preHistoryStatePtr % getWeight() ! Starting weight
+      k_eff = CENeutronPtr % getKEff()            ! k_eff for normalisation
+      RNGPtr => CENeutronPtr % getRNGPtr()
+      call RNGPtr % generate(randomNumber)     ! Random number to sample sites
 
       ! Retrieve cross section at the energy used for reaction sampling
-      call self % getNuclideMicroXS(collDat % E, collDat % kT, p % pRNG, microXSs)
-
+      call self % getNuclideMicroXS(collDat % E, collDat % kT, RNGPtr, microXSs)
       sig_nufiss = microXSs % nuFission
       sig_tot = microXSs % total
 
@@ -124,31 +123,23 @@ contains
 
       ! Get fission Reaction
       fission => fissionCE_TptrCast(self % getReaction(N_FISSION, collDat % nucIdx))
-      if (.not.associated(fission)) call fatalError(Here, "Failed to get fissionCE")
+      if (.not. associated(fission)) call fatalError(Here, 'Failed to retrieve fissionCE')
 
-      ! Store new sites in the next cycle dungeon
-      wgt =  sign(w0, wgt)
-      r = p % rGlobal()
-
+      ! Store new sites in the next cycle dungeon.
+      call CENeutronPtr % preparePayload(payload)
+      uGlobal = payload % uGlobal
+      payload % weight = sign(w0, wgt)
+      E = CENeutronPtr % getEnergy()
+      E_max = self % getMaximumEnergy()
       do i = 1, n
-        call fission % sampleOut(mu, phi, E_out, p % E, p % pRNG)
-        dir = rotateVector(p % dirGlobal(), mu, phi)
-        E_out = min(E_out, self % getMaximumEnergy())
-
-        ! Copy extra detail from parent particle (i.e. time, flags ect.)
-        pTemp = p
-
-        ! Overwrite position, direction, energy and weight
-        pTemp % r = r
-        pTemp % dir = dir
-        pTemp % E = E_out
-        pTemp % wgt = wgt
-        pTemp % collisionN = 0
-
-        call nextCycle % detain(pTemp)
+        call fission % sampleOut(mu, phi, E_out, E, RNGPtr)
+        payload % uGlobal = rotateVector(uGlobal, mu, phi)
+        payload % energy = min(E_out, E_max)
+        newState = newCENeutronState(payload)
+        call nextCycle % detain(newState)
 
         ! Report birth of new particle
-        call tally % reportSpawn(N_FISSION, p, pTemp)
+        call tally % reportSpawn(N_FISSION, CENeutronPtr, newState)
 
       end do
       
@@ -160,14 +151,13 @@ contains
   !! Process fission reaction
   !!
   subroutine fission(self, p, tally, collDat, thisCycle, nextCycle)
-    class(neutronCEstd), intent(inout)   :: self
-    class(particle), intent(inout)       :: p
-    type(tallyAdmin), intent(inout)      :: tally
-    type(collisionData), intent(inout)   :: collDat
-    class(particleDungeon), intent(inout) :: thisCycle
-    class(particleDungeon), intent(inout) :: nextCycle
+    class(neutronCEstd), intent(inout)     :: self
+    class(physicalParticle), intent(inout) :: p
+    type(tallyAdmin), intent(inout)        :: tally
+    type(collisionData), intent(inout)     :: collDat
+    class(particleDungeon), intent(inout)  :: thisCycle, nextCycle
 
-    p % isDead = .true.
+    call p % setIsDead(.true.)
 
   end subroutine fission
 
@@ -175,13 +165,15 @@ contains
   !! Apply cutoffs
   !!
   subroutine cutoffs(self, p, tally, collDat, thisCycle, nextCycle)
-    class(neutronCEstd), intent(inout)    :: self
-    class(particle), intent(inout)        :: p
-    type(tallyAdmin), intent(inout)       :: tally
-    type(collisionData), intent(inout)    :: collDat
-    class(particleDungeon), intent(inout) :: thisCycle, nextCycle
+    class(neutronCEstd), intent(inout)     :: self
+    class(physicalParticle), intent(inout) :: p
+    type(tallyAdmin), intent(inout)        :: tally
+    type(collisionData), intent(inout)     :: collDat
+    class(particleDungeon), intent(inout)  :: thisCycle, nextCycle
+    type(CENeutron), pointer               :: CENeutronPtr
 
-    if (p % E < self % getMinimumEnergy()) p % isDead = .true.
+    CENeutronPtr => castCENeutronPtr(p, .true.)
+    if (CENeutronPtr % getEnergy() < self % getMinimumEnergy()) call CENeutronPtr % setIsDead(.true.)
 
   end subroutine cutoffs
 

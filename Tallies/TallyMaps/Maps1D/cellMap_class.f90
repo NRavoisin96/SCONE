@@ -1,15 +1,16 @@
 module cellMap_class
 
-  use dictionary_class,        only : dictionary
-  use genericProcedures,       only : fatalError, numToChar
-  use geometry_inter,          only : geometry
-  use geometryReg_mod,         only : geomPtr, geomNum
-  use geometryStd_class,       only : geometryStd, geometryStd_CptrCast
-  use intMap_class,            only : intMap
+  use dictionary_class,           only : dictionary
+  use errors_mod,                 only : fatalError
+  use genericProcedures,          only : numToChar
+  use geometry_inter,             only : geometry
+  use geometryReg_mod,            only : geomPtr, geomNum
+  use geometryStd_class,          only : geometryStd, geometryStd_CptrCast
+  use intMap_class,               only : intMap
   use numPrecision
-  use outputFile_class,        only : outputFile
-  use particle_class,          only : particleState
-  use tallyMap1D_inter,        only : tallyMap1D, kill_super => kill
+  use outputFile_class,           only : outputFile
+  use tallyMap1D_inter,           only : tallyMap1D, kill_super => kill
+  use transportObjectState_class, only : transportObjectState
 
   implicit none
   private
@@ -50,8 +51,7 @@ module cellMap_class
   type, public, extends(tallyMap1D) :: cellMap
     private
     type(intMap)                                  :: binMap
-    integer(shortInt)                             :: default = 0
-    integer(shortInt)                             :: Nbins   = 0
+    integer(shortInt)                             :: default = 0, Nbins = 0
     integer(shortInt), dimension(:), allocatable  :: cellIdx
 
   contains
@@ -190,12 +190,12 @@ contains
   !!
   !! See tallyMap for specification
   !!
-  elemental function map(self,state) result(idx)
-    class(cellMap), intent(in)       :: self
-    class(particleState), intent(in) :: state
-    integer(shortInt)                :: idx
+  function map(self,state) result(idx)
+    class(cellMap), intent(in)              :: self
+    class(transportObjectState), intent(in) :: state
+    integer(shortInt)                       :: idx
 
-    idx = self % binMap % getOrDefault( state % cellIdx, self % default)
+    idx = self % binMap % getOrDefault(state % getCellIdx(), self % default)
 
   end function map
 

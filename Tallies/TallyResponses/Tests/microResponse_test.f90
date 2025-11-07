@@ -1,12 +1,12 @@
 module microResponse_test
 
+  use CENeutron_class,           only : CENeutron
   use dictionary_class,          only : dictionary
   use endfConstants
   use funit
   use materialMenu_mod,          only : init, kill
   use microResponse_class,       only : microResponse
   use numPrecision
-  use particle_class,            only : particle, P_NEUTRON
   use testNeutronDatabase_class, only : testNeutronDatabase
 
   implicit none
@@ -14,12 +14,9 @@ module microResponse_test
 @testCase
   type, extends(TestCase)     :: test_microResponse
     private
-    type(microResponse)       :: response_total
-    type(microResponse)       :: response_eScatter
-    type(microResponse)       :: response_capture
-    type(microResponse)       :: response_fission
-    type(microResponse)       :: response_absorption
-    type(microResponse)       :: response_heating
+    type(CENeutron)           :: testNeutron
+    type(microResponse)       :: response_absorption, response_capture, response_eScatter, &
+                                 response_fission, response_heating, response_total
     type(testNeutronDatabase) :: xsData
   contains
     procedure :: setUp
@@ -104,6 +101,8 @@ contains
     call this % response_heating % init(tempDict)
     call tempDict % kill()
 
+    call this % testNeutron % init()
+
   end subroutine setUp
 
   !!
@@ -114,6 +113,7 @@ contains
 
     ! Kill and deallocate testTransportNuclearData
     call this % xsData % kill()
+    call this % testNeutron % kill()
     call kill()
 
   end subroutine tearDown
@@ -128,30 +128,27 @@ contains
 @Test
   subroutine testGettingResponse(this)
     class(test_microResponse), intent(inout) :: this
-    type(particle)                           :: p
     real(defReal)                            :: result
-    real(defReal), parameter                 :: tol = 1.0E-9
-
-    p % type = P_NEUTRON
+    real(defReal), parameter                 :: TOL = 1.0E-9
 
     ! Test response values
-    call this % response_total % get(p, result, this % xsData)
-    @assertEqual(3.0_defReal, result, tol)
+    call this % response_total % get(this % testNeutron, result, this % xsData)
+    @assertEqual(3.0_defReal, result, TOL)
 
-    call this % response_capture % get(p, result, this % xsData)
-    @assertEqual(1.0_defReal, result, tol)
+    call this % response_capture % get(this % testNeutron, result, this % xsData)
+    @assertEqual(1.0_defReal, result, TOL)
 
-    call this % response_fission % get(p, result, this % xsData)
-    @assertEqual(0.5_defReal, result, tol)
+    call this % response_fission % get(this % testNeutron, result, this % xsData)
+    @assertEqual(0.5_defReal, result, TOL)
 
-    call this % response_eScatter % get(p, result, this % xsData)
-    @assertEqual(1.5_defReal, result, tol)
+    call this % response_eScatter % get(this % testNeutron, result, this % xsData)
+    @assertEqual(1.5_defReal, result, TOL)
 
-    call this % response_absorption % get(p, result, this % xsData)
-    @assertEqual(1.5_defReal, result, tol)
+    call this % response_absorption % get(this % testNeutron, result, this % xsData)
+    @assertEqual(1.5_defReal, result, TOL)
 
-    call this % response_heating % get(p, result, this % xsData)
-    @assertEqual(4.5_defReal, result, tol)
+    call this % response_heating % get(this % testNeutron, result, this % xsData)
+    @assertEqual(4.5_defReal, result, TOL)
 
   end subroutine testGettingResponse
 

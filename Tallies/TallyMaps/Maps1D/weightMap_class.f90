@@ -1,13 +1,13 @@
 module weightMap_class
 
+  use dictionary_class,           only : dictionary
+  use errors_mod,                 only : fatalError
+  use grid_class,                 only : grid
   use numPrecision
+  use outputFile_class,           only : outputFile
+  use tallyMap1D_inter,           only : tallyMap1D, kill_super => kill
+  use transportObjectState_class, only : transportObjectState
   use universalVariables
-  use genericProcedures,   only : fatalError
-  use dictionary_class,    only : dictionary
-  use grid_class,          only : grid
-  use particle_class,      only : particleState
-  use outputFile_class,    only : outputFile
-  use tallyMap1D_inter,    only : tallyMap1D, kill_super => kill
 
   implicit none
   private
@@ -192,13 +192,13 @@ contains
   !!
   !! See tallyMap for specification
   !!
-  elemental function map(self,state) result(idx)
-    class(weightMap), intent(in)     :: self
-    class(particleState), intent(in) :: state
-    integer(shortInt)                :: idx
+  function map(self, state) result(idx)
+    class(weightMap), intent(in)            :: self
+    class(transportObjectState), intent(in) :: state
+    integer(shortInt)                       :: idx
 
     ! Find position on the grid
-    idx = self % binBounds % search(state % wgt)
+    idx = self % binBounds % search(state % getWeight())
     if (idx == valueOutsideArray) idx = 0
 
   end function map

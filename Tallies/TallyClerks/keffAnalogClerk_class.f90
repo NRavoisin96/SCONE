@@ -1,16 +1,14 @@
 module keffAnalogClerk_class
 
-  use numPrecision
-  use tallyCodes
   use dictionary_class,      only : dictionary
-  use genericProcedures,     only : fatalError
-  use particle_class,        only : particle
-  use particleDungeon_class, only : particleDungeon
+  use errors_mod,            only : fatalError
+  use numPrecision
   use outputFile_class,      only : outputFile
-
+  use particleDungeon_class, only : particleDungeon
   use scoreMemory_class,     only : scoreMemory
-  use tallyResult_class,     only : tallyResult, tallyResultEmpty
   use tallyClerk_inter,      only : tallyClerk, kill_super => kill
+  use tallyCodes
+  use tallyResult_class,     only : tallyResult, tallyResultEmpty
 
   implicit none
   private
@@ -137,7 +135,6 @@ contains
     ! Update start population weight
     self % startPopWgt = self % startPopWgt + start % popWeight()
 
-
   end subroutine reportCycleStart
 
   !!
@@ -156,14 +153,14 @@ contains
 
     ! Close batch
     if (mem % lastCycle()) then
-      k_norm = end % k_eff
+      k_norm = end % getKEff()
 
       ! Calculate and score analog estimate of k-eff
       k_eff =  self % endPopWgt / self % startPopWgt * k_norm
-      call mem % accumulate(k_eff, self % getMemAddress() )
-
+      call mem % accumulate(k_eff, self % getMemAddress())
       self % startPopWgt = ZERO
-      self % endPopWgt   = ZERO
+      self % endPopWgt = ZERO
+      
     end if
 
   end subroutine reportCycleEnd

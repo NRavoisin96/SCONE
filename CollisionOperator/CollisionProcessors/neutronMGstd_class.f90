@@ -1,32 +1,24 @@
 module neutronMGstd_class
 
-  use numPrecision
+  use collisionProcessor_inter, only : collisionProcessor, collisionData ,init_super => init
+  use dictionary_class,         only : dictionary
   use endfConstants
-  use genericProcedures,             only : fatalError, rotateVector, numToChar
-  use dictionary_class,              only : dictionary
-  use RNG_class,                     only : RNG
-
-  ! Particle types
-  use particle_class,                only : particle, particleState, printType, P_NEUTRON
-  use particleDungeon_class,         only : particleDungeon
-
-  ! Abstract interface
-  use collisionProcessor_inter,      only : collisionProcessor, collisionData ,init_super => init
-
-  ! Nuclear Data Interface
-  use nuclearDataReg_mod,            only : ndReg_getNeutronMG => getNeutronMG
-  use nuclearDatabase_inter,         only : nuclearDatabase
-  use mgNeutronDatabase_inter,       only : mgNeutronDatabase
-  use mgNeutronMaterial_inter,       only : mgNeutronMaterial, mgNeutronMaterial_CptrCast
-  use reactionHandle_inter,          only : reactionHandle
-  use multiScatterMG_class,          only : multiScatterMG, multiScatterMG_CptrCast
-  use fissionMG_class,               only : fissionMG, fissionMG_TptrCast
-
-  ! Cross section packages
-  use neutronXsPackages_class,       only : neutronMacroXSs
-
-  ! Tally interfaces
-  use tallyAdmin_class,              only : tallyAdmin
+  use errors_mod,               only : fatalError
+  use fissionMG_class,          only : fissionMG, fissionMG_TptrCast
+  use genericProcedures,        only : numToChar, rotateVector
+  use MGNeutron_class,          only : castMGNeutronPtr, MGNeutron
+  use mgNeutronDatabase_inter,  only : mgNeutronDatabase
+  use mgNeutronMaterial_inter,  only : mgNeutronMaterial, mgNeutronMaterial_CptrCast
+  use MGParticleState_class,    only : castMGParticleStatePtr, MGParticleState
+  use multiScatterMG_class,     only : multiScatterMG, multiScatterMG_CptrCast
+  use neutronXsPackages_class,  only : neutronMacroXSs
+  use nuclearDatabase_inter,    only : nuclearDatabase
+  use nuclearDataReg_mod,       only : ndReg_getNeutronMG => getNeutronMG
+  use numPrecision
+  use particleDungeon_class,    only : particleDungeon
+  use physicalParticle_inter,   only : physicalParticle
+  use RNG_class,                only : RNG
+  use tallyAdmin_class,         only : tallyAdmin
 
   implicit none
   private
@@ -83,29 +75,30 @@ contains
   !! Samples collision without any implicit treatment
   !!
   subroutine sampleCollision(self, p, collDat)
-    class(neutronMGstd), intent(inout) :: self
-    class(particle), intent(inout)     :: p
-    type(collisionData), intent(inout) :: collDat
-    type(neutronMacroXSs)              :: macroXSs
-    real(defReal)                      :: randomNumber
-    character(*), parameter            :: Here = 'sampleCollision (neutronMGstd_class.f90)'
+    class(neutronMGstd), intent(inout)     :: self
+    class(physicalParticle), intent(inout) :: p
+    type(collisionData), intent(inout)     :: collDat
+    real(defReal)                          :: randomNumber
+    type(MGNeutron), pointer               :: MGNeutronPtr
+    type(neutronMacroXSs)                  :: macroXSs
+    type(RNG), pointer                     :: RNGPtr
+    character(*), parameter                :: Here = 'sampleCollision (neutronMGstd_class.f90)'
 
     ! Verify that particle is MG neutron
-    if (.not. p % isMG .or. p % type /= P_NEUTRON) then
-      call fatalError(Here, 'Supports only MG Neutron. Was given CE '//printType(p % type))
-    end if
+    MGNeutronPtr => castMGNeutronPtr(p, .true.)
 
     ! Verify and load nuclear data pointer
     self % xsData => ndReg_getNeutronMG()
-    if (.not.associated(self % xsData)) call fatalError(Here, "Failed to get active database for MG Neutron")
+    if (.not. associated(self % xsData)) call fatalError(Here, "Failed to get active database for MG Neutron")
 
     ! Get and verify material pointer
-    self % mat => mgNeutronMaterial_CptrCast( self % xsData % getMaterial(p % getMatIdx()))
-    if (.not.associated(self % mat)) call fatalError(Here, "Failed to get MG Neutron Material")
+    self % mat => mgNeutronMaterial_CptrCast( self % xsData % getMaterial(MGNeutronPtr % getMaterialIdx()))
+    if (.not. associated(self % mat)) call fatalError(Here, "Failed to get MG Neutron Material")
 
     ! Select Main reaction channel
-    call self % mat % getMacroXSs(p % G, macroXSs, p % pRNG)
-    call p % pRNG % generate(randomNumber)
+    RNGPtr => MGNeutronPtr % getRNGPtr()
+    call self % mat % getMacroXSs(MGNeutronPtr % getEnergyGroup(), macroXSs, RNGPtr)
+    call RNGPtr % generate(randomNumber)
     collDat % MT = macroXSs % invert(randomNumber)
 
   end subroutine sampleCollision
@@ -114,31 +107,34 @@ contains
   !! Preform implicit treatment
   !!
   subroutine implicit(self, p, tally, collDat, thisCycle, nextCycle)
-    class(neutronMGstd), intent(inout)   :: self
-    class(particle), intent(inout)       :: p
-    type(tallyAdmin), intent(inout)      :: tally
-    type(collisionData), intent(inout)   :: collDat
-    class(particleDungeon), intent(inout) :: thisCycle
-    class(particleDungeon), intent(inout) :: nextCycle
-    type(neutronMacroXSs)                :: macroXSs
-    type(fissionMG), pointer              :: fission
-    type(particleState)                  :: pTemp
-    real(defReal), dimension(3)           :: r, dir
-    integer(shortInt)                    :: G_out, n, i
-    real(defReal)                        :: wgt, w0, randomNumber, mu, phi
-    real(defReal)                        :: sig_tot, k_eff, sig_nufiss
-    character(*), parameter :: Here = 'implicit (neutronMGstd_class.f90)'
+    class(neutronMGstd), intent(inout)     :: self
+    class(physicalParticle), intent(inout) :: p
+    type(tallyAdmin), intent(inout)        :: tally
+    type(collisionData), intent(inout)     :: collDat
+    class(particleDungeon), intent(inout)  :: thisCycle, nextCycle
+    integer(shortInt)                      :: G, G_out, i, n
+    real(defReal)                          :: k_eff, mu, phi, randomNumber, sig_nufiss, sig_tot, wgt, w0
+    real(defReal), dimension(3)            :: rGlobal, u, uGlobal
+    type(fissionMG), pointer               :: fission
+    type(MGNeutron), pointer               :: MGNeutronPtr
+    type(MGParticleState), pointer         :: MGParticleStatePtr, preHistoryStatePtr
+    type(neutronMacroXSs)                  :: macroXSs
+    type(RNG), pointer                     :: RNGPtr
+    character(*), parameter                :: Here = 'implicit (neutronMGstd_class.f90)'
 
+    MGNeutronPtr => castMGNeutronPtr(p, .true.)
     if (self % mat % isFissile()) then
       ! Obtain required data
-      wgt   = p % w                ! Current weight
-      w0    = p % preHistory % wgt ! Starting weight
-      k_eff = p % k_eff            ! k_eff for normalisation
-      call p % pRNG % generate(randomNumber)    ! Random number to sample sites
+      wgt = MGNeutronPtr % getWeight()                ! Current weight
+      preHistoryStatePtr => castMGParticleStatePtr(MGNeutronPtr % getPreHistoryStatePtr(), .true.)
+      w0 = preHistoryStatePtr % getWeight() ! Starting weight
+      k_eff = MGNeutronPtr % getKEff() ! k_eff for normalisation
+      RNGPtr => MGNeutronPtr % getRNGPtr()
+      call RNGptr % generate(randomNumber)    ! Random number to sample sites
 
-      call self % mat % getMacroXSs(p % G, macroXSs, p % pRNG)
-
-      sig_tot    = macroXSs % total
+      G = MGNeutronPtr % getEnergyGroup()
+      call self % mat % getMacroXSs(G, macroXSs, RNGPtr)
+      sig_tot = macroXSs % total
       sig_nuFiss = macroXSs % nuFission
 
       ! Sample number of fission sites generated
@@ -149,33 +145,34 @@ contains
       if (n < 1) return
 
       ! Get Fission reaction object
-      fission => fissionMG_TptrCast( self % xsData % getReaction(macroFission, collDat % matIdx))
-      if (.not.associated(fission)) call fatalError(Here, 'Failed to getrive fissionMG reaction object')
+      fission => fissionMG_TptrCast(self % xsData % getReaction(macroFission, collDat % matIdx))
+      if (.not. associated(fission)) call fatalError(Here, 'Failed to getrive fissionMG reaction object')
 
       ! Store new sites in the next cycle dungeon
-      wgt =  sign(w0, wgt)
-      r   = p % rGlobal()
-
+      wgt = sign(w0, wgt)
+      rGlobal = MGNeutronPtr % getGlobalPosition()
+      uGlobal = MGNeutronPtr % getGlobalDirection()
       do i= 1, n
-        call fission % sampleOut(mu, phi, G_out, p % G, p % pRNG)
-        dir = rotateVector(p % dirGlobal(), mu, phi)
+        call fission % sampleOut(mu, phi, G_out, G, RNGPtr)
+        u = rotateVector(uGlobal, mu, phi)
 
         ! Copy extra detail from parent particle (i.e. time, flags ect.)
-        pTemp       = p
+        MGParticleStatePtr => castMGParticleStatePtr(MGNeutronPtr % updateAndGetCurrentStatePtr(), .true.)
 
         ! Overwrite position, direction, energy group and weight
-        pTemp % r   = r
-        pTemp % dir = dir
-        pTemp % G   = G_out
-        pTemp % wgt = wgt
-        pTemp % collisionN = 0
+        call MGParticleStatePtr % setGlobalPosition(rGlobal)
+        call MGParticleStatePtr % setGlobalDirection(u)
+        call MGParticleStatePtr % setEnergyGroup(G_out)
+        call MGParticleStatePtr % setWeight(wgt)
+        call MGParticleStatePtr % setCollisionsNumber(0)
 
-        call nextCycle % detain(pTemp)
+        call nextCycle % detain(MGParticleStatePtr)
 
         ! Report birth of new particle
-        call tally % reportSpawn(N_FISSION, p, pTemp)
+        call tally % reportSpawn(N_FISSION, MGNeutronPtr, MGParticleStatePtr)
 
       end do
+
     end if
 
   end subroutine implicit
@@ -184,12 +181,11 @@ contains
   !! Elastic Scattering
   !!
   subroutine elastic(self, p, tally, collDat, thisCycle, nextCycle)
-    class(neutronMGstd), intent(inout)   :: self
-    class(particle), intent(inout)       :: p
-    type(tallyAdmin), intent(inout)      :: tally
-    type(collisionData), intent(inout)   :: collDat
-    class(particleDungeon), intent(inout) :: thisCycle
-    class(particleDungeon), intent(inout) :: nextCycle
+    class(neutronMGstd), intent(inout)     :: self
+    class(physicalParticle), intent(inout) :: p
+    type(tallyAdmin), intent(inout)        :: tally
+    type(collisionData), intent(inout)     :: collDat
+    class(particleDungeon), intent(inout)  :: thisCycle, nextCycle
 
     ! Do nothing. Should not be called
 
@@ -199,34 +195,36 @@ contains
   !! Preform scattering
   !!
   subroutine inelastic(self, p, tally, collDat, thisCycle, nextCycle)
-    class(neutronMGstd), intent(inout)   :: self
-    class(particle), intent(inout)       :: p
-    type(tallyAdmin), intent(inout)      :: tally
-    type(collisionData), intent(inout)   :: collDat
-    class(particleDungeon), intent(inout) :: thisCycle
-    class(particleDungeon), intent(inout) :: nextCycle
-    class(multiScatterMG), pointer        :: scatter
-    integer(shortInt)                    :: G_out   ! Post-collision energy group
-    real(defReal)                        :: phi     ! Azimuthal scatter angle
-    real(defReal)                        :: w_mul   ! Weight multiplier
-    character(100), parameter :: Here = "inelastic (neutronMGstd_class.f90)"
+    class(neutronMGstd), intent(inout)     :: self
+    class(physicalParticle), intent(inout) :: p
+    type(tallyAdmin), intent(inout)        :: tally
+    type(collisionData), intent(inout)     :: collDat
+    class(particleDungeon), intent(inout)  :: thisCycle, nextCycle
+    class(multiScatterMG), pointer         :: scatter
+    integer(shortInt)                      :: G, G_out   ! Post-collision energy group
+    real(defReal)                          :: phi, w_mul
+    type(MGNeutron), pointer               :: MGNeutronPtr
+    character(*), parameter                :: Here = "inelastic (neutronMGstd_class.f90)"
+
+    MGNeutronPtr => castMGNeutronPtr(p, .true.)
 
     ! Assign MT number
     collDat % MT = macroIEscatter
 
     ! Get Scatter object
-    scatter => multiScatterMG_CptrCast( self % xsData % getReaction(macroIEscatter, collDat % matIdx))
-    if (.not.associated(scatter)) call fatalError(Here, "Failed to get scattering reaction object for MG neutron")
+    scatter => multiScatterMG_CptrCast(self % xsData % getReaction(macroIEscatter, collDat % matIdx))
+    if (.not. associated(scatter)) call fatalError(Here, "Failed to get scattering reaction object for MG neutron")
 
     ! Sample Mu and G_out
-    call scatter % sampleOut(collDat % muL, phi, G_out, p % G, p % pRNG)
+    G = MGNeutronPtr % getEnergyGroup()
+    call scatter % sampleOut(collDat % muL, phi, G_out, G, p % getRNGPtr())
 
     ! Read scattering multiplicity
-    w_mul = scatter % production(p % G, G_out)
+    w_mul = scatter % production(G, G_out)
 
     ! Update neutron state
-    p % G = G_out
-    p % w = p % w * w_mul
+    call MGNeutronPtr % setEnergyGroup(G_out)
+    call MGNeutronPtr % setWeight(MGNeutronPtr % getWeight() * w_mul)
     call p % rotate(collDat % muL, phi)
 
   end subroutine inelastic
@@ -235,14 +233,13 @@ contains
   !! Preform capture
   !!
   subroutine capture(self, p, tally, collDat, thisCycle, nextCycle)
-    class(neutronMGstd), intent(inout)   :: self
-    class(particle), intent(inout)       :: p
-    type(tallyAdmin), intent(inout)      :: tally
-    type(collisionData), intent(inout)   :: collDat
-    class(particleDungeon), intent(inout) :: thisCycle
-    class(particleDungeon), intent(inout) :: nextCycle
+    class(neutronMGstd), intent(inout)     :: self
+    class(physicalParticle), intent(inout) :: p
+    type(tallyAdmin), intent(inout)        :: tally
+    type(collisionData), intent(inout)     :: collDat
+    class(particleDungeon), intent(inout)  :: thisCycle, nextCycle
 
-    p % isDead = .true.
+    call p % setIsDead(.true.)
 
   end subroutine capture
 
@@ -250,14 +247,13 @@ contains
   !! Preform fission
   !!
   subroutine fission(self, p, tally, collDat, thisCycle, nextCycle)
-    class(neutronMGstd), intent(inout)   :: self
-    class(particle), intent(inout)       :: p
-    type(tallyAdmin), intent(inout)      :: tally
-    type(collisionData), intent(inout)   :: collDat
-    class(particleDungeon), intent(inout) :: thisCycle
-    class(particleDungeon), intent(inout) :: nextCycle
+    class(neutronMGstd), intent(inout)     :: self
+    class(physicalParticle), intent(inout) :: p
+    type(tallyAdmin), intent(inout)        :: tally
+    type(collisionData), intent(inout)     :: collDat
+    class(particleDungeon), intent(inout)  :: thisCycle, nextCycle
 
-    p % isDead = .true.
+    call p % setIsDead(.true.)
 
   end subroutine fission
 
@@ -265,12 +261,11 @@ contains
   !! Applay cutoffs or post-collision implicit treatment
   !!
   subroutine cutoffs(self, p, tally, collDat, thisCycle, nextCycle)
-    class(neutronMGstd), intent(inout)   :: self
-    class(particle), intent(inout)       :: p
-    type(tallyAdmin), intent(inout)      :: tally
-    type(collisionData), intent(inout)   :: collDat
-    class(particleDungeon), intent(inout) :: thisCycle
-    class(particleDungeon), intent(inout) :: nextCycle
+    class(neutronMGstd), intent(inout)     :: self
+    class(physicalParticle), intent(inout) :: p
+    type(tallyAdmin), intent(inout)        :: tally
+    type(collisionData), intent(inout)     :: collDat
+    class(particleDungeon), intent(inout)  :: thisCycle, nextCycle
 
     ! Do nothing
 

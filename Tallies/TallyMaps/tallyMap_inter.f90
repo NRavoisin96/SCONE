@@ -1,9 +1,9 @@
 module tallyMap_inter
 
-  use dictionary_class,  only : dictionary
+  use dictionary_class,           only : dictionary
   use numPrecision
-  use outputFile_class,  only : outputFile
-  use particle_class,    only : particleState
+  use outputFile_class,           only : outputFile
+  use transportObjectState_class, only : transportObjectState
 
   implicit none
   private
@@ -39,9 +39,7 @@ module tallyMap_inter
   ! Procedures extendable in subclasses
   public :: kill
 
-
   abstract interface
-
     !!
     !! Initialise tallyMap from a dictionary
     !!
@@ -52,8 +50,7 @@ module tallyMap_inter
     !!   Returns fatalError for invalid input
     !!
     subroutine init(self, dict)
-      import :: tallyMap, &
-                dictionary
+      import                         :: dictionary, tallyMap
       class(tallyMap), intent(inout) :: self
       class(dictionary), intent(in)  :: dict
     end subroutine init
@@ -70,8 +67,7 @@ module tallyMap_inter
     !!   Returns 0 for invalid D (e.g. -ve)
     !!
     elemental function bins(self, D) result(N)
-      import :: tallyMap, &
-                shortInt
+      import                        :: shortInt, tallyMap
       class(tallyMap), intent(in)   :: self
       integer(shortInt), intent(in) :: D
       integer(shortInt)             :: N
@@ -87,10 +83,9 @@ module tallyMap_inter
     !!   Integer giving number of dimensions in the map
     !!
     elemental function dimensions(self) result(D)
-      import :: tallyMap, &
-                shortInt
-      class(tallyMap), intent(in)    :: self
-      integer(shortInt)              :: D
+      import                      :: shortInt, tallyMap
+      class(tallyMap), intent(in) :: self
+      integer(shortInt)           :: D
     end function dimensions
 
     !!
@@ -103,8 +98,7 @@ module tallyMap_inter
     !!   Left-adjusted, nameLen long character with the name of the axis type (e.g. x-coord)
     !!
     function getAxisName(self) result(name)
-      import :: tallyMap, &
-                nameLen
+      import                      :: nameLen, tallyMap
       class(tallyMap), intent(in) :: self
       character(nameLen)          :: name
     end function getAxisName
@@ -119,13 +113,11 @@ module tallyMap_inter
     !!   Integer specifying the bin index for given particle state.
     !!   Returns 0 if the particle is outside the mapable range
     !!
-    elemental function map(self,state) result(idx)
-      import :: tallyMap,      &
-                particleState, &
-                shortInt
-      class(tallyMap), intent(in)      :: self
-      class(particleState), intent(in) :: state
-      integer(shortInt)                :: idx
+    function map(self, state) result(idx)
+      import                                  :: shortInt, tallyMap, transportObjectState
+      class(tallyMap), intent(in)             :: self
+      class(transportObjectState), intent(in) :: state
+      integer(shortInt)                       :: idx
     end function map
 
     !!
@@ -135,8 +127,7 @@ module tallyMap_inter
     !!   out [inout] -> initialised outputFile
     !!
     subroutine print(self, out)
-      import :: tallyMap, &
-                outputFile
+      import                           :: outputFile, tallyMap
       class(tallyMap), intent(in)      :: self
       class(outputFile), intent(inout) :: out
     end subroutine print

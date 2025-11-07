@@ -1,24 +1,24 @@
 module cellMap_test
-  use numPrecision
-  use universalVariables,   only : VOID_MAT
-  use particle_class,       only : particleState
-  use dictionary_class,     only : dictionary
-  use dictParser_func,      only : charToDict
-  use charMap_class,        only : charMap
-  use outputFile_class,     only : outputFile
-  use cellMap_class,        only : cellMap
-  use geometryReg_mod,      only : gr_kill => kill
-  use geometryFactory_func, only : new_geometry
-  use materialMenu_mod,     only : mm_nameMap => nameMap
+
+  use cellMap_class,              only : cellMap
+  use charMap_class,              only : charMap
+  use dictionary_class,           only : dictionary
+  use dictParser_func,            only : charToDict
   use funit
+  use geometryFactory_func,       only : new_geometry
+  use geometryReg_mod,            only : gr_kill => kill
+  use materialMenu_mod,           only : mm_nameMap => nameMap
+  use numPrecision
+  use outputFile_class,           only : outputFile
+  use transportObjectState_class, only : transportObjectState
+  use universalVariables,         only : VOID_MAT
 
   implicit none
 
 @testCase
   type, extends(TestCase) :: test_cellMap
     private
-    type(cellMap), allocatable :: map_noUndef
-    type(cellMap), allocatable :: map_Undef
+    type(cellMap), allocatable :: map_noUndef, map_Undef
   contains
     procedure :: setUp
     procedure :: tearDown
@@ -45,7 +45,7 @@ module cellMap_test
   integer(shortInt), dimension(*), parameter :: CELL_IN_MAP = [2, 5, 3]
 
 contains
-
+@Before
   !!
   !! Sets up test_intMap object we can use in a number of tests
   !!
@@ -55,11 +55,12 @@ contains
     character(nameLen)                 :: name
 
     call dict % init(6)
-    call dict % store('type','geometryStd')
+    call dict % store('type', 'geometryStd')
     call dict % store('boundary', [0, 0, 0, 0, 0, 0])
+    
     ! Store graph
     call dictTemp % init(1)
-    call dictTemp % store('type','shrunk')
+    call dictTemp % store('type', 'shrunk')
     call dict % store('graph', dictTemp)
     call dictTemp % kill()
 
@@ -95,6 +96,7 @@ contains
 
   end subroutine setUp
 
+@After
   !!
   !! Kills test_intMap object we can use in a number of tests
   !!
@@ -116,18 +118,18 @@ contains
   !!
   @Test
   subroutine testMappingNoUndefined(this)
-    class(test_cellMap), intent(inout)       :: this
-    type(particleState)                      :: state
-    integer(shortInt)                        :: i
-    integer(shortInt), dimension(5)           :: bins
+    class(test_cellMap), intent(inout)         :: this
+    integer(shortInt)                          :: i
+    integer(shortInt), dimension(5)            :: bins
+    type(transportObjectState)                 :: state
     integer(shortInt), dimension(5), parameter :: EXPECTED_BINS = [1, 0, 2, 3, 0]
 
     do i = 1, size(EXPECTED_BINS)
-      state % cellIdx = i
+      call state % setLowestCellIdx(i)
       bins(i) = this % map_noUndef % map(state)
-    end do
 
-    @assertEqual(EXPECTED_BINS,bins)
+    end do
+    @assertEqual(EXPECTED_BINS, bins)
 
   end subroutine testMappingNoUndefined
 
@@ -136,18 +138,18 @@ contains
   !!
   @Test
   subroutine testMappingUndefined(this)
-    class(test_cellMap), intent(inout)       :: this
-    type(particleState)                      :: state
-    integer(shortInt)                        :: i
-    integer(shortInt), dimension(5)           :: bins
+    class(test_cellMap), intent(inout)         :: this
+    integer(shortInt)                          :: i
+    integer(shortInt), dimension(5)            :: bins
+    type(transportObjectState)                 :: state
     integer(shortInt), dimension(5), parameter :: EXPECTED_BINS = [1, 4, 2, 3, 4]
 
     do i = 1, size(EXPECTED_BINS)
-      state % cellIdx = i
+      call state % setLowestCellIdx(i)
       bins(i) = this % map_undef % map(state)
-    end do
 
-    @assertEqual(EXPECTED_BINS,bins)
+    end do
+    @assertEqual(EXPECTED_BINS, bins)
 
   end subroutine testMappingUndefined
 
@@ -158,11 +160,11 @@ contains
   subroutine testNumberOfBinsInquiry(this)
     class(test_cellMap), intent(inout) :: this
 
-    @assertEqual(3, this % map_noUndef % bins(1),'cellMap without undefined bin')
-    @assertEqual(4, this % map_undef % bins(1),'cellMap with undefined bin')
-    @assertEqual(3, this % map_noUndef % bins(0), 'Number of all bins')
-    @assertEqual(0, this % map_noUndef % bins(2), 'higher dimension')
-    @assertEqual(0, this % map_noUndef % bins(-2),'invalid dimension')
+    @assertEqual(3, this % map_noUndef % bins(1), 'cellMap without undefined bin.')
+    @assertEqual(4, this % map_undef % bins(1), 'cellMap with undefined bin.')
+    @assertEqual(3, this % map_noUndef % bins(0), 'Number of bins.')
+    @assertEqual(0, this % map_noUndef % bins(2), 'Higher dimension.')
+    @assertEqual(0, this % map_noUndef % bins(-2), 'Invalid dimension.')
 
   end subroutine testNumberOfBinsInquiry
 
@@ -178,11 +180,11 @@ contains
     call out % init('dummyPrinter', fatalErrors = .false.)
 
     call this % map_noUndef % print(out)
-    @assertTrue(out % isValid(),'For map with no undefined cell bin: ')
+    @assertTrue(out % isValid(), 'For map with no undefined cell bin: ')
     call out % reset()
 
     call this % map_undef % print(out)
-    @assertTrue(out % isValid(),'For map with undefined cell bin: ')
+    @assertTrue(out % isValid(), 'For map with undefined cell bin: ')
     call out % reset()
 
   end subroutine testPrint

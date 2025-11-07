@@ -1,21 +1,21 @@
 module weightResponse_test
 
-  use dictionary_class,          only : dictionary
+  use dictionary_class,           only : dictionary
   use endfConstants
   use funit
   use numPrecision
-  use particle_class,            only : particle, P_NEUTRON
-  use testNeutronDatabase_class, only : testNeutronDatabase
-  use weightResponse_class,      only : weightResponse
+  use testNeutronDatabase_class,  only : testNeutronDatabase
+  use testPhysicalParticle_class, only : testPhysicalParticle
+  use weightResponse_class,       only : weightResponse
 
   implicit none
 
 @testCase
   type, extends(TestCase) :: test_weightResponse
     private
-    type(weightResponse)      :: response_weight_m0
-    type(weightResponse)      :: response_weight_m2
-    type(testNeutronDatabase) :: xsData
+    type(testNeutronDatabase)  :: xsData
+    type(testPhysicalParticle) :: testParticle
+    type(weightResponse)       :: response_weight_m0, response_weight_m2
   contains
     procedure :: setUp
     procedure :: tearDown
@@ -45,6 +45,8 @@ contains
     call this % response_weight_m2 % init(tempDict)
     call tempDict % kill()
 
+    call this % testParticle % init()
+
   end subroutine setUp
 
   !!
@@ -55,6 +57,7 @@ contains
 
     ! Kill and deallocate testTransportNuclearData
     call this % xsData % kill()
+    call this % testParticle % kill()
 
   end subroutine tearDown
 
@@ -68,19 +71,17 @@ contains
 @Test
   subroutine testGettingResponse(this)
     class(test_weightResponse), intent(inout) :: this
-    type(particle)                            :: p
     real(defReal)                             :: result
-    real(defReal), parameter                  :: tol = 1.0E-9
+    real(defReal), parameter                  :: TOL = 1.0E-9
 
-    p % type = P_NEUTRON
-    p % w = 2.0_defReal
+    call this % testParticle % setWeight(TWO)
 
     ! Test response values
-    call this % response_weight_m0 % get(p, result, this % xsData)
-    @assertEqual(2.0_defReal, result, tol)
+    call this % response_weight_m0 % get(this % testParticle, result, this % xsData)
+    @assertEqual(TWO, result, TOL)
 
-    call this % response_weight_m2 % get(p, result, this % xsData)
-    @assertEqual(8.0_defReal, result, tol)
+    call this % response_weight_m2 % get(this % testParticle, result, this % xsData)
+    @assertEqual(8.0_defReal, result, TOL)
 
   end subroutine testGettingResponse
 

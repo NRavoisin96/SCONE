@@ -1,11 +1,12 @@
 module uniformVectorField_class
 
+  use dictionary_class,      only : dictionary
+  use errors_mod,            only : fatalError
+  use field_inter,           only : field
+  use genericProcedures,     only : numToChar
   use numPrecision
-  use genericProcedures, only : fatalError, numToChar
-  use dictionary_class,  only : dictionary
-  use particle_class,    only : particle
-  use field_inter,       only : field
-  use vectorField_inter, only : vectorField
+  use transportObject_inter, only : transportObject
+  use vectorField_inter,     only : vectorField
 
   implicit none
   private
@@ -30,15 +31,28 @@ module uniformVectorField_class
   !!   vectorField interface
   !!
   type, public, extends(vectorField) :: uniformVectorField
-    real(defReal), dimension(3) :: val = ZERO
+    real(defReal), dimension(3)      :: val = ZERO
   contains
     ! Superclass interface
+    procedure :: at
     procedure :: init
     procedure :: kill
-    procedure :: at
   end type uniformVectorField
 
 contains
+  !!
+  !! Get value of the scalar field at the co-ordinate point
+  !!
+  !! See vectorField_inter for details
+  !!
+  function at(self, object) result(val)
+    class(uniformVectorField), intent(in) :: self
+    class(transportObject), intent(inout) :: object
+    real(defReal), dimension(3)           :: val
+
+    val = self % val
+
+  end function at
 
   !!
   !! Initialise from dictionary
@@ -54,10 +68,7 @@ contains
     ! Load value
     call dict % get(temp, 'value')
 
-    if (size(temp) /= 3) then
-      call fatalError(Here, 'Value must have size 3. Has: '//numToChar(size(temp)))
-    end if
-
+    if (size(temp) /= 3) call fatalError(Here, 'Value must have size 3. Has: '//numToChar(size(temp))//'.')
     self % val = temp
 
   end subroutine init
@@ -71,20 +82,6 @@ contains
     self % val = ZERO
 
   end subroutine kill
-
-  !!
-  !! Get value of the scalar field at the co-ordinate point
-  !!
-  !! See vectorField_inter for details
-  !!
-  function at(self, p) result(val)
-    class(uniformVectorField), intent(in) :: self
-    class(particle), intent(inout)        :: p
-    real(defReal), dimension(3)           :: val
-
-    val = self % val
-
-  end function at
 
   !!
   !! Cast field pointer to uniformVectorField pointer
