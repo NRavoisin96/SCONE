@@ -9,8 +9,8 @@ after the marker:
     "Starting the procedure to calculate number of cells for each type"
 
 Notes:
-  - We still edit decks for POP / geometry / acceleration as before.
-  - We restore original decks on exit, even after errors.
+  - Robust global edits for POP / geometry / acceleration (no silent misses).
+  - Restores original decks on exit, even after errors.
 """
 
 from __future__ import annotations
@@ -25,15 +25,19 @@ from typing import Dict, List, Optional
 
 # ───────────── USER-EDITABLE CONTROL PANEL ─────────────
 POP_VALUES  = [1000]
-ACCEL       = ["patchSingle"]
+ACCEL       = ["patchMulti"]
 GEOM_CASES  = [
     # polyhedral
     "FinalFuelPinHex72",  "FinalFuelPinHex243", "FinalFuelPinHex576",
     "FinalFuelPinHex1125","FinalFuelPinHex1944","FinalFuelPinHex3087",
+    "FinalFuelPinHex4608","FinalFuelPinHex6561","FinalFuelPinHex9000",
     "FinalFuelPinPoly264","FinalFuelPinPoly436",
     "FinalFuelPinPoly468","FinalFuelPinPoly940",
+    "FinalFuelPinPoly1560","FinalFuelPinPoly5810",
     # tetrahedral
-    "FinalFuelPinTet298", "FinalFuelPinTet427", "FinalFuelPinTet660",
+    "FinalFuelPinTet137", "FinalFuelPinTet298",
+    "FinalFuelPinTet427", "FinalFuelPinTet660", "FinalFuelPinTet1331",
+    "FinalFuelPinTet1820", "FinalFuelPinTet2856",
 ]
 # ───────────────────────────────────────────────────────
 
@@ -50,6 +54,11 @@ COUNTS_MARKER_RE = re.compile(
 )
 INT_RE = re.compile(r"-?\d+")
 
+# robust edit regexes
+GEOM_CASE_RE = re.compile(r"\bFinalFuelPin(?:Tet|Hex|Poly)\d+\b")
+ACCEL_RE     = re.compile(r"\b(patchSingle|patchMulti|octree)\b", re.I)
+POP_LINE_RE  = re.compile(r"^\s*pop\s+\d+\s*;", re.I)
+
 KILLED_CODES = {9, -9, 137, -137}  # SIGKILL variants
 
 # ───────────────────── helpers: decks ─────────────────────────
@@ -63,20 +72,35 @@ def _load_decks() -> Dict[Path, List[str]]:
     return decks
 
 def _edit(lines: List[str], pop: int, geom: str, accel: str) -> List[str]:
-    """Edit a deck: pop value, geometry case name, and acceleration keyword."""
-    out = lines.copy()
-    # pop
-    for i, l in enumerate(out):
-        if l.strip().startswith("pop"):
-            out[i] = re.sub(r"pop\s+\d+;", f"pop      {pop};", l)
-            break
-    # geometry + acceleration (first line that mentions FinalFuelPin and an accel tag)
-    for i, l in enumerate(out):
-        if "FinalFuelPin" in l and ('patchSingle' in l or 'octree' in l):
-            l = re.sub(r"FinalFuelPin(?:Tet|Hex|Poly)\d+", geom, l)
-            l = re.sub(r"\b(patchSingle|octree)\b", accel, l)
-            out[i] = l
-            break
+    """
+    Global, robust edits:
+      - pop: first 'pop <int>;' at line start
+      - geometry: replace all FinalFuelPin(Tet|Hex|Poly)<digits>
+      - accel: replace any of {patchSingle, patchMulti, octree} with requested accel
+    """
+    out: List[str] = []
+    seen_pop = seen_geom = seen_accel = False
+
+    for l in lines:
+        if not seen_pop and POP_LINE_RE.search(l):
+            l = POP_LINE_RE.sub(f"pop      {pop};", l)
+            seen_pop = True
+
+        if GEOM_CASE_RE.search(l):
+            l = GEOM_CASE_RE.sub(geom, l)
+            seen_geom = True
+
+        if ACCEL_RE.search(l):
+            l = ACCEL_RE.sub(accel, l)
+            seen_accel = True
+
+        out.append(l)
+
+    if not seen_geom:
+        raise RuntimeError(f"Could not set geometry to '{geom}': token not found in deck.")
+    if not seen_pop:
+        raise RuntimeError("Could not set 'pop' in deck.")
+    # accel may be legitimately absent; keep as soft requirement
     return out
 
 def _tmpl(geom: str) -> Path:
@@ -96,9 +120,8 @@ def _run(deck: Path) -> str:
         )
         return res.stdout
     except subprocess.CalledProcessError as e:
-        # Even if SCONE ends with ERROR STOP, we still get stdout for parsing.
         if e.returncode in KILLED_CODES or "Killed" in (e.stdout or ""):
-            return e.stdout or ""  # still return what we have
+            return e.stdout or ""
         return e.stdout or ""
 
 def _extract_cell_counts(txt: str) -> Optional[str]:
@@ -112,14 +135,12 @@ def _extract_cell_counts(txt: str) -> Optional[str]:
     if not m:
         return None
     tail = txt[m.end():].splitlines()
-    # scan a few lines to be robust to blank lines or banners
-    for line in tail[:6]:
+    for line in tail[:20]:  # widened scan window for banners
         if not line.strip():
             continue
         nums = INT_RE.findall(line)
         if nums:
             return " ".join(nums)
-        # stop early if we hit another banner line of non-numeric glyphs
         if "><" in line or "<>" in line:
             break
     return None
@@ -145,11 +166,10 @@ def main() -> None:
                         deck = _tmpl(geom)
                         print(f"→ {geom} | {acc} | pop={pop} … ", end="", flush=True)
 
-                        # edit deck and run
-                        deck.write_text(''.join(_edit(originals[deck], pop, geom, acc)))
+                        edited = _edit(originals[deck], pop, geom, acc)
+                        deck.write_text(''.join(edited))
                         out = _run(deck)
 
-                        # always attempt to parse counts (even if SCONE ERROR STOPs)
                         counts = _extract_cell_counts(out)
                         if counts:
                             writer.writerow({"geometry": geom, "cell_counts": counts})
@@ -159,7 +179,6 @@ def main() -> None:
                             print("no counts found")
 
         finally:
-            # restore pristine input decks
             for p, lines in originals.items():
                 p.write_text(''.join(lines))
 

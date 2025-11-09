@@ -347,6 +347,9 @@ contains
 
     ! Set grid parameters from the mesh parameters. Then, set the grid spacing for the finest and coarsest layers.
     ! These are the target values and will be changed later in this subroutine.
+    ! (Can be changed) The original paper says we calculate l_min and alpha separately. But is it not possible just to
+    ! calculate spacing for each edge (l_min and alpha pair) and find the minimum of this? This can reduce the number
+    ! of cells significantly.
     self % wStar = (self % l_min)*min(0.5d0, SIN(self % alpha))
     self % spacing(self % n_layers) = 2*(self % wStar)*SIN(self % alpha)*SIN((self % alpha)/2)&
                                       /sqrt(3.0d0)/(1+SIN(self % alpha))/(1+SIN((self % alpha)/2))

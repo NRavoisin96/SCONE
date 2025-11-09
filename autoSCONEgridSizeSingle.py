@@ -21,10 +21,14 @@ GEOM_CASES  = [
     # polyhedral
     "FinalFuelPinHex72",  "FinalFuelPinHex243", "FinalFuelPinHex576",
     "FinalFuelPinHex1125","FinalFuelPinHex1944","FinalFuelPinHex3087",
+    "FinalFuelPinHex4608","FinalFuelPinHex6561","FinalFuelPinHex9000",
     "FinalFuelPinPoly264","FinalFuelPinPoly436",
     "FinalFuelPinPoly468","FinalFuelPinPoly940",
+    "FinalFuelPinPoly1560","FinalFuelPinPoly5810",
     # tetrahedral
-    "FinalFuelPinTet298", "FinalFuelPinTet427", "FinalFuelPinTet660",
+    "FinalFuelPinTet137", "FinalFuelPinTet298",
+    "FinalFuelPinTet427", "FinalFuelPinTet660", "FinalFuelPinTet1331",
+    "FinalFuelPinTet1820", "FinalFuelPinTet2856",
 ]
 # ───────────────────────────────────────────────────────
 

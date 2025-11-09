@@ -10,7 +10,8 @@ module cartesianCellCoarsest_class
   use cartesianGridSubLayer_inter,      only : cartesianGridSubLayer
   use cartesianGridFinest_class,        only : cartesianGridFinest
   use cartesianGridIntermediate1_class, only : cartesianGridIntermediate1
-  use cartesianGenericProcedures,       only : quickSort, sortByHighestFrequency
+  use cartesianGenericProcedures,       only : quickSort, sortByHighestFrequency, &
+                                               remove_elements
   use genericProcedures,                only : append, fatalError
   use ragged3dMatrix_class,             only : ragged3d
   use dynamic2dMatSet_class,            only : dynamic2dMatSet
@@ -344,7 +345,7 @@ contains
           call append(candidateElementIdxs, faces % getFaceElementIdxs(self % intersectedFaceIdxs(i)))
         end do
         candidateElementIdxs = sortByHighestFrequency(candidateElementIdxs)
-        
+
         numberOfElements = size(candidateElementIdxs)
         call normalSignsMat % kill()
         call normalSignsMat % init(numberOfElements)
@@ -385,7 +386,7 @@ contains
         centroid(i) = newGridBoundsMin(i) + spacing(1)*0.5
       end do
 
-      do i = 1, numberOfElements
+      do i = numberOfElements, 1, -1
         ! if (allocated(faceNormalSigns)) deallocate(faceNormalSigns)
         if (allocated(currElementFaceIdxs)) deallocate(currElementFaceIdxs)
         if (allocated(removedFaceIdxsInArr)) deallocate(removedFaceIdxsInArr)
@@ -399,6 +400,11 @@ contains
           call normalSignsMat % delete(i)
         else
           if (allocated(removedFaceIdxsInArr)) then
+            ! If none of faces in an element is intersected, then this element should not be in the candidateElementIdxs
+            ! This occurs due to finite prevision error, and we account for that here.
+            if (size(currElementFaceIdxs) == size(removedFaceIdxsInArr)) then
+              call remove_elements(candidateElementIdxs, [i])
+            end if
             call normalSignsMat % delete_columns(i, removedFaceIdxsInArr)
             !print*, "Yes"
             !print*, size(removedFaceIdxsInArr)

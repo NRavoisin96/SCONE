@@ -597,8 +597,8 @@ contains
 
     output(n_layers) = 1
 
-    if (self % chi == 0) then
-      if (self % phiCapital == 0) then
+    if (.NOT. allocated(self % chi)) then
+      if (.NOT. allocated(self % phiCapital)) then
         output(n_layers + 1) = 1
       end if
     end if
