@@ -15,20 +15,12 @@ transportOperator { type transportOperatorDT; cache 0; }
 inactiveTally {}
 
 activeTally {
-	display (k_eff);
-    k_eff {type keffAnalogClerk;}
-    fissionPowerClerk {
-        type collisionClerk;
-        map {
-            type unstructuredMeshMap;
-            meshId 1;
-        }
-        response (fissionPower);
-        fissionPower {
-            type macroResponse;
-            MT -80;
-        }
-    }
+	clerks {
+		display (k_eff);
+		k_eff {
+			type keffAnalogClerk;
+		}
+	}
 }
 
 geometry {
@@ -37,7 +29,7 @@ geometry {
   	graph {type shrunk;}
 
   	surfaces {
-		boxContainer { id 1; type box; origin (0.0 0.0 0.0); halfwidth (120.0 120.0 120.0); }
+		boxContainer { id 1; type box; origin (0.0 0.0 0.0); halfwidth (12000.0 12000.0 12000.0); }
   	}
 
 	cells {
@@ -49,11 +41,10 @@ geometry {
 		    id 1;
 		    type OpenFOAMMesh;
 		    path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/StanfordBunny_LowPoly/;
-		    accelerationMethod {
-		        type octree;
-		        maxDepth 10;
-		        bucketSize 4;
+		    localIds {
+		    	assignmentMethod all;
 		    }
+		    fills (fuel);
 		}
 	}
 

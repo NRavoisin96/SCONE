@@ -98,7 +98,7 @@ contains
     ! Particle starts in material 2 and collides in material 2
     call this % testParticle % setMaterialIdx(2)
     call this % testParticle % setWeight(0.7_defReal)
-    preCollisionStatePtr => castPhysicalParticleStatePtr(this % testParticle % getPreCollisionStatePtr(), .true.)
+    preCollisionStatePtr => castPhysicalParticleStatePtr(this % testParticle % getPreCollisionStatePtr())
     call preCollisionStatePtr % setMaterialIdx(2)
     call this % clerk % reportInColl(this % testParticle, .false., xsData, mem)
 

@@ -28,26 +28,11 @@ module neutronMaterial_inter
     private
   contains
     generic                              :: getMacroXSs => getMacroXSs_byP
-    procedure(isFissile), deferred       :: isFissile
     procedure(getMacroXSs_byP), deferred :: getMacroXSs_byP
+    procedure(isFissile), deferred       :: isFissile
   end type neutronMaterial
 
   abstract interface
-    !!
-    !! Return .true. if the MG material is fissile
-    !!
-    !! Args:
-    !!   None
-    !!
-    !! Errors:
-    !!   None
-    !!
-    elemental function isFissile(self) result(isIt)
-      import                             :: defBool, neutronMaterial
-      class(neutronMaterial), intent(in) :: self
-      logical(defBool)                   :: isIt
-    end function isFissile
-
     !!
     !! Return Macroscopic XSs for the material given particle
     !!
@@ -65,6 +50,21 @@ module neutronMaterial_inter
       class(transportObject), intent(in) :: object
       type(neutronMacroXSs), intent(out) :: xss
     end subroutine getMacroXSs_byP
+
+    !!
+    !! Return .true. if the MG material is fissile
+    !!
+    !! Args:
+    !!   None
+    !!
+    !! Errors:
+    !!   None
+    !!
+    elemental function isFissile(self) result(isIt)
+      import                             :: defBool, neutronMaterial
+      class(neutronMaterial), intent(in) :: self
+      logical(defBool)                   :: isIt
+    end function isFissile
 
   end interface
 

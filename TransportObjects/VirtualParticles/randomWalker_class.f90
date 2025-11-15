@@ -31,17 +31,6 @@ contains
   !!
   !!
   !!
-  subroutine allocateState(self, state)
-    class(randomWalker), intent(inout)                    :: self
-    class(transportObjectState), allocatable, intent(out) :: state
-
-    allocate(transportObjectState :: state)
-
-  end subroutine allocateState
-
-  !!
-  !!
-  !!
   elemental subroutine accumulateValue(self, value)
     class(randomWalker), intent(inout) :: self
     real(defReal), intent(in)          :: value
@@ -49,6 +38,17 @@ contains
     self % accumulatedValue = self % accumulatedValue + value
 
   end subroutine accumulateValue
+
+  !!
+  !!
+  !!
+  subroutine allocateState(self, state)
+    class(randomWalker), intent(inout)                    :: self
+    class(transportObjectState), allocatable, intent(out) :: state
+
+    allocate(transportObjectState :: state)
+
+  end subroutine allocateState
 
   !!
   !!

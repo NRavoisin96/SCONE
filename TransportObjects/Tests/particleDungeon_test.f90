@@ -334,7 +334,7 @@ contains
 
     ! Verify order
     do i = 1, 10
-      statePtr => castPhysicalParticleStatePtr(dungeon % get(i), .true.)
+      statePtr => castPhysicalParticleStatePtr(dungeon % get(i))
       @assertEqual(i, statePtr % getBroodId())
 
     end do

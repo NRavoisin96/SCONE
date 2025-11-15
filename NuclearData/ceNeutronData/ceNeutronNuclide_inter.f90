@@ -314,7 +314,7 @@ contains
   !! Errors:
   !!   None
   !!
-  pure function isFissile(self) result(isIt)
+  elemental function isFissile(self) result(isIt)
     class(ceNeutronNuclide), intent(in) :: self
     logical(defBool)                    :: isIt
 

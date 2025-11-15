@@ -1,5 +1,6 @@
 module transportObject_inter
 
+  use collisionData_class,        only : collisionData
   use coordList_class,            only : coordList
   use errors_mod,                 only : fatalError
   use numPrecision
@@ -10,7 +11,7 @@ module transportObject_inter
   private
 
   ! Public procedures.
-  public :: init_base, kill
+  public :: init_base, kill, prepareCollisionData
 
   !!
   !!
@@ -24,52 +25,61 @@ module transportObject_inter
     real(defReal)                            :: initialWgt = ONE
     type(coordList)                          :: coords
   contains
-    procedure(allocateState), deferred :: allocateState
-    procedure                          :: copyCurrentState
-    procedure                          :: displayCurrentState
-    procedure                          :: generateDistance
-    procedure                          :: getCellIdx
-    procedure                          :: getCoordsLevel
-    procedure                          :: getCoordsPtr
-    procedure                          :: getCurrentStatePtr
-    procedure                          :: getFate
-    procedure                          :: getGeometryIdx
-    procedure                          :: getGlobalDirection
-    procedure                          :: getGlobalPosition
-    procedure                          :: getIsDead
-    procedure                          :: getLocalDirection
-    procedure                          :: getLocalPosition
-    procedure                          :: getMaterialIdx
-    procedure                          :: getMeshIdx
-    procedure                          :: getPreTransitionStatePtr
-    procedure                          :: getRNGPtr
-    procedure(getType), deferred       :: getType
-    procedure                          :: getUniverseIdx
-    procedure                          :: getWeight
-    generic                            :: init => init_base, init_fromPayload, init_fromState
-    procedure                          :: init_base
-    procedure, private                 :: init_fromPayload
-    procedure, private                 :: init_fromState
-    procedure                          :: kill
-    procedure                          :: moveGlobal
-    procedure                          :: moveLocal
-    procedure                          :: point
-    procedure                          :: preparePayload
-    procedure                          :: rotate
-    procedure, non_overridable         :: savePreTransitionState
-    procedure                          :: setFate
-    procedure                          :: setGeometryIdx
-    procedure                          :: setGlobalDirection
-    procedure                          :: setGlobalPosition
-    procedure                          :: setIsDead
-    procedure                          :: setMaterialIdx
-    procedure                          :: setRNGPtr
-    procedure                          :: setWeight
-    procedure                          :: strideRNG
-    procedure, private                 :: synchroniseCurrentStateWithCoords
-    procedure                          :: takeAboveGeometry
-    procedure                          :: teleport
-    procedure                          :: updateAndGetCurrentStatePtr
+    procedure                           :: allocatePayload
+    procedure(allocateState), deferred  :: allocateState
+    procedure                           :: copyCurrentState
+    procedure                           :: displayCurrentState
+    procedure                           :: generateDistance
+    generic                             :: generateRandomNumber => generateRandomNumber_defReal, &
+                                                                   generateRandomNumber_defRealArray, &
+                                                                   generateRandomNumber_int
+    procedure, private                  :: generateRandomNumber_defReal
+    procedure, private                  :: generateRandomNumber_defRealArray
+    procedure, private                  :: generateRandomNumber_int
+    procedure                           :: getCellIdx
+    procedure                           :: getCoordsLevel
+    procedure                           :: getCoordsPtr
+    procedure                           :: getCurrentStatePtr
+    procedure                           :: getFate
+    procedure                           :: getGeometryIdx
+    procedure                           :: getGlobalDirection
+    procedure                           :: getGlobalPosition
+    procedure                           :: getIsDead
+    procedure                           :: getLocalDirection
+    procedure                           :: getLocalPosition
+    procedure                           :: getMaterialIdx
+    procedure                           :: getMeshIdx
+    procedure                           :: getPreTransitionStatePtr
+    procedure                           :: getRNGPtr
+    procedure(getType), deferred        :: getType
+    procedure                           :: getUniverseIdx
+    procedure                           :: getWeight
+    generic                             :: init => init_base, init_fromPayload, init_fromState
+    procedure                           :: init_base
+    procedure, private                  :: init_fromPayload
+    procedure, private                  :: init_fromState
+    procedure                           :: kill
+    procedure                           :: moveGlobal
+    procedure                           :: moveLocal
+    procedure                           :: point
+    procedure                           :: prepareCollisionData
+    procedure                           :: preparePayload
+    procedure                           :: resetState
+    procedure                           :: rotate
+    procedure, non_overridable          :: savePreTransitionState
+    procedure                           :: setFate
+    procedure                           :: setGeometryIdx
+    procedure                           :: setGlobalDirection
+    procedure                           :: setGlobalPosition
+    procedure                           :: setIsDead
+    procedure                           :: setMaterialIdx
+    procedure                           :: setRNGPtr
+    procedure                           :: setWeight
+    procedure                           :: strideRNG
+    procedure, private                  :: synchroniseCurrentStateWithCoords
+    procedure                           :: takeAboveGeometry
+    procedure                           :: teleport
+    procedure                           :: updateAndGetCurrentStatePtr
   end type transportObject
 
   abstract interface
@@ -97,26 +107,25 @@ contains
   !!
   !!
   !!
-  function copyCurrentState(self) result(currentStateCopy)
-    class(transportObject), intent(in)       :: self
-    class(transportObjectState), allocatable :: currentStateCopy
+  subroutine allocatePayload(self, payload)
+    class(transportObject), intent(in)                                :: self
+    class(buildTransportObjectStatePayload), allocatable, intent(out) :: payload
+
+    allocate(buildTransportObjectStatePayload :: payload)
+
+  end subroutine allocatePayload
+
+  !!
+  !!
+  !!
+  subroutine copyCurrentState(self, currentStateCopy)
+    class(transportObject), intent(in)                    :: self
+    class(transportObjectState), allocatable, intent(out) :: currentStateCopy
 
     currentStateCopy = self % currentState
     call currentStateCopy % updateFromCoords(self % coords % getTransportObjectStateUpdateData())
 
-  end function copyCurrentState
-
-  !!
-  !!
-  !!
-  subroutine generateDistance(self, mult, distance)
-    class(transportObject), intent(inout) :: self
-    real(defReal), intent(in)             :: mult
-    real(defReal), intent(out)            :: distance
-
-    call self % RNGPtr % generateDistance(mult, distance)
-
-  end subroutine generateDistance
+  end subroutine copyCurrentState
 
   !!
   !!
@@ -127,6 +136,62 @@ contains
     call self % currentState % display()
 
   end subroutine displayCurrentState
+
+  !!
+  !!
+  !!
+  subroutine generateDistance(self, mult, distance)
+    class(transportObject), intent(inout) :: self
+    real(defReal), intent(in)             :: mult
+    real(defReal), intent(out)            :: distance
+    character(*), parameter               :: HERE = 'generateDistance (transportObject_inter.f90)'
+
+    if (.not. associated(self % RNGPtr)) call fatalError(HERE, 'RNG pointer is unassociated.')
+    call self % RNGPtr % generateDistance(mult, distance)
+
+  end subroutine generateDistance
+
+  !!
+  !!
+  !!
+  subroutine generateRandomNumber_defReal(self, randomNumber, mult, add)
+    class(transportObject), intent(inout) :: self
+    real(defReal), intent(out)            :: randomNumber
+    real(defReal), intent(in), optional   :: mult, add
+    character(*), parameter               :: HERE = 'generateRandomNumber_defReal (transportObject_inter.f90)'
+
+    if (.not. associated(self % RNGPtr)) call fatalError(HERE, 'RNG pointer is unassociated.')
+    call self % RNGPtr % generate(randomNumber, mult, add)
+
+  end subroutine generateRandomNumber_defReal
+
+  !!
+  !!
+  !!
+  subroutine generateRandomNumber_defRealArray(self, randomNumbers, mult, add)
+    class(transportObject), intent(inout)      :: self
+    real(defReal), dimension(:), intent(inout) :: randomNumbers
+    real(defReal), intent(in), optional        :: mult, add
+    character(*), parameter                    :: HERE = 'generateRandomNumber_defRealArray (transportObject_inter.f90)'
+
+    if (.not. associated(self % RNGPtr)) call fatalError(HERE, 'RNG pointer is unassociated.')
+    call self % RNGPtr % generate(randomNumbers, mult, add)
+
+  end subroutine generateRandomNumber_defRealArray
+
+  !!
+  !!
+  !!
+  subroutine generateRandomNumber_int(self, randomNumber, mult, add)
+    class(transportObject), intent(inout)   :: self
+    integer(shortInt), intent(out)          :: randomNumber
+    integer(shortInt), intent(in), optional :: mult, add
+    character(*), parameter                 :: HERE = 'generateRandomNumber_int (transportObject_inter.f90)'
+
+    if (.not. associated(self % RNGPtr)) call fatalError(HERE, 'RNG pointer is unassociated.')
+    call self % RNGPtr % generate(randomNumber, mult, add)
+
+  end subroutine generateRandomNumber_int
 
   !!
   !!
@@ -330,12 +395,19 @@ contains
   !!
   !!
   !!
-  subroutine init_base(self)
-    class(transportObject), intent(inout) :: self
+  subroutine init_base(self, initialiseCurrentState)
+    class(transportObject), intent(inout)  :: self
+    logical(defBool), intent(in), optional :: initialiseCurrentState
+    logical(defBool)                       :: initialise
 
-    ! Allocate memory for states.
+    ! Allocate current and pre-transition states.
     call self % allocateState(self % currentState)
     call self % allocateState(self % preTransitionState)
+
+    ! Initialise current state's base components if needed.
+    initialise = .true.
+    if (present(initialiseCurrentState)) initialise = initialiseCurrentState
+    if (initialise) call self % currentState % init()
 
   end subroutine init_base
 
@@ -346,8 +418,8 @@ contains
     class(transportObject), intent(inout)               :: self
     class(buildTransportObjectStatePayload), intent(in) :: payload
 
-    ! Initialise base attributes.
-    call self % init_base()
+    ! Initialise base components.
+    call self % init_base(initialiseCurrentState = .false.)
 
     ! Build from payload.
     call self % coords % init(payload % rGlobal, payload % uGlobal)
@@ -363,8 +435,8 @@ contains
     class(transportObject), intent(inout)   :: self
     class(transportObjectState), intent(in) :: state
 
-    ! Initialise base attributes.
-    call self % init_base()
+    ! Initialise base components.
+    call self % init_base(initialiseCurrentState = .false.)
 
     ! Set current state.
     self % currentState = state
@@ -437,15 +509,48 @@ contains
   !!
   !!
   !!
+  subroutine prepareCollisionData(self, collDat)
+    class(transportObject), intent(in)  :: self
+    class(collisionData), intent(inout) :: collDat
+
+    ! Copy relevant data into collDat.
+    collDat % matIdx = self % coords % getMaterialIdx()
+    collDat % weight = self % currentState % getWeight()
+    collDat % u = self % getGlobalDirection()
+    collDat % RNGPtr => self % RNGPtr
+
+  end subroutine prepareCollisionData
+
+  !!
+  !!
+  !!
   subroutine preparePayload(self, payload)
-    class(transportObject), intent(inout)                  :: self
-    class(buildTransportObjectStatePayload), intent(inout) :: payload
+    class(transportObject), intent(inout)                             :: self
+    class(buildTransportObjectStatePayload), allocatable, intent(out) :: payload
+
+    ! Allocate payload.
+    call self % allocatePayload(payload)
 
     ! Update current state then copy everything into payload.
     call self % currentState % updateFromCoords(self % coords % getTransportObjectStateUpdateData())
     call self % currentState % preparePayload(payload)
 
   end subroutine preparePayload
+
+  !!
+  !!
+  !!
+  subroutine resetState(self, state)
+    class(transportObject), intent(inout)                   :: self
+    class(transportObjectState), allocatable, intent(inout) :: state
+
+    if (allocated(state)) then
+      call state % kill()
+      deallocate(state)
+
+    end if
+
+  end subroutine resetState
 
   !!
   !!
@@ -464,7 +569,7 @@ contains
   subroutine savePreTransitionState(self)
     class(transportObject), intent(inout) :: self
 
-    self % preTransitionState = self % copyCurrentState()
+    call self % copyCurrentState(self % preTransitionState)
 
   end subroutine savePreTransitionState
 

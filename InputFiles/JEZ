@@ -21,9 +21,7 @@ seed 3;
 !     dir (1.0 0.0 0.0);
 !     }
 
-collisionOperator { neutronCE {type neutronCEstd;}
-                    neutronMG {type neutronMGstd;}
-                  }
+collisionOperator { neutronCE { type neutronCEstd; } }
 
 transportOperator { type transportOperatorST; cache 0; }
 
@@ -31,16 +29,19 @@ inactiveTally {
               }
 
 activeTally  {
-                display (k_eff);
-                norm fiss;
-                normVal 100.0;
-                k_eff { type keffAnalogClerk;}
-                fiss { type collisionClerk; response (fiss); fiss {type macroResponse; MT -6;}}
-                flux { type collisionClerk;
-                        map { type energyMap; grid log; min 0.001; max 20; N 300;}
-                        response (flux); flux {type fluxResponse;}
-                      }
-        }
+                clerks {
+                          display (k_eff);
+                          norm fiss;
+                          normVal 100.0;
+                          k_eff { type keffAnalogClerk; }
+                          fiss { type collisionClerk; response (fiss); fiss { type macroResponse; MT -6; } }
+                          flux { 
+                                  type collisionClerk;
+                                  map { type energyMap; grid log; min 0.001; max 20; N 300;}
+                                  response (flux); flux { type fluxResponse; }
+                          }
+                }
+}
 
 geometry {
     type geometryStd;
@@ -49,7 +50,7 @@ geometry {
 
     surfaces
     {
-      squareBound { id 1; type sphere; origin ( 0.0  0.0  0.0); radius 6.39157; }
+      squareBound { id 1; type sphere; origin (0.0  0.0  0.0); radius 6.39157; }
     }
 
 

@@ -96,7 +96,7 @@ contains
     call this % clerk % reportInColl(this % testParticle, .false., this % nucData, mem)
 
     ! Score analog production
-    preCollisionStatePtr => castPhysicalParticleStatePtr(this % testParticle % getPreCollisionStatePtr(), .true.)
+    preCollisionStatePtr => castPhysicalParticleStatePtr(this % testParticle % getPreCollisionStatePtr())
     call preCollisionStatePtr % setWeight(0.1_defReal)
     call this % clerk % reportOutColl(this % testParticle, N_2N, 0.5_defReal, this % nucData, mem)
 
@@ -118,7 +118,7 @@ contains
     call this % clerk % reportInColl(this % testParticle, .false., this % nucData, mem)
 
     ! Score analog production
-    preCollisionStatePtr => castPhysicalParticleStatePtr(this % testParticle % getPreCollisionStatePtr(), .true.)
+    preCollisionStatePtr => castPhysicalParticleStatePtr(this % testParticle % getPreCollisionStatePtr())
     call preCollisionStatePtr % setWeight(0.1_defReal)
     call this % clerk % reportOutColl(this % testParticle, N_2N, 0.5_defReal, this % nucData, mem)
 

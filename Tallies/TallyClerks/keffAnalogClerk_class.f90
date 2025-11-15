@@ -69,16 +69,11 @@ contains
   !!
   subroutine init(self, dict, name)
     class(keffAnalogClerk), intent(inout) :: self
-    class(dictionary), intent(in)        :: dict
-    character(nameLen), intent(in)       :: name
-    character(*), parameter :: Here = 'init (keffAnalogClerk.f90)'
+    class(dictionary), intent(in)         :: dict
+    character(nameLen), intent(in)        :: name
 
     ! Needs no settings, just load name
     call self % setName(name)
-
-    ! Ensure correct initialisation to default values
-    self % startPopWgt = ZERO
-    self % endPopWgt   = ZERO
 
   end subroutine init
 

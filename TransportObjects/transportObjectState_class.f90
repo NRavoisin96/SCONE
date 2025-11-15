@@ -1,21 +1,21 @@
 module transportObjectState_class
 
-  use errors_mod,    only : fatalError
+  use errors_mod,          only : fatalError
   use numPrecision
-  use publicObjects, only : transportObjectStateCoordUpdateData
+  use publicObjects,       only : transportObjectStateCoordUpdateData
 
   implicit none
   private
 
   ! Public procedures.
-  public :: display, init, kill, preparePayload
+  public :: display, init_base, init_fromPayload, kill, preparePayload
 
   !!
   !!
   !!
   type, public :: buildTransportObjectStatePayload
     integer(shortInt)           :: geometryIdx = 0, lowestCellIdx = 0, lowestElementIdx = 0, materialIdx = 0, uniqueId = 0
-    real(defReal)               :: time = ZERO, weight = ZERO
+    real(defReal)               :: time = ZERO, weight = ONE
     real(defReal), dimension(3) :: rGlobal = ZERO, uGlobal = ZERO
   end type buildTransportObjectStatePayload
 
@@ -42,7 +42,9 @@ module transportObjectState_class
     procedure          :: getMaterialIdx
     procedure          :: getUniqueId
     procedure          :: getWeight
-    procedure          :: init
+    generic            :: init => init_base, init_fromPayload
+    procedure          :: init_base
+    procedure          :: init_fromPayload
     procedure          :: kill
     procedure          :: preparePayload
     procedure          :: setGeometryIdx
@@ -217,10 +219,24 @@ contains
   !!
   !!
   !!
-  subroutine init(self, payload)
+  subroutine init_base(self)
+    class(transportObjectState), intent(inout) :: self
+
+    ! Do nothing by default.
+
+  end subroutine init_base
+
+  !!
+  !!
+  !!
+  subroutine init_fromPayload(self, payload)
     class(transportObjectState), intent(inout)          :: self
     class(buildTransportObjectStatePayload), intent(in) :: payload
 
+    ! Initialise base components.
+    call self % init_base()
+
+    ! Copy everything from payload.
     self % geometryIdx = payload % geometryIdx
     self % lowestCellIdx = payload % lowestCellIdx
     self % lowestElementIdx = payload % lowestElementIdx
@@ -231,7 +247,7 @@ contains
     self % rGlobal = payload % rGlobal
     self % uGlobal = payload % uGlobal
 
-  end subroutine init
+  end subroutine init_fromPayload
 
   !!
   !!

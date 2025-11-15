@@ -2,8 +2,8 @@ module testPhysicalParticle_class
 
   use numPrecision
   use physicalParticle_inter,      only : physicalParticle
-  use physicalParticleState_class, only : physicalParticleState
-  use transportObjectState_class,  only : transportObjectState
+  use physicalParticleState_class, only : buildPhysicalParticleStatePayload, physicalParticleState
+  use transportObjectState_class,  only : buildTransportObjectStatePayload, transportObjectState
   use universalVariables,          only : P_TEST_TRANSPORT_OBJECT
 
   implicit none
@@ -15,12 +15,24 @@ module testPhysicalParticle_class
   type, public, extends(physicalParticle) :: testPhysicalParticle
     private
   contains
+    procedure :: allocatePayload
     procedure :: allocateState
     procedure :: getSpeed
     procedure :: getType
   end type testPhysicalParticle
 
 contains
+  !!
+  !!
+  !!
+  subroutine allocatePayload(self, payload)
+    class(testPhysicalParticle), intent(in)                           :: self
+    class(buildTransportObjectStatePayload), allocatable, intent(out) :: payload
+
+    allocate(buildPhysicalParticleStatePayload :: payload)
+
+  end subroutine allocatePayload
+
   !!
   !!
   !!

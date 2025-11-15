@@ -10,7 +10,7 @@ module distributedSource_inter
   use numPrecision
   use RNG_class,                  only : RNG
   use source_inter,               only : init_super => init, kill_super => kill, source
-  use transportObjectState_class, only : transportObjectState
+  use transportObjectState_class, only : buildTransportObjectStatePayload, transportObjectState
 
   implicit none
   private
@@ -26,30 +26,30 @@ module distributedSource_inter
     integer(shortInt)              :: nMaxIterations = 0
     real(defReal), dimension(3, 2) :: bounds = ZERO
   contains
-    procedure(finaliseState), deferred                 :: finaliseState
+    procedure(finalisePayload), deferred               :: finalisePayload
     procedure(getDefaultMaxIterationsNumber), deferred :: getDefaultMaxIterationsNumber
     procedure                                          :: init
     procedure(isMaterialInvalid), deferred             :: isMaterialInvalid
     procedure                                          :: kill
     procedure(printInfiniteLoopError), deferred        :: printInfiniteLoopError
-    procedure(rejectMaterial), deferred                :: rejectMaterial
-    procedure                                          :: sampleParticle
+    procedure                                          :: rejectMaterial
+    procedure                                          :: sampleState
   end type distributedSource
 
   abstract interface
     !!
     !!
     !!
-    subroutine finaliseState(self, mat, database, temperature, rand, state, mu, phi)
-      import :: defReal, distributedSource, neutronMaterial, nuclearDatabase, RNG, transportObjectState
-      class(distributedSource), intent(in)       :: self
-      class(neutronMaterial), intent(in)         :: mat
-      class(nuclearDatabase), intent(in)         :: database
-      real(defReal), intent(in)                  :: temperature
-      type(RNG), intent(inout)                   :: rand
-      class(transportObjectState), intent(inout) :: state
-      real(defReal), intent(out)                 :: mu, phi
-    end subroutine finaliseState
+    subroutine finalisePayload(self, mat, database, temperature, rand, payload, mu, phi)
+      import :: buildTransportObjectStatePayload, defReal, distributedSource, neutronMaterial, nuclearDatabase, RNG
+      class(distributedSource), intent(in)                   :: self
+      class(neutronMaterial), intent(in)                     :: mat
+      class(nuclearDatabase), intent(in)                     :: database
+      real(defReal), intent(in)                              :: temperature
+      type(RNG), intent(inout)                               :: rand
+      class(buildTransportObjectStatePayload), intent(inout) :: payload
+      real(defReal), intent(out)                             :: mu, phi
+    end subroutine finalisePayload
 
     !!
     !!
@@ -78,16 +78,6 @@ module distributedSource_inter
       class(distributedSource), intent(in) :: self
       integer(shortInt), intent(in)        :: nMaxIterations
     end subroutine printInfiniteLoopError
-
-    !!
-    !!
-    !!
-    elemental function rejectMaterial(self, material) result(isRejected)
-      import                               :: defBool, distributedSource, neutronMaterial
-      class(distributedSource), intent(in) :: self
-      class(neutronMaterial), intent(in)   :: material
-      logical(defBool)                     :: isRejected
-    end function rejectMaterial
 
   end interface
 
@@ -156,20 +146,33 @@ contains
   !!
   !!
   !!
-  subroutine sampleParticle(self, rand, state)
+  elemental function rejectMaterial(self, material) result(isRejected)
+    class(distributedSource), intent(in) :: self
+    class(neutronMaterial), intent(in)   :: material
+    logical(defBool)                     :: isRejected
+
+    ! By default do nothing.
+    isRejected = .false.
+
+  end function rejectMaterial
+
+  !!
+  !!
+  !!
+  subroutine sampleState(self, rand, state)
     class(distributedSource), intent(inout)               :: self
     class(RNG), intent(inout)                             :: rand
     class(transportObjectState), allocatable, intent(out) :: state
+    class(buildTransportObjectStatePayload), allocatable  :: payload
     class(geometry), pointer                              :: geometryPtr
     class(neutronMaterial), pointer                       :: mat
     class(nuclearDatabase), pointer                       :: nuclearDatabasePtr
-    integer(shortInt)                                     :: i, matIdx, uniqueId
+    integer(shortInt)                                     :: i
     real(defReal)                                         :: mu, phi, temperature
-    real(defReal), dimension(3)                           :: r
     character(*), parameter                               :: here = 'sampleParticle (distributedSource_inter.f90)'
 
     ! Sample state then get pointer to appropriate nuclear database.
-    call self % sampleState(state)
+    call self % allocatePayloadAndState(payload, state)
     nuclearDatabasePtr => get(state)
 
     ! Get pointer to geometry.
@@ -183,31 +186,27 @@ contains
       if (self % nMaxIterations < i) call self % printInfiniteLoopError(self % nMaxIterations)
 
       ! Sample initial position.
-      call geometryPtr % sampleInitialPosition(self % bounds(:, 1), self % bounds(:, 2), rand, matIdx, uniqueId, r, temperature)
+      call geometryPtr % sampleInitialPosition(self % bounds(:, 1), self % bounds(:, 2), rand, &
+                                               payload % materialIdx, payload % uniqueId, payload % rGlobal, temperature)
 
       ! Check if material needs to be rejected and cycle if so.
-      if (self % isMaterialInvalid(matIdx)) cycle rejection
-      mat => neutronMaterial_CptrCast(nuclearDatabasePtr % getMaterial(matIdx))
+      if (self % isMaterialInvalid(payload % materialIdx)) cycle rejection
+      mat => neutronMaterial_CptrCast(nuclearDatabasePtr % getMaterial(payload % materialIdx))
       if (.not. associated(mat)) call fatalError(here, "Nuclear data did not return neutron material.")
 
       ! Cycle if material is rejected.
       if (self % rejectMaterial(mat)) cycle rejection
 
-      ! Assign basic phase-space coordinates.
-      call state % setMaterialIdx(matIdx)
-      call state % setUniqueId(uniqueId)
-      call state % setWeight(ONE)
-      call state % setGlobalPosition(r)
-
-      ! Finalise state depending on specific class then set direction.
-      call self % finaliseState(mat, nuclearDatabasePtr, temperature, rand, state, mu, phi)
-      call state % setGlobalDirection(rotateVector([ONE, ZERO, ZERO], mu, phi))
+      ! Finalise state depending on specific class then initialise state.
+      call self % finalisePayload(mat, nuclearDatabasePtr, temperature, rand, payload, mu, phi)
+      payload % uGlobal = rotateVector([ONE, ZERO, ZERO], mu, phi)
+      call state % init(payload)
 
       ! Exit loop.
       exit rejection
 
     end do rejection
 
-  end subroutine sampleParticle
+  end subroutine sampleState
 
 end module distributedSource_inter

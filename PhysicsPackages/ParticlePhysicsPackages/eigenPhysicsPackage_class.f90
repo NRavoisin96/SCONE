@@ -1,6 +1,7 @@
 module eigenPhysicsPackage_class
 
   use collisionOperator_class,      only : collisionOperator
+  use coordList_class,              only : coordList
   use dictionary_class,             only : dictionary
   use errors_mod,                   only : fatalError
   use field_inter,                  only : field
@@ -385,7 +386,6 @@ contains
     tempCycle => self % nextCycle
     self % nextCycle => currentCyclePtr
     call self % setCurrentCyclePtr(tempCycle)
-    currentCyclePtr => self % getCurrentCyclePtr()
 
     ! Get new k_eff.
     call attachmentPtr % getResult(result, 'keff')
@@ -444,11 +444,13 @@ contains
     class(physicalParticle), allocatable, intent(inout) :: p
     type(particleDungeon), intent(inout)                :: buffer
     type(tallyAdmin), intent(inout)                     :: tally
+    type(coordList), pointer                            :: ptr
 
+    ptr => p % getCoordsPtr()
     bufferLoop: do
       ! Initialize the particle's state for this history.
       call p % setKEff(self % k_eff)
-      call self % placeCoord(p % getCoordsPtr())
+      call self % placeCoord(ptr)
       call p % savePreHistoryState()
 
       ! Transport the particle until it dies

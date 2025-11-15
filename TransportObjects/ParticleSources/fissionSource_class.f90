@@ -61,7 +61,7 @@ module fissionSource_class
     integer(shortInt)           :: attempts = 10000
   contains
     procedure :: init
-    procedure :: sampleParticle
+    procedure :: sampleState
     procedure :: kill
   end type fissionSource
 
@@ -141,7 +141,7 @@ contains
   !!
   !! See source_inter for details
   !!
-  function sampleParticle(self, rand) result(p)
+  function sampleState(self, rand) result(p)
     class(fissionSource), intent(inout)  :: self
     class(RNG), intent(inout)            :: rand
     type(particleState)                  :: p
@@ -245,7 +245,7 @@ contains
 
     end do rejection
 
-  end function sampleParticle
+  end function sampleState
 
   !!
   !! Return to uninitialised state

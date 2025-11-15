@@ -1,9 +1,12 @@
 module MGParticle_inter
 
-  use errors_mod,             only : fatalError
-  use MGParticleState_class,  only : castMGParticleStatePtr, MGParticleState
+  use collisionData_class,        only : collisionData
+  use errors_mod,                 only : fatalError
+  use MGCollisionData_class,      only : castMGCollisionDataPtr, MGCollisionData
+  use MGParticleState_class,      only : buildMGParticleStatePayload, castMGParticleStatePtr, MGParticleState
   use numPrecision
-  use physicalParticle_inter, only : physicalParticle
+  use physicalParticle_inter,     only : physicalParticle, prepareCollisionData_super => prepareCollisionData
+  use transportObjectState_class, only : buildTransportObjectStatePayload
 
   implicit none
   private
@@ -17,12 +20,25 @@ module MGParticle_inter
   type, public, abstract, extends(physicalParticle) :: MGParticle
     private
   contains
+    procedure :: allocatePayload
     procedure :: getEnergyGroup
     procedure :: getSpeed
+    procedure :: prepareCollisionData
     procedure :: setEnergyGroup
   end type MGParticle
 
 contains
+  !!
+  !!
+  !!
+  subroutine allocatePayload(self, payload)
+    class(MGParticle), intent(in)                                     :: self
+    class(buildTransportObjectStatePayload), allocatable, intent(out) :: payload
+
+    allocate(buildMGParticleStatePayload :: payload)
+
+  end subroutine allocatePayload
+
   !!
   !!
   !!
@@ -74,6 +90,20 @@ contains
     speed = ZERO
 
   end function getSpeed
+
+  !!
+  !!
+  !!
+  subroutine prepareCollisionData(self, collDat)
+    class(MGParticle), intent(in)       :: self
+    class(collisionData), intent(inout) :: collDat
+    type(MGCollisionData), pointer      :: MGCollisionDataPtr
+
+    call prepareCollisionData_super(self, collDat)
+    MGCollisionDataPtr => castMGCollisionDataPtr(collDat)
+    MGCollisionDataPtr % G_in = self % getEnergyGroup()
+
+  end subroutine prepareCollisionData
 
   !!
   !!

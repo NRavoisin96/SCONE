@@ -2,21 +2,22 @@ module physicalParticleState_class
 
   use errors_mod,                 only : fatalError
   use numPrecision
-  use transportObjectState_class, only : buildTransportObjectStatePayload, display_super => display, init_super => init, &
-                                         kill_super => kill, preparePayload_super => preparePayload, transportObjectState
+  use transportObjectState_class, only : buildTransportObjectStatePayload, display_super => display, &
+                                         init_fromPayload_super => init_fromPayload, kill_super => kill, &
+                                         preparePayload_super => preparePayload, transportObjectState
 
   implicit none
   private
 
   ! Public procedures.
-  public :: castPhysicalParticleStatePtr, display, init, kill, preparePayload
+  public :: castBuildPhysicalParticleStatePayloadPtr, castPhysicalParticleStatePtr, display, &
+            init_fromPayload, kill, preparePayload
 
   !!
   !!
   !!
   type, public, extends(buildTransportObjectStatePayload) :: buildPhysicalParticleStatePayload
     integer(shortInt) :: broodId = 0
-    real(defReal)     :: mass = ZERO
   end type buildPhysicalParticleStatePayload
 
   !!
@@ -31,7 +32,7 @@ module physicalParticleState_class
     procedure :: getBroodId
     procedure :: getCollisionsNumber
     procedure :: getMass
-    procedure :: init
+    procedure :: init_fromPayload
     procedure :: kill
     procedure :: preparePayload
     procedure :: setBroodId
@@ -50,15 +51,15 @@ contains
   !!
   !!
   !!
-  function castPhysicalParticleStatePtr(source, fatal) result(ptr)
-    class(transportObjectState), intent(in) :: source
-    logical(defBool), intent(in), optional  :: fatal
-    logical(defBool)                        :: throwError
-    class(physicalParticleState), pointer   :: ptr
-    character(*), parameter                 :: here = 'castPhysicalParticleStatePtr (physicalParticleState_class.f90)'
+  function castBuildPhysicalParticleStatePayloadPtr(source, fatal) result(ptr)
+    class(buildTransportObjectStatePayload), intent(in) :: source
+    logical(defBool), intent(in), optional              :: fatal
+    logical(defBool)                                    :: throwError
+    class(buildPhysicalParticleStatePayload), pointer   :: ptr
+    character(*), parameter :: HERE = 'castBuildPhysicalParticleStatePayloadPtr (physicalParticleState_class.f90)'
 
     select type(temp => source)
-      class is(physicalParticleState)
+      class is(buildPhysicalParticleStatePayload)
         ptr => temp
 
       class default
@@ -70,7 +71,34 @@ contains
     throwError = .false.
     if (present(fatal)) throwError = fatal
     if (throwError .and. .not. associated(ptr)) &
-    call fatalError(here, "Transport object state is not of class 'physicalParticleState'.")
+    call fatalError(HERE, "Payload is not of class 'buildPhysicalParticleStatePayload'.")
+
+  end function castBuildPhysicalParticleStatePayloadPtr
+
+  !!
+  !!
+  !!
+  function castPhysicalParticleStatePtr(source, fatal) result(ptr)
+    class(transportObjectState), intent(in) :: source
+    logical(defBool), intent(in), optional  :: fatal
+    logical(defBool)                        :: throwError
+    class(physicalParticleState), pointer   :: ptr
+    character(*), parameter                 :: HERE = 'castPhysicalParticleStatePtr (physicalParticleState_class.f90)'
+
+    select type(temp => source)
+      class is(physicalParticleState)
+        ptr => temp
+
+      class default
+        ptr => null()
+
+    end select
+
+    ! Throw error if requested.
+    throwError = .true.
+    if (present(fatal)) throwError = fatal
+    if (throwError .and. .not. associated(ptr)) &
+    call fatalError(HERE, "Transport object state is not of class 'physicalParticleState'.")
 
   end function castPhysicalParticleStatePtr
 
@@ -125,30 +153,22 @@ contains
   !!
   !!
   !!
-  subroutine init(self, payload)
+  subroutine init_fromPayload(self, payload)
     class(physicalParticleState), intent(inout)         :: self
     class(buildTransportObjectStatePayload), intent(in) :: payload
     class(buildPhysicalParticleStatePayload), pointer   :: payloadPtr
     character(*), parameter                             :: HERE = 'init (physicalParticleState_class.f90)'
 
     ! Initialise superclass.
-    call init_super(self, payload)
+    call init_fromPayload_super(self, payload)
 
     ! Downcast payload to correct class.
-    select type(ptr => payload)
-      class is(buildPhysicalParticleStatePayload)
-        payloadPtr => ptr
-
-      class default
-        call fatalError(HERE, 'Invalid payload type.')
-
-    end select
+    payloadPtr => castBuildPhysicalParticleStatePayloadPtr(payload, .true.)
 
     ! Local.
     self % broodId = payloadPtr % broodId
-    self % mass = payloadPtr % mass
 
-  end subroutine init
+  end subroutine init_fromPayload
 
   !!
   !!
@@ -179,18 +199,10 @@ contains
     call preparePayload_super(self, payload)
 
     ! Downcast payload to correct class.
-    select type(ptr => payload)
-      class is(buildPhysicalParticleStatePayload)
-        payloadPtr => ptr
-
-      class default
-        call fatalError(HERE, 'Invalid payload type.')
-
-    end select
+    payloadPtr => castBuildPhysicalParticleStatePayloadPtr(payload, .true.)
 
     ! Local.
     payloadPtr % broodId = self % broodId
-    payloadPtr % mass = self % mass
 
   end subroutine preparePayload
 

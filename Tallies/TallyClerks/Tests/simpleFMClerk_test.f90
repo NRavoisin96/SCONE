@@ -107,7 +107,7 @@ contains
     ! Score some events
     call this % testParticle % setMaterialIdx(2)
     call this % testParticle % setWeight(0.7_defReal)
-    preHistoryStatePtr => castPhysicalParticleStatePtr(this % testParticle % getPreHistoryStatePtr(), .true.)
+    preHistoryStatePtr => castPhysicalParticleStatePtr(this % testParticle % getPreHistoryStatePtr())
     call preHistoryStatePtr % setMaterialIdx(2)
     call this % clerk % reportInColl(this % testParticle, .false., xsData, mem)
 

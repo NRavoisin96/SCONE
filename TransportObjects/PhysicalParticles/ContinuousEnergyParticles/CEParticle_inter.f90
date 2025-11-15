@@ -1,9 +1,12 @@
 module CEParticle_inter
 
-  use CEParticleState_class,      only : castCEParticleStatePtr, CEParticleState
+  use CECollisionData_class,      only : castCECollisionDataPtr, CECollisionData
+  use CEParticleState_class,      only : buildCEParticleStatePayload, castCEParticleStatePtr, CEParticleState
+  use collisionData_class,        only : collisionData
   use errors_mod,                 only : fatalError
   use numPrecision
-  use physicalParticle_inter,     only : physicalParticle
+  use physicalParticle_inter,     only : physicalParticle, prepareCollisionData_super => prepareCollisionData
+  use transportObjectState_class, only : buildTransportObjectStatePayload
   use universalVariables,         only : lightSpeed
 
   implicit none
@@ -18,12 +21,25 @@ module CEParticle_inter
   type, public, abstract, extends(physicalParticle) :: CEParticle
     private
   contains
+    procedure :: allocatePayload
     procedure :: getEnergy
     procedure :: getSpeed
+    procedure :: prepareCollisionData
     procedure :: setEnergy
   end type CEParticle
 
 contains
+  !!
+  !!
+  !!
+  subroutine allocatePayload(self, payload)
+    class(CEParticle), intent(in)                                     :: self
+    class(buildTransportObjectStatePayload), allocatable, intent(out) :: payload
+
+    allocate(buildCEParticleStatePayload :: payload)
+
+  end subroutine allocatePayload
+
   !!
   !!
   !!
@@ -54,9 +70,9 @@ contains
   !!
   !!
   function getEnergy(self) result(energy)
-    class(CEParticle), intent(inout) :: self
-    class(CEParticleState), pointer  :: CEParticleStatePtr
-    real(defReal)                    :: energy
+    class(CEParticle), intent(in)   :: self
+    class(CEParticleState), pointer :: CEParticleStatePtr
+    real(defReal)                   :: energy
 
     CEParticleStatePtr => castCEParticleStatePtr(self % getCurrentStatePtr(), .true.)
     energy = CEParticleStatePtr % getEnergy()
@@ -75,6 +91,20 @@ contains
     speed = sqrt(TWO * CEParticleStatePtr % getEnergy() / CEParticleStatePtr % getMass()) * lightSpeed
 
   end function getSpeed
+
+  !!
+  !!
+  !!
+  subroutine prepareCollisionData(self, collDat)
+    class(CEParticle), intent(in)       :: self
+    class(collisionData), intent(inout) :: collDat
+    type(CECollisionData), pointer      :: CECollisionDataPtr
+
+    call prepareCollisionData_super(self, collDat)
+    CECollisionDataPtr => castCECollisionDataPtr(collDat)
+    CECollisionDataPtr % initialEnergy = self % getEnergy()
+
+  end subroutine prepareCollisionData
 
   !!
   !!

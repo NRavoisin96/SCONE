@@ -1,14 +1,12 @@
-module distributedCESource_inter
+module distributedMGSource_inter
 
-  use ceNeutronDatabase_inter,    only : ceNeutronDatabase, ceNeutronDatabase_CptrCast
-  use ceNeutronMaterial_class,    only : ceNeutronMaterial, ceNeutronMaterial_CptrCast
-  use CENeutronState_class,       only : CENeutronState
-  use CEParticleState_class,      only : buildCEParticleStatePayload, castBuildCEParticleStatePayloadPtr
   use dictionary_class,           only : dictionary
   use distributedSource_inter,    only : distributedSource, init_super => init, kill_super => kill
-  use errors_mod,                 only : fatalError
-  use genericProcedures,          only : numToChar
   use geometry_inter,             only : geometry
+  use mgNeutronDatabase_inter,    only : mgNeutronDatabase, mgNeutronDatabase_CptrCast
+  use mgNeutronMaterial_inter,    only : mgNeutronMaterial, mgNeutronMaterial_CptrCast
+  use MGNeutronState_class,       only : MGNeutronState
+  use MGParticleState_class,      only : buildMGParticleStatePayload, castBuildMGParticleStatePayloadPtr
   use neutronMaterial_inter,      only : neutronMaterial
   use nuclearDatabase_inter,      only : nuclearDatabase
   use numPrecision
@@ -19,38 +17,35 @@ module distributedCESource_inter
   private
 
   ! Parameters.
-  real(defReal), parameter :: DEFAULT_ENERGY = 1.0e-6_defReal
-
-  ! Public procedures.
-  public :: init, kill
+  integer(shortInt), parameter :: DEFAULT_ENERGY_GROUP = 1
 
   !!
   !!
   !!
-  type, public, abstract, extends(distributedSource) :: distributedCESource
+  type, public, abstract, extends(distributedSource) :: distributedMGSource
     private
-    real(defReal) :: energy = ZERO
+    integer(shortInt) :: energyGroup = 0
   contains
     procedure                                         :: allocatePayloadAndState
     procedure                                         :: finalisePayload
-    procedure                                         :: getEnergy
+    procedure                                         :: getEnergyGroup
     procedure                                         :: init
     procedure                                         :: kill
     procedure(sampleFinalPayloadComponents), deferred :: sampleFinalPayloadComponents
-  end type distributedCESource
+  end type distributedMGSource
 
   abstract interface
     !!
     !!
     !!
-    subroutine sampleFinalPayloadComponents(self, CEMaterial, CEDatabase, temperature, rand, payload, mu, phi)
-      import :: buildCEParticleStatePayload, ceNeutronDatabase, ceNeutronMaterial, defReal, distributedCESource, RNG
-      class(distributedCESource), intent(in)           :: self
-      class(ceNeutronMaterial), intent(in)             :: CEMaterial
-      class(ceNeutronDatabase), intent(in)             :: CEDatabase
+    subroutine sampleFinalPayloadComponents(self, MGMaterial, MGDatabase, temperature, rand, payload, mu, phi)
+      import :: buildMGParticleStatePayload, mgNeutronDatabase, mgNeutronMaterial, defReal, distributedMGSource, RNG
+      class(distributedMGSource), intent(in)           :: self
+      class(mgNeutronMaterial), intent(in)             :: MGMaterial
+      class(mgNeutronDatabase), intent(in)             :: MGDatabase
       real(defReal), intent(in)                        :: temperature
       type(RNG), intent(inout)                         :: rand
-      type(buildCEParticleStatePayload), intent(inout) :: payload
+      type(buildMGParticleStatePayload), intent(inout) :: payload
       real(defReal), intent(out)                       :: mu, phi
     end subroutine sampleFinalPayloadComponents
 
@@ -61,14 +56,14 @@ contains
   !!
   !!
   subroutine allocatePayloadAndState(self, payload, state)
-    class(distributedCESource), intent(in)                            :: self
+    class(distributedMGSource), intent(in)                            :: self
     class(buildTransportObjectStatePayload), allocatable, intent(out) :: payload
     class(transportObjectState), allocatable, intent(out)             :: state
 
     ! Allocate payload and state. For now only allocate CENeutronState. 
     ! Can be extended in the future to include more CE particle types.
-    allocate(buildCEParticleStatePayload :: payload)
-    allocate(CENeutronState :: state)
+    allocate(buildMGParticleStatePayload :: payload)
+    allocate(MGNeutronState :: state)
 
   end subroutine allocatePayloadAndState
 
@@ -76,52 +71,52 @@ contains
   !!
   !!
   subroutine finalisePayload(self, mat, database, temperature, rand, payload, mu, phi)
-    class(distributedCESource), intent(in)                 :: self
+    class(distributedMGSource), intent(in)                 :: self
     class(neutronMaterial), pointer, intent(in)            :: mat
     class(nuclearDatabase), pointer, intent(in)            :: database
     real(defReal), intent(in)                              :: temperature
     type(RNG), intent(inout)                               :: rand
     class(buildTransportObjectStatePayload), intent(inout) :: payload
     real(defReal), intent(out)                             :: mu, phi
-    class(ceNeutronDatabase), pointer                      :: CENeutronDatabasePtr
-    class(ceNeutronMaterial), pointer                      :: CENeutronMaterialPtr
-    type(buildCEParticleStatePayload), pointer             :: CEPayloadPtr
+    class(mgNeutronDatabase), pointer                      :: MGNeutronDatabasePtr
+    class(mgNeutronMaterial), pointer                      :: MGNeutronMaterialPtr
+    type(buildMGParticleStatePayload), pointer             :: MGPayloadPtr
 
     ! Downcast arguments to correct types.
-    CENeutronDatabasePtr => ceNeutronDatabase_CptrCast(database)
-    CENeutronMaterialPtr => ceNeutronMaterial_CptrCast(mat)
-    CEPayloadPtr => castBuildCEParticleStatePayloadPtr(payload, .true.)
+    MGNeutronDatabasePtr => mgNeutronDatabase_CptrCast(database)
+    MGNeutronMaterialPtr => mgNeutronMaterial_CptrCast(mat)
+    MGPayloadPtr => castBuildMGParticleStatePayloadPtr(payload)
 
     ! Sample final state components.
-    call self % sampleFinalPayloadComponents(CENeutronMaterialPtr, CENeutronDatabasePtr, temperature, rand, &
-                                             CEPayloadPtr, mu, phi)
+    call self % sampleFinalPayloadComponents(MGNeutronMaterialPtr, MGNeutronDatabasePtr, temperature, rand, &
+                                             MGPayloadPtr, mu, phi)
 
   end subroutine finalisePayload
 
   !!
   !!
   !!
-  elemental function getEnergy(self) result(energy)
-    class(distributedCESource), intent(in) :: self
-    real(defReal)                          :: energy
+  elemental function getEnergyGroup(self) result(energyGroup)
+    class(distributedMGSource), intent(in) :: self
+    integer(shortInt)                      :: energyGroup
 
-    energy = self % energy
+    energyGroup = self % energyGroup
 
-  end function getEnergy
+  end function getEnergyGroup
 
   !!
   !!
   !!
   subroutine init(self, dict, geom)
-    class(distributedCESource), intent(inout) :: self
+    class(distributedMGSource), intent(inout) :: self
     class(dictionary), intent(in)             :: dict
     class(geometry), pointer, intent(in)      :: geom
 
     ! Initialise superclass.
     call init_super(self, dict, geom)
 
-    ! Retrieve energy.
-    call dict % getOrDefault(self % energy, 'E', DEFAULT_ENERGY)
+    ! Retrieve energy group.
+    call dict % getOrDefault(self % energyGroup, 'G', DEFAULT_ENERGY_GROUP)
 
   end subroutine init
 
@@ -129,14 +124,14 @@ contains
   !!
   !!
   elemental subroutine kill(self)
-    class(distributedCESource), intent(inout) :: self
+    class(distributedMGSource), intent(inout) :: self
 
     ! Superclass.
     call kill_super(self)
 
     ! Local.
-    self % energy = ZERO
+    self % energyGroup = 0
 
   end subroutine kill
 
-end module distributedCESource_inter
+end module distributedMGSource_inter

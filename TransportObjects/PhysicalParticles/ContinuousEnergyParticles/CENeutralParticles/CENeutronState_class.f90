@@ -3,7 +3,8 @@ module CENeutronState_class
   use CEParticleState_class,      only : buildCEParticleStatePayload, CEParticleState
   use errors_mod,                 only : fatalError
   use numPrecision
-  use transportObjectState_class, only : transportObjectState
+  use transportObjectState_class, only : init_base_super => init_base, transportObjectState
+  use universalVariables,         only : neutronMass
 
   implicit none
   private
@@ -16,6 +17,8 @@ module CENeutronState_class
   !!
   type, public, extends(CEParticleState) :: CENeutronState
     private
+  contains
+    procedure :: init_base
   end type CENeutronState
 
 contains
@@ -45,6 +48,18 @@ contains
     call fatalError(here, "Transport object state is not of type 'CENeutronState'.")
 
   end function castCENeutronStatePtr
+
+  !!
+  !!
+  !!
+  subroutine init_base(self)
+    class(CENeutronState), intent(inout) :: self
+
+    ! Initialise superclass then set mass.
+    call init_base_super(self)
+    call self % setMass(neutronMass)
+
+  end subroutine init_base
 
   !!
   !!

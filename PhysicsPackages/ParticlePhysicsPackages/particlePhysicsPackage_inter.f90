@@ -422,6 +422,12 @@ contains
       call p % strideRNG(i)
       call self % trackParticleHistory(transOp, collOp, p, buffer, tally)
 
+      if (allocated(p)) then
+        call p % kill()
+        deallocate(p)
+
+      end if
+
     end do
     !$omp end do
 

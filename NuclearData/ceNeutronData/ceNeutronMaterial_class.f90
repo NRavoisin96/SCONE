@@ -104,7 +104,7 @@ contains
     class(scalarField), pointer          :: temperatureFieldPtr
     real(defReal)                        :: kT, temperature
 
-    CENeutronPtr => castCENeutronPtr(object, .true.)
+    CENeutronPtr => castCENeutronPtr(object)
     kT = self % kT
     temperatureFieldPtr => getTemperatureFieldPtr()
     if (associated(temperatureFieldPtr)) then
@@ -284,7 +284,7 @@ contains
     real(defReal), intent(in)            :: E
     logical(defBool)                     :: shouldIt
 
-    shouldIt = self % hasTMS .and. (E > self % eUpperSab) .and. (E < self % eLowerURR)
+    shouldIt = self % hasTMS .and. E < self % eLowerURR .and. self % eUpperSab < E
 
   end function useTMS
 

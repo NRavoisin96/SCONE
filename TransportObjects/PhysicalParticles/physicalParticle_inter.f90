@@ -1,16 +1,18 @@
 module physicalParticle_inter
 
+  use collisionData_class,         only : collisionData
   use errors_mod,                  only : fatalError
   use numPrecision
   use physicalParticleState_class, only : castPhysicalParticleStatePtr, physicalParticleState
-  use transportObject_inter,       only : init_base_super => init_base, kill_super => kill, transportObject
+  use transportObject_inter,       only : init_base_super => init_base, kill_super => kill, &
+                                          prepareCollisionData_super => prepareCollisionData, transportObject
   use transportObjectState_class,  only : transportObjectState
 
   implicit none
   private
 
   ! Public procedures.
-  public :: castPhysicalParticlePtr, init_base, kill
+  public :: castPhysicalParticlePtr, init_base, kill, prepareCollisionData
 
   !!
   !!
@@ -23,6 +25,7 @@ module physicalParticle_inter
   contains
     procedure                     :: getBroodId
     procedure                     :: getKEff
+    procedure                     :: getMass
     procedure                     :: getPreCollisionStatePtr
     procedure                     :: getPreHistoryStatePtr
     procedure                     :: getPrePathStatePtr
@@ -31,6 +34,7 @@ module physicalParticle_inter
     procedure                     :: incrementCollisionsNumber
     procedure                     :: init_base
     procedure                     :: kill
+    procedure                     :: prepareCollisionData
     procedure, non_overridable    :: savePreCollisionState
     procedure, non_overridable    :: savePreHistoryState
     procedure, non_overridable    :: savePrePathState
@@ -88,7 +92,7 @@ contains
     class(physicalParticleState), pointer :: physicalParticleStatePtr
     integer(shortInt)                     :: broodId
 
-    physicalParticleStatePtr => castPhysicalParticleStatePtr(self % getCurrentStatePtr(), .true.)
+    physicalParticleStatePtr => castPhysicalParticleStatePtr(self % getCurrentStatePtr())
     broodId = physicalParticleStatePtr % getBroodId()
 
   end function getBroodId
@@ -103,6 +107,19 @@ contains
     k_eff = self % k_eff
 
   end function getKEff
+
+  !!
+  !!
+  !!
+  function getMass(self) result(mass)
+    class(physicalParticle), intent(in)   :: self
+    class(physicalParticleState), pointer :: currentStatePtr
+    real(defReal)                         :: mass
+
+    currentStatePtr => castPhysicalParticleStatePtr(self % getCurrentStatePtr())
+    mass = currentStatePtr % getMass()
+
+  end function getMass
 
   !!
   !!
@@ -162,11 +179,12 @@ contains
   !!
   !!
   !!
-  subroutine init_base(self)
+  subroutine init_base(self, initialiseCurrentState)
     class(physicalParticle), intent(inout) :: self
+    logical(defBool), intent(in), optional :: initialiseCurrentState
 
     ! Superclass.
-    call init_base_super(self)
+    call init_base_super(self, initialiseCurrentState)
 
     ! Allocate physical states.
     call self % allocateState(self % preCollisionState)
@@ -213,10 +231,24 @@ contains
   !!
   !!
   !!
+  subroutine prepareCollisionData(self, collDat)
+    class(physicalParticle), intent(in) :: self
+    class(collisionData), intent(inout) :: collDat
+
+    ! Superclass.
+    call prepareCollisionData_super(self, collDat)
+    collDat % initialWeight = self % preHistoryState % getWeight()
+    collDat % k_eff = self % k_eff
+
+  end subroutine prepareCollisionData
+
+  !!
+  !!
+  !!
   subroutine savePreCollisionState(self)
     class(physicalParticle), intent(inout) :: self
 
-    self % preCollisionState = self % copyCurrentState()
+    call self % copyCurrentState(self % preCollisionState)
 
   end subroutine savePreCollisionState
 
@@ -226,7 +258,7 @@ contains
   subroutine savePreHistoryState(self)
     class(physicalParticle), intent(inout) :: self
 
-    self % preHistoryState = self % copyCurrentState()
+    call self % copyCurrentState(self % preHistoryState)
 
   end subroutine savePreHistoryState
 
@@ -236,7 +268,7 @@ contains
   subroutine savePrePathState(self)
     class(physicalParticle), intent(inout) :: self
 
-    self % prePathState = self % copyCurrentState()
+    call self % copyCurrentState(self % prePathState)
 
   end subroutine savePrePathState
 
@@ -248,7 +280,7 @@ contains
     integer(shortInt), intent(in)          :: broodId
     class(physicalParticleState), pointer  :: physicalParticleStatePtr
 
-    physicalParticleStatePtr => castPhysicalParticleStatePtr(self % getCurrentStatePtr(), .true.)
+    physicalParticleStatePtr => castPhysicalParticleStatePtr(self % getCurrentStatePtr())
     call physicalParticleStatePtr % setBroodId(broodId)
 
   end subroutine setBroodId
@@ -272,7 +304,7 @@ contains
     real(defReal), intent(in)              :: mass
     class(physicalParticleState), pointer  :: currentStatePtr
 
-    currentStatePtr => castPhysicalParticleStatePtr(self % getCurrentStatePtr(), .true.)
+    currentStatePtr => castPhysicalParticleStatePtr(self % getCurrentStatePtr())
     call currentStatePtr % setMass(mass)
 
   end subroutine setMass

@@ -1,5 +1,6 @@
 module transportOperator_inter
 
+  use coordList_class,        only : coordList
   use dictionary_class,       only : dictionary
   use errors_mod,             only : fatalError
   use geometry_inter,         only : geometry, distCache
@@ -123,8 +124,10 @@ contains
     real(defReal), intent(inout)             :: distance
     integer(shortInt), intent(out)           :: event
     type(distCache), intent(inout), optional :: cache
+    type(coordList), pointer                 :: coordListPtr
 
-    call self % geom % move(object % getCoordsPtr(), distance, event, cache)
+    coordListPtr => object % getCoordsPtr()
+    call self % geom % move(coordListPtr, distance, event, cache)
 
   end subroutine move
 
@@ -135,8 +138,10 @@ contains
     class(transportOperator), intent(in)  :: self
     class(transportObject), intent(inout) :: object
     real(defReal), intent(in)             :: distance
+    type(coordList), pointer              :: coordListPtr
 
-    call self % geom % teleport(object % getCoordsPtr(), distance)
+    coordListPtr => object % getCoordsPtr()
+    call self % geom % teleport(coordListPtr, distance)
 
   end subroutine teleport
 

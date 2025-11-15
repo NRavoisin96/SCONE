@@ -7,7 +7,7 @@ module MGNeutron_class
   use physicalParticle_inter,     only : init_base_super => init_base
   use transportObject_inter,      only : transportObject
   use transportObjectState_class, only : transportObjectState
-  use universalVariables,         only : neutronMass, P_NEUTRON_MG
+  use universalVariables,         only : P_NEUTRON_MG
 
   implicit none
   private
@@ -23,7 +23,6 @@ module MGNeutron_class
   contains
     procedure :: allocateState
     procedure :: getType
-    procedure :: init_base
   end type MGNeutron
 
 contains
@@ -73,19 +72,5 @@ contains
     type = P_NEUTRON_MG
 
   end function getType
-
-  !!
-  !!
-  !!
-  subroutine init_base(self)
-    class(MGNeutron), intent(inout) :: self
-
-    ! Initialise superclass.
-    call init_base_super(self)
-
-    ! Set mass.
-    call self % setMass(neutronMass)
-
-  end subroutine init_base
 
 end module MGNeutron_class

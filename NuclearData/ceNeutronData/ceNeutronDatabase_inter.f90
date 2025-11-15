@@ -305,7 +305,7 @@ contains
     character(*), parameter                 :: here = 'getTrackingXS (ceNeutronDatabase_inter.f90)'
 
     ! Check dynamic type of physical particle then process request.
-    CENeutronPtr => castCENeutronPtr(object, .true.)
+    CENeutronPtr => castCENeutronPtr(object)
     energy = CENeutronPtr % getEnergy()
     select case(what)
       case (MATERIAL_XS)
@@ -355,7 +355,7 @@ contains
     type(CENeutron), pointer                :: CENeutronPtr
 
     ! Check dynamic type of the particle
-    CENeutronPtr => castCENeutronPtr(object, .true.)
+    CENeutronPtr => castCENeutronPtr(object)
 
     ! Check Cache and update if needed
     associate(matCache => materialCache(matIdx))
@@ -388,7 +388,7 @@ contains
     character(*), parameter                 :: Here = 'getTotalMatXS (ceNeutronDatabase_inter.f90)'
 
     ! Check dynamic type of the particle.
-    CENeutronPtr => castCENeutronPtr(object, .true.)
+    CENeutronPtr => castCENeutronPtr(object)
 
     associate(matCache => materialCache(matIdx))
       ! Check Cache and update if needed
@@ -441,7 +441,7 @@ contains
     character(*), parameter                 :: here = 'getMajorantXS (ceNeutronDatabase_inter.f90)'
 
     ! Check dynamic type of the particle
-    CENeutronPtr => castCENeutronPtr(object, .true.)
+    CENeutronPtr => castCENeutronPtr(object)
     energy = CENeutronPtr % getEnergy()
     associate(majCache => majorantCache(1))
       ! Check Cache and update if needed

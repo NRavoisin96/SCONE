@@ -36,7 +36,7 @@ set(CMAKE_Fortran_MODULE_DIRECTORY ${PROJECT_BINARY_DIR}/modFiles)
 # Add compilers flags
 # The flags set below will be applied to all Fortran files
 #
-set(CMAKE_Fortran_FLAGS "-std=f2008 -O3 -g -pedantic -Wall -Wno-unused-dummy-argument -cpp")
+set(CMAKE_Fortran_FLAGS "-std=f2008 -O3 -g -pedantic -Wall -Wno-unused-dummy-argument -fcheck=all,no-array-temps -cpp")
 
 # Add extra flags to all Fortran files
 if (COVERAGE)
@@ -109,24 +109,20 @@ include(add_integration_tests)
 # COLLECT ALL SOURCE AND TEST FILES
 
 # Include Nested Directories
-add_subdirectory(RandomNumbers)
-add_subdirectory(LinearAlgebra)
-add_subdirectory(SharedModules)
-add_subdirectory(Visualisation)
-add_subdirectory(ParticleObjects)
-add_subdirectory(NamedGrids)
-
-add_subdirectory(NuclearData)
-add_subdirectory(Geometry)
-add_subdirectory(Tallies)
-
 add_subdirectory(CollisionOperator)
-add_subdirectory(TransportOperator)
-
-add_subdirectory(UserInterface)
-
-add_subdirectory(PhysicsPackages)
 add_subdirectory(DataStructures)
+add_subdirectory(Geometry)
+add_subdirectory(LinearAlgebra)
+add_subdirectory(NamedGrids)
+add_subdirectory(NuclearData)
+add_subdirectory(PhysicsPackages)
+add_subdirectory(RandomNumbers)
+add_subdirectory(SharedModules)
+add_subdirectory(Tallies)
+add_subdirectory(TransportObjects)
+add_subdirectory(TransportOperators)
+add_subdirectory(UserInterface)
+add_subdirectory(Visualisation)
 
 ####################################################################################################
 # Compile SCONE static library

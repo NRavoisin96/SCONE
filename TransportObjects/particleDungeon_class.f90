@@ -220,9 +220,10 @@ contains
   !! Store particle in the dungeon
   !!
   subroutine detain_particle(self, p)
-    class(particleDungeon), intent(inout) :: self
-    class(physicalParticle), intent(in)   :: p
-    integer(shortInt)                     :: pop
+    class(particleDungeon), intent(inout)    :: self
+    class(physicalParticle), intent(in)      :: p
+    integer(shortInt)                        :: pop
+    class(transportObjectState), allocatable :: stateCopy
 
     !$omp atomic capture
     ! Increase population and weight
@@ -233,7 +234,9 @@ contains
     call self % checkPopulation(pop)
 
     ! Load new state.
-    self % prisoners(pop) % ptr => castPhysicalParticleStatePtr(p % copyCurrentState(), .true.)
+    call p % copyCurrentState(stateCopy)
+    call self % killPrisoner(pop)
+    allocate(self % prisoners(pop) % ptr, source = castPhysicalParticleStatePtr(stateCopy))
 
   end subroutine detain_particle
 
@@ -241,9 +244,10 @@ contains
   !! Store particle in the dungeon with a critical operation
   !!
   subroutine detainCritical_particle(self, p)
-    class(particleDungeon), intent(inout) :: self
-    class(physicalParticle), intent(in)   :: p
-    integer(shortInt)                     :: pop
+    class(particleDungeon), intent(inout)    :: self
+    class(physicalParticle), intent(in)      :: p
+    integer(shortInt)                        :: pop
+    class(transportObjectState), allocatable :: stateCopy
 
     !$omp critical (dungeon)
     ! Increase population and weight
@@ -252,7 +256,9 @@ contains
     call self % checkPopulation(pop)
 
     ! Load new state.
-    self % prisoners(pop) % ptr => castPhysicalParticleStatePtr(p % copyCurrentState(), .true.)
+    call p % copyCurrentState(stateCopy)
+    call self % killPrisoner(pop)
+    allocate(self % prisoners(pop) % ptr, source = castPhysicalParticleStatePtr(stateCopy))
     !$omp end critical (dungeon)
 
   end subroutine detainCritical_particle
@@ -274,7 +280,8 @@ contains
     call self % checkPopulation(pop)
 
     ! Load new state.
-    allocate(self % prisoners(pop) % ptr, source = castPhysicalParticleStatePtr(state, .true.))
+    call self % killPrisoner(pop)
+    allocate(self % prisoners(pop) % ptr, source = castPhysicalParticleStatePtr(state))
 
   end subroutine detain_particleState
 
@@ -293,7 +300,8 @@ contains
     call self % checkPopulation(pop)
 
     ! Load new state.
-    allocate(self % prisoners(pop) % ptr, source = castPhysicalParticleStatePtr(state, .true.))
+    call self % killPrisoner(pop)
+    allocate(self % prisoners(pop) % ptr, source = castPhysicalParticleStatePtr(state))
     !$omp end critical (dungeon)
 
   end subroutine detainCritical_particleState
@@ -346,15 +354,17 @@ contains
   !! Replace data of particle prisoner at the index idx with particle
   !!
   subroutine replace_particle(self, p, idx)
-    class(particleDungeon), intent(inout) :: self
-    class(physicalParticle), intent(in)   :: p
-    integer(shortInt), intent(in)         :: idx
+    class(particleDungeon), intent(inout)    :: self
+    class(physicalParticle), intent(in)      :: p
+    integer(shortInt), intent(in)            :: idx
+    class(transportObjectState), allocatable :: stateCopy
 
     call self % checkIdx(idx)
 
     ! Load new particle
     call self % killPrisoner(idx)
-    allocate(self % prisoners(idx) % ptr, source = castPhysicalParticleStatePtr(p % copyCurrentState(), .true.))
+    call p % copyCurrentState(stateCopy)
+    allocate(self % prisoners(idx) % ptr, source = castPhysicalParticleStatePtr(stateCopy))
 
   end subroutine replace_particle
 
@@ -370,7 +380,7 @@ contains
 
     ! Load new particle
     call self % killPrisoner(idx)
-    allocate(self % prisoners(idx) % ptr, source = castPhysicalParticleStatePtr(state, .true.))
+    allocate(self % prisoners(idx) % ptr, source = castPhysicalParticleStatePtr(state))
 
   end subroutine replace_particleState
 
@@ -500,6 +510,9 @@ contains
       call fatalError(here, 'Requested size: '//numToChar(N)//' is negative.')
 
     end if
+
+    ! Return immediately if there are no prisoners in the dungeon (degenerate case).
+    if (self % pop == 0) return
 
     ! Determine the maximum brood ID and sort the dungeon
     maxBroodId = 0

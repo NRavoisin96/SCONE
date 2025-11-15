@@ -206,7 +206,7 @@ contains
 
     ! Initialise test particle.
     call p % init()
-    prePathStatePtr => castPhysicalParticleStatePtr(p % getPrePathStatePtr(), .true.)
+    prePathStatePtr => castPhysicalParticleStatePtr(p % getPrePathStatePtr())
 
     ! Perform scoring
     call prePathStatePtr % setMaterialIdx(1)

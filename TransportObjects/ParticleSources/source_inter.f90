@@ -5,7 +5,7 @@ module source_inter
   use numPrecision
   use particleDungeon_class,      only : particleDungeon
   use RNG_class,                  only : RNG
-  use transportObjectState_class, only : transportObjectState
+  use transportObjectState_class, only : buildTransportObjectStatePayload, transportObjectState
 
   implicit none
   private
@@ -32,19 +32,29 @@ module source_inter
   !!   sampleParticle    -> sample particles from the corresponding distributions
   !!   kill              -> clean up the source
   !!
-  type, public,abstract :: source
+  type, public, abstract :: source
     private
-    class(geometry), pointer            :: geom => null()
+    class(geometry), pointer :: geom => null()
   contains
-    procedure, non_overridable          :: generate
-    procedure                           :: getGeometryPtr
-    procedure                           :: init
-    procedure                           :: kill
-    procedure(sampleParticle), deferred :: sampleParticle
-    procedure(sampleState), deferred    :: sampleState
+    procedure(allocatePayloadAndState), deferred :: allocatePayloadAndState
+    procedure, non_overridable                   :: generate
+    procedure                                    :: getGeometryPtr
+    procedure                                    :: init
+    procedure                                    :: kill
+    procedure(sampleState), deferred             :: sampleState
   end type source
 
   abstract interface
+    !!
+    !!
+    !!
+    subroutine allocatePayloadAndState(self, payload, state)
+      import :: buildTransportObjectStatePayload, source, transportObjectState
+      class(source), intent(in)                                         :: self
+      class(buildTransportObjectStatePayload), allocatable, intent(out) :: payload
+      class(transportObjectState), allocatable, intent(out)             :: state
+    end subroutine allocatePayloadAndState
+
     !!
     !! Sample particle's phase space co-ordinates
     !!
@@ -56,19 +66,10 @@ module source_inter
     !! Result:
     !!   A particle sampled the prescribed source
     !!
-    subroutine sampleParticle(self, rand, state)
+    subroutine sampleState(self, rand, state)
       import                                                :: RNG, source, transportObjectState
       class(source), intent(inout)                          :: self
       class(RNG), intent(inout)                             :: rand
-      class(transportObjectState), allocatable, intent(out) :: state
-    end subroutine sampleParticle
-
-    !!
-    !!
-    !!
-    subroutine sampleState(self, state)
-      import                                                :: source, transportObjectState
-      class(source), intent(in)                             :: self
       class(transportObjectState), allocatable, intent(out) :: state
     end subroutine sampleState
 
@@ -105,7 +106,7 @@ contains
     do i = 1, n
       pRand = rand
       call pRand % stride(i)
-      call self % sampleParticle(pRand, state)
+      call self % sampleState(pRand, state)
       call dungeon % replace(state, i)
 
     end do

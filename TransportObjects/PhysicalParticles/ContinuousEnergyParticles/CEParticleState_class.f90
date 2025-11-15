@@ -2,15 +2,16 @@ module CEParticleState_class
 
   use errors_mod,                  only : fatalError
   use numPrecision
-  use physicalParticleState_class, only : buildPhysicalParticleStatePayload, display_super => display, init_super => init, &
-                                          kill_super => kill, preparePayload_super => preparePayload, physicalParticleState
+  use physicalParticleState_class, only : buildPhysicalParticleStatePayload, display_super => display, &
+                                          init_fromPayload_super => init_fromPayload, kill_super => kill, &
+                                          physicalParticleState, preparePayload_super => preparePayload
   use transportObjectState_class,  only : buildTransportObjectStatePayload, transportObjectState
 
   implicit none
   private
 
   ! Public procedures.
-  public :: castCEParticleStatePtr
+  public :: castBuildCEParticleStatePayloadPtr, castCEParticleStatePtr
 
   !!
   !!
@@ -28,13 +29,38 @@ module CEParticleState_class
   contains
     procedure :: display
     procedure :: getEnergy
-    procedure :: init
+    procedure :: init_fromPayload
     procedure :: kill
     procedure :: preparePayload
     procedure :: setEnergy
   end type CEParticleState
 
 contains
+  !!
+  !!
+  !!
+  function castBuildCEParticleStatePayloadPtr(source, fatal) result(ptr)
+    class(buildTransportObjectStatePayload), intent(in) :: source
+    logical(defBool), intent(in), optional              :: fatal
+    class(buildCEParticleStatePayload), pointer         :: ptr
+    logical(defBool)                                    :: throwError
+    character(*), parameter                             :: HERE = 'castBuildCEParticleStatePayloadPtr (CEParticleState_class.f90)'
+
+    select type(temp => source)
+      type is(buildCEParticleStatePayload)
+        ptr => temp
+
+      class default
+        ptr => null()
+
+    end select
+
+    throwError = .true.
+    if (present(fatal)) throwError = fatal
+    if (throwError .and. .not. associated(ptr)) call fatalError(HERE, "Payload is not of type 'buildCEParticleStatePayload'.")
+
+  end function castBuildCEParticleStatePayloadPtr
+
   !!
   !!
   !!
@@ -88,29 +114,21 @@ contains
   !!
   !!
   !!
-  subroutine init(self, payload)
+  subroutine init_fromPayload(self, payload)
     class(CEParticleState), intent(inout)               :: self
     class(buildTransportObjectStatePayload), intent(in) :: payload
     type(buildCEParticleStatePayload), pointer          :: payloadPtr
-    character(*), parameter                             :: HERE = 'init (CEParticleState_class.f90)'
 
     ! Initialise superclass.
-    call init_super(self, payload)
+    call init_fromPayload_super(self, payload)
 
     ! Downcast payload to correct type.
-    select type(ptr => payload)
-      type is(buildCEParticleStatePayload)
-        payloadPtr => ptr
-
-      class default
-        call fatalError(HERE, 'Invalid payload type.')
-
-    end select
+    payloadPtr => castBuildCEParticleStatePayloadPtr(payload)
 
     ! Local.
     self % energy = payloadPtr % energy
 
-  end subroutine init
+  end subroutine init_fromPayload
 
   !!
   !!
@@ -133,20 +151,12 @@ contains
     class(CEParticleState), intent(in)                     :: self
     class(buildTransportObjectStatePayload), intent(inout) :: payload
     type(buildCEParticleStatePayload), pointer             :: payloadPtr
-    character(*), parameter                                :: HERE = 'preparePayload (CEParticleState_class.f90)'
 
     ! Superclass.
     call preparePayload_super(self, payload)
 
     ! Downcast payload to correct type.
-    select type(ptr => payload)
-      type is(buildCEParticleStatePayload)
-        payloadPtr => ptr
-
-      class default
-        call fatalError(HERE, 'Invalid payload type.')
-
-    end select
+    payloadPtr => castBuildCEParticleStatePayloadPtr(payload)
 
     ! Local.
     payloadPtr % energy = self % energy

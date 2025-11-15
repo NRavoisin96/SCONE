@@ -33,47 +33,15 @@ module configSource_inter
   type, public, abstract, extends(source) :: configSource
 
   contains
-    procedure                              :: sampleParticle
-    procedure(sampleType), deferred        :: sampleType
-    procedure(samplePosition), deferred    :: samplePosition
+    procedure                              :: kill
     procedure(sampleEnergy), deferred      :: sampleEnergy
     procedure(sampleEnergyAngle), deferred :: sampleEnergyAngle
+    procedure(samplePosition), deferred    :: samplePosition
+    procedure                              :: sampleState
+    procedure(sampleType), deferred        :: sampleType
   end type configSource
 
   abstract interface
-
-    !!
-    !! Sample Type of a particle
-    !!
-    !! Sets 'Type' in the particleState p (e.g. P_NEUTRON)
-    !!
-    !! Inputs:
-    !!   p [inout] -> particleState to be given a type
-    !!   rand [in] -> random number generator
-    !!
-    subroutine sampleType(self, state, rand)
-      import                                     :: configSource, RNG, transportObjectState
-      class(configSource), intent(inout)         :: self
-      class(transportObjectState), intent(inout) :: state
-      class(RNG), intent(inout)                  :: rand
-    end subroutine sampleType
-
-    !!
-    !! Sample particle position
-    !!
-    !! Sets position of the particle p
-    !!
-    !! Inputs:
-    !!   p [inout] -> particleState to be given a position
-    !!   rand [in] -> random number generator
-    !!
-    subroutine samplePosition(self, state, rand)
-      import                                     :: configSource, RNG, transportObjectState
-      class(configSource), intent(inout)         :: self
-      class(transportObjectState), intent(inout) :: state
-      class(RNG), intent(inout)                  :: rand
-    end subroutine samplePosition
-
     !!
     !! Sample particle Energy/Group
     !!
@@ -109,16 +77,57 @@ module configSource_inter
       class(RNG), intent(inout)                  :: rand
     end subroutine sampleEnergyAngle
 
+    !!
+    !! Sample particle position
+    !!
+    !! Sets position of the particle p
+    !!
+    !! Inputs:
+    !!   p [inout] -> particleState to be given a position
+    !!   rand [in] -> random number generator
+    !!
+    subroutine samplePosition(self, state, rand)
+      import                                     :: configSource, RNG, transportObjectState
+      class(configSource), intent(inout)         :: self
+      class(transportObjectState), intent(inout) :: state
+      class(RNG), intent(inout)                  :: rand
+    end subroutine samplePosition
+
+    !!
+    !! Sample Type of a particle
+    !!
+    !! Sets 'Type' in the particleState p (e.g. P_NEUTRON)
+    !!
+    !! Inputs:
+    !!   p [inout] -> particleState to be given a type
+    !!   rand [in] -> random number generator
+    !!
+    subroutine sampleType(self, state, rand)
+      import                                     :: configSource, RNG, transportObjectState
+      class(configSource), intent(inout)         :: self
+      class(transportObjectState), intent(inout) :: state
+      class(RNG), intent(inout)                  :: rand
+    end subroutine sampleType
+
   end interface
 
 contains
+  !!
+  !! Return to uninitialised state
+  !!
+  elemental subroutine kill(self)
+    class(configSource), intent(inout) :: self
+
+    call kill_super(self)
+
+  end subroutine kill
 
   !!
   !! Sample particle's phase space co-ordinates
   !!
   !! See source_inter for details
   !!
-  subroutine sampleParticle(self, rand, state)
+  subroutine sampleState(self, rand, state)
     class(configSource), intent(inout)                    :: self
     class(RNG), intent(inout)                             :: rand
     class(transportObjectState), allocatable, intent(out) :: state
@@ -130,16 +139,6 @@ contains
     call state % setTime(ZERO)
     call state % setWeight(ONE)
 
-  end subroutine sampleParticle
-
-  !!
-  !! Return to uninitialised state
-  !!
-  elemental subroutine kill(self)
-    class(configSource), intent(inout) :: self
-
-    call kill_super(self)
-
-  end subroutine kill
+  end subroutine sampleState
 
 end module configSource_inter

@@ -61,7 +61,7 @@ module materialSource_class
     integer(shortInt)           :: matIdx = -1
   contains
     procedure :: init
-    procedure :: sampleParticle
+    procedure :: sampleState
     procedure :: kill
   end type materialSource
 

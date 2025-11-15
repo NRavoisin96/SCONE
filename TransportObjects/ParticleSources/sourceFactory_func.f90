@@ -1,11 +1,14 @@
 module sourceFactory_func
 
-  use dictionary_class,      only : dictionary
-  use errors_mod,            only : fatalError
-  use CEFissionSource_class, only : CEFissionSource
-  use geometry_inter,        only : geometry
+  use dictionary_class,       only : dictionary
+  use errors_mod,             only : fatalError
+  use CEFissionSource_class,  only : CEFissionSource
+  use CEMaterialSource_class, only : CEMaterialSource
+  use geometry_inter,         only : geometry
+  use MGFissionSource_class,  only : MGFissionSource
+  use MGMaterialSource_class, only : MGMaterialSource
   use numPrecision
-  use source_inter,          only : source
+  use source_inter,           only : source
 
   implicit none
   private
@@ -16,7 +19,10 @@ module sourceFactory_func
   ! It is printed if type was unrecognised
   ! NOTE:
   ! For now  it is necessary to adjust trailing blanks so all entries have the same length
-  character(nameLen), dimension(*), parameter :: AVAILABLE_sources = ['CEFissionSource']
+  character(nameLen), dimension(*), parameter :: AVAILABLE_sources = ['CEFissionSource ', &
+                                                                      'CEMaterialSource', &
+                                                                      'MGFissionSource ', &
+                                                                      'MGMaterialSource']
 
 contains
 
@@ -41,6 +47,15 @@ contains
     select case(type)
       case('CEFissionSource')
         allocate(CEFissionSource :: new)
+
+      case('CEMaterialSource')
+        allocate(CEMaterialSource :: new)
+
+      case('MGFissionSource')
+        allocate(MGFissionSource :: new)
+
+      case('MGMaterialSource')
+        allocate(MGMaterialSource :: new)
 
       case default
         print *, AVAILABLE_sources

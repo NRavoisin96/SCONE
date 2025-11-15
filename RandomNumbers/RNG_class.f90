@@ -1,6 +1,8 @@
-module rng_class
+module RNG_class
+  
   use numPrecision
   use iso_fortran_env, only : int64
+  
   implicit none
   private
 
@@ -17,7 +19,7 @@ module rng_class
   !! NOTE: M chosen to be a power of 2 -> simplifies integer division (right shift instruction)
   !!       Definition of bitMask assumes that sign-bit is leftmost bit. Need test for that.
   !!
-  type, public :: rng
+  type, public :: RNG
     private
     integer(int64) :: count = 0, initialSeed = 0, rngSeed = 0
   contains
@@ -35,7 +37,7 @@ module rng_class
     procedure          :: setSeed
     procedure          :: getCount
     procedure          :: getInitialSeed
-  end type rng
+  end type RNG
 
   !! Parameters
   !! NOTE: Bit enumeration in ibset begins at 0. (Section 13.3.1 of Fortran 2008 Standard)
@@ -136,7 +138,7 @@ contains
   !! Initialise RNG with a seed
   !!
   subroutine init(self, seed)
-    class(rng), intent(inout)  :: self
+    class(RNG), intent(inout)  :: self
     integer(int64), intent(in) :: seed
 
     self % rngSeed     = seed
@@ -147,8 +149,8 @@ contains
   !!
   !! Returns value of random number on <0,1)
   !!
-  subroutine generate_defReal(self, randomNumber, mult, add)
-    class(rng), intent(inout)           :: self
+  pure subroutine generate_defReal(self, randomNumber, mult, add)
+    class(RNG), intent(inout)           :: self
     real(defReal), intent(out)          :: randomNumber
     real(defReal), intent(in), optional :: mult, add
     integer(int64)                      :: seed
@@ -177,11 +179,11 @@ contains
   !!
   !! Returns value of random number on <0,1)
   !!
-  subroutine generate_defRealArray(self, randomNumbers, mult, add)
-    class(rng), intent(inout)                  :: self
-    real(defReal), dimension(:), intent(inout) :: randomNumbers
-    real(defReal), intent(in), optional        :: mult, add
-    integer(shortInt)                          :: i
+  pure subroutine generate_defRealArray(self, randomNumbers, mult, add)
+    class(RNG), intent(inout)                :: self
+    real(defReal), dimension(:), intent(out) :: randomNumbers
+    real(defReal), intent(in), optional      :: mult, add
+    integer(shortInt)                        :: i
 
     do i = 1, size(randomNumbers)
       call self % generate(randomNumbers(i), mult, add)
@@ -193,31 +195,23 @@ contains
   !!
   !!
   !!
-  subroutine generate_int(self, randomNumber, mult, add)
-    class(rng), intent(inout)               :: self
+  pure subroutine generate_int(self, randomNumber, mult, add)
+    class(RNG), intent(inout)               :: self
     integer(shortInt), intent(out)          :: randomNumber
     integer(shortInt), intent(in), optional :: mult, add
     real(defReal)                           :: randomReal
 
-    call self % generate(randomReal)
-    if (present(mult)) then
-      randomNumber = int(mult * randomReal)
-
-    else
-      randomNumber = int(randomReal)
-
-    end if
-
-    if (present(add)) randomNumber = randomNumber + add
+    call self % generate(randomReal, real(mult, defReal), real(add, defReal))
+    randomNumber = int(randomReal)
 
   end subroutine generate_int
 
   !!
   !! Return random integer instead of real
   !!
-  subroutine generate_int64(self, randomNumber)
-    class(rng), intent(inout) :: self
-    integer(int64)            :: randomNumber
+  pure subroutine generate_int64(self, randomNumber)
+    class(RNG), intent(inout)   :: self
+    integer(int64), intent(out) :: randomNumber
 
     ! Get current state of LCG
     randomNumber = self % rngSeed
@@ -237,8 +231,8 @@ contains
   !!
   !!
   !!
-  subroutine generateDistance(self, inverseXS, distance)
-    class(rng), intent(inout)  :: self
+  elemental subroutine generateDistance(self, inverseXS, distance)
+    class(RNG), intent(inout)  :: self
     real(defReal), intent(in)  :: inverseXS
     real(defReal), intent(out) :: distance
     real(defReal)              :: randomNumber
@@ -251,8 +245,8 @@ contains
   !!
   !!
   !!
-  subroutine generateMu(self, mu)
-    class(rng), intent(inout)  :: self
+  elemental subroutine generateMu(self, mu)
+    class(RNG), intent(inout)  :: self
     real(defReal), intent(out) :: mu
 
     call self % generate(mu, TWO, -ONE)
@@ -262,8 +256,8 @@ contains
   !!
   !!
   !!
-  subroutine generatePhi(self, phi)
-    class(rng), intent(inout)  :: self
+  elemental subroutine generatePhi(self, phi)
+    class(RNG), intent(inout)  :: self
     real(defReal), intent(out) :: phi
 
     call self % generate(phi, mult = TWO_PI)
@@ -330,7 +324,7 @@ contains
   !!       f -> L (L as defined above)
   !!
   subroutine skip(self, k_in)
-      class(rng), intent(inout)   :: self
+      class(RNG), intent(inout)   :: self
       integer(int64), intent(in)  :: k_in
       integer(int64)             :: k         ! number of places to skip
       integer(int64)             :: Gk        ! G**k (mod M)
@@ -388,7 +382,7 @@ contains
   !! muliplied by an integer
   !!
   subroutine stride(self, n)
-    class(rng), intent(inout)     :: self
+    class(RNG), intent(inout)     :: self
     integer(shortInt), intent(in) :: n
 
     call self % skip(strideSize * n)
@@ -400,7 +394,7 @@ contains
   !! with some number of strides above the initial seed
   !!
   subroutine setSeed(self, n)
-    class(rng), intent(inout)     :: self
+    class(RNG), intent(inout)     :: self
     integer(shortInt), intent(in) :: n
 
     self % rngSeed = self % initialSeed
@@ -412,7 +406,7 @@ contains
   !! Return total number of psudo-random numbers generated
   !!
   elemental function getCount(self) result (count)
-    class(rng), intent(in) :: self
+    class(RNG), intent(in) :: self
     integer(int64)        :: count
 
     count = self % count
@@ -423,11 +417,11 @@ contains
   !! Returns value of seed used to initialise RNG
   !!
   elemental function getInitialSeed(self) result(seed)
-    class(rng), intent(in) :: self
+    class(RNG), intent(in) :: self
     integer(int64)         :: seed
 
     seed = self % initialSeed
 
   end function getInitialSeed
 
-end module rng_class
+end module RNG_class

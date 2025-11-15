@@ -7,7 +7,7 @@ module CENeutron_class
   use physicalParticle_inter,     only : init_base_super => init_base
   use transportObject_inter,      only : transportObject
   use transportObjectState_class, only : transportObjectState
-  use universalVariables,         only : neutronMass, P_NEUTRON_CE
+  use universalVariables,         only : P_NEUTRON_CE
 
   implicit none
   private
@@ -23,7 +23,6 @@ module CENeutron_class
   contains
     procedure :: allocateState
     procedure :: getType
-    procedure :: init_base
   end type CENeutron
 
 contains
@@ -46,7 +45,7 @@ contains
     logical(defBool), intent(in), optional :: fatal
     type(CENeutron), pointer               :: ptr
     logical(defBool)                       :: throwError
-    character(*), parameter                :: here = 'castCENeutronPtr (CENeutron_class.f90)'
+    character(*), parameter                :: HERE = 'castCENeutronPtr (CENeutron_class.f90)'
 
     select type(temp => source)
       type is(CENeutron)
@@ -58,9 +57,9 @@ contains
     end select
 
     ! Throw error if requested.
-    throwError = .false.
+    throwError = .true.
     if (present(fatal)) throwError = fatal
-    if (throwError .and. .not. associated(ptr)) call fatalError(here, "Transport object is not of type 'CENeutron'.")
+    if (throwError .and. .not. associated(ptr)) call fatalError(HERE, "Transport object is not of type 'CENeutron'.")
 
   end function castCENeutronPtr
 
@@ -74,19 +73,5 @@ contains
     type = P_NEUTRON_CE
 
   end function getType
-
-  !!
-  !!
-  !!
-  subroutine init_base(self)
-    class(CENeutron), intent(inout) :: self
-
-    ! Initialise superclass.
-    call init_base_super(self)
-
-    ! Set mass.
-    call self % setMass(neutronMass)
-
-  end subroutine init_base
 
 end module CENeutron_class

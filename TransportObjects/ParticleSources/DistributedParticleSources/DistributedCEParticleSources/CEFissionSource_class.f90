@@ -2,7 +2,7 @@ module CEFissionSource_class
 
   use ceNeutronDatabase_inter,    only : ceNeutronDatabase
   use ceNeutronMaterial_class,    only : ceNeutronMaterial
-  use CENeutronState_class,       only : CENeutronState
+  use CEParticleState_class,      only : buildCEParticleStatePayload
   use distributedCESource_inter,  only : distributedCESource
   use endfConstants,              only : N_FISSION
   use errors_mod,                 only : fatalError
@@ -11,13 +11,12 @@ module CEFissionSource_class
   use neutronMaterial_inter,      only : neutronMaterial
   use numPrecision
   use RNG_class,                  only : RNG
-  use transportObjectState_class, only : transportObjectState
   use universalVariables,         only : joulesPerMeV, kBoltzmann, OUTSIDE_MAT, VOID_MAT
 
   implicit none
   private
 
-  ! Public parameters.
+  ! Parameters.
   integer(shortInt) :: N_MAXIMUM_ITERATIONS = 10000
 
   !!
@@ -30,8 +29,7 @@ module CEFissionSource_class
     procedure :: isMaterialInvalid
     procedure :: printInfiniteLoopError
     procedure :: rejectMaterial
-    procedure :: sampleState
-    procedure :: sampleFinalState
+    procedure :: sampleFinalPayloadComponents
   end type CEFissionSource
 
 contains
@@ -64,9 +62,9 @@ contains
   subroutine printInfiniteLoopError(self, nMaxIterations)
     class(CEFissionSource), intent(in) :: self
     integer(shortInt), intent(in)      :: nMaxIterations
-    character(*), parameter            :: here = 'printInfiniteLoopError (CEFissionSource_class.f90)'
+    character(*), parameter            :: HERE = 'printInfiniteLoopError (CEFissionSource_class.f90)'
 
-    call fatalError(here, 'Failed to find a fissile material in: '//numToChar(nMaxIterations)//' attempts.&
+    call fatalError(HERE, 'Failed to find a fissile material in: '//numToChar(nMaxIterations)//' attempts.&
                            & Increase the number of maximum attempts or verify that fissile materials are present.')
 
   end subroutine printInfiniteLoopError
@@ -86,29 +84,18 @@ contains
   !!
   !!
   !!
-  subroutine sampleState(self, state)
-    class(CEFissionSource), intent(in)                    :: self
-    class(transportObjectState), allocatable, intent(out) :: state
-
-    ! For now only allocate CENeutronState. Can be extended in the future to include more CE particle types.
-    allocate(CENeutronState :: state)
-
-  end subroutine sampleState
-
-  !!
-  !!
-  !!
-  subroutine sampleFinalState(self, CEMaterial, CEDatabase, temperature, rand, energy, mu, phi)
-    class(CEFissionSource), intent(in)   :: self
-    class(ceNeutronMaterial), intent(in) :: CEMaterial
-    class(ceNeutronDatabase), intent(in) :: CEDatabase
-    real(defReal), intent(in)            :: temperature
-    type(RNG), intent(inout)             :: rand
-    real(defReal), intent(out)           :: energy, mu, phi
-    integer(shortInt)                    :: nuclideIdx
-    real(defReal)                        :: E_down, E_out, E_up, kT, sourceEnergy
-    type(fissionCE), pointer             :: fissCE
-    character(*), parameter              :: here = 'sampleFinalState (CEFissionSource_class.f90)'
+  subroutine sampleFinalPayloadComponents(self, CEMaterial, CEDatabase, temperature, rand, payload, mu, phi)
+    class(CEFissionSource), intent(in)               :: self
+    class(ceNeutronMaterial), intent(in)             :: CEMaterial
+    class(ceNeutronDatabase), intent(in)             :: CEDatabase
+    real(defReal), intent(in)                        :: temperature
+    type(RNG), intent(inout)                         :: rand
+    type(buildCEParticleStatePayload), intent(inout) :: payload
+    real(defReal), intent(out)                       :: mu, phi
+    integer(shortInt)                                :: nuclideIdx
+    real(defReal)                                    :: E_down, E_out, E_up, kT, sourceEnergy
+    type(fissionCE), pointer                         :: fissCE
+    character(*), parameter                          :: HERE = 'sampleFinalState (CEFissionSource_class.f90)'
 
     ! Get energy of the source.
     sourceEnergy = self % getEnergy()
@@ -122,12 +109,12 @@ contains
 
     ! Get reaction object
     fissCE => fissionCE_TptrCast(CEDatabase % getReaction(N_FISSION, nuclideIdx))
-    if (.not. associated(fissCE)) call fatalError(here, "Failed to get CE Fission Reaction Object")
+    if (.not. associated(fissCE)) call fatalError(HERE, "Failed to get CE Fission Reaction Object")
 
     ! Get mu, phi, E_out
     call fissCE % sampleOut(mu, phi, E_out, sourceEnergy, rand)
-    energy = min(E_out, E_up)
+    payload % energy = min(E_out, E_up)
 
-  end subroutine sampleFinalState
+  end subroutine sampleFinalPayloadComponents
 
 end module CEFissionSource_class

@@ -6,7 +6,6 @@ module collisionClerk_class
   use numPrecision
   use outputFile_class,            only : outputFile
   use physicalParticle_inter,      only : physicalParticle
-  use physicalParticleState_class, only : castPhysicalParticleStatePtr, physicalParticleState
   use scoreMemory_class,           only : scoreMemory
   use tallyCodes
   use tallyClerk_inter,            only : tallyClerk, kill_super => kill
