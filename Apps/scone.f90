@@ -91,7 +91,7 @@ program scone
   ! Print output message.
   call timerStop(timerIdx)
   print *, 'Total calculation time: '//trim(secToChar(timerTime(timerIdx)))//'.'
-  print *, 'Have a good day and enjoy your result analysis!'
+  print *, 'Have a good day and enjoy your results analysis!'
 
   ! Clean up.
   if (allocated(core)) then

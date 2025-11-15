@@ -19,7 +19,7 @@ module physicsPackage_inter
   private
 
   ! Public procedures.
-  public :: copyPayload, init, kill
+  public :: copyPayload, getCyclesNumber, init, kill
 
   !!
   !! Abstract interface of physics Package
@@ -38,6 +38,7 @@ module physicsPackage_inter
     procedure                                   :: buildVisualisation
     procedure                                   :: collectResults
     procedure(collectSpecificResults), deferred :: collectSpecificResults
+    procedure                                   :: getCurrentCycleNumber
     procedure                                   :: getCyclesNumber
     procedure                                   :: getGeometryBounds
     procedure                                   :: getGeometryIdx
@@ -46,6 +47,7 @@ module physicsPackage_inter
     procedure                                   :: getOutputFile
     procedure                                   :: getParticlesNumber
     procedure                                   :: getTimerMain
+    procedure                                   :: getTotalCyclesNumber
     procedure                                   :: init
     procedure                                   :: kill
     procedure                                   :: move
@@ -141,6 +143,18 @@ contains
   !!
   !!
   !!
+  elemental function getCurrentCycleNumber(self, cycleNumber) result(currentCycleNumber)
+    class(physicsPackage), intent(in) :: self
+    integer(shortInt), intent(in)     :: cycleNumber
+    integer(shortInt)                 :: currentCycleNumber
+
+    currentCycleNumber = cycleNumber
+
+  end function getCurrentCycleNumber
+
+  !!
+  !!
+  !!
   elemental function getCyclesNumber(self) result(nCycles)
     class(physicsPackage), intent(in) :: self
     integer(shortInt)                 :: nCycles
@@ -225,6 +239,17 @@ contains
     timerMain = self % timerMain
 
   end function getTimerMain
+
+  !!
+  !!
+  !!
+  elemental function getTotalCyclesNumber(self) result(nTotalCycles)
+    class(physicsPackage), intent(in) :: self
+    integer(shortInt)                 :: nTotalCycles
+
+    nTotalCycles = self % N_cycles
+
+  end function getTotalCyclesNumber
 
   !!
   !! Initialise Physics Package from dictionary

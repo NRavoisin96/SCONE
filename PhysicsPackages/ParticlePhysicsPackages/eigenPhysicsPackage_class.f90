@@ -17,7 +17,7 @@ module eigenPhysicsPackage_class
                                            particlePhysicsPackage, kill_super => kill
   use physicalParticle_inter,       only : physicalParticle
   use physicalParticleState_class,  only : physicalParticleState
-  use physicsPackage_inter,         only : copyPayload, initPhysicsPackagePayload
+  use physicsPackage_inter,         only : copyPayload, getCyclesNumber_super => getCyclesNumber, initPhysicsPackagePayload
   use RNG_class,                    only : RNG
   use tallyAdmin_class,             only : tallyAdmin
   use tallyResult_class,            only : tallyResult
@@ -52,9 +52,11 @@ module eigenPhysicsPackage_class
     procedure :: collectSpecificResults
     procedure :: displayCycleProgress
     procedure :: generateInitialState
+    procedure :: getCurrentCycleNumber
     procedure :: getCycleParticlesNumber
     procedure :: getInactiveCyclesNumber
     procedure :: getTallyAdminPtr
+    procedure :: getTotalCyclesNumber
     procedure :: init
     procedure :: kill
     procedure :: printSettings
@@ -144,6 +146,18 @@ contains
   !!
   !!
   !!
+  elemental function getCurrentCycleNumber(self, cycleNumber) result(currentCycleNumber)
+    class(eigenPhysicsPackage), intent(in) :: self
+    integer(shortInt), intent(in)          :: cycleNumber
+    integer(shortInt)                      :: currentCycleNumber
+
+    currentCycleNumber = cycleNumber + merge(0, self % N_inactive, self % inactiveCycles)
+
+  end function getCurrentCycleNumber
+
+  !!
+  !!
+  !!
   function getCycleParticlesNumber(self) result(nParticles)
     class(eigenPhysicsPackage), intent(in) :: self
     integer(shortInt)                      :: nParticles
@@ -182,6 +196,16 @@ contains
 
   end function getTallyAdminPtr
 
+  !!
+  !!
+  !!
+  elemental function getTotalCyclesNumber(self) result(nTotalCycles)
+    class(eigenPhysicsPackage), intent(in) :: self
+    integer(shortInt)                      :: nTotalCycles
+
+    nTotalCycles = getCyclesNumber_super(self) + self % N_inactive
+
+  end function getTotalCyclesNumber
 
   !!
   !! Initialise from individual components and dictionaries for inactive and active tally
@@ -415,7 +439,7 @@ contains
     call self % generateInitialState()
     call self % runCycles(self % N_inactive)
     self % inactiveCycles = .false.
-    call self % runCycles(self % getCyclesNumber())
+    call self % runCycles(self % getCyclesNumber(), reset = .false.)
     call self % collectResults()
 
     print *

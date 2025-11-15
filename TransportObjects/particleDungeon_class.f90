@@ -72,48 +72,81 @@ module particleDungeon_class
     ! Storage space
     type(physicalParticleStateBox), dimension(:), allocatable :: prisoners
   contains
+    generic            :: allocatePrisoner => allocatePrisoner_particle, allocatePrisoner_particleState
+    procedure, private :: allocatePrisoner_particle
+    procedure, private :: allocatePrisoner_particleState
     procedure, private :: checkIdx
     procedure, private :: checkPopulation
+    procedure          :: cleanPop
+    procedure          :: copy
+    generic            :: detain => detain_particle, detain_particleState
     procedure, private :: detain_particle
     procedure, private :: detain_particleState
+    generic            :: detainCritical => detainCritical_particle, detainCritical_particleState
     procedure, private :: detainCritical_particle
     procedure, private :: detainCritical_particleState
+    procedure          :: get
+    procedure          :: getKEff
+    procedure          :: init
+    procedure          :: isEmpty
+    procedure          :: kill
     generic            :: killPrisoner => killPrisoner_shortInt, killPrisoner_shortIntArray
     procedure, private :: killPrisoner_shortInt
     procedure, private :: killPrisoner_shortIntArray
+    procedure          :: normSize
+    procedure          :: normWeight
+    procedure          :: popSize
+    procedure          :: popWeight
+    procedure          :: printToFile
+    procedure          :: release
+    procedure          :: releaseCritical
     generic            :: replace => replace_particle, replace_particleState, replace_prisoner
     procedure, private :: replace_particle
     procedure, private :: replace_particleState
     procedure, private :: replace_prisoner
-    !! Build procedures
-    procedure          :: init
-    procedure          :: kill
-
-    !! Stack-like interface
-    generic            :: detain => detain_particle, detain_particleState
-    generic            :: detainCritical => detainCritical_particle, detainCritical_particleState
-    procedure          :: release
-    procedure          :: releaseCritical
-
-    !! Array-like interface
-    procedure          :: copy
-    procedure          :: get
-
-    !! Misc Procedures
-    procedure          :: cleanPop
-    procedure          :: getKEff
-    procedure          :: isEmpty
-    procedure          :: normWeight
-    procedure          :: normSize
-    procedure          :: popSize
-    procedure          :: popWeight
-    procedure          :: printToFile
     procedure          :: setKEff
     procedure          :: setSize
     procedure          :: sortByBroodID
   end type particleDungeon
 
 contains
+  !!
+  !!
+  !!
+  subroutine allocatePrisoner_particle(self, p, idx, replace)
+    class(particleDungeon), intent(inout)    :: self
+    class(physicalParticle), intent(in)      :: p
+    integer(shortInt), intent(in)            :: idx
+    logical(defBool), intent(in)             :: replace
+    class(transportObjectState), allocatable :: stateCopy
+
+    call p % copyCurrentState(stateCopy)
+    call self % allocatePrisoner_particleState(stateCopy, idx, replace)
+
+  end subroutine allocatePrisoner_particle
+
+  !!
+  !!
+  !!
+  subroutine allocatePrisoner_particleState(self, state, idx, replace)
+    class(particleDungeon), intent(inout)   :: self
+    class(transportObjectState), intent(in) :: state
+    integer(shortInt), intent(in)           :: idx
+    logical(defBool), intent(in)            :: replace
+
+    if (replace) then
+      call self % checkIdx(idx)
+
+    else
+      call self % checkPopulation(idx)
+
+    end if
+
+    call self % killPrisoner(idx)
+    allocate(self % prisoners(idx) % ptr, source = castPhysicalParticleStatePtr(state))
+
+  end subroutine allocatePrisoner_particleState
+
   !!
   !!
   !!
@@ -147,6 +180,134 @@ contains
   end subroutine checkPopulation
 
   !!
+  !! Kill or particles in the dungeon
+  !!
+  pure subroutine cleanPop(self)
+    class(particleDungeon), intent(inout) :: self
+
+    self % pop = 0
+
+  end subroutine cleanPop
+
+  !!
+  !! Copy particle from a location inside the dungeon
+  !!
+  !! Makes particle alive at exit. Also sets the broodID of the particle
+  !! making it ready to be transported.
+  !!
+  !! Args:
+  !!  p   [inout] -> Particle to be filled with data
+  !!  idx [in]    -> Index of the particle to be copied
+  !!
+  !! Errors:
+  !!  fatalError if requested index is 0, -ve or above current population
+  !!
+  function copy(self, idx) result(p)
+    class(particleDungeon), intent(in)   :: self
+    integer(shortInt), intent(in)        :: idx
+    class(physicalParticle), allocatable :: p
+
+    ! Generate new particle from state in dungeon then set its broodId.
+    call self % checkIdx(idx)
+    p = new_physicalParticle(self % prisoners(idx) % ptr)
+    call p % setBroodId(idx)
+
+  end function copy
+
+  !!
+  !! Store particle in the dungeon
+  !!
+  subroutine detain_particle(self, p)
+    class(particleDungeon), intent(inout)    :: self
+    class(physicalParticle), intent(in)      :: p
+
+    !$omp atomic update
+    ! Increase population and weight
+    self % pop = self % pop + 1
+    !$omp end atomic
+
+    ! Load new state.
+    call self % allocatePrisoner(p, self % pop, .false.)
+
+  end subroutine detain_particle
+
+  !!
+  !! Store particle in the dungeon with a critical operation
+  !!
+  subroutine detainCritical_particle(self, p)
+    class(particleDungeon), intent(inout)    :: self
+    class(physicalParticle), intent(in)      :: p
+
+    !$omp critical (dungeon)
+    ! Increase population and weight
+    self % pop = self % pop + 1
+    
+    ! Load new state.
+    call self % allocatePrisoner(p, self % pop, .false.)
+    !$omp end critical (dungeon)
+
+  end subroutine detainCritical_particle
+
+  !!
+  !! Store phaseCoord in the dungeon
+  !!
+  subroutine detain_particleState(self, state)
+    class(particleDungeon), intent(inout)   :: self
+    class(transportObjectState), intent(in) :: state
+
+    ! Increase population
+    !$omp atomic update
+    self % pop = self % pop + 1
+    !$omp end atomic
+
+    ! Load new state.
+    call self % allocatePrisoner(state, self % pop, .false.)
+
+  end subroutine detain_particleState
+
+  !!
+  !! Store phaseCoord in the dungeon with a critical operation
+  !!
+  subroutine detainCritical_particleState(self, state)
+    class(particleDungeon), intent(inout)   :: self
+    class(transportObjectState), intent(in) :: state
+
+    ! Increase population
+    !$omp critical (dungeon)
+    self % pop = self % pop + 1
+
+    ! Load new state.
+    call self % allocatePrisoner(state, self % pop, .false.)
+    !$omp end critical (dungeon)
+
+  end subroutine detainCritical_particleState
+
+  !!
+  !! Return particleState from a location inside the dungeon
+  !! Gives fatalError if requested index is 0, -ve or above current population
+  !!
+  function get(self, idx) result(statePtr)
+    class(particleDungeon), intent(in)    :: self
+    integer(shortInt), intent(in)         :: idx
+    class(physicalParticleState), pointer :: statePtr
+
+    call self % checkIdx(idx)
+    statePtr => self % prisoners(idx) % ptr
+
+  end function get
+
+  !!
+  !!
+  !!
+  elemental function getKEff(self) result(k_eff)
+    class(particleDungeon), intent(in) :: self
+    real(defReal)                      :: k_eff
+
+    k_eff = self % k_eff
+
+  end function getKEff
+
+  !!
   !! Allocate space for the particles
   !!
   subroutine init(self,maxSize)
@@ -158,6 +319,17 @@ contains
     allocate(self % prisoners(maxSize))
 
   end subroutine init
+
+  !!
+  !! Returns .true. if dungeon is empty
+  !!
+  elemental function isEmpty(self) result(isIt)
+    class(particleDungeon), intent(in) :: self
+    logical(defBool)                   :: isIt
+
+    isIt = self % pop == 0
+
+  end function isEmpty
 
   !!
   !!
@@ -215,276 +387,6 @@ contains
     end if
 
   end subroutine kill
-
-  !!
-  !! Store particle in the dungeon
-  !!
-  subroutine detain_particle(self, p)
-    class(particleDungeon), intent(inout)    :: self
-    class(physicalParticle), intent(in)      :: p
-    integer(shortInt)                        :: pop
-    class(transportObjectState), allocatable :: stateCopy
-
-    !$omp atomic capture
-    ! Increase population and weight
-    self % pop = self % pop + 1
-    pop = self % pop
-    !$omp end atomic
-
-    call self % checkPopulation(pop)
-
-    ! Load new state.
-    call p % copyCurrentState(stateCopy)
-    call self % killPrisoner(pop)
-    allocate(self % prisoners(pop) % ptr, source = castPhysicalParticleStatePtr(stateCopy))
-
-  end subroutine detain_particle
-
-  !!
-  !! Store particle in the dungeon with a critical operation
-  !!
-  subroutine detainCritical_particle(self, p)
-    class(particleDungeon), intent(inout)    :: self
-    class(physicalParticle), intent(in)      :: p
-    integer(shortInt)                        :: pop
-    class(transportObjectState), allocatable :: stateCopy
-
-    !$omp critical (dungeon)
-    ! Increase population and weight
-    self % pop = self % pop + 1
-    pop = self % pop
-    call self % checkPopulation(pop)
-
-    ! Load new state.
-    call p % copyCurrentState(stateCopy)
-    call self % killPrisoner(pop)
-    allocate(self % prisoners(pop) % ptr, source = castPhysicalParticleStatePtr(stateCopy))
-    !$omp end critical (dungeon)
-
-  end subroutine detainCritical_particle
-
-  !!
-  !! Store phaseCoord in the dungeon
-  !!
-  subroutine detain_particleState(self, state)
-    class(particleDungeon), intent(inout)   :: self
-    class(transportObjectState), intent(in) :: state
-    integer(shortInt)                       :: pop
-
-    ! Increase population
-    !$omp atomic capture
-    self % pop = self % pop + 1
-    pop = self % pop
-    !$omp end atomic
-
-    call self % checkPopulation(pop)
-
-    ! Load new state.
-    call self % killPrisoner(pop)
-    allocate(self % prisoners(pop) % ptr, source = castPhysicalParticleStatePtr(state))
-
-  end subroutine detain_particleState
-
-  !!
-  !! Store phaseCoord in the dungeon with a critical operation
-  !!
-  subroutine detainCritical_particleState(self, state)
-    class(particleDungeon), intent(inout)   :: self
-    class(transportObjectState), intent(in) :: state
-    integer(shortInt)                       :: pop
-
-    ! Increase population
-    !$omp critical (dungeon)
-    self % pop = self % pop + 1
-    pop = self % pop
-    call self % checkPopulation(pop)
-
-    ! Load new state.
-    call self % killPrisoner(pop)
-    allocate(self % prisoners(pop) % ptr, source = castPhysicalParticleStatePtr(state))
-    !$omp end critical (dungeon)
-
-  end subroutine detainCritical_particleState
-
-  !!
-  !! Pop the particle from the top of the dungeon.
-  !! Makes particle alive at exit
-  !!
-  subroutine release(self, p)
-    class(particleDungeon), intent(inout)             :: self
-    class(physicalParticle), allocatable, intent(out) :: p
-    integer(shortInt)                                 :: pop
-
-    !$omp atomic capture
-    ! Decrease population
-    pop = self % pop
-    self % pop = self % pop - 1
-    !$omp end atomic
-
-    ! Generate new particle from state then free space in dungeon.
-    p = new_physicalParticle(self % prisoners(pop) % ptr)
-    call self % killPrisoner(pop)
-
-  end subroutine release
-
-  !!
-  !! Pop the particle from the top of the dungeon with a critical operation.
-  !! Makes particle alive at exit
-  !!
-  subroutine releaseCritical(self, p)
-    class(particleDungeon), intent(inout)             :: self
-    class(physicalParticle), allocatable, intent(out) :: p
-    integer(shortInt)                                 :: pop
-
-    !$omp critical (dungeon)
-    ! Decrease population
-    pop = self % pop
-    self % pop = self % pop - 1
-
-    ! Generate new particle from state.
-    p = new_physicalParticle(self % prisoners(pop) % ptr)
-    !$omp end critical (dungeon)
-
-    ! Free space in dungeon.
-    call self % killPrisoner(pop)
-
-  end subroutine releaseCritical
-
-  !!
-  !! Replace data of particle prisoner at the index idx with particle
-  !!
-  subroutine replace_particle(self, p, idx)
-    class(particleDungeon), intent(inout)    :: self
-    class(physicalParticle), intent(in)      :: p
-    integer(shortInt), intent(in)            :: idx
-    class(transportObjectState), allocatable :: stateCopy
-
-    call self % checkIdx(idx)
-
-    ! Load new particle
-    call self % killPrisoner(idx)
-    call p % copyCurrentState(stateCopy)
-    allocate(self % prisoners(idx) % ptr, source = castPhysicalParticleStatePtr(stateCopy))
-
-  end subroutine replace_particle
-
-  !!
-  !! Replace data of particle prisoner at the index idx with phaseCoords
-  !!
-  subroutine replace_particleState(self, state, idx)
-    class(particleDungeon), intent(inout)   :: self
-    class(transportObjectState), intent(in) :: state
-    integer(shortInt), intent(in)           :: idx
-
-    call self % checkIdx(idx)
-
-    ! Load new particle
-    call self % killPrisoner(idx)
-    allocate(self % prisoners(idx) % ptr, source = castPhysicalParticleStatePtr(state))
-
-  end subroutine replace_particleState
-
-  !!
-  !!
-  !!
-  subroutine replace_prisoner(self, sourceIdx, targetIdx)
-    class(particleDungeon), intent(inout) :: self
-    integer(shortInt), intent(in)         :: sourceIdx, targetIdx
-    character(*), parameter               :: HERE = 'replace_prisoner (particleDungeon_class.f90)'
-
-    ! Check that source is associated first.
-    if (.not. associated(self % prisoners(sourceIdx) % ptr)) &
-    call fatalError(HERE, 'Attempting to replace prisoner by unassociated pointer.')
-
-    ! Kill prisoner at targetIdx then copy.
-    call self % killPrisoner(targetIdx)
-    allocate(self % prisoners(targetIdx) % ptr, source = self % prisoners(sourceIdx) % ptr)
-
-  end subroutine replace_prisoner
-
-  !!
-  !! Copy particle from a location inside the dungeon
-  !!
-  !! Makes particle alive at exit. Also sets the broodID of the particle
-  !! making it ready to be transported.
-  !!
-  !! Args:
-  !!  p   [inout] -> Particle to be filled with data
-  !!  idx [in]    -> Index of the particle to be copied
-  !!
-  !! Errors:
-  !!  fatalError if requested index is 0, -ve or above current population
-  !!
-  function copy(self, idx) result(p)
-    class(particleDungeon), intent(in)   :: self
-    integer(shortInt), intent(in)        :: idx
-    class(physicalParticle), allocatable :: p
-
-    call self % checkIdx(idx)
-
-    ! Generate new particle from state in dungeon then set its broodId.
-    p = new_physicalParticle(self % prisoners(idx) % ptr)
-    call p % setBroodId(idx)
-
-  end function copy
-
-  !!
-  !! Return particleState from a location inside the dungeon
-  !! Gives fatalError if requested index is 0, -ve or above current population
-  !!
-  function get(self, idx) result(statePtr)
-    class(particleDungeon), intent(in)    :: self
-    integer(shortInt), intent(in)         :: idx
-    class(physicalParticleState), pointer :: statePtr
-
-    call self % checkIdx(idx)
-    statePtr => self % prisoners(idx) % ptr
-
-  end function get
-
-  !!
-  !!
-  !!
-  elemental function getKEff(self) result(k_eff)
-    class(particleDungeon), intent(in) :: self
-    real(defReal)                      :: k_eff
-
-    k_eff = self % k_eff
-
-  end function getKEff
-
-  !!
-  !! Returns .true. if dungeon is empty
-  !!
-  elemental function isEmpty(self) result(isIt)
-    class(particleDungeon), intent(in) :: self
-    logical(defBool)                   :: isIt
-
-    isIt = self % pop == 0
-
-  end function isEmpty
-
-  !!
-  !! Normalise total weight of the particles in the dungeon to match provided value
-  !!
-  subroutine normWeight(self, value)
-    class(particleDungeon), intent(inout) :: self
-    real(defReal), intent(in)             :: value
-    integer(shortInt)                     :: i
-    real(defReal), dimension(self % pop)  :: weights
-
-    do i = 1, self % pop
-      weights(i) = self % prisoners(i) % ptr % getWeight()
-
-    end do
-    weights = weights * value / sum(weights)
-
-    do i = 1, self % pop
-      call self % prisoners(i) % ptr % setWeight(weights(i))
-
-    end do
-
-  end subroutine normWeight
 
   !!
   !! Normalise total number of particles in the dungeon to match the provided number.
@@ -578,6 +480,232 @@ contains
   end subroutine normSize
 
   !!
+  !! Normalise total weight of the particles in the dungeon to match provided value
+  !!
+  subroutine normWeight(self, value)
+    class(particleDungeon), intent(inout) :: self
+    real(defReal), intent(in)             :: value
+    integer(shortInt)                     :: i
+    real(defReal), dimension(self % pop)  :: weights
+
+    do i = 1, self % pop
+      weights(i) = self % prisoners(i) % ptr % getWeight()
+
+    end do
+    weights = weights * value / sum(weights)
+
+    do i = 1, self % pop
+      call self % prisoners(i) % ptr % setWeight(weights(i))
+
+    end do
+
+  end subroutine normWeight
+
+  !!
+  !! Returns number of neutrons in the dungeon
+  !!
+  function popSize(self) result(pop)
+    class(particleDungeon), intent(in) :: self
+    integer(shortInt)                  :: pop
+
+    pop = self % pop
+
+  end function popSize
+
+  !!
+  !! Returns total population weight
+  !!
+  function popWeight(self) result(wgt)
+    class(particleDungeon), intent(in) :: self
+    integer(shortInt)                  :: i
+    real(defReal)                      :: wgt
+
+    wgt = ZERO
+    do i = 1, self % pop
+      wgt = wgt + self % prisoners(i) % ptr % getWeight()
+
+    end do
+
+  end function popWeight
+  
+  !!
+  !! Prints the position of fission sites to a file
+  !! Used initially for looking at clustering
+  !!
+  subroutine printToFile(self, name)
+    class(particleDungeon), intent(in) :: self
+    character(*), intent(in)           :: name
+    character(256)                     :: filename
+    integer(shortInt)                  :: i
+    integer(shortInt), parameter       :: unit = 10
+
+    filename = trim(name)//'.txt'
+    open(unit = unit, file = filename, status = 'new')
+
+    ! Print out each particle co-ordinate
+    do i = 1, self % pop
+      write(unit, *) self % prisoners(i) % ptr % getGlobalPosition()
+      write(unit, *) self % prisoners(i) % ptr % getGlobalDirection()
+      select type(ptr => self % prisoners(i) % ptr)
+        class is(CEParticleState)
+          write(unit, *) ptr % getEnergy()
+
+        class is(MGParticleState)
+          write(unit, *) ptr % getEnergyGroup()
+
+        class default
+          ! Do nothing.
+
+      end select
+      write(unit, *) self % prisoners(i) % ptr % getBroodId()
+
+    end do
+
+    ! Close the file
+    close(unit)
+
+  end subroutine printToFile
+
+  !!
+  !! Pop the particle from the top of the dungeon.
+  !! Makes particle alive at exit
+  !!
+  subroutine release(self, p)
+    class(particleDungeon), intent(inout)             :: self
+    class(physicalParticle), allocatable, intent(out) :: p
+    integer(shortInt)                                 :: pop
+
+    !$omp atomic capture
+    ! Decrease population
+    pop = self % pop
+    self % pop = self % pop - 1
+    !$omp end atomic
+
+    ! Generate new particle from state then free space in dungeon.
+    p = new_physicalParticle(self % prisoners(pop) % ptr)
+    call self % killPrisoner(pop)
+
+  end subroutine release
+
+  !!
+  !! Pop the particle from the top of the dungeon with a critical operation.
+  !! Makes particle alive at exit
+  !!
+  subroutine releaseCritical(self, p)
+    class(particleDungeon), intent(inout)             :: self
+    class(physicalParticle), allocatable, intent(out) :: p
+    integer(shortInt)                                 :: pop
+
+    !$omp critical (dungeon)
+    ! Decrease population
+    pop = self % pop
+    self % pop = self % pop - 1
+
+    ! Generate new particle from state.
+    p = new_physicalParticle(self % prisoners(pop) % ptr)
+    !$omp end critical (dungeon)
+
+    ! Free space in dungeon.
+    call self % killPrisoner(pop)
+
+  end subroutine releaseCritical
+
+  !!
+  !! Replace data of particle prisoner at the index idx with particle
+  !!
+  subroutine replace_particle(self, p, idx)
+    class(particleDungeon), intent(inout)    :: self
+    class(physicalParticle), intent(in)      :: p
+    integer(shortInt), intent(in)            :: idx
+
+    ! Load new particle
+    call self % allocatePrisoner(p, idx, .true.)
+
+  end subroutine replace_particle
+
+  !!
+  !! Replace data of particle prisoner at the index idx with phaseCoords
+  !!
+  subroutine replace_particleState(self, state, idx)
+    class(particleDungeon), intent(inout)   :: self
+    class(transportObjectState), intent(in) :: state
+    integer(shortInt), intent(in)           :: idx
+
+    ! Load new particle
+    call self % allocatePrisoner(state, idx, .true.)
+
+  end subroutine replace_particleState
+
+  !!
+  !!
+  !!
+  subroutine replace_prisoner(self, sourceIdx, targetIdx)
+    class(particleDungeon), intent(inout) :: self
+    integer(shortInt), intent(in)         :: sourceIdx, targetIdx
+    character(*), parameter               :: HERE = 'replace_prisoner (particleDungeon_class.f90)'
+
+    ! Check that source is associated first.
+    if (.not. associated(self % prisoners(sourceIdx) % ptr)) &
+    call fatalError(HERE, 'Attempting to replace prisoner by unassociated pointer.')
+
+    ! Kill prisoner at targetIdx then copy.
+    call self % killPrisoner(targetIdx)
+    allocate(self % prisoners(targetIdx) % ptr, source = self % prisoners(sourceIdx) % ptr)
+
+  end subroutine replace_prisoner
+
+  !!
+  !!
+  !!
+  elemental subroutine setKEff(self, k_eff)
+    class(particleDungeon), intent(inout) :: self
+    real(defReal), intent(in)             :: k_eff
+
+    self % k_eff = k_eff
+
+  end subroutine setKEff
+
+  !!
+  !! Set size of the dungeon to n
+  !!
+  !! Sets population to arbitrary size n
+  !! All stored particles revert to default initialisation state
+  !!
+  !! Args:
+  !!   n [in] -> Requested size of the population
+  !!
+  !! Errors:
+  !!   fatalError if n is invalid (not +ve)
+  !!
+  subroutine setSize(self, n)
+    class(particleDungeon), intent(inout) :: self
+    integer(shortInt), intent(in)         :: n
+    integer(shortInt)                     :: i, nPrisoners
+    character(*), parameter               :: here = 'setSize (particleDungeon_class.f90)'
+
+    if (n < 1) call fatalError(here, 'Requested population: '//numToChar(n)//' is negative.')
+
+    ! Set population
+    self % pop = n
+
+    ! Make sure enough space is available
+    if (allocated(self % prisoners)) then
+      nPrisoners = size(self % prisoners)
+      if (nPrisoners < n) then
+        call self % killPrisoner([(i, i = 1, nPrisoners)])
+        deallocate(self % prisoners)
+        allocate(self % prisoners(n))
+
+      end if
+
+    else
+      allocate(self % prisoners(n))
+
+    end if
+
+  end subroutine setSize
+
+  !!
   !! Reorder the dungeon so the brood ID is in the ascending order
   !!
   !! Args:
@@ -640,132 +768,5 @@ contains
     end do
 
   end subroutine sortByBroodID
-
-
-  !!
-  !! Kill or particles in the dungeon
-  !!
-  pure subroutine cleanPop(self)
-    class(particleDungeon), intent(inout) :: self
-
-    self % pop = 0
-
-  end subroutine cleanPop
-
-  !!
-  !! Returns number of neutrons in the dungeon
-  !!
-  function popSize(self) result(pop)
-    class(particleDungeon), intent(in) :: self
-    integer(shortInt)                  :: pop
-
-    pop = self % pop
-
-  end function popSize
-
-  !!
-  !! Returns total population weight
-  !!
-  function popWeight(self) result(wgt)
-    class(particleDungeon), intent(in) :: self
-    integer(shortInt)                  :: i
-    real(defReal)                      :: wgt
-
-    wgt = ZERO
-    do i = 1, self % pop
-      wgt = wgt + self % prisoners(i) % ptr % getWeight()
-
-    end do
-
-  end function popWeight
-
-  !!
-  !!
-  !!
-  elemental subroutine setKEff(self, k_eff)
-    class(particleDungeon), intent(inout) :: self
-    real(defReal), intent(in)             :: k_eff
-
-    self % k_eff = k_eff
-
-  end subroutine setKEff
-
-  !!
-  !! Set size of the dungeon to n
-  !!
-  !! Sets population to arbitrary size n
-  !! All stored particles revert to default initialisation state
-  !!
-  !! Args:
-  !!   n [in] -> Requested size of the population
-  !!
-  !! Errors:
-  !!   fatalError if n is invalid (not +ve)
-  !!
-  subroutine setSize(self, n)
-    class(particleDungeon), intent(inout) :: self
-    integer(shortInt), intent(in)         :: n
-    integer(shortInt)                     :: i, nPrisoners
-    character(*), parameter               :: here = 'setSize (particleDungeon_class.f90)'
-
-    if (n < 1) call fatalError(here, 'Requested population: '//numToChar(n)//' is negative.')
-
-    ! Set population
-    self % pop = n
-
-    ! Make sure enough space is available
-    if (allocated(self % prisoners)) then
-      nPrisoners = size(self % prisoners)
-      if (nPrisoners < n) then
-        call self % killPrisoner([(i, i = 1, nPrisoners)])
-        deallocate(self % prisoners)
-        allocate(self % prisoners(n))
-
-      end if
-
-    else
-      allocate(self % prisoners(n))
-
-    end if
-
-  end subroutine setSize
-
-  !!
-  !! Prints the position of fission sites to a file
-  !! Used initially for looking at clustering
-  !!
-  subroutine printToFile(self, name)
-    class(particleDungeon), intent(in) :: self
-    character(*), intent(in)           :: name
-    character(256)                     :: filename
-    integer(shortInt)                  :: i
-    integer(shortInt), parameter       :: unit = 10
-
-    filename = trim(name)//'.txt'
-    open(unit = unit, file = filename, status = 'new')
-
-    ! Print out each particle co-ordinate
-    do i = 1, self % pop
-      write(unit, *) self % prisoners(i) % ptr % getGlobalPosition()
-      write(unit, *) self % prisoners(i) % ptr % getGlobalDirection()
-      select type(ptr => self % prisoners(i) % ptr)
-        class is(CEParticleState)
-          write(unit, *) ptr % getEnergy()
-
-        class is(MGParticleState)
-          write(unit, *) ptr % getEnergyGroup()
-
-        class default
-          ! Do nothing.
-
-      end select
-      write(unit, *) self % prisoners(i) % ptr % getBroodId()
-
-    end do
-
-    ! Close the file
-    close(unit)
-
-  end subroutine printToFile
 
 end module particleDungeon_class

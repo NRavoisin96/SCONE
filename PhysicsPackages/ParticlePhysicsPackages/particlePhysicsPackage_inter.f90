@@ -440,7 +440,7 @@ contains
     call timerStop(timerMain)
     elapsedTime = timerTime(timerMain)
     self % time_transport = elapsedTime
-    endTime = nCycles * elapsedTime / cycleNumber
+    endTime = self % getTotalCyclesNumber() * elapsedTime / self % getCurrentCycleNumber(cycleNumber)
     call self % displayCycleProgress(cycleNumber, nInitialParticles, nFinalParticles, elapsedTime, endTime, &
                                      max(ZERO, endTime - elapsedTime))
     call tally % display()
@@ -451,19 +451,27 @@ contains
   !!
   !!
   !!
-  subroutine runCycles(self, nCycles)
+  subroutine runCycles(self, nCycles, reset)
     class(particlePhysicsPackage), intent(inout) :: self
     integer(shortInt), intent(in)                :: nCycles
+    logical(defBool), intent(in), optional       :: reset
     integer(shortInt)                            :: i, timerMain
+    logical(defBool)                             :: resetTimer
     type(tallyAdmin), pointer                    :: tallyAdminPtr
     type(particleDungeon)                        :: buffer
     type(collisionOperator)                      :: collOp
     class(transportOperator), allocatable        :: transOp
 
     ! Reset and start timer.
-    timerMain = self % getTimerMain()
-    call timerReset(timerMain)
-    call timerStart(timerMain)
+    resetTimer = .true.
+    if (present(reset)) resetTimer = reset
+
+    if (resetTimer) then
+      timerMain = self % getTimerMain()
+      call timerReset(timerMain)
+      call timerStart(timerMain)
+
+    end if
 
     ! Create parallel region once outside the main loop for performance.
     !$omp parallel private(buffer, collOp, transOp) &
