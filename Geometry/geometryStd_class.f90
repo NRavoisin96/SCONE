@@ -129,7 +129,9 @@ contains
     type(coordData)                          :: levelData
 
     ! Loop over all geometry levels.
+    testDistance = INF
     do l = 1, coords % getNesting()
+      levelData = coords % getCoordinatesData(l)
       ! Check if cache is present and valid.
       update = .true.
       if (present(cache)) then
@@ -139,7 +141,6 @@ contains
 
       if (update) then
         ! Get universe and compute distance.
-        levelData = coords % getCoordinatesData(l)
         levelData % dMax = min(maxDist, testDistance)
         call self % geom % distanceUniverse(levelData)
         testDistance = levelData % d
@@ -163,6 +164,7 @@ contains
       ! Take FP precision into account
       if (updateData % d * FP_REL_TOL <= updateData % d - testDistance) then
         updateData = levelData
+        updateData % d = testDistance
         updateData % surfaceIdx = testIdx
         updateData % updateLevel = l
 
