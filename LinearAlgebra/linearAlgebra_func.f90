@@ -473,8 +473,8 @@ contains
   !! Gives fatalError if input is invalid or solution fails to convergae
   !!
   !! Maximum number iterations is hardcoded at 1024.
-  !! Convergance criterion is <x,x>  smaller then 1.0E-10
-  !! Convergance is checkes every 8 iterations.
+  !! Convergence criterion is <x,x>  smaller then 1.0E-10
+  !! Convergence is checkes every 8 iterations.
   !!
   !!
   !! NOTE: For some reasons beyond human comprehension BLAS subroutines do not work in when userd in
@@ -542,7 +542,7 @@ contains
       ! Normalise solution
       w_t = w_t / norm2(w_t)
 
-      ! Convergance check
+      ! Convergence check
       if (iand(i,8) == 0) then
         dot = dot_product(w_t, x_t)
         if (dot < 1.0E-10_defReal) then

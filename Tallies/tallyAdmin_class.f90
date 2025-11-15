@@ -72,7 +72,7 @@ module tallyAdmin_class
   !!   reportCycleEnd   -> Process end of cycle reports in all clerks
   !!   getResult        -> Return tallyResult object from a named Clerk
   !!   display     -> Call "display" on all clerks registered to display
-  !!   isConverged -> Return .true. if all convergance targets have been reached
+  !!   isConverged -> Return .true. if all convergence targets have been reached
   !!   print       -> Prints results to an output file object
   !!
   !! SAMPLE DICTIOANRY INPUT:
@@ -144,7 +144,7 @@ module tallyAdmin_class
     ! Display procedures
     procedure :: display
 
-    ! Convergance check
+    ! Convergence check
     procedure :: isConverged
 
     ! File writing procedures
@@ -381,7 +381,7 @@ contains
   end function getEnd
 
   !!
-  !! Display convergance progress of selected tallies on the console
+  !! Display convergence progress of selected tallies on the console
   !!
   !! Args:
   !!   None
@@ -417,7 +417,7 @@ contains
   !!   None
   !!
   !! Result:
-  !!   True is all convergance targets have been reached. False otherwise.
+  !!   True is all convergence targets have been reached. False otherwise.
   !!
   !! Errors:
   !!   None

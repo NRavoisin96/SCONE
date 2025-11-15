@@ -400,7 +400,7 @@ contains
     payload % weight = collDat % implicitWeight
     do i = 1, collDat % n
       call self % newPhysicalParticleState(collDat, fissionHandlePtr, payload, newState)
-      call dungeon % detain(newState)
+      call dungeon % detainCritical(newState)
 
       ! Report birth of new particle
       call tally % reportSpawn(N_FISSION, p, newState)

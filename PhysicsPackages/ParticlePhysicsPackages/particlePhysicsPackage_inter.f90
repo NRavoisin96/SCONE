@@ -385,17 +385,18 @@ contains
   !!
   !!
   !!
-  subroutine runCycle(self, cycleNumber, nCycles, transOp, collOp, buffer, tally)
-    class(particlePhysicsPackage), intent(inout) :: self
-    integer(shortInt), intent(in)                :: cycleNumber, nCycles
-    class(transportOperator), intent(inout)      :: transOp
-    type(collisionOperator), intent(inout)       :: collOp
-    type(particleDungeon), intent(inout)         :: buffer
-    type(tallyAdmin), pointer, intent(inout)     :: tally
-    class(physicalParticle), allocatable         :: p
-    integer(shortInt)                            :: geometryIdx, i, nFinalParticles, nInitialParticles, timerMain
-    real(defReal)                                :: elapsedTime, endTime
-    type(RNG)                                    :: pRNG
+  subroutine runCycle(self, cycleNumber, nCycles, p, transOp, geometryIdx, nInitialParticles, collOp, buffer, pRNG, tally)
+    class(particlePhysicsPackage), intent(inout)        :: self
+    integer(shortInt), intent(in)                       :: cycleNumber, nCycles
+    class(physicalParticle), allocatable, intent(inout) :: p
+    class(transportOperator), intent(inout)             :: transOp
+    integer(shortInt), intent(inout)                    :: geometryIdx, nInitialParticles
+    type(collisionOperator), intent(inout)              :: collOp
+    type(particleDungeon), intent(inout)                :: buffer
+    type(RNG), intent(inout)                            :: pRNG
+    type(tallyAdmin), pointer, intent(inout)            :: tally
+    integer(shortInt)                                   :: i, nFinalParticles, timerMain
+    real(defReal)                                       :: elapsedTime, endTime
 
     !$omp master
     ! Prepare current cycle.
@@ -410,7 +411,7 @@ contains
 
     geometryIdx = self % getGeometryIdx()
   
-    !$omp do schedule(dynamic) private(p, pRNG)
+    !$omp do schedule(dynamic)
     do i = 1, nInitialParticles
       ! Create RNG which can be thread private.
       pRNG = self % pRNG
@@ -420,13 +421,8 @@ contains
       call p % setGeometryIdx(geometryIdx)
       call p % setRNGPtr(pRNG)
       call p % strideRNG(i)
+
       call self % trackParticleHistory(transOp, collOp, p, buffer, tally)
-
-      if (allocated(p)) then
-        call p % kill()
-        deallocate(p)
-
-      end if
 
     end do
     !$omp end do
@@ -455,12 +451,14 @@ contains
     class(particlePhysicsPackage), intent(inout) :: self
     integer(shortInt), intent(in)                :: nCycles
     logical(defBool), intent(in), optional       :: reset
-    integer(shortInt)                            :: i, timerMain
+    class(physicalParticle), allocatable         :: p
+    class(transportOperator), allocatable        :: transOp
+    integer(shortInt)                            :: geometryIdx, i, nInitialParticles, timerMain
     logical(defBool)                             :: resetTimer
     type(tallyAdmin), pointer                    :: tallyAdminPtr
     type(particleDungeon)                        :: buffer
     type(collisionOperator)                      :: collOp
-    class(transportOperator), allocatable        :: transOp
+    type(RNG)                                    :: pRNG
 
     ! Reset and start timer.
     resetTimer = .true.
@@ -473,9 +471,12 @@ contains
 
     end if
 
+    geometryIdx = 0
+    nInitialParticles = 0
+
     ! Create parallel region once outside the main loop for performance.
-    !$omp parallel private(buffer, collOp, transOp) &
-    !$omp shared(tallyAdminPtr)
+    !$omp parallel private(buffer, collOp, i, p, pRNG, transOp) &
+    !$omp shared(geometryIdx, nCycles, nInitialParticles, self, tallyAdminPtr)
 
     ! Create particle buffer and a transport operator which can be made thread private
     call buffer % init(self % bufferSize)
@@ -489,7 +490,7 @@ contains
 
     ! Loop through all cycles.
     do i = 1, nCycles
-      call self % runCycle(i, nCycles, transOp, collOp, buffer, tallyAdminPtr)
+      call self % runCycle(i, nCycles, p, transOp, geometryIdx, nInitialParticles, collOp, buffer, pRNG, tallyAdminPtr)
 
     end do
     !$omp end parallel

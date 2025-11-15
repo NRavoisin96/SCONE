@@ -319,7 +319,7 @@ contains
   end subroutine reportCycleEnd
 
   !!
-  !! Perform convergance check in the Clerk
+  !! Perform convergence check in the Clerk
   !!
   !! See tallyClerk_inter for details
   !!
@@ -334,7 +334,7 @@ contains
   end function isConverged
 
   !!
-  !! Display convergance progress on the console
+  !! Display convergence progress on the console
   !!
   !! See tallyClerk_inter for details
   !!

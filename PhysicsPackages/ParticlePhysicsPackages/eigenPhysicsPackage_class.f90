@@ -472,7 +472,7 @@ contains
 
     ptr => p % getCoordsPtr()
     bufferLoop: do
-      ! Initialize the particle's state for this history.
+      ! Initialise the particle's state for this history.
       call p % setKEff(self % k_eff)
       call self % placeCoord(ptr)
       call p % savePreHistoryState()

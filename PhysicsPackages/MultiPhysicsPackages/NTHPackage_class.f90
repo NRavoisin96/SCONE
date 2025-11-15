@@ -218,7 +218,7 @@ contains
     ! Loop through inactive cycles first (if any).
     do i = 1, nCycles
       ! Run neutronics simulation and get fission power results from tallyAdminPtr.
-      call self % neutronicsPackage % runCycle(i, nCycles, transOp, collOp, buffer, tallyAdminPtr)
+      !call self % neutronicsPackage % runCycle(i, nCycles, transOp, collOp, buffer, tallyAdminPtr)
       call tallyAdminPtr % getResult(tallyResults, 'fissionPower')
 
       ! Downcast tallyResults to correct type and update heat source field.

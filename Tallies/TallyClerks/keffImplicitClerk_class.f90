@@ -37,7 +37,7 @@ module keffImplicitClerk_class
   !! and on analog estimators of (N,XN) reactions and leakage
   !!
   !! Private Members:
-  !!   targetSTD -> Target Standard Deviation for convergance check
+  !!   targetSTD -> Target Standard Deviation for convergence check
   !!
   !! Interface:
   !!   tallyClerk interface
@@ -95,10 +95,10 @@ contains
     ! Set name
     call self % setName(name)
 
-    ! Configure convergance trigger
+    ! Configure convergence trigger
     call dict % getOrDefault(chr,'trigger','no')
 
-    ! Read convergance target
+    ! Read convergence target
     if (charCmp(chr,'yes')) then
       call dict % get(self % targetSTD,'SDtarget')
 
@@ -223,16 +223,16 @@ contains
     preCollisionStatePtr => p % getPreCollisionStatePtr()
     preCollisionWeight = preCollisionStatePtr % getWeight()
     select case(MT)
-      case(N_2N)
-        score = 1.0_defReal * preCollisionWeight
+      case(N_2N, N_2Na, N_2Nd, N_2Np, N_2N2a, N_2N1:N_2Ncont)
+        score = preCollisionWeight
 
-      case(N_3N)
+      case(N_3N, N_3Na, N_3Np)
         score = 2.0_defReal * preCollisionWeight
 
       case(N_4N)
         score = 3.0_defReal * preCollisionWeight
 
-      case(macroAllScatter) ! Catch weight change for MG scattering
+      case(macroAllScatter, macroIEscatter) ! Catch weight change for MG scattering
         score = max(p % getWeight() - preCollisionWeight, ZERO)
 
       case default
@@ -289,7 +289,7 @@ contains
   end subroutine reportCycleEnd
 
   !!
-  !! Perform convergance check in the Clerk
+  !! Perform convergence check in the Clerk
   !!
   !! See tallyClerk_inter for details
   !!
@@ -306,7 +306,7 @@ contains
   end function isConverged
 
   !!
-  !! Display convergance progress on the console
+  !! Display convergence progress on the console
   !!
   !! See tallyClerk_inter for details
   !!

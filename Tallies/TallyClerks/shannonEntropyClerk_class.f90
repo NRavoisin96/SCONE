@@ -159,7 +159,7 @@ contains
   end subroutine reportCycleEnd
 
   !!
-  !! Display convergance progress on the console
+  !! Display convergence progress on the console
   !!
   subroutine display(self, mem)
     class(shannonEntropyClerk), intent(in) :: self

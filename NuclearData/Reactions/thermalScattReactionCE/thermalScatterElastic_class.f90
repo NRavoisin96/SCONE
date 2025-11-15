@@ -235,26 +235,24 @@ contains
 
       ! Get energy indexes
       if (E_in > self % eIn(size(self % eIn))) then
-        l1 = size(self % eIn) - 1
+        l2 = size(self % eIn)
+
       else
-        l1 = floorBinarySearch(self % eIn, E_in)
+        l2 = floorBinarySearch(self % eIn, E_in)
+
       end if
 
-      l2 = l1 + 1
-
       ! Sample a Bragg edge at a smaller energy than E_in
-      prob = self % pValues(1:l2)
-      prob(1) = ZERO
-      call rand % generate(randomNumber, mult = prob(l2))
+      prob = [ZERO, self % pValues(1:l2)]
+      call rand % generate(randomNumber, mult = prob(l2 + 1))
       k = floorBinarySearch(prob, randomNumber)
 
       E2 = self % eIn(k)
       ! Compute angle
-      mu = 1 - TWO * E2/E_in
+      mu = ONE - TWO * E2 / E_in
 
-      if (abs(mu) > ONE) then
-        call fatalError(Here,'Failed to get angle'//numToChar(mu))
-      end if
+      if (abs(mu) > ONE) call fatalError(Here,'Failed to get angle'//numToChar(mu))
+      
     end if
 
     ! Sample phi
@@ -312,7 +310,7 @@ contains
 
       call ACE % setToElasticOut()
       do i = 1, Nin
-        self % muMatrix(i,:) = ACE % readIntArray(Nin)
+        self % muMatrix(i,:) = ACE % readRealArray(self % N_muOut)
       end do
 
     end if
