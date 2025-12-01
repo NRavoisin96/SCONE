@@ -49,7 +49,7 @@ contains
   !!
   function sample(self, rand, bin, f) result (E)
     class(tabularEnergy), intent(in)         :: self
-    class(RNG), intent(inout)                :: rand
+    type(RNG), intent(inout)                :: rand
     integer(shortInt), intent(out), optional :: bin
     real(defReal), intent(out), optional     :: f
     real(defReal)                            :: E

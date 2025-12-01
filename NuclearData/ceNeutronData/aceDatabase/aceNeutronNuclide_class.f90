@@ -173,7 +173,7 @@ contains
   function invertInelastic(self, E, rand) result(MT)
     class(aceNeutronNuclide), intent(in) :: self
     real(defReal), intent(in)            :: E
-    class(RNG), intent(inout)            :: rand
+    type(RNG), intent(inout)            :: rand
     integer(shortInt)                    :: MT
     integer(shortInt)                    :: idx, i, idxT
     real(defReal)                        :: f, oneLessF, XS, topXS, bottomXS, randomNumber
@@ -497,7 +497,7 @@ contains
     integer(shortInt), intent(in)        :: idx
     real(defReal), intent(in)            :: f
     real(defReal), intent(in)            :: E
-    class(RNG), intent(inout)            :: rand
+    type(RNG), intent(inout)            :: rand
     real(defReal), intent(in)            :: kT
     type(thermalData), pointer           :: sabPtr
     integer(shortInt)                    :: sabIdx
@@ -1049,7 +1049,7 @@ contains
   subroutine getSabPointer(self, kT, rand, ptr, idx)
     class(aceNeutronNuclide), intent(in), target :: self
     real(defReal), intent(in)                    :: kT
-    class(RNG), intent(inout)                    :: rand
+    type(RNG), intent(inout)                    :: rand
     type(thermalData), pointer, intent(out)      :: ptr
     integer(shortInt), intent(out)               :: idx
     real(defReal)                                :: kT1, kT2, randomNumber

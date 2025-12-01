@@ -4,7 +4,6 @@ module uniformScalarField_class
   use dictionary_class,  only : dictionary
   use errors_mod,        only : fatalError
   use field_inter,       only : field
-  use materialMenu_mod,  only : nMat
   use numPrecision
   use scalarField_inter, only : kill_super => kill, scalarField
 
@@ -34,13 +33,31 @@ module uniformScalarField_class
     real(defReal) :: val = ZERO
   contains
     ! Superclass interface
+    procedure :: at
+    procedure :: getMaximumValue
+    procedure :: getMinimumValue
     procedure :: init
     procedure :: kill
-    procedure :: at
     procedure :: setValues
   end type uniformScalarField
 
 contains
+  !!
+  !! Get value of the scalar field at the co-ordinate point
+  !!
+  !! See scalarField_inter for details
+  !!
+  function at(self, defaultValue, coords, mult) result(val)
+    class(uniformScalarField), intent(in) :: self
+    real(defReal), intent(in)             :: defaultValue
+    type(coordList), intent(in)           :: coords
+    real(defReal), intent(in), optional   :: mult
+    real(defReal)                         :: val
+
+    val = self % val
+    if (present(mult)) val = val * mult
+
+  end function at
 
   !!
   !! Initialise from dictionary
@@ -50,17 +67,41 @@ contains
   subroutine init(self, dict)
     class(uniformScalarField), intent(inout) :: self
     class(dictionary), intent(in)            :: dict
-    real(defReal), dimension(:), allocatable :: maximumMaterialValues
 
     ! Load value
     call dict % get(self % val, 'value')
 
-    ! Set maximum value for all materials.
-    allocate(maximumMaterialValues(nMat()))
-    maximumMaterialValues = self % val
-    call self % setMaximumMaterialValues(maximumMaterialValues)
-
   end subroutine init
+
+  !!
+  !!
+  !!
+  elemental function getMaximumValue(self, defaultValue, materialIdx, mult) result(maximumValue)
+    class(uniformScalarField), intent(in)   :: self
+    real(defReal), intent(in)               :: defaultValue
+    integer(shortInt), intent(in), optional :: materialIdx
+    real(defReal), intent(in), optional     :: mult
+    real(defReal)                           :: maximumValue
+
+    maximumValue = self % val
+    if (present(mult)) maximumValue = maximumValue * mult
+
+  end function getMaximumValue
+
+  !!
+  !!
+  !!
+  elemental function getMinimumValue(self, defaultValue, materialIdx, mult) result(minimumValue)
+    class(uniformScalarField), intent(in)   :: self
+    real(defReal), intent(in)               :: defaultValue
+    integer(shortInt), intent(in), optional :: materialIdx
+    real(defReal), intent(in), optional     :: mult
+    real(defReal)                           :: minimumValue
+
+    minimumValue = self % val
+    if (present(mult)) minimumValue = minimumValue * mult
+
+  end function getMinimumValue
 
   !!
   !! Return to uninitialised state
@@ -75,20 +116,6 @@ contains
     self % val = ZERO
 
   end subroutine kill
-
-  !!
-  !! Get value of the scalar field at the co-ordinate point
-  !!
-  !! See scalarField_inter for details
-  !!
-  function at(self, coords) result(val)
-    class(uniformScalarField), intent(in) :: self
-    class(coordList), intent(in)          :: coords
-    real(defReal)                         :: val
-
-    val = self % val
-
-  end function at
 
   !!
   !!

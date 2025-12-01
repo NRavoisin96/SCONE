@@ -143,7 +143,7 @@ contains
   !!
   function sampleState(self, rand) result(p)
     class(fissionSource), intent(inout)  :: self
-    class(RNG), intent(inout)            :: rand
+    type(RNG), intent(inout)            :: rand
     type(particleState)                  :: p
     class(nuclearDatabase), pointer      :: nucData
     class(neutronMaterial), pointer      :: mat

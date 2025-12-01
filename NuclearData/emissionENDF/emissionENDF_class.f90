@@ -65,7 +65,7 @@ contains
     real(defReal), intent(out)        :: mu
     real(defReal), intent(out)        :: E_out
     real(defReal), intent(in)         :: E_in
-    class(RNG), intent(inout)         :: rand
+    type(RNG), intent(inout)         :: rand
 
     if (self % correlated) then
       call self % corrLaw % sample(mu,E_out,E_in,rand)

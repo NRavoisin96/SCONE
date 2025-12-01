@@ -182,13 +182,13 @@ contains
   !!   rand [inout] -> Initialised random number generator
   !!
   !! NOTE:
-  !!   RNG needs to be given as an argument `class(RNG)` to prevent inlining. Compiler (gcc 8.3)
+  !!   RNG needs to be given as an argument `type(RNG)` to prevent inlining. Compiler (gcc 8.3)
   !!   produced erroneous code withou it. Same random number would be produced for diffrent calls
   !!   of `get` function.
   !!
   subroutine cycles(self, rand)
     class(rayVolPhysicsPackage), intent(inout) :: self
-    class(RNG), intent(inout)                  :: rand
+    type(RNG), intent(inout)                  :: rand
     type(coordList)                            :: coords
     real(defReal), dimension(3)                :: randomNumbers, bottom, top
     real(defReal), dimension(3)                :: r, u
@@ -304,7 +304,7 @@ contains
   !!
   subroutine trackRay(self, coords, rand)
     class(rayVolPhysicsPackage), intent(inout) :: self
-    class(RNG), intent(inout)                  :: rand
+    type(RNG), intent(inout)                  :: rand
     type(coordList), intent(inout)             :: coords
     real(defReal)                              :: distance, mu, phi, maxDist, randomNumber
     real(defReal), dimension(3)                :: r, r_pre, u_pre

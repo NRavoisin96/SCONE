@@ -69,11 +69,11 @@ contains
   !!
   !!
   !!
-  subroutine sampleFinalPayloadComponents(self, CEMaterial, CEDatabase, temperature, rand, payload, mu, phi)
+  subroutine sampleFinalPayloadComponents(self, CEMaterial, CEDatabase, densityFactor, temperature, rand, payload, mu, phi)
     class(CEMaterialSource), intent(in)              :: self
     class(ceNeutronMaterial), intent(in)             :: CEMaterial
     class(ceNeutronDatabase), intent(in)             :: CEDatabase
-    real(defReal), intent(in)                        :: temperature
+    real(defReal), intent(in)                        :: densityFactor, temperature
     type(RNG), intent(inout)                         :: rand
     type(buildCEParticleStatePayload), intent(inout) :: payload
     real(defReal), intent(out)                       :: mu, phi

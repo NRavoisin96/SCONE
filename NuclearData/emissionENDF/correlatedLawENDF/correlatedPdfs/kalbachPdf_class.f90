@@ -43,7 +43,7 @@ contains
     class(kalbachPdf), intent(in)   :: self
     real(defReal), intent(out)       :: mu
     real(defReal), intent(out)       :: E_out
-    class(RNG), intent(inout)        :: rand
+    type(RNG), intent(inout)        :: rand
     real(defReal)                   :: R,A,T
     real(defReal), dimension(3)     :: randomNumbers
 

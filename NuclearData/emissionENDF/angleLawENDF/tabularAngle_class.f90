@@ -89,7 +89,7 @@ contains
   function sample(self,E,rand) result (mu)
     class(tabularAngle), intent(in)   :: self
     real(defReal), intent(in)         :: E
-    class(RNG), intent(inout)         :: rand
+    type(RNG), intent(inout)         :: rand
     real(defReal)                     :: mu
     integer(shortInt)                 :: idx
     real(defReal)                     :: randomNumber, eps

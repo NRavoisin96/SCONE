@@ -11,7 +11,8 @@ module CEFissionSource_class
   use neutronMaterial_inter,      only : neutronMaterial
   use numPrecision
   use RNG_class,                  only : RNG
-  use universalVariables,         only : joulesPerMeV, kBoltzmann, OUTSIDE_MAT, VOID_MAT
+  use scalarField_inter,          only : getScalarFieldValue
+  use universalVariables,         only : kBoltzmann_MeV, nameDensity, OUTSIDE_MAT, VOID_MAT
 
   implicit none
   private
@@ -84,11 +85,11 @@ contains
   !!
   !!
   !!
-  subroutine sampleFinalPayloadComponents(self, CEMaterial, CEDatabase, temperature, rand, payload, mu, phi)
+  subroutine sampleFinalPayloadComponents(self, CEMaterial, CEDatabase, densityFactor, temperature, rand, payload, mu, phi)
     class(CEFissionSource), intent(in)               :: self
     class(ceNeutronMaterial), intent(in)             :: CEMaterial
     class(ceNeutronDatabase), intent(in)             :: CEDatabase
-    real(defReal), intent(in)                        :: temperature
+    real(defReal), intent(in)                        :: densityFactor, temperature
     type(RNG), intent(inout)                         :: rand
     type(buildCEParticleStatePayload), intent(inout) :: payload
     real(defReal), intent(out)                       :: mu, phi
@@ -104,8 +105,8 @@ contains
     call CEDatabase % energyBounds(E_down, E_up)
 
     ! Get Nuclide.
-    kT = merge(kBoltzmann * temperature / joulesPerMeV, CEMaterial % kT, ZERO < temperature)
-    nuclideIdx = CEMaterial % sampleFission(sourceEnergy, kT, rand)
+    kT = merge(temperature * kBoltzmann_MeV, CEMaterial % kT, ZERO < temperature)
+    nuclideIdx = CEMaterial % sampleFission(densityFactor, sourceEnergy, kT, rand)
 
     ! Get reaction object
     fissCE => fissionCE_TptrCast(CEDatabase % getReaction(N_FISSION, nuclideIdx))

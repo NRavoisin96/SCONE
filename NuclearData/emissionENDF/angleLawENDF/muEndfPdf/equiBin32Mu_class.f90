@@ -45,7 +45,7 @@ contains
   !!
   function sample(self,rand) result (mu)
     class(equiBin32Mu), intent(in)  :: self
-    class(RNG), intent(inout)       :: rand
+    type(RNG), intent(inout)       :: rand
     real(defReal)                   :: mu
     integer(shortInt)               :: bin
     real(defReal)                   :: randomNumber

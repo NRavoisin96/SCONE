@@ -29,23 +29,27 @@ module ceNeutronCache_mod
   !! Structure that contains cached data for each CE Neutron Material
   !!
   !! Public Members:
-  !!   E_tot  -> Energy of the total XS in xss
-  !!   E_tail -> Energy of all XSs in xss except total
-  !!   f      -> Interpolation factor for the nuclide at energy E_tot
-  !!   idx    -> Index on a nuclide grid for energy E_tot
-  !!   xss    -> Cached cross-section values
-  !!   E_track -> Energy of the tracking xs
-  !!   trackXS -> Cached tracking xs; this can be different to xss % total when using TMS
-  !!   E_rel  -> Base energy for which relative energy cross sections are found (for TMS)
-  !!   xssRel -> Cached effective cross-section values at energy relative to E_rel (for TMS)
+  !!   E_tot         -> Energy of the total XS in xss
+  !!   E_tail        -> Energy of all XSs in xss except total
+  !!   kT_tot        -> kBoltzmann * temperature at which total XS was evaluated
+  !!   density_tot   -> Density scaling at which total XS was evaluated
+  !!   f             -> Interpolation factor for the nuclide at energy E_tot
+  !!   idx           -> Index on a nuclide grid for energy E_tot
+  !!   xss           -> Cached cross-section values
+  !!   E_track       -> Energy of the tracking xs
+  !!   kT_track      -> kBoltzmann * temperature at which tracking XS was evaluated
+  !!   density_track -> Density scaling at which tracking XS was evaluated
+  !!   trackXS       -> Cached tracking xs; this can be different to xss % total when using TMS
+  !!   E_rel         -> Base energy for which relative energy cross sections are found (for TMS)
+  !!   xssRel        -> Cached effective cross-section values at energy relative to E_rel (for TMS)
   !!
   type, public :: cacheMatDat
-    real(defReal)         :: E_tail = ZERO, E_tot = ZERO, f = ZERO, kT = ZERO
+    real(defReal)         :: densityFactor_tot = ONE, E_tail = ZERO, E_tot = ZERO, kT_tot = ZERO, f = ZERO
     integer(shortInt)     :: idx = 0
     type(neutronMacroXSs) :: xss
 
     ! Tracking data
-    real(defReal)         :: E_track = ZERO, trackXS = ZERO
+    real(defReal)         :: densityFactor_track = ONE, E_track = ZERO, kT_track = ZERO, trackXS = ZERO
 
     ! TMS data
     real(defReal)         :: E_rel = ZERO

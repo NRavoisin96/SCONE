@@ -36,7 +36,7 @@ module particlePhysicsPackage_inter
     real(defReal)                                 :: time_transport = ZERO
     logical(defBool)                              :: printSource = .false.
     class(nuclearDatabase), pointer               :: nucData => null()
-    class(RNG), pointer                           :: pRNG => null()
+    type(RNG), pointer                           :: pRNG => null()
     class(source), allocatable                    :: particleSource
     class(transportOperator), allocatable         :: transOp
     type(collisionOperator)                       :: collOp

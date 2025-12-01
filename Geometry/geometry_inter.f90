@@ -216,14 +216,14 @@ module geometry_inter
     !!
     !!
     !!
-    subroutine sampleInitialPosition(self, bottom, top, rand, materialIdx, uniqueId, r, temperature)
+    subroutine sampleInitialPosition(self, bottom, top, rand, materialIdx, uniqueId, r, densityFactor, temperature)
       import                                   :: defReal, geometry, RNG, shortInt
       class(geometry), intent(in)              :: self
       real(defReal), dimension(3), intent(in)  :: bottom, top
-      class(RNG), intent(inout)                :: rand
+      type(RNG), intent(inout)                :: rand
       integer(shortInt), intent(out)           :: materialIdx, uniqueId
       real(defReal), dimension(3), intent(out) :: r
-      real(defReal), intent(out), optional     :: temperature
+      real(defReal), intent(out), optional     :: densityFactor, temperature
     end subroutine sampleInitialPosition
 
     !!
@@ -256,14 +256,14 @@ module geometry_inter
     !!   r [in] -> Position in the geometry
     !!   u [in] -> Optional. Normalised direction (norm2(u) = 1.0) (default = [1, 0, 0])
     !!
-    subroutine whatIsAt(self, matIdx, uniqueID, r, u, temperature)
+    subroutine whatIsAt(self, matIdx, uniqueID, r, u, densityFactor, temperature)
       import :: geometry, shortInt, defReal
       class(geometry), intent(in)                       :: self
       integer(shortInt), intent(out)                    :: matIdx
       integer(shortInt), intent(out)                    :: uniqueID
       real(defReal), dimension(3), intent(in)           :: r
       real(defReal), dimension(3), optional, intent(in) :: u
-      real(defReal), intent(out), optional              :: temperature
+      real(defReal), intent(out), optional              :: densityFactor, temperature
     end subroutine whatIsAt
 
   end interface

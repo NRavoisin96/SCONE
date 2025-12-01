@@ -92,9 +92,9 @@ contains
     real(defReal), dimension(3), intent(in) :: dir
     real(defReal), intent(in)               :: A
     real(defReal), intent(in)               :: kT
-    class(RNG), intent(inout)               :: rand
+    type(RNG), intent(inout)                :: rand
     logical(defBool)                        :: accept
-    real(defReal), dimension(3)              :: V_t
+    real(defReal), dimension(3)             :: V_t
     real(defReal)                           :: alpha, mu, phi
     real(defReal)                           :: X, Y
     real(defReal)                           :: rel_v
@@ -140,9 +140,9 @@ contains
     real(defReal), intent(in)               :: A
     real(defReal), intent(in)               :: kT
     real(defReal), intent(in)               :: tempMaj
-    class(RNG), intent(inout)               :: rand
+    type(RNG), intent(inout)                :: rand
     logical(defBool)                        :: accept
-    real(defReal), dimension(3)              :: V_t
+    real(defReal), dimension(3)             :: V_t
     real(defReal)                           :: alpha, mu, phi, DBRC_acc
     real(defReal)                           :: X, Y
     real(defReal)                           :: randomNumber
@@ -199,7 +199,7 @@ contains
     real(defReal), intent(in)               :: E
     real(defReal), intent(in)               :: A
     real(defReal), intent(in)               :: kT
-    class(RNG), intent(inout)               :: rand
+    type(RNG), intent(inout)                :: rand
     logical(defBool)                        :: accept
     real(defReal)                           :: alpha, mu
     real(defReal)                           :: X, Y
@@ -264,7 +264,7 @@ contains
   !! Then uses method based on Johnk's theorem and sum of Gamma distributed random variables
   !!
   function sample_x2expx2(rand) result(sample)
-    class(RNG), intent(inout)   :: rand
+    type(RNG), intent(inout)    :: rand
     real(defReal)               :: sample
     real(defReal)               :: beta, gamma05, cosine
     real(defReal), dimension(3) :: randomNumbers
@@ -297,7 +297,7 @@ contains
   !! Sampling Gamma(2,1) is trivial using sum of Gamma distributed random variables
   !!
   function sample_x3expx2(rand) result(sample)
-    class(RNG), intent(inout)   :: rand
+    type(RNG), intent(inout)    :: rand
     real(defReal)               :: sample
     real(defReal), dimension(2) :: randomNumbers
 
@@ -321,7 +321,7 @@ contains
     logical(defBool), intent(out) :: accept
     real(defReal), intent(out)    :: rel_v
     real(defReal), intent(out)    :: mu
-    class(RNG), intent(inout)     :: rand
+    type(RNG), intent(inout)      :: rand
     real(defReal), intent(in)     :: Y
     real(defReal), intent(in)     :: alpha
     real(defReal)                 :: P_acc

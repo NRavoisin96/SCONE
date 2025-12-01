@@ -57,7 +57,7 @@ module ceNeutronNuclide_inter
     integer(shortInt)                 :: nucIdx =  0
     class(ceNeutronDatabase), pointer :: data => null()
     logical(defBool)                  :: fissile = .false.
-    real(defReal)                     :: mass =  ZERO, kT = ZERO
+    real(defReal)                     :: mass = ZERO, kT = ZERO
 
     ! DBRC nuclide flag
     logical(defBool)                 :: DBRC = .false.
@@ -104,7 +104,7 @@ module ceNeutronNuclide_inter
       import :: ceNeutronNuclide, RNG, shortInt, defReal
       class(ceNeutronNuclide), intent(in) :: self
       real(defReal), intent(in)           :: E
-      class(RNG), intent(inout)           :: rand
+      type(RNG), intent(inout)           :: rand
       integer(shortInt)                   :: MT
     end function invertInelastic
 
@@ -194,7 +194,7 @@ contains
     real(defReal), intent(in)           :: E
     real(defReal), intent(in)           :: kT
     real(defReal), intent(out)          :: xs
-    class(RNG), intent(inout), optional :: rand
+    type(RNG), intent(inout), optional :: rand
 
     ! Check Cache and update if needed
     if (nuclideCache(self % nucIdx) % E_tot /= E) then
@@ -222,7 +222,7 @@ contains
     real(defReal), intent(in)           :: E
     real(defReal), intent(in)           :: kT
     type(neutronMicroXSs), intent(out)  :: xss
-    class(RNG), intent(inout), optional :: rand
+    type(RNG), intent(inout), optional :: rand
 
     associate(nucCache => nuclideCache(self % nucIdx))
       ! Check Cache and update if needed

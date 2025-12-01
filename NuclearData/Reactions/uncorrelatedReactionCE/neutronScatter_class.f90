@@ -196,7 +196,7 @@ contains
     real(defReal), intent(out)               :: phi
     real(defReal), intent(out)               :: E_out
     real(defReal), intent(in)                :: E_in
-    class(RNG), intent(inout)                :: rand
+    type(RNG), intent(inout)                :: rand
     real(defReal), intent(out), optional     :: lambda
 
     ! Sample energy an angle

@@ -5,12 +5,14 @@ cycles   200;
 inactive 100;
 XSdata ce;
 dataType ce;
+seed 2;
 
 // Specify output format default asciiMATLAB
 //outputFormat asciiJSON;
 
 collisionOperator { neutronCE {type neutronCEstd;}
-                    neutronMG {type neutronMGstd;} }
+                    // neutronMG {type neutronMGstd;}
+                  }
 
 transportOperator { type transportOperatorST;
                     cache 1;
@@ -18,21 +20,25 @@ transportOperator { type transportOperatorST;
                    // type transportOperatorHT;
                    }
 
-inactiveTally {}
+inactiveTally { }
 
 activeTally {
-  norm totalPow;
-  normVal 100.0;
-  totalPow  { type collisionClerk; response (fission); fission { type macroResponse; MT -6;}}
-  ResMap {type collisionClerk;
-         map {type multiMap;
-              maps (ene mat);
-              ene { type energyMap; grid log; min 1.0E-11; max 20.0; N 300;}
-              mat { type materialMap; materials (water mox87 mox70 mox43);}
-              }
-         response (flux);
-         flux { type fluxResponse;}
-         }
+	clerks {
+		norm totalPow;
+  		normVal 100.0;
+  		totalPow  { type collisionClerk; response (fission); fission { type macroResponse; MT -6;}}
+  		ResMap {
+  			type collisionClerk;
+         	map {
+         		type multiMap;
+              	maps (ene mat);
+              	ene { type energyMap; grid log; min 1.0E-11; max 20.0; N 300;}
+              	mat { type materialMap; materials (water mox87 mox70 mox43);}
+            }
+         	response (flux);
+         	flux { type fluxResponse;}
+        }
+	}
 }
 
 geometry {

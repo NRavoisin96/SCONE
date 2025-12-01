@@ -72,7 +72,7 @@ contains
     real(defReal), intent(out)     :: phi
     integer(shortInt), intent(out) :: G_out
     integer(shortInt), intent(in)  :: G_in
-    class(RNG), intent(inout)      :: rand
+    type(RNG), intent(inout)      :: rand
     character(*), parameter :: Here = 'sampleOut (multiScatterMG_class.f90)'
 
     ! Sample G_out

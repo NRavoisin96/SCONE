@@ -42,7 +42,7 @@ contains
     if (allocated(new)) deallocate(new)
 
     ! Obtain string that specifies type to be built
-    call dict % get(type,'type')
+    call dict % get(type, 'type')
 
     ! Allocate approperiate subclass of transportOperator
     select case(type)

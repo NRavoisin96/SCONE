@@ -34,7 +34,7 @@ contains
   !!
   function sampleLegendre_P1(P1,rand) result(x)
     real(defReal), intent(in)    :: P1
-    class(RNG), intent(inout)    :: rand
+    type(RNG), intent(inout)    :: rand
     real(defReal)                :: x
     real(defReal)                :: P1_loc
     real(defReal)                :: threshold, randomNumber

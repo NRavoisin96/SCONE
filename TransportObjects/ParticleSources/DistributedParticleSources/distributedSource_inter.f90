@@ -40,12 +40,12 @@ module distributedSource_inter
     !!
     !!
     !!
-    subroutine finalisePayload(self, mat, database, temperature, rand, payload, mu, phi)
+    subroutine finalisePayload(self, mat, database, densityFactor, temperature, rand, payload, mu, phi)
       import :: buildTransportObjectStatePayload, defReal, distributedSource, neutronMaterial, nuclearDatabase, RNG
       class(distributedSource), intent(in)                   :: self
       class(neutronMaterial), intent(in)                     :: mat
       class(nuclearDatabase), intent(in)                     :: database
-      real(defReal), intent(in)                              :: temperature
+      real(defReal), intent(in)                              :: densityFactor, temperature
       type(RNG), intent(inout)                               :: rand
       class(buildTransportObjectStatePayload), intent(inout) :: payload
       real(defReal), intent(out)                             :: mu, phi
@@ -161,14 +161,14 @@ contains
   !!
   subroutine sampleState(self, rand, state)
     class(distributedSource), intent(inout)               :: self
-    class(RNG), intent(inout)                             :: rand
+    type(RNG), intent(inout)                             :: rand
     class(transportObjectState), allocatable, intent(out) :: state
     class(buildTransportObjectStatePayload), allocatable  :: payload
     class(geometry), pointer                              :: geometryPtr
     class(neutronMaterial), pointer                       :: mat
     class(nuclearDatabase), pointer                       :: nuclearDatabasePtr
     integer(shortInt)                                     :: i
-    real(defReal)                                         :: mu, phi, temperature
+    real(defReal)                                         :: densityFactor, mu, phi, temperature
     character(*), parameter                               :: here = 'sampleParticle (distributedSource_inter.f90)'
 
     ! Sample state then get pointer to appropriate nuclear database.
@@ -186,8 +186,8 @@ contains
       if (self % nMaxIterations < i) call self % printInfiniteLoopError(self % nMaxIterations)
 
       ! Sample initial position.
-      call geometryPtr % sampleInitialPosition(self % bounds(:, 1), self % bounds(:, 2), rand, &
-                                               payload % materialIdx, payload % uniqueId, payload % rGlobal, temperature)
+      call geometryPtr % sampleInitialPosition(self % bounds(:, 1), self % bounds(:, 2), rand, payload % materialIdx, &
+                                               payload % uniqueId, payload % rGlobal, densityFactor, temperature)
 
       ! Check if material needs to be rejected and cycle if so.
       if (self % isMaterialInvalid(payload % materialIdx)) cycle rejection
@@ -198,7 +198,7 @@ contains
       if (self % rejectMaterial(mat)) cycle rejection
 
       ! Finalise state depending on specific class then initialise state.
-      call self % finalisePayload(mat, nuclearDatabasePtr, temperature, rand, payload, mu, phi)
+      call self % finalisePayload(mat, nuclearDatabasePtr, densityFactor, temperature, rand, payload, mu, phi)
       payload % uGlobal = rotateVector([ONE, ZERO, ZERO], mu, phi)
       call state % init(payload)
 

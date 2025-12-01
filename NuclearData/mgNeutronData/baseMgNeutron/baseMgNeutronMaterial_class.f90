@@ -111,7 +111,7 @@ contains
     class(baseMgNeutronMaterial), intent(in) :: self
     integer(shortInt), intent(in)            :: G
     type(neutronMacroXSs), intent(out)       :: xss
-    class(RNG), intent(inout), optional      :: rand
+    type(RNG), intent(inout), optional      :: rand
     character(*), parameter :: Here = ' getMacroXSs (baseMgNeutronMaterial_class.f90)'
 
     ! Verify bounds
@@ -145,7 +145,7 @@ contains
     class(baseMgNeutronMaterial), intent(in) :: self
     integer(shortInt), intent(in)            :: G
     real(defReal), intent(out)               :: xs
-    class(RNG), intent(inout), optional      :: rand
+    type(RNG), intent(inout), optional      :: rand
     character(*), parameter :: Here = ' getTotalXS (baseMgNeutronMaterial_class.f90)'
 
     ! Verify bounds

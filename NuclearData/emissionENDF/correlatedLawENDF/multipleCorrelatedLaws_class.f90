@@ -73,7 +73,7 @@ contains
     real(defReal), intent(out)                :: mu
     real(defReal), intent(out)                :: E_out
     real(defReal), intent(in)                 :: E_in
-    class(RNG), intent(inout)                 :: rand
+    type(RNG), intent(inout)                 :: rand
     real(defReal)                             :: randomNumber, E, prob
     integer(shortInt)                         :: i
     character(*), parameter :: Here = 'sample (multipleCorrelatedLaws_class.f90)'

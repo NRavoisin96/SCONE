@@ -50,7 +50,7 @@ contains
   function sample(self,E_in,rand) result (E_out)
     class(maxwellSpectrum), intent(in) :: self
     real(defReal), intent(in)           :: E_in
-    class(RNG), intent(inout)           :: rand
+    type(RNG), intent(inout)           :: rand
     real(defReal)                      :: E_out
     integer(shortInt)                  :: i
     real(defReal)                      :: T

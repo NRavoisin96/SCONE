@@ -102,7 +102,7 @@ contains
     type(cellShelf), intent(inout)                            :: cells
     type(surfaceShelf), intent(inout)                         :: surfs
     type(meshShelf), intent(inout)                            :: meshes
-    integer(shortInt)                                         :: cellId, i, meshId, nFills
+    integer(shortInt)                                         :: cellId, meshId, nFills
     character(*), parameter                                   :: Here = 'init (meshUniverse_class.f90)'
     
     ! Setup the base class

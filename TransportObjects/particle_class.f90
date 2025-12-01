@@ -108,7 +108,7 @@ module particle_class
     integer(shortInt)          :: broodID = 0      ! ID of the brood (source particle number)
 
     ! Particle processing information
-    class(RNG), pointer        :: pRNG  => null()  ! Pointer to RNG associated with the particle
+    type(RNG), pointer        :: pRNG  => null()  ! Pointer to RNG associated with the particle
     real(defReal)              :: k_eff = ONE      ! Value of default keff for implicit source generation
     integer(shortInt)          :: geomIdx = 0      ! Index of the geometry used by the particle
     integer(shortInt)          :: splitCount = 0   ! Counter of number of splits

@@ -189,7 +189,7 @@ contains
   subroutine sampleType(self, p, rand)
     class(pointSource), intent(inout)   :: self
     class(particleState), intent(inout) :: p
-    class(RNG), intent(inout)           :: rand
+    type(RNG), intent(inout)           :: rand
 
     p % type = self % particleType
 
@@ -203,7 +203,7 @@ contains
   subroutine samplePosition(self, p, rand)
     class(pointSource), intent(inout)   :: self
     class(particleState), intent(inout) :: p
-    class(RNG), intent(inout)           :: rand
+    type(RNG), intent(inout)           :: rand
 
     p % r = self % r
 
@@ -219,7 +219,7 @@ contains
   subroutine sampleEnergyAngle(self, p, rand)
     class(pointSource), intent(inout)   :: self
     class(particleState), intent(inout) :: p
-    class(RNG), intent(inout)           :: rand
+    type(RNG), intent(inout)           :: rand
     real(defReal)                       :: randomNumber, phi, theta
 
     if (self % isIsotropic) then
@@ -243,7 +243,7 @@ contains
   subroutine sampleEnergy(self, p, rand)
     class(pointSource), intent(inout)   :: self
     class(particleState), intent(inout) :: p
-    class(RNG), intent(inout)           :: rand
+    type(RNG), intent(inout)           :: rand
     real(defReal)                       :: randomNumber
     integer(shortInt)                   :: g
 

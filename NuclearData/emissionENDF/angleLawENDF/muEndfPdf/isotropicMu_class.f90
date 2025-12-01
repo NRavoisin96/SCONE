@@ -31,7 +31,7 @@ contains
   !!
   function sample(self,rand) result(mu)
     class(isotropicMu), intent(in)   :: self
-    class(RNG), intent(inout)        :: rand
+    type(RNG), intent(inout)        :: rand
     real(defReal)                    :: mu
 
     call rand % generateMu(mu)

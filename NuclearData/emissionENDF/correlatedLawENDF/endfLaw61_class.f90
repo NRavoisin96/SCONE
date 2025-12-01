@@ -46,7 +46,7 @@ contains
     real(defReal), intent(out)   :: mu
     real(defReal), intent(out)   :: E_out
     real(defReal), intent(in)    :: E_in
-    class(RNG), intent(inout)    :: rand
+    type(RNG), intent(inout)    :: rand
     integer(shortInt)            :: idx
     real(defReal)                :: E_min_low, E_max_low
     real(defReal)                :: E_min_up, E_max_up

@@ -396,7 +396,7 @@ contains
   subroutine normSize(self, N, rand)
     class(particleDungeon), intent(inout)         :: self
     integer(shortInt), intent(in)                 :: N
-    class(RNG), intent(inout)                     :: rand
+    type(RNG), intent(inout)                     :: rand
     class(physicalParticleState), pointer         :: ptr
     integer(shortInt)                             :: excessP, i, idx, j, maxBroodId, nCopies, nDuplicates, nPrisoners
     integer(shortInt), dimension(:), allocatable  :: duplicates

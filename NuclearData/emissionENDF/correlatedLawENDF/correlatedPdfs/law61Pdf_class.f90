@@ -40,7 +40,7 @@ contains
     class(law61Pdf), intent(in) :: self
     real(defReal), intent(out)  :: mu
     real(defReal), intent(out)  :: E_out
-    class(RNG), intent(inout)   :: rand
+    type(RNG), intent(inout)   :: rand
     real(defReal)               :: eps, randomNumber
     integer(shortInt)           :: bin
 

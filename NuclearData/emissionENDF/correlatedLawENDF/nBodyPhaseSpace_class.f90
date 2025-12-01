@@ -101,7 +101,7 @@ contains
     real(defReal), intent(out)               :: mu
     real(defReal), intent(out)               :: E_out
     real(defReal), intent(in)                :: E_in
-    class(RNG), intent(inout)                :: rand
+    type(RNG), intent(inout)                :: rand
     real(defReal)                            :: G1, G2, Emax
     real(defReal), dimension(:), allocatable :: randomNumbers
     type(maxwellEnergyPdf)                   :: maxwellPdf

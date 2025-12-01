@@ -6,13 +6,12 @@ module scalarField_inter
   use field_inter,        only : field
   use geometryReg_mod,    only : fieldPtrByName
   use numPrecision
-  use universalVariables, only : nameHeatSource, nameTemperature
 
   implicit none
   private
 
   ! Public procedures.
-  public :: getHeatSourceFieldPtr, getTemperatureFieldPtr, kill, scalarField_CptrCast
+  public :: getMaximumScalarFieldValue, getMinimumScalarFieldValue, getScalarFieldValue, kill, castScalarFieldPtr
 
   !!
   !! Simple Real Scalar Field
@@ -24,18 +23,14 @@ module scalarField_inter
   !!   field interface
   !!   at -> Return scalar value given position coordinates
   !!
-  type, public, abstract, extends(field)     :: scalarField
-    real(defReal), dimension(:), allocatable :: maximumMaterialValues, minimumMaterialValues
+  type, public, abstract, extends(field) :: scalarField
+    private
   contains
-    procedure(at), deferred        :: at
-    procedure                      :: getMaximumMaterialValue
-    procedure                      :: getMinimumMaterialValue
-    procedure                      :: getMaximumMaterialValues
-    procedure                      :: getMinimumMaterialValues
-    procedure                      :: kill
-    procedure                      :: setMaximumMaterialValues
-    procedure                      :: setMinimumMaterialValues
-    procedure(setValues), deferred :: setValues
+    procedure(at), deferred              :: at
+    procedure(getMaximumValue), deferred :: getMaximumValue
+    procedure(getMinimumValue), deferred :: getMinimumValue
+    procedure                            :: kill
+    procedure(setValues), deferred       :: setValues
   end type scalarField
 
   abstract interface
@@ -44,17 +39,44 @@ module scalarField_inter
     !! Get value of the scalar field at the co-ordinate point
     !!
     !! Args:
-    !!   coords [in] -> Coordinates of the position in the geometry
+    !!   defaultValue [in] -> Value to use in case the field does not cover the coordinates.
+    !!   coords [in]       -> Coordinates of the position in the geometry
     !!
     !! Result:
     !!   Value of the scalar field. Real number.
     !!
-    function at(self, coords) result(val)
-      import :: coordList, defReal, scalarField
-      class(scalarField), intent(in) :: self
-      class(coordList), intent(in)   :: coords
-      real(defReal)                  :: val
+    function at(self, defaultValue, coords, mult) result(val)
+      import                              :: coordList, defReal, scalarField
+      class(scalarField), intent(in)      :: self
+      real(defReal), intent(in)           :: defaultValue
+      type(coordList), intent(in)         :: coords
+      real(defReal), intent(in), optional :: mult
+      real(defReal)                       :: val
     end function at
+
+    !!
+    !!
+    !!
+    elemental function getMaximumValue(self, defaultValue, materialIdx, mult) result(maximumValue)
+      import                                  :: defReal, scalarField, shortInt
+      class(scalarField), intent(in)          :: self
+      real(defReal), intent(in)               :: defaultValue
+      integer(shortInt), intent(in), optional :: materialIdx
+      real(defReal), intent(in), optional     :: mult
+      real(defReal)                           :: maximumValue
+    end function getMaximumValue
+
+    !!
+    !!
+    !!
+    elemental function getMinimumValue(self, defaultValue, materialIdx, mult) result(minimumValue)
+      import                                  :: defReal, scalarField, shortInt
+      class(scalarField), intent(in)          :: self
+      real(defReal), intent(in)               :: defaultValue
+      integer(shortInt), intent(in), optional :: materialIdx
+      real(defReal), intent(in), optional     :: mult
+      real(defReal)                           :: minimumValue
+    end function getMinimumValue
 
     !!
     !!
@@ -69,130 +91,6 @@ module scalarField_inter
 
 contains
   !!
-  !!
-  !!
-  function getHeatSourceFieldPtr() result(heatSourceFieldPtr)
-    class(field), pointer       :: fieldPtr
-    class(scalarField), pointer :: heatSourceFieldPtr
-    character(*), parameter     :: here = 'getHeatSourceFieldPtr (scalarField_inter.f90)'
-
-    heatSourceFieldPtr => null()
-    fieldPtr => fieldPtrByName(nameHeatSource)
-    if (.not. associated(fieldPtr)) return
-
-    select type(ptr => fieldPtr)
-      class is(scalarField)
-        heatSourceFieldPtr => ptr
-
-      class default
-        call fatalError(here, 'Heat source field is not of type scalarField.')
-
-    end select
-
-  end function getHeatSourceFieldPtr
-
-  !!
-  !!
-  !!
-  function getMaximumMaterialValue(self, materialIdx) result(maximumValue)
-    class(scalarField), intent(in) :: self
-    integer(shortInt), intent(in)  :: materialIdx
-    real(defReal)                  :: maximumValue
-    character(*), parameter        :: here = 'getMaximumMaterialValue (scalarField_inter.f90)'
-
-    if (.not. allocated(self % maximumMaterialValues)) &
-    call fatalError(here, 'Attempting to retrieve value from unallocated array.')
-
-    maximumValue = self % maximumMaterialValues(materialIdx)
-
-  end function getMaximumMaterialValue
-
-  !!
-  !!
-  !!
-  function getMinimumMaterialValue(self, materialIdx) result(minimumValue)
-    class(scalarField), intent(in) :: self
-    integer(shortInt), intent(in)  :: materialIdx
-    real(defReal)                  :: minimumValue
-    character(*), parameter        :: here = 'getMinimumMaterialValue (scalarField_inter.f90)'
-
-    if (.not. allocated(self % minimumMaterialValues)) &
-    call fatalError(here, 'Attempting to retrieve value from unallocated array.')
-
-    minimumValue = self % minimumMaterialValues(materialIdx)
-
-  end function getMinimumMaterialValue
-
-  !!
-  !!
-  !!
-  pure function getMaximumMaterialValues(self) result(maximumMaterialValues)
-    class(scalarField), intent(in)           :: self
-    real(defReal), dimension(:), allocatable :: maximumMaterialValues
-
-    if (allocated(self % maximumMaterialValues)) then
-      maximumMaterialValues = self % maximumMaterialValues
-
-    else
-      allocate(maximumMaterialValues(0))
-
-    end if
-
-  end function getMaximumMaterialValues
-
-  !!
-  !!
-  !!
-  pure function getMinimumMaterialValues(self) result(minimumMaterialValues)
-    class(scalarField), intent(in)           :: self
-    real(defReal), dimension(:), allocatable :: minimumMaterialValues
-
-    if (allocated(self % minimumMaterialValues)) then
-      minimumMaterialValues = self % minimumMaterialValues
-
-    else
-      allocate(minimumMaterialValues(0))
-
-    end if
-
-  end function getMinimumMaterialValues
-
-  !!
-  !!
-  !!
-  function getTemperatureFieldPtr() result(temperatureFieldPtr)
-    class(field), pointer       :: fieldPtr
-    class(scalarField), pointer :: temperatureFieldPtr
-    character(*), parameter     :: here = 'getTemperatureFieldPtr (scalarField_inter.f90)'
-
-    temperatureFieldPtr => null()
-    fieldPtr => fieldPtrByName(nameTemperature)
-    if (.not. associated(fieldPtr)) return
-
-    select type(ptr => fieldPtr)
-      class is(scalarField)
-        temperatureFieldPtr => ptr
-
-      class default
-        call fatalError(here, 'Temperature field is not of type scalarField.')
-
-    end select
-
-  end function getTemperatureFieldPtr
-
-  !!
-  !!
-  !!
-  elemental subroutine kill(self)
-    class(scalarField), intent(inout) :: self
-
-    ! Local.
-    if (allocated(self % maximumMaterialValues)) deallocate(self % maximumMaterialValues)
-    if (allocated(self % minimumMaterialValues)) deallocate(self % minimumMaterialValues)
-
-  end subroutine kill
-
-  !!
   !! Cast field pointer to scalarField pointer
   !!
   !! Args:
@@ -202,40 +100,109 @@ contains
   !!   Null is source is not of scalarField
   !!   Pointer to source if source is scalarField class
   !!
-  pure function scalarField_CptrCast(source) result(ptr)
-    class(field), pointer, intent(in) :: source
-    class(scalarField), pointer       :: ptr
+  function castScalarFieldPtr(source, fatal) result(ptr)
+    class(field), intent(in)               :: source
+    logical(defBool), intent(in), optional :: fatal
+    class(scalarField), pointer            :: ptr
+    logical(defBool)                       :: throwError
+    character(*), parameter                :: HERE = 'castScalarFieldPtr (scalarField_inter.f90)'
 
-    select type (source)
+    select type (temp => source)
       class is (scalarField)
-        ptr => source
+        ptr => temp
 
       class default
         ptr => null()
+
     end select
 
-  end function scalarField_CptrCast
+    ! By default throw error if pointer is unassociated.
+    throwError = .true.
+    if (present(fatal)) throwError = fatal
+    if (throwError .and. .not. associated(ptr)) call fatalError(HERE, "Field is not of class 'scalarField.")
+
+  end function castScalarFieldPtr
 
   !!
   !!
   !!
-  pure subroutine setMaximumMaterialValues(self, maximumMaterialValues)
-    class(scalarField), intent(inout)       :: self
-    real(defReal), dimension(:), intent(in) :: maximumMaterialValues
+  function getMaximumScalarFieldValue(fieldName, defaultValue, materialIdx, mult) result(maximumValue)
+    character(nameLen), intent(in)          :: fieldName
+    real(defReal), intent(in)               :: defaultValue
+    integer(shortInt), intent(in), optional :: materialIdx
+    real(defReal), intent(in), optional     :: mult
+    class(field), pointer                   :: fieldPtr
+    class(scalarField), pointer             :: scalarFieldPtr
+    real(defReal)                           :: maximumValue
 
-    self % maximumMaterialValues = maximumMaterialValues
+    fieldPtr => fieldPtrByName(fieldName)
+    if (.not. associated(fieldPtr)) then
+      maximumValue = defaultValue
+      return
 
-  end subroutine setMaximumMaterialValues
+    end if
+
+    scalarFieldPtr => castScalarFieldPtr(fieldPtr)
+    maximumValue = scalarFieldPtr % getMaximumValue(defaultValue, materialIdx, mult)
+
+  end function getMaximumScalarFieldValue
 
   !!
   !!
   !!
-  pure subroutine setMinimumMaterialValues(self, minimumMaterialValues)
-    class(scalarField), intent(inout)       :: self
-    real(defReal), dimension(:), intent(in) :: minimumMaterialValues
+  function getMinimumScalarFieldValue(fieldName, defaultValue, materialIdx, mult) result(minimumValue)
+    character(nameLen), intent(in)          :: fieldName
+    real(defReal), intent(in)               :: defaultValue
+    integer(shortInt), intent(in), optional :: materialIdx
+    real(defReal), intent(in), optional     :: mult
+    class(field), pointer                   :: fieldPtr
+    class(scalarField), pointer             :: scalarFieldPtr
+    real(defReal)                           :: minimumValue
 
-    self % minimumMaterialValues = minimumMaterialValues
+    fieldPtr => fieldPtrByName(fieldName)
+    if (.not. associated(fieldPtr)) then
+      minimumValue = defaultValue
+      return
 
-  end subroutine setMinimumMaterialValues
+    end if
+
+    scalarFieldPtr => castScalarFieldPtr(fieldPtr)
+    minimumValue = scalarFieldPtr % getMinimumValue(defaultValue, materialIdx, mult)
+
+  end function getMinimumScalarFieldValue
+
+  !!
+  !!
+  !!
+  function getScalarFieldValue(fieldName, defaultValue, coords, mult) result(value)
+    character(nameLen), intent(in)      :: fieldName
+    real(defReal), intent(in)           :: defaultValue
+    type(coordList), intent(in)         :: coords
+    real(defReal), intent(in), optional :: mult
+    class(field), pointer               :: fieldPtr
+    class(scalarField), pointer         :: scalarFieldPtr
+    real(defReal)                       :: value
+
+    fieldPtr => fieldPtrByName(fieldName)
+    if (.not. associated(fieldPtr)) then
+      value = defaultValue
+      return
+
+    end if
+    
+    scalarFieldPtr => castScalarFieldPtr(fieldPtr)
+    value = scalarFieldPtr % at(defaultValue, coords, mult)
+
+  end function getScalarFieldValue
+
+  !!
+  !!
+  !!
+  elemental subroutine kill(self)
+    class(scalarField), intent(inout) :: self
+
+    ! Local.
+
+  end subroutine kill
 
 end module scalarField_inter

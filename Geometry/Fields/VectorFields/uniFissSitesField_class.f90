@@ -125,7 +125,7 @@ contains
     class(uniFissSitesField), intent(inout) :: self
     class(geometry), pointer, intent(in)    :: geom
     integer(shortInt), intent(in)           :: type
-    class(RNG), intent(inout), optional     :: rand
+    type(RNG), intent(inout), optional     :: rand
     real(defReal), dimension(6)             :: bounds
     real(defReal), dimension(3)             :: bottom, top
     real(defReal), dimension(3)             :: r

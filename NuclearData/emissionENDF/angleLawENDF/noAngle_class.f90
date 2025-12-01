@@ -49,7 +49,7 @@ contains
   function sample(self,E,rand) result (mu)
     class(noAngle), intent(in)   :: self
     real(defReal), intent(in)    :: E
-    class(RNG), intent(inout)    :: rand
+    type(RNG), intent(inout)    :: rand
     real(defReal)                :: mu
 
     mu = 1.0

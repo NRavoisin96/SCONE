@@ -912,7 +912,7 @@ contains
   !!
   subroutine sampleInitialPosition(self, rand, localId, r)
     class(element), intent(in)               :: self
-    class(RNG), intent(inout)                :: rand
+    type(RNG), intent(inout)                :: rand
     integer(shortInt), intent(out)           :: localId
     real(defReal), dimension(3), intent(out) :: r
     integer(shortInt)                        :: i

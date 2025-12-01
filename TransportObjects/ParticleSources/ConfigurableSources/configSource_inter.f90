@@ -56,7 +56,7 @@ module configSource_inter
       import                                     :: configSource, RNG, transportObjectState
       class(configSource), intent(inout)         :: self
       class(transportObjectState), intent(inout) :: state
-      class(RNG), intent(inout)                  :: rand
+      type(RNG), intent(inout)                  :: rand
     end subroutine sampleEnergy
 
     !!
@@ -74,7 +74,7 @@ module configSource_inter
       import                                     :: configSource, RNG, transportObjectState
       class(configSource), intent(inout)         :: self
       class(transportObjectState), intent(inout) :: state
-      class(RNG), intent(inout)                  :: rand
+      type(RNG), intent(inout)                  :: rand
     end subroutine sampleEnergyAngle
 
     !!
@@ -90,7 +90,7 @@ module configSource_inter
       import                                     :: configSource, RNG, transportObjectState
       class(configSource), intent(inout)         :: self
       class(transportObjectState), intent(inout) :: state
-      class(RNG), intent(inout)                  :: rand
+      type(RNG), intent(inout)                  :: rand
     end subroutine samplePosition
 
     !!
@@ -106,7 +106,7 @@ module configSource_inter
       import                                     :: configSource, RNG, transportObjectState
       class(configSource), intent(inout)         :: self
       class(transportObjectState), intent(inout) :: state
-      class(RNG), intent(inout)                  :: rand
+      type(RNG), intent(inout)                  :: rand
     end subroutine sampleType
 
   end interface
@@ -129,7 +129,7 @@ contains
   !!
   subroutine sampleState(self, rand, state)
     class(configSource), intent(inout)                    :: self
-    class(RNG), intent(inout)                             :: rand
+    type(RNG), intent(inout)                             :: rand
     class(transportObjectState), allocatable, intent(out) :: state
 
     call self % sampleType(state, rand)

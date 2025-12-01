@@ -16,6 +16,7 @@ module baseMgNeutronDatabase_class
   use nuclideHandle_inter,         only : nuclideHandle
   use numPrecision
   use reactionHandle_inter,        only : reactionHandle
+  use scalarField_inter,           only : getMaximumScalarFieldValue
   use transportObject_inter,       only : transportObject
   use universalVariables
 
@@ -65,10 +66,10 @@ module baseMgNeutronDatabase_class
     procedure :: getReaction
     procedure :: kill
     procedure :: init
+    procedure :: initMajorant
     procedure :: activate
 
     ! Local interface
-    procedure :: initMajorant
     procedure :: nGroups
 
   end type baseMgNeutronDatabase
@@ -331,7 +332,7 @@ contains
     call dict % get(scatterKey, 'PN')
 
     ! Build materials
-    do i= 1, nMat
+    do i = 1, nMat
       ! Get Path to the xsFile
       matDef => mm_getMatPtr(i)
       call matDef % extraInfo % get(path,'xsFile')
@@ -349,10 +350,10 @@ contains
 
     ! Load and verify number of groups
     self % nG = self % mats(1) % nGroups()
-    do i = 2,nMat
-      if (self % nG /= self % mats(i) % nGroups()) then
-        call fatalError(Here,'Inconsistant # of groups in materials in matIdx'//numToChar(i))
-      end if
+    do i = 2, nMat
+      if (self % nG /= self % mats(i) % nGroups()) &
+      call fatalError(Here,'Inconsistent number of groups in materials in matIdx: '//numToChar(i)//'.')
+
     end do
 
   end subroutine init
@@ -379,18 +380,16 @@ contains
     !$omp parallel
     do idx = 1,size(self % mats)
       materialCache(idx) % mat => self % mats(idx)
+
     end do
     !$omp end parallel
 
-    ! Set build console output flag
-    if (present(silent)) then
-      loud = .not. silent
-    else
-      loud = .true.
-    end if
+    ! Set build console output flag.
+    loud = .true.
+    if (present(silent)) loud = .not. silent
 
-    ! Build unionised majorant
-    call self % initMajorant(loud)
+    ! Build unionised majorant. TODO: change temperature input should there be a temperature model for MG XSs.
+    call self % initMajorant(loud, max(getMaximumScalarFieldValue(nameDensity, ONE), ONE), ZERO)
 
   end subroutine activate
 
@@ -399,27 +398,33 @@ contains
   !!
   !! See nuclearDatabase documentation for details
   !!
-  subroutine initMajorant(self, loud)
+  subroutine initMajorant(self, loud, maxDensityFactor, maxTemperature)
     class(baseMgNeutronDatabase), intent(inout) :: self
     logical(defBool), intent(in)                :: loud
+    real(defReal), intent(in)                   :: maxDensityFactor, maxTemperature
     integer(shortInt)                           :: g, i, idx
     real(defReal)                               :: xs
     integer(shortInt), parameter                :: TOTAL_XS = 1
 
-    ! Allocate majorant
-    allocate (self % majorant(self % nG))
+    ! Allocate majorant.
+    if (allocated(self % majorant)) deallocate(self % majorant)
+    allocate(self % majorant(self % nG))
+
+    ! TODO: update should there be a temperature model developed for MG XSs.
 
     ! Loop over energy groups
-    do g = 1,self % nG
+    do g = 1, self % nG
       xs = ZERO
-      do i = 1,size(self % activeMats)
+      do i = 1, size(self % activeMats)
         idx = self % activeMats(i)
         xs = max(xs, self % mats(idx) % data(TOTAL_XS, g))
+
       end do
-      self % majorant(g) = xs
+      self % majorant(g) = xs * maxDensityFactor
+
     end do
 
-    if (loud) print '(A)', 'MG unionised majorant cross section calculation completed'
+    if (loud) print '(A)', 'MG unionised majorant cross section calculation complete.'
 
   end subroutine initMajorant
 

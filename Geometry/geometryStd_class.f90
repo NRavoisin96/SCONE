@@ -12,7 +12,7 @@ module geometryStd_class
   use numPrecision
   use publicObjects,     only : coordData, newCoordData
   use RNG_class,         only : RNG
-  use scalarField_inter, only : getTemperatureFieldPtr, scalarField
+  use scalarField_inter, only : getScalarFieldValue
   use universalVariables
 
   implicit none
@@ -464,13 +464,13 @@ contains
   !!
   !!
   !!
-  subroutine sampleInitialPosition(self, bottom, top, rand, materialIdx, uniqueId, r, temperature)
+  subroutine sampleInitialPosition(self, bottom, top, rand, materialIdx, uniqueId, r, densityFactor, temperature)
     class(geometryStd), intent(in)           :: self
     real(defReal), dimension(3), intent(in)  :: bottom, top
-    class(RNG), intent(inout)                :: rand
+    type(RNG), intent(inout)                :: rand
     integer(shortInt), intent(out)           :: materialIdx, uniqueId
     real(defReal), dimension(3), intent(out) :: r
-    real(defReal), intent(out), optional     :: temperature
+    real(defReal), intent(out), optional     :: densityFactor, temperature
     real(defReal), dimension(3)              :: randomNumbers
 
     ! Sample position.
@@ -478,7 +478,7 @@ contains
     r = (top - bottom) * randomNumbers + bottom
 
     ! Find material under position.
-    call self % whatIsAt(materialIdx, uniqueId, r, temperature = temperature)
+    call self % whatIsAt(materialIdx, uniqueId, r, densityFactor = densityFactor, temperature = temperature)
 
   end subroutine sampleInitialPosition
 
@@ -519,13 +519,12 @@ contains
   !!
   !! See geometry_inter for details
   !!
-  subroutine whatIsAt(self, matIdx, uniqueID, r, u, temperature)
+  subroutine whatIsAt(self, matIdx, uniqueID, r, u, densityFactor, temperature)
     class(geometryStd), intent(in)                    :: self
     integer(shortInt), intent(out)                    :: matIdx, uniqueID
     real(defReal), dimension(3), intent(in)           :: r
     real(defReal), dimension(3), optional, intent(in) :: u
-    real(defReal), intent(out), optional              :: temperature
-    class(scalarField), pointer                       :: temperatureFieldPtr
+    real(defReal), intent(out), optional              :: densityFactor, temperature
     real(defReal), dimension(3)                       :: u_l
     type(coordList)                                   :: coords
 
@@ -543,13 +542,9 @@ contains
     matIdx = coords % getMaterialIdx()
     uniqueID = coords % getUniqueId()
 
-    ! Get temperature if requested.
-    if (present(temperature)) then
-      temperature = ZERO
-      temperatureFieldPtr => getTemperatureFieldPtr()
-      if (associated(temperatureFieldPtr)) temperature = temperatureFieldPtr % at(coords)
-
-    end if
+    ! Get density factor and temperature if requested.
+    if (present(densityFactor)) densityFactor = getScalarFieldValue(nameDensity, ONE, coords)
+    if (present(temperature)) temperature = getScalarFieldValue(nameTemperature, ZERO, coords)
 
   end subroutine whatIsAt
 

@@ -36,7 +36,7 @@ contains
   function sample_Johnk(self,kT,rand) result (E)
     class(maxwellEnergyPdf), intent(in) :: self
     real(defReal), intent(in)            :: kT
-    class(RNG), intent(inout)           :: rand
+    type(RNG), intent(inout)           :: rand
     real(defReal)                       :: E
     real(defReal)                       :: beta, gamma05, cosine
     real(defReal), dimension(3)         :: randomNumbers

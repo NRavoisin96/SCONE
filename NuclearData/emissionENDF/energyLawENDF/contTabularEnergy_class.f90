@@ -61,7 +61,7 @@ contains
   function sample(self,E_in,rand) result (E_out)
     class(contTabularEnergy), intent(in) :: self
     real(defReal), intent(in)            :: E_in
-    class(RNG), intent(inout)            :: rand
+    type(RNG), intent(inout)            :: rand
     real(defReal)                        :: E_out
     integer(shortInt)                    :: idx, flag, inter_idx
     real(defReal)                        :: randomNumber, eps

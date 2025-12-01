@@ -131,7 +131,7 @@ contains
   !!
   function sampleParticle(self, rand) result(p)
     class(materialSource), intent(inout) :: self
-    class(RNG), intent(inout)            :: rand
+    type(RNG), intent(inout)            :: rand
     type(particleState)                  :: p
     class(nuclearDatabase), pointer      :: nucData
     class(neutronMaterial), pointer      :: mat

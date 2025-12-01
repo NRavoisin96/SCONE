@@ -1,0 +1,83 @@
+type heatTransferPhysicsPackage;
+
+convergenceCriterion 1.0e-3;
+surfaceTolerance 1.0e-4;
+walksPerBatch 50;
+XSdata ce;
+dataType ce;
+seed 1;
+
+inactiveTally {}
+
+activeTally {
+    clerks {
+        display (k_eff);
+        k_eff {type keffAnalogClerk;}
+    }
+}
+
+geometry {
+	type geometryMesh;
+	
+	fields {
+        Q
+        {
+            type mixedScalarField;
+            meshFields {
+                squareRod {
+                    type OpenFOAMScalarField;
+                    meshId 1;
+                    path /home/parallels/Desktop/Academic/SCONE/IntegrationTestFiles/Fields/ScalarFields/Q;
+                }
+            }
+        }
+    }
+
+	meshes { 
+		squareRod {
+		    id 1;
+		    type OpenFOAMMesh;
+		    path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/squareRod/;
+		    localIds {
+		        assignmentMethod all;
+		    }
+		    boundaryConditions {
+		        assignmentMethod boundary;
+		        temperatureBCs (1 1 2);
+		        fixedTemperatureValues (400.0 300.0);
+		    }
+		    fills (fuel);
+		}
+	}
+}
+
+nuclearData {
+	handles {
+    	ce {type aceNeutronDatabase; aceLibrary $SCONE_ACE;}
+  	}
+  
+	materials {
+
+		water {
+      			tms 1;
+      			temp 300;
+      			rgb (0 0 139); // Colour of water is dark blue
+      			moder { 1001.03 (hh2o.03); }
+      			composition {
+      				1001.03    6.700E-002;
+      				8016.03    3.350E-002;
+      				5010.03    5.560E-006;
+      				5011.03    2.224E-005; 
+			    }
+      		}
+
+    	fuel {
+    	    tms 1;
+    	    temp 3000;
+       		composition {
+      			92235.03  1.450E-003;
+      			92238.03  4.690E-002;
+			}
+      	}
+	}
+}

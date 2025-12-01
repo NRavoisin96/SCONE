@@ -146,16 +146,6 @@ contains
     class(physicalParticle), intent(inout) :: p
     type(particleDungeon), intent(inout)   :: dungeon
     type(tallyAdmin), intent(inout)        :: tally
-    integer(shortInt)                      :: n, i
-    real(defReal)                          :: E, E_max, E_out, k_eff, mu, phi, randomNumber, wgt
-    real(defReal), dimension(3)            :: r, u, uGlobal, val
-    type(CECollisionData), pointer         :: CECollisionDataPtr
-    type(CENeutron), pointer               :: CENeutronPtr
-    type(CEParticleState), pointer         :: CEParticleStatePtr
-    type(fissionCE), pointer               :: fiss
-    type(neutronMicroXSs)                  :: microXSs
-    type(RNG), pointer                     :: RNGPtr
-    character(*), parameter                :: Here = 'fission (neutronCEimp_class.f90)'
 
     ! Call superclass procedure and return immediately if using implicit sites.
     call fission_super(self, collDat, p, dungeon, tally)

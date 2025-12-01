@@ -185,7 +185,7 @@ contains
     ! Choose collision nuclide and general type (Scatter, Capture or Fission)
     call self % sampleCollision(p, collDat)
 
-    ! In case of a TMS rejection, set collision as virtual
+    ! In case of no interaction, set collision as virtual.
     virtual = collDat % MT == noInteraction
 
     ! Report in-collision & save pre-collison state

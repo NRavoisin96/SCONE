@@ -1,0 +1,126 @@
+type eigenPhysicsPackage;
+
+pop      20000;
+cycles   500;
+inactive 20;
+XSdata ce;
+dataType ce;
+
+collisionOperator { neutronCE {type neutronCEstd;} }
+
+transportOperator { type transportOperatorST; cache 0; }
+
+inactiveTally {
+
+}
+
+activeTally 
+{
+    clerks 
+    {
+        fissionPower
+        {
+            type trackClerk;
+            map {
+                type unstructuredMeshMap;
+                meshId 1;
+            }
+            response (fissionPower);
+            fissionPower {
+                type fissionPowerResponse;
+            }
+        }
+    }
+    normalisationMethod {
+        type volumeNormalisationMethod;
+        targetValue 200000.0;
+        normalisationClerk fissionPower;
+    }
+}
+
+geometry {
+	type geometryStd;
+	graph {type shrunk;}
+	boundary (1 1 1 1 1 1);
+	
+	cells {
+   		hostCell {id 1; type simpleCell; surfaces (-1); filltype mat; material water;}
+  	}
+  	
+  	fields {
+  		T
+	    {
+	        type mixedScalarField;
+	        meshFields {
+	            squareRod {
+	                type OpenFOAMScalarField;
+	                meshId 1;
+	                path ./IntegrationTestFiles/Fields/ScalarFields/T;
+	            }
+	        }
+	    }
+	    
+	    rho
+	    {
+	        type mixedScalarField;
+	        meshFields {
+	            squareRod {
+	                type OpenFOAMScalarField;
+	                meshId 1;
+	                path ./IntegrationTestFiles/Fields/ScalarFields/rho;
+	            }
+	        }
+	    }
+  	}
+
+	meshes { 
+		squareRod {
+		    id 1;
+		    type OpenFOAMMesh;
+		    path /home/parallels/Desktop/Academic/SCONE/IntegrationTestFiles/Geometry/Meshes/OpenFOAM/squareRod/;
+		    localIds {
+		        assignmentMethod cellZones;
+		    }
+		    fills (fuel);
+		}
+	}
+	
+  	surfaces {
+		boxContainer { id 1; type box; origin (0.0 0.0 0.0); halfwidth (20.0 50.001 50.001); }
+  	}
+  	
+  	universes {
+    	root { id 1; type rootUniverse; border 1; fill u<2>; }
+		mesh { id 2; type meshUniverse; origin (0.0 0.0 0.0); rotation (0.0 0.0 0.0); cell 1; mesh 1; }
+  	}
+
+}
+
+nuclearData {
+	handles {
+    	ce {type aceNeutronDatabase; aceLibrary $SCONE_ACE;}
+  	}
+  
+	materials {
+
+		water {
+      			tms 1;
+      			temp 300;
+      			rgb (0 0 139); // Colour of water is dark blue
+      			moder { 1001.03 (hh2o.03); }
+      			composition {
+      				1001.03    6.700E-002;
+      				8016.03    3.350E-002;
+			    }
+      		}
+
+    	fuel {
+    	    tms 1;
+    	    temp 300;
+       		composition {
+      			94239.03  2.450E-003;
+      			92238.03  4.690E-002;
+			}
+      	}
+	}
+}

@@ -14,7 +14,7 @@ module CECollisionData_class
   !!
   !!
   type, public, extends(collisionData) :: CECollisionData
-    real(defReal) :: finalEnergy = ZERO, initialEnergy = ZERO, reactionEnergy = ZERO
+    real(defReal) :: densityFactor = ONE, finalEnergy = ZERO, initialEnergy = ZERO, reactionEnergy = ZERO
   end type CECollisionData
 
 contains

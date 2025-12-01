@@ -1,14 +1,16 @@
 module piecewiseConstantScalarField_inter
 
-  use genericProcedures, only : fatalError, numToChar
+  use genericProcedures,  only : fatalError, numToChar
+  use intMap_class,       only : intMap
   use numPrecision
-  use scalarField_inter, only : kill_super => kill, scalarField
+  use scalarField_inter,  only : kill_super => kill, scalarField
+  use universalVariables, only : NOT_PRESENT
 
   implicit none
   private
 
   ! Public procedures.
-  public :: kill, setValues
+  public :: kill
 
   !!
   !!
@@ -16,14 +18,32 @@ module piecewiseConstantScalarField_inter
   type, public, abstract, extends(scalarField) :: piecewiseConstantScalarField
     private
     integer(shortInt)                        :: nValues = 0
-    real(defReal), dimension(:), allocatable :: values
+    real(defReal)                            :: maximumValue = ZERO, minimumValue = ZERO
+    real(defReal), dimension(:), allocatable :: maximumMaterialValues, minimumMaterialValues, values
+    type(intMap)                             :: materialIdxsToExtremalValuesIdxsMap
   contains
-    procedure :: allocateValues
-    procedure :: getValue
-    procedure :: getValuesNumber
-    procedure :: kill
-    procedure :: setValues
+    procedure                                         :: allocateValues
+    procedure(createExtremalMaterialValues), deferred :: createExtremalMaterialValues
+    procedure                                         :: getMaximumValue
+    procedure                                         :: getMinimumValue
+    procedure                                         :: getValue
+    procedure                                         :: getValuesNumber
+    procedure                                         :: kill
+    procedure                                         :: setValues
   end type piecewiseConstantScalarField
+
+  abstract interface
+    !!
+    !!
+    !!
+    subroutine createExtremalMaterialValues(self, maximumMaterialValues, minimumMaterialValues, map)
+      import                                                :: defReal, intMap, piecewiseConstantScalarField
+      class(piecewiseConstantScalarField), intent(in)       :: self
+      real(defReal), dimension(:), allocatable, intent(out) :: maximumMaterialValues, minimumMaterialValues
+      type(intMap), intent(out)                             :: map
+    end subroutine createExtremalMaterialValues
+
+  end interface
 
 contains
   !!
@@ -39,6 +59,74 @@ contains
     self % nValues = nValues
 
   end subroutine allocateValues
+
+  !!
+  !!
+  !!
+  elemental function getMaximumValue(self, defaultValue, materialIdx, mult) result(maximumValue)
+    class(piecewiseConstantScalarField), intent(in) :: self
+    real(defReal), intent(in)                       :: defaultValue
+    integer(shortInt), intent(in), optional         :: materialIdx
+    real(defReal), intent(in), optional             :: mult
+    integer(shortInt)                               :: mapIdx
+    real(defReal)                                   :: maximumValue
+
+    if (.not. allocated(self % maximumMaterialValues)) then
+      maximumValue = defaultValue
+      return
+
+    end if
+
+    if (present(materialIdx)) then
+      mapIdx = self % materialIdxsToExtremalValuesIdxsMap % getOrDefault(materialIdx, NOT_PRESENT)
+      if (mapIdx == NOT_PRESENT) then
+        maximumValue = defaultValue
+        return
+
+      end if
+      maximumValue = self % maximumMaterialValues(mapIdx)
+
+    else
+      maximumValue = self % maximumValue
+
+    end if
+    if (present(mult)) maximumValue = maximumValue * mult
+
+  end function getMaximumValue
+
+  !!
+  !!
+  !!
+  elemental function getMinimumValue(self, defaultValue, materialIdx, mult) result(minimumValue)
+    class(piecewiseConstantScalarField), intent(in) :: self
+    real(defReal), intent(in)                       :: defaultValue
+    integer(shortInt), intent(in), optional         :: materialIdx
+    real(defReal), intent(in), optional             :: mult
+    integer(shortInt)                               :: mapIdx
+    real(defReal)                                   :: minimumValue
+
+    if (.not. allocated(self % minimumMaterialValues)) then
+      minimumValue = defaultValue
+      return
+
+    end if
+
+    if (present(materialIdx)) then
+      mapIdx = self % materialIdxsToExtremalValuesIdxsMap % getOrDefault(materialIdx, NOT_PRESENT)
+      if (mapIdx == NOT_PRESENT) then
+        minimumValue = defaultValue
+        return
+
+      end if
+      minimumValue = self % minimumMaterialValues(mapIdx)
+
+    else
+      minimumValue = self % minimumValue
+
+    end if
+    if (present(mult)) minimumValue = minimumValue * mult
+
+  end function getMinimumValue
 
   !!
   !!
@@ -79,7 +167,12 @@ contains
 
     ! Local.
     self % nValues = 0
+    self % maximumValue = ZERO
+    self % minimumValue = ZERO
     if (allocated(self % values)) deallocate(self % values)
+    if (allocated(self % maximumMaterialValues)) deallocate(self % maximumMaterialValues)
+    if (allocated(self % minimumMaterialValues)) deallocate(self % minimumMaterialValues)
+    call self % materialIdxsToExtremalValuesIdxsMap % kill()
 
   end subroutine kill
 
@@ -93,6 +186,10 @@ contains
 
     if (size(self % values) /= size(values)) call fatalError(here, 'Size mismatch.')
     self % values = values
+    call self % createExtremalMaterialValues(self % maximumMaterialValues, self % minimumMaterialValues, &
+                                             self % materialIdxsToExtremalValuesIdxsMap)
+    self % maximumValue = maxval(self % maximumMaterialValues)
+    self % minimumValue = minval(self % minimumMaterialValues)
 
   end subroutine setValues
 

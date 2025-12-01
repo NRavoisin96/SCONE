@@ -67,7 +67,7 @@ module mgNeutronMaterial_inter
       class(mgNeutronMaterial), intent(in) :: self
       integer(shortInt), intent(in)        :: G
       type(neutronMacroXSs), intent(out)   :: xss
-      class(RNG), intent(inout), optional  :: rand
+      type(RNG), intent(inout), optional  :: rand
     end subroutine getMacroXSs_byG
 
     !!
@@ -85,7 +85,7 @@ module mgNeutronMaterial_inter
       class(mgNeutronMaterial), intent(in) :: self
       integer(shortInt), intent(in)        :: G
       real(defReal), intent(out)           :: xs
-      class(RNG), intent(inout), optional  :: rand
+      type(RNG), intent(inout), optional  :: rand
     end subroutine getTotalXS
 
   end interface

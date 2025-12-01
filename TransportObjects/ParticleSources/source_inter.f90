@@ -69,7 +69,7 @@ module source_inter
     subroutine sampleState(self, rand, state)
       import                                                :: RNG, source, transportObjectState
       class(source), intent(inout)                          :: self
-      class(RNG), intent(inout)                             :: rand
+      type(RNG), intent(inout)                             :: rand
       class(transportObjectState), allocatable, intent(out) :: state
     end subroutine sampleState
 
@@ -93,7 +93,7 @@ contains
     class(source), intent(inout)             :: self
     type(particleDungeon), intent(inout)     :: dungeon
     integer(shortInt), intent(in)            :: n
-    class(RNG), intent(inout)                :: rand
+    type(RNG), intent(inout)                :: rand
     class(transportObjectState), allocatable :: state
     type(RNG)                                :: pRand
     integer(shortInt)                        :: i

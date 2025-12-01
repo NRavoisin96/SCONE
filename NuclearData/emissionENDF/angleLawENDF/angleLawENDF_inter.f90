@@ -43,7 +43,7 @@ module angleLawENDF_inter
                 defReal
       class(angleLawENDF), intent(in)  :: self
       real(defReal), intent(in)        :: E
-      class(RNG), intent(inout)        :: rand
+      type(RNG), intent(inout)        :: rand
       real(defReal)                    :: mu
     end function sample
 

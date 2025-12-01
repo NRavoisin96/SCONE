@@ -5,7 +5,7 @@ module uniformScalarField_test
   use field_inter,              only : field
   use funit
   use numPrecision
-  use scalarField_inter,        only : scalarField, scalarField_CptrCast
+  use scalarField_inter,        only : scalarField, castScalarFieldPtr
   use uniformScalarField_class, only : uniformScalarField, uniformScalarField_TptrCast
 
   implicit none
@@ -28,15 +28,13 @@ contains
     ! Test invalid pointers
     ref => null()
 
-    ptr => scalarField_CptrCast(ref)
     ptr2 => uniformScalarField_TptrCast(ref)
-    @assertFalse(associated(ptr))
     @assertFalse(associated(ptr2))
 
     ! Test valid pointers
     ref => fieldT
 
-    ptr => scalarField_CptrCast(ref)
+    ptr => castScalarFieldPtr(ref, .false.)
     ptr2 => uniformScalarField_TptrCast(ref)
 
     @assertTrue(associated(ptr, fieldT))
@@ -50,7 +48,7 @@ contains
     call fieldT % init(dict)
 
     ! Check value
-    @assertEqual(9.6_defReal, fieldT % at(coords), TOL)
+    @assertEqual(9.6_defReal, fieldT % at(ZERO, coords), TOL)
 
     ! Kill
     call fieldT % kill()

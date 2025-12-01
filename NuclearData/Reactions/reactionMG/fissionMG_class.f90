@@ -159,7 +159,7 @@ contains
   function sampleDelayRate(self, G, rand) result(lambda)
     class(fissionMG), intent(in) :: self
     integer(shortInt), intent(in):: G
-    class(RNG), intent(inout)    :: rand
+    type(RNG), intent(inout)    :: rand
     real(defReal)                :: lambda
 
     lambda = ZERO
@@ -177,7 +177,7 @@ contains
     real(defReal), intent(out)     :: phi
     integer(shortInt), intent(out) :: G_out
     integer(shortInt), intent(in)  :: G_in
-    class(RNG), intent(inout)      :: rand
+    type(RNG), intent(inout)      :: rand
     real(defReal)                  :: randomNumber
     character(*), parameter        :: Here = 'sampleOut (fissionMG_class.f90)'
 

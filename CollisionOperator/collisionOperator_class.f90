@@ -58,7 +58,6 @@ contains
     class(collisionOperator), intent(inout)       :: self
     class(dictionary), intent(in)                 :: dict
     character(nameLen), dimension(:), allocatable :: processorNames
-    character(nameLen)                            :: processorName
     integer(shortInt)                             :: i, nProcessors, particleType
     character(*), parameter                       :: here = 'init (collisionOperator_class.f90)'
 

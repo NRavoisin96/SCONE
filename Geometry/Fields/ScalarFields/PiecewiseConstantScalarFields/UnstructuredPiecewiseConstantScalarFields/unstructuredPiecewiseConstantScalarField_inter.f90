@@ -8,11 +8,10 @@ module unstructuredPiecewiseConstantScalarField_inter
   use geometry_inter,                     only : geometry
   use geometryReg_mod,                    only : geomNum, geomPtr
   use intMap_class,                       only : intMap
-  use materialMenu_mod,                   only : nMat
   use mesh_inter,                         only : mesh
   use numPrecision
-  use piecewiseConstantScalarField_inter, only : kill_super => kill, piecewiseConstantScalarField, setValues_super => setValues
-  use universalVariables,                 only : INF
+  use piecewiseConstantScalarField_inter, only : kill_super => kill, piecewiseConstantScalarField
+  use universalVariables,                 only : INF, NOT_PRESENT
   use unstructuredMesh_inter,             only : getCastUnstructuredMeshPtr, unstructuredMesh
 
   implicit none
@@ -30,10 +29,10 @@ module unstructuredPiecewiseConstantScalarField_inter
     type(intMap)                     :: activeElementIdxToParentElementIdxMap
   contains
     procedure                           :: at
+    procedure                           :: createExtremalMaterialValues
     procedure                           :: init
     procedure                           :: kill
     procedure(retrieveValues), deferred :: retrieveValues
-    procedure                           :: setValues
   end type unstructuredPiecewiseConstantScalarField
 
   abstract interface
@@ -52,21 +51,77 @@ contains
   !!
   !!
   !!
-  function at(self, coords) result(val)
+  function at(self, defaultValue, coords, mult) result(val)
     class(unstructuredPiecewiseConstantScalarField), intent(in) :: self
-    class(coordList), intent(in)                                :: coords
+    real(defReal), intent(in)                                   :: defaultValue
+    type(coordList), intent(in)                                 :: coords
+    real(defReal), intent(in), optional                         :: mult
     integer(shortInt)                                           :: elementIdx
     real(defReal)                                               :: val
     character(*), parameter                                     :: here = 'at (unstructuredPiecewiseConstantScalarField_inter.f90)'
 
-    val = ZERO
     if (.not. associated(self % meshPtr)) call fatalError(here, 'Unassociated mesh pointer.')
+    
     ! First retrieve the element containing the particle.
     elementIdx = coords % getLowestElementIdx()
-    if (elementIdx == 0) return
+    if (elementIdx == 0) then
+      val = defaultValue
+      return
+
+    end if
     val = self % getValue(self % activeElementIdxToParentElementIdxMap % get(elementIdx))
+    if (present(mult)) val = val * mult
 
   end function at
+
+  !!
+  !!
+  !!
+  subroutine createExtremalMaterialValues(self, maximumMaterialValues, minimumMaterialValues, map)
+    class(unstructuredPiecewiseConstantScalarField), intent(in) :: self
+    real(defReal), dimension(:), allocatable, intent(out)       :: maximumMaterialValues, minimumMaterialValues
+    type(intMap), intent(out)                                   :: map
+    integer(shortInt)                                           :: i, idx, materialIdx, nElements, nMaterials
+    integer(shortInt), dimension(:), allocatable                :: localIdsToMaterialIdxs
+    real(defReal)                                               :: value
+    type(elementBox)                                            :: element
+
+    ! Loop through all parent elements and create map linking indices to material indices.
+    nElements = self % meshPtr % getElementsNumber()
+    nMaterials = 0
+    localIdsToMaterialIdxs = self % meshPtr % getLocalIdsToMaterialIdxs()
+    do i = 1, nElements
+      element = self % meshPtr % getElementBox(i)
+      if (element % ptr % getParentIdx() == 0) then
+        materialIdx = localIdsToMaterialIdxs(element % ptr % getLocalId())
+        if (map % getOrDefault(materialIdx, NOT_PRESENT) == NOT_PRESENT) then
+          nMaterials = nMaterials + 1
+          call map % add(materialIdx, nMaterials)
+
+        end if
+
+      end if
+
+    end do
+
+    ! Loop through all parent elements and find maximum field value for all materials.
+    allocate(maximumMaterialValues(nMaterials), minimumMaterialValues(nMaterials))
+    maximumMaterialValues = -INF
+    minimumMaterialValues = INF
+    do i = 1, nElements
+      element = self % meshPtr % getElementBox(i)
+      if (element % ptr % getParentIdx() == 0) then
+        ! The current element is a parent element. Retrieve its localId and update maximum value for its material.
+        idx = map % get(localIdsToMaterialIdxs(element % ptr % getLocalId()))
+        value = self % getValue(element % ptr % getIdx())
+        maximumMaterialValues(idx) = max(maximumMaterialValues(idx), value)
+        minimumMaterialValues(idx) = min(minimumMaterialValues(idx), value)
+
+      end if
+
+    end do
+
+  end subroutine createExtremalMaterialValues
 
   !!
   !!
@@ -94,11 +149,8 @@ contains
     class(dictionary), intent(in)                                  :: dict
     class(geometry), pointer                                       :: geom
     class(mesh), pointer                                           :: meshPtr
-    integer(shortInt)                                              :: elementIdx, i, materialIdx, meshId, nActiveElements, &
-                                                                      nElements, nGeometries, nMaterials, nParentElements, &
-                                                                      parentElementIdx
-    integer(shortInt), dimension(:), allocatable                   :: localIdsToMaterialIdxs
-    real(defReal), dimension(:), allocatable                       :: maximumMaterialValues, minimumMaterialValues
+    integer(shortInt)                                              :: elementIdx, i, meshId, nActiveElements, nElements, &
+                                                                      nGeometries, nParentElements, parentElementIdx
     type(elementBox)                                               :: element
     character(*), parameter :: here = 'init (unstructuredPiecewiseConstantScalarField_inter.f90)'
 
@@ -121,8 +173,8 @@ contains
     nParentElements = 0
     do i = 1, nElements
       element = self % meshPtr % getElementBox(i)
-      if (element % ptr % getIsActive()) nActiveElements = nActiveElements + 1
-      if (element % ptr % getParentIdx() == 0) nParentElements = nParentElements + 1
+      nActiveElements = nActiveElements + merge(1, 0, element % ptr % getIsActive())
+      nParentElements = nParentElements + merge(1, 0, element % ptr % getParentIdx() == 0)
 
     end do
     call self % allocateValues(nParentElements)
@@ -144,26 +196,6 @@ contains
     ! Retrieve field values.
     call self % retrieveValues(dict)
 
-    ! Loop through all parent elements and find maximum field value for all materials.
-    localIdsToMaterialIdxs = self % meshPtr % getLocalIdsToMaterialIdxs()
-    nMaterials = nMat()
-    allocate(maximumMaterialValues(nMaterials), minimumMaterialValues(nMaterials))
-    maximumMaterialValues = -INF
-    minimumMaterialValues = INF
-    do i = 1, nElements
-      element = self % meshPtr % getElementBox(i)
-      if (element % ptr % getParentIdx() == 0) then
-        ! The current element is a parent element. Retrieve its localId and update maximum value for its material.
-        materialIdx = localIdsToMaterialIdxs(element % ptr % getLocalId())
-        maximumMaterialValues(materialIdx) = max(maximumMaterialValues(materialIdx), self % getValue(element % ptr % getIdx()))
-        minimumMaterialValues(materialIdx) = min(minimumMaterialValues(materialIdx), self % getValue(element % ptr % getIdx()))
-
-      end if
-
-    end do
-    call self % setMaximumMaterialValues(maximumMaterialValues)
-    call self % setMinimumMaterialValues(minimumMaterialValues)
-
   end subroutine init
 
   !!
@@ -180,41 +212,5 @@ contains
     call self % activeElementIdxToParentElementIdxMap % kill()
 
   end subroutine kill
-
-  !!
-  !!
-  !!
-  subroutine setValues(self, values)
-    class(unstructuredPiecewiseConstantScalarField), intent(inout) :: self
-    real(defReal), dimension(:), intent(in)                        :: values
-    integer(shortInt)                                              :: i, materialIdx, nMaterials
-    integer(shortInt), dimension(:), allocatable                   :: localIdsToMaterialIdxs
-    real(defReal), dimension(:), allocatable                       :: maximumMaterialValues, minimumMaterialValues
-    type(elementBox)                                               :: element
-
-    ! Set values from superclass.
-    call setValues_super(self, values)
-
-    ! Loop through all parent elements and find maximum field value for all materials.
-    localIdsToMaterialIdxs = self % meshPtr % getLocalIdsToMaterialIdxs()
-    nMaterials = nMat()
-    allocate(maximumMaterialValues(nMaterials), minimumMaterialValues(nMaterials))
-    maximumMaterialValues = -INF
-    minimumMaterialValues = INF
-    do i = 1, self % meshPtr % getElementsNumber()
-      element = self % meshPtr % getElementBox(i)
-      if (element % ptr % getParentIdx() == 0) then
-        ! The current element is a parent element. Retrieve its localId and update maximum value for its material.
-        materialIdx = localIdsToMaterialIdxs(element % ptr % getLocalId())
-        maximumMaterialValues(materialIdx) = max(maximumMaterialValues(materialIdx), self % getValue(element % ptr % getIdx()))
-        minimumMaterialValues(materialIdx) = min(minimumMaterialValues(materialIdx), self % getValue(element % ptr % getIdx()))
-
-      end if
-
-    end do
-    call self % setMaximumMaterialValues(maximumMaterialValues)
-    call self % setMinimumMaterialValues(minimumMaterialValues)
-
-  end subroutine setValues
 
 end module unstructuredPiecewiseConstantScalarField_inter

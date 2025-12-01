@@ -7,8 +7,7 @@ XSdata ce;
 dataType ce;
 seed 3;
 
-collisionOperator { neutronCE {type neutronCEstd;}
-                    neutronMG {type neutronMGstd;} }
+collisionOperator { neutronCE {type neutronCEstd;} }
 
 transportOperator { type transportOperatorDT; cache 0; }
 

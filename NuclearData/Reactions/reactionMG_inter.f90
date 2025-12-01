@@ -123,7 +123,7 @@ module reactionMG_inter
       import :: defReal, shortInt, reactionMG, RNG
       class(reactionMG), intent(in) :: self
       integer(shortInt), intent(in) :: G
-      class(RNG), intent(inout)     :: rand
+      type(RNG), intent(inout)     :: rand
       real(defReal)                 :: lambda
     end function sampleDelayRate
 
@@ -149,7 +149,7 @@ module reactionMG_inter
       real(defReal), intent(out)     :: phi
       integer(shortInt), intent(out) :: G_out
       integer(shortInt), intent(in)  :: G_in
-      class(RNG), intent(inout)      :: rand
+      type(RNG), intent(inout)      :: rand
     end subroutine sampleOut
   end interface
 

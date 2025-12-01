@@ -18,7 +18,7 @@ module transportObject_inter
   !!
   type, public, abstract :: transportObject
     private
-    class(RNG), pointer                      :: RNGPtr => null()
+    type(RNG), pointer                      :: RNGPtr => null()
     class(transportObjectState), allocatable :: currentState, preTransitionState
     integer(shortInt)                        :: fate = 0
     logical(defBool)                         :: isDead = .false.
@@ -363,7 +363,7 @@ contains
   !!
   function getRNGPtr(self) result(RNGPtr)
     class(transportObject), target, intent(in) :: self
-    class(RNG), pointer                        :: RNGPtr
+    type(RNG), pointer                        :: RNGPtr
 
     RNGPtr => self % RNGPtr
 

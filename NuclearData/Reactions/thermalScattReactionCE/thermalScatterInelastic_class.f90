@@ -207,7 +207,7 @@ contains
     real(defReal), intent(out)            :: phi
     real(defReal), intent(out)            :: E_out
     real(defReal), intent(in)             :: E_in
-    class(RNG), intent(inout)             :: rand
+    type(RNG), intent(inout)             :: rand
     real(defReal), intent(out), optional  :: lambda
     real(defReal)     :: E_min, E_max
     real(defReal)     :: E1, E2, f, eps

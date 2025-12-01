@@ -28,7 +28,7 @@ module muEndfPdf_inter
                 muEndfPdf, &
                 defReal
       class(muEndfPdf), intent(in)  :: self
-      class(RNG), intent(inout)     :: rand
+      type(RNG), intent(inout)     :: rand
       real(defReal)                :: mu
     end function sample
 
@@ -101,7 +101,7 @@ contains
   !!
   function sample_ptr(self,rand) result (mu)
     class(muEndfPdf_ptr), intent(in)  :: self
-    class(RNG), intent(inout)         :: rand
+    type(RNG), intent(inout)         :: rand
     real(defReal)                    :: mu
 
     mu = self % ptr % sample(rand)

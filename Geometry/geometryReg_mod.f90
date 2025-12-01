@@ -38,7 +38,7 @@ module geometryReg_mod
   ! Fields
   use field_inter,        only : field
 
-  use universalVariables, only : nameHeatSource, nameTemperature, NOT_PRESENT
+  use universalVariables, only : nameDensity, nameHeatSource, nameTemperature, NOT_PRESENT
 
   implicit none
   private
@@ -208,6 +208,9 @@ contains
     ! Set default name for specific fields.
     trimmedFieldName = trim(name)
     select case(trimmedFieldName)
+      case('rho', 'Rho', 'densityFactor', 'DensityFactor')
+        fieldName = nameDensity
+
       case('T', 'temp', 'Temp', 'temperature', 'Temperature')
         fieldName = nameTemperature
 

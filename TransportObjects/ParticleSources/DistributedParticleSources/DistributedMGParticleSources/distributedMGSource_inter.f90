@@ -70,11 +70,11 @@ contains
   !!
   !!
   !!
-  subroutine finalisePayload(self, mat, database, temperature, rand, payload, mu, phi)
+  subroutine finalisePayload(self, mat, database, densityFactor, temperature, rand, payload, mu, phi)
     class(distributedMGSource), intent(in)                 :: self
     class(neutronMaterial), pointer, intent(in)            :: mat
     class(nuclearDatabase), pointer, intent(in)            :: database
-    real(defReal), intent(in)                              :: temperature
+    real(defReal), intent(in)                              :: densityFactor, temperature
     type(RNG), intent(inout)                               :: rand
     class(buildTransportObjectStatePayload), intent(inout) :: payload
     real(defReal), intent(out)                             :: mu, phi

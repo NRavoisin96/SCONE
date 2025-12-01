@@ -90,7 +90,7 @@ contains
   !! Initialise intMap with a desired size
   !!
   !! It will be allocated to size equal to smallest larger power of 2 > N
-  !! Size will never be smaller then 8
+  !! Size will never be smaller than 8.
   !!
   !! Args:
   !!   N [in] -> Desired size of the map
@@ -264,7 +264,7 @@ contains
 
     call fatalError(Here,'Target key: '// numToChar(key) // ' was not found')
 
-    ! Avoid compier warning
+    ! Avoid compiler warning.
     val = huge(val)
 
   end function get
@@ -283,17 +283,16 @@ contains
   !! Errors:
   !!   None
   !!
-  pure function getOrDefault(self,key,default) result(val)
+  pure function getOrDefault(self, key, default) result(val)
     class(intMap), intent(in)     :: self
-    integer(shortInt), intent(in) :: key
-    integer(shortInt), intent(in) :: default
-    integer(shortInt)             :: val
-    integer(shortInt)             :: hash
+    integer(shortInt), intent(in) :: default, key
+    integer(shortInt)             :: hash, val
 
     ! Give default if map is uninitialised (empty)
-    if (.not.allocated(self % map)) then
+    if (.not. allocated(self % map)) then
       val = default
       return
+
     end if
 
     ! Calculate Hash

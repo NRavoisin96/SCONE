@@ -44,7 +44,7 @@ module energyLawEndf_inter
                 RNG
       class(energyLawEndf), intent(in) :: self
       real(defReal), intent(in)        :: E_in
-      class(RNG), intent(inout)        :: rand
+      type(RNG), intent(inout)        :: rand
       real(defReal)                    :: E_out
     end function
 

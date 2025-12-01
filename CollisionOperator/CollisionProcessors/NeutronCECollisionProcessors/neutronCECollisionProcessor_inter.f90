@@ -9,6 +9,7 @@ module neutronCECollisionProcessor_inter
   use CEParticleState_class,        only : buildCEParticleStatePayload, castBuildCEParticleStatePayloadPtr
   use collisionData_class,          only : collisionData
   use collisionProcessor_inter,     only : collisionProcessor, init_super => init, kill_super => kill
+  use coordList_class,              only : coordList
   use dictionary_class,             only : dictionary
   use endfConstants,                only : N_FISSION, N_N_ELASTIC, N_N_ThermEL
   use errors_mod,                   only : fatalError
@@ -22,7 +23,7 @@ module neutronCECollisionProcessor_inter
   use physicalParticleState_class,  only : physicalParticleState
   use reactionHandle_inter,         only : reactionHandle
   use RNG_class,                    only : RNG
-  use scalarField_inter,            only : getTemperatureFieldPtr, scalarField
+  use scalarField_inter,            only : getScalarFieldValue
   use scatteringKernels_func,       only : asymptoticInelasticScatter, asymptoticScatter, targetVelocity_constXS, &
                                            targetVelocity_DBRCXS
   use tallyAdmin_class,             only : tallyAdmin
@@ -142,7 +143,7 @@ contains
   subroutine getNuclideMicroXS(self, E, kT, rand, microXS)
     class(neutronCECollisionProcessor), intent(in) :: self
     real(defReal), intent(in)                      :: E, kT
-    class(RNG), intent(inout)                      :: rand
+    type(RNG), intent(inout)                      :: rand
     type(neutronMicroXSs), intent(out)             :: microXS
 
     call self % nuc % getMicroXSs(E, kT, microXS, rand)
@@ -326,9 +327,9 @@ contains
     class(physicalParticle), intent(in)               :: p
     class(collisionData), intent(inout)               :: collDat
     class(ceNeutronMaterial), pointer                 :: CENeutronMaterialPtr
-    class(scalarField), pointer                       :: temperatureFieldPtr
     real(defReal)                                     :: randomNumber, temperature
     type(CECollisionData), pointer                    :: CECollisionDataPtr
+    type(coordList), pointer                          :: coordListPtr
     type(neutronMicroXSs)                             :: microXSs
     character(*), parameter                           :: Here = 'sampleCollision (neutronCECollisionProcessor_inter.f90)'
 
@@ -339,19 +340,15 @@ contains
     CENeutronMaterialPtr => ceNeutronMaterial_CptrCast(self % getMaterialPtr(CECollisionDataPtr % matIdx))
     call self % setCurrentMaterialPtr(CENeutronMaterialPtr)
 
-    ! Retrieve material temperature from temperature field.
-    CECollisionDataPtr % kT = CENeutronMaterialPtr % kT
-    temperatureFieldPtr => getTemperatureFieldPtr()
-    if (associated (temperatureFieldPtr)) then
-      temperature = temperatureFieldPtr % at(p % getCoordsPtr())
-      if (ZERO < temperature) CECollisionDataPtr % kT = kBoltzmann * temperature / joulesPerMeV
-
-    end if
+    ! Retrieve material temperature and density from temperature and density fields.
+    coordListPtr => p % getCoordsPtr()
+    CECollisionDataPtr % densityFactor = getScalarFieldValue(nameDensity, ONE, coordListPtr)
+    CECollisionDataPtr % kT = getScalarFieldValue(nameTemperature, CENeutronMaterialPtr % kT, coordListPtr, kBoltzmann_MeV)
 
     ! Select collision nuclide.
-    call CENeutronMaterialPtr % sampleNuclide(CECollisionDataPtr % initialEnergy, CECollisionDataPtr % kT, &
-                                              CECollisionDataPtr % RNGPtr, CECollisionDataPtr % nucIdx, &
-                                              CECollisionDataPtr % reactionEnergy)
+    call CENeutronMaterialPtr % sampleNuclide(CECollisionDataPtr % densityFactor, CECollisionDataPtr % initialEnergy, &
+                                              CECollisionDataPtr % kT, CECollisionDataPtr % RNGPtr, &
+                                              CECollisionDataPtr % nucIdx, CECollisionDataPtr % reactionEnergy)
 
     ! If nuclide was rejected in TMS loop return to tracking
     if (CECollisionDataPtr % nucIdx == REJECTED) return

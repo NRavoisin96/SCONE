@@ -31,8 +31,10 @@ module nuclearDatabase_inter
   !!   kill          -> return to uninitialised state, clean memory
   !!
   type, public, abstract :: nuclearDatabase
+    private
   contains
     procedure(init), deferred          :: init
+    procedure                          :: initMajorant
     procedure(activate), deferred      :: activate
     procedure(getTrackingXS), deferred :: getTrackingXS
     procedure(getTrackMatXS), deferred :: getTrackMatXS
@@ -290,6 +292,18 @@ module nuclearDatabase_inter
   end interface
 
 contains
+  !!
+  !!
+  !!
+  subroutine initMajorant(self, loud, maxDensityFactor, maxTemperature)
+    class(nuclearDatabase), intent(inout) :: self
+    logical(defBool), intent(in)          :: loud
+    real(defReal), intent(in)             :: maxDensityFactor, maxTemperature
+
+    ! Do nothing by default.
+
+  end subroutine initMajorant
+
   !!
   !!
   !!

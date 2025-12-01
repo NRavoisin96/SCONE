@@ -34,7 +34,8 @@ module mixedScalarField_class
     type(intMap)                                                                  :: meshIdxsToMeshFieldIdxs
   contains
     procedure          :: at
-    procedure, private :: computeMaximumAndMinimumMaterialValues
+    procedure          :: getMaximumValue
+    procedure          :: getMinimumValue
     procedure          :: init
     procedure, private :: initMeshFields
     procedure          :: kill
@@ -45,20 +46,24 @@ contains
   !!
   !!
   !!
-  function at(self, coords) result(val)
+  function at(self, defaultValue, coords, mult) result(val)
     class(mixedScalarField), intent(in) :: self
-    class(coordList), intent(in)        :: coords
+    real(defReal), intent(in)           :: defaultValue
+    type(coordList), intent(in)         :: coords
+    real(defReal), intent(in), optional :: mult
     integer(shortInt)                   :: meshIdx, meshFieldIdx
     real(defReal)                       :: val
 
-    val = ZERO
     meshIdx = coords % getLowestMeshIdx()
     if (0 < meshIdx) then
       meshFieldIdx = self % meshIdxsToMeshFieldIdxs % getOrDefault(meshIdx, NOT_PRESENT)
-      if (meshFieldIdx /= NOT_PRESENT) val = self % meshFields(meshFieldIdx) % meshFieldPtr % at(coords)
+      if (meshFieldIdx /= NOT_PRESENT) val = self % meshFields(meshFieldIdx) % meshFieldPtr % at(defaultValue, coords, mult)
 
     elseif (associated(self % CSGFieldPtr)) then
-      val = self % CSGFieldPtr % at(coords)
+      val = self % CSGFieldPtr % at(defaultValue, coords, mult)
+
+    else
+      val = defaultValue
 
     end if
 
@@ -67,32 +72,76 @@ contains
   !!
   !!
   !!
-  subroutine computeMaximumAndMinimumMaterialValues(self)
-    class(mixedScalarField), intent(inout)   :: self
-    integer(shortInt)                        :: i, nMaterials
-    real(defReal), dimension(:), allocatable :: maximumMaterialValues, minimumMaterialValues
+  elemental function getMaximumValue(self, defaultValue, materialIdx, mult) result(maximumValue)
+    class(mixedScalarField), intent(in)     :: self
+    real(defReal), intent(in)               :: defaultValue
+    integer(shortInt), intent(in), optional :: materialIdx
+    real(defReal), intent(in), optional     :: mult
+    integer(shortInt)                       :: i
+    real(defReal)                           :: maximumValue
 
-    ! Query all fields and find maximum values for materials.
-    nMaterials = nMat()
-    allocate(maximumMaterialValues(nMaterials), minimumMaterialValues(nMaterials))
-    maximumMaterialValues = -INF
-    minimumMaterialValues = INF
+    ! Query CSG field first.
+    maximumValue = -INF
     if (associated(self % CSGFieldPtr)) then
+      maximumValue = max(maximumValue, self % CSGFieldPtr % getMaximumValue(-INF, materialIdx))
 
     end if
 
+    ! Query mesh fields.
     if (allocated(self % meshFields)) then
       do i = 1, size(self % meshFields)
-        maximumMaterialValues = max(maximumMaterialValues, self % meshFields(i) % meshFieldPtr % getMaximumMaterialValues())
-        minimumMaterialValues = min(minimumMaterialValues, self % meshFields(i) % meshFieldPtr % getMinimumMaterialValues())
+        maximumValue = max(maximumValue, self % meshFields(i) % meshFieldPtr % getMaximumValue(-INF, materialIdx))
 
       end do
 
     end if
-    call self % setMaximumMaterialValues(maximumMaterialValues)
-    call self % setMinimumMaterialValues(minimumMaterialValues)
 
-  end subroutine computeMaximumAndMinimumMaterialValues
+    if (maximumValue == -INF) then
+      maximumValue = defaultValue
+
+    elseif (present(mult)) then
+      maximumValue = maximumValue * mult
+
+    end if
+
+  end function getMaximumValue
+
+  !!
+  !!
+  !!
+  elemental function getMinimumValue(self, defaultValue, materialIdx, mult) result(minimumValue)
+    class(mixedScalarField), intent(in)     :: self
+    real(defReal), intent(in)               :: defaultValue
+    integer(shortInt), intent(in), optional :: materialIdx
+    real(defReal), intent(in), optional     :: mult
+    integer(shortInt)                       :: i
+    real(defReal)                           :: minimumValue
+
+    ! Query CSG field first.
+    minimumValue = INF
+    if (associated(self % CSGFieldPtr)) then
+      minimumValue = min(minimumValue, self % CSGFieldPtr % getMinimumValue(INF, materialIdx))
+
+    end if
+
+    ! Query mesh fields.
+    if (allocated(self % meshFields)) then
+      do i = 1, size(self % meshFields)
+        minimumValue = min(minimumValue, self % meshFields(i) % meshFieldPtr % getMinimumValue(INF, materialIdx))
+
+      end do
+
+    end if
+
+    if (minimumValue == INF) then
+      minimumValue = defaultValue
+
+    elseif (present(mult)) then
+      minimumValue = minimumValue * mult
+
+    end if
+
+  end function getMinimumValue
 
   !!
   !!
@@ -112,9 +161,6 @@ contains
 
     ! Initialise mesh fields from dictionary.
     if (dict % isPresent('meshFields')) call self % initMeshFields(dict % getDictPtr('meshFields'), geometryPtr)
-
-    ! Compute maximum and minimum material values.
-    call self % computeMaximumAndMinimumMaterialValues()
 
   end subroutine init
 
@@ -221,9 +267,6 @@ contains
       end do
 
     end if
-
-    ! Recompute maximum and minimum material values.
-    call self % computeMaximumAndMinimumMaterialValues()
 
   end subroutine setValues
 

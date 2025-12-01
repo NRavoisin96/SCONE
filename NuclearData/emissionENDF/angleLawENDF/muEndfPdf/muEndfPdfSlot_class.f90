@@ -41,7 +41,7 @@ contains
   !!
   function sample(self,rand) result(mu)
     class(muEndfPdfSlot), intent(in)  :: self
-    class(RNG), intent(inout)         :: rand
+    type(RNG), intent(inout)         :: rand
     real(defReal)                    :: mu
 
     mu = self % slot % sample(rand)

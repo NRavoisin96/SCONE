@@ -241,7 +241,7 @@ module mesh_inter
       import                                   :: defReal, mesh, RNG, shortInt
       class(mesh), intent(in)                  :: self
       integer(shortInt), intent(in)            :: elementIdx
-      class(RNG), intent(inout)                :: rand
+      type(RNG), intent(inout)                :: rand
       integer(shortInt), intent(out)           :: localId
       real(defReal), dimension(3), intent(out) :: r
     end subroutine sampleInitialPosition

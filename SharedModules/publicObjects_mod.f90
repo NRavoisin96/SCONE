@@ -91,7 +91,7 @@ module publicObjects
   type :: particleData
     integer(shortInt)   :: matIdx = 0
     real(defReal)       :: E = ZERO
-    class(RNG), pointer :: rand => null()
+    type(RNG), pointer :: rand => null()
   end type particleData
 
   !!

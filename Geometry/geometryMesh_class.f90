@@ -10,7 +10,7 @@ module geometryMesh_class
   use numPrecision
   use publicObjects,     only : coordData, newCoordData
   use RNG_class,         only : RNG
-  use scalarField_inter, only : getTemperatureFieldPtr, scalarField
+  use scalarField_inter, only : getScalarFieldValue
   use universalVariables
 
   implicit none
@@ -247,7 +247,6 @@ contains
     integer(shortInt), intent(out)           :: event
     type(distCache), intent(inout), optional :: cache
     class(mesh), pointer                     :: meshPtr
-    integer(shortInt)                        :: faceIdx
     integer(shortInt), dimension(N_BC_TYPES) :: boundaryConditions
     type(coordData)                          :: updateData
     character(*), parameter                  :: here = 'move (geometryMesh_class.f90)'
@@ -352,15 +351,14 @@ contains
   !!
   !!
   !!
-  subroutine sampleInitialPosition(self, bottom, top, rand, materialIdx, uniqueId, r, temperature)
+  subroutine sampleInitialPosition(self, bottom, top, rand, materialIdx, uniqueId, r, densityFactor, temperature)
     class(geometryMesh), intent(in)          :: self
     real(defReal), dimension(3), intent(in)  :: bottom, top
-    class(RNG), intent(inout)                :: rand
+    type(RNG), intent(inout)                :: rand
     integer(shortInt), intent(out)           :: materialIdx, uniqueId
     real(defReal), dimension(3), intent(out) :: r
-    real(defReal), intent(out), optional     :: temperature
+    real(defReal), intent(out), optional     :: densityFactor, temperature
     class(mesh), pointer                     :: meshPtr
-    class(scalarField), pointer              :: temperatureFieldPtr
     integer(shortInt)                        :: cumulativeIdx, elementIdx, localId, meshIdx
     real(defReal)                            :: randomNumber
     type(coordList)                          :: coords
@@ -381,18 +379,11 @@ contains
     materialIdx = self % fills(self % localIdOffsets(meshIdx) + localId)
     uniqueId = self % elementIdOffsets(meshIdx) + elementIdx
 
-    ! Get temperature if requested.
-    if (present(temperature)) then
-      temperature = ZERO
-      temperatureFieldPtr => getTemperatureFieldPtr()
-      if (associated(temperatureFieldPtr)) then
-        call coords % setElementIdx(elementIdx, 1)
-        call coords % setMeshIdx(meshIdx, 1)
-        temperature = temperatureFieldPtr % at(coords)
-
-      end if
-
-    end if
+    ! Get densityFactor and temperature if requested.
+    call coords % setElementIdx(elementIdx, 1)
+    call coords % setMeshIdx(meshIdx, 1)
+    if (present(densityFactor)) densityFactor = getScalarFieldValue(nameDensity, ONE, coords)
+    if (present(temperature)) temperature = getScalarFieldValue(nameTemperature, ZERO, coords)
 
   end subroutine sampleInitialPosition
 
@@ -412,12 +403,12 @@ contains
   !!
   !!
   !!
-  subroutine whatIsAt(self, matIdx, uniqueId, r, u, temperature)
+  subroutine whatIsAt(self, matIdx, uniqueId, r, u, densityFactor, temperature)
     class(geometryMesh), intent(in)                   :: self
     integer(shortInt), intent(out)                    :: matIdx, uniqueID
     real(defReal), dimension(3), intent(in)           :: r
     real(defReal), dimension(3), optional, intent(in) :: u
-    real(defReal), intent(out), optional              :: temperature
+    real(defReal), intent(out), optional              :: densityFactor, temperature
     type(coordList)                                   :: coords
     real(defReal), dimension(3)                       :: u_l
 

@@ -10,7 +10,7 @@ module physicsPackage_inter
   use hashFunctions_func, only : FNV_1
   use numPrecision
   use outputFile_class,   only : outputFile
-  use scalarField_inter,  only : scalarField, scalarField_CptrCast
+  use scalarField_inter,  only : scalarField
   use timer_mod,          only : registerTimer
   use visualiser_class,   only : visualiser
   use universalVariables

@@ -5,17 +5,19 @@ module NTHPackage_class
   use eigenPhysicsPackage_class,        only : eigenPhysicsPackage
   use errors_mod,                       only : fatalError
   use fixedSourcePhysicsPackage_class,  only : fixedSourcePhysicsPackage
+  use geometryReg_mod,                  only : fieldPtrByName
   use heatTransferPhysicsPackage_class, only : heatTransferPhysicsPackage
   use numPrecision
   use outputFile_class,                 only : outputFile
   use particleDungeon_class,            only : particleDungeon
   use particlePhysicsPackage_inter,     only : initParticlePhysicsPackagePayload, particlePhysicsPackage
   use physicsPackage_inter,             only : copyPayload, init_super => init, initPhysicsPackagePayload, physicsPackage
-  use scalarField_inter,                only : getHeatSourceFieldPtr, getTemperatureFieldPtr, scalarField
+  use scalarField_inter,                only : castScalarFieldPtr, scalarField
   use tallyAdmin_class,                 only : tallyAdmin
   use tallyResult_class,                only : tallyResult, tallyResultArrays
   use timer_mod,                        only : timerReset, timerStart
   use transportOperator_inter,          only : transportOperator
+  use universalVariables,               only : nameHeatSource, nameTemperature
 
   implicit none
   private
@@ -63,11 +65,8 @@ contains
     call init_super(self, payload)
 
     ! Check that there are fields for temperature and fission power.
-    heatSourceFieldPtr => getHeatSourceFieldPtr()
-    if (.not. associated(heatSourceFieldPtr)) call fatalError(here, 'Missing heat source field.')
-
-    temperatureFieldPtr => getTemperatureFieldPtr()
-    if (.not. associated(temperatureFieldPtr)) call fatalError(here, 'Missing temperature field.')
+    heatSourceFieldPtr => castScalarFieldPtr(fieldPtrByName(nameHeatSource))
+    temperatureFieldPtr => castScalarFieldPtr(fieldPtrByName(nameTemperature))
 
     ! Get dictionary to physics package definitions.
     if (.not. payload % dict % isPresent('packages')) call fatalError(here, 'Missing "packages" subdictionary.')
@@ -154,17 +153,15 @@ contains
     class(scalarField), pointer           :: heatSourceFieldPtr, temperatureFieldPtr
     integer(shortInt)                     :: nInactiveCycles, timerMain
     type(tallyAdmin), pointer             :: tallyAdminPtr
-    character(*), parameter               :: here = 'run (NTHPackage_class.f90)'
+    character(*), parameter               :: HERE = 'run (NTHPackage_class.f90)'
 
     ! Generate initial state for neutronics package.
-    if (.not. allocated(self % neutronicsPackage)) call fatalError(here, 'Neutronics physics package is not allocated.')
+    if (.not. allocated(self % neutronicsPackage)) call fatalError(HERE, 'Neutronics physics package is not allocated.')
     call self % neutronicsPackage % generateInitialState()
 
     ! Get pointers to heat source and temperature fields.
-    heatSourceFieldPtr => getHeatSourceFieldPtr()
-    if (.not. associated(heatSourceFieldPtr)) call fatalError(here, 'Unable to retrieve heat source field pointer.')
-    temperatureFieldPtr => getTemperatureFieldPtr()
-    if (.not. associated(temperatureFieldPtr)) call fatalError(here, 'Unable to retrieve temperature field pointer.')
+    heatSourceFieldPtr => castScalarFieldPtr(fieldPtrByName(nameHeatSource))
+    temperatureFieldPtr => castScalarFieldPtr(fieldPtrByName(nameTemperature))
 
     timerMain = self % getTimerMain()
 

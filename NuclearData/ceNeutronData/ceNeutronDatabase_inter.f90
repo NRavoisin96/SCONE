@@ -3,6 +3,7 @@ module ceNeutronDatabase_inter
   use CENeutron_class,       only : castCENeutronPtr, CENeutron
   use ceNeutronCache_mod,    only : materialCache, majorantCache, trackingCache
   use charMap_class,         only : charMap
+  use coordList_class,       only : coordList
   use genericProcedures,     only : fatalError
   use intMap_class,          only : intMap
   use materialHandle_inter,  only : materialHandle
@@ -11,9 +12,9 @@ module ceNeutronDatabase_inter
   use numPrecision
   use reactionHandle_inter,  only : reactionHandle
   use RNG_class,             only : RNG
-  use scalarField_inter,     only : getTemperatureFieldPtr, scalarField
+  use scalarField_inter,     only : getScalarFieldValue
   use transportObject_inter, only : transportObject
-  use universalVariables
+  use universalVariables,    only : kBoltzmann_MeV, MAJORANT_XS, MATERIAL_XS, nameDensity, nameTemperature, TRACKING_XS
 
   implicit none
   private
@@ -48,27 +49,21 @@ module ceNeutronDatabase_inter
   !!
   type, public, abstract, extends(nuclearDatabase) :: ceNeutronDatabase
     type(intMap) :: mapDBRCnuc
-
   contains
-
-    ! nuclearDatabase Interface Implementation
-    procedure                                 :: get_kT
-    procedure                                 :: getTrackingXS
-    procedure                                 :: getTrackMatXS
-    procedure                                 :: getTotalMatXS
-    procedure                                 :: getMajorantXS
-
-    ! Procedures implemented by a specific CE Neutron Database
     procedure(energyBounds), deferred         :: energyBounds
+    procedure                                 :: getMajorantXS
     procedure(getMaterial_kT), deferred       :: getMaterial_kT
     procedure(getScattMicroMajXS), deferred   :: getScattMicroMajXS
-    procedure(updateMajorantXS), deferred     :: updateMajorantXS
-    procedure(updateTotalMatXS), deferred     :: updateTrackMatXS
-    procedure(updateTotalMatXS), deferred     :: updateTotalMatXS
+    procedure                                 :: getTotalMatXS
+    procedure                                 :: getTrackingXS
+    procedure                                 :: getTrackMatXS
     procedure(updateMacroXSs), deferred       :: updateMacroXSs
-    procedure(updateTotalXS), deferred        :: updateTotalNucXS
+    procedure(updateMajorantXS), deferred     :: updateMajorantXS
     procedure(updateMicroXSs), deferred       :: updateMicroXSs
+    procedure(updateTotalMatXS), deferred     :: updateTotalMatXS
+    procedure(updateTotalNucXS), deferred     :: updateTotalNucXS
     procedure(updateTotalTempNucXS), deferred :: updateTotalTempNucXS
+    procedure(updateTrackMatXS), deferred     :: updateTrackMatXS
   end type ceNeutronDatabase
 
   abstract interface
@@ -127,33 +122,11 @@ module ceNeutronDatabase_inter
     end function getScattMicroMajXS
 
     !!
-    !! Make sure that trackXS of material with matIdx is at energy E = E_track
-    !! in ceNeutronChache
+    !! Make sure that the macroscopic XSs for the material with matIdx are set
+    !! to energy E in ceNeutronCache
     !!
-    !! The tracking xs correspons to the material total cross section unless TMS
-    !! is used. In that case, this is the material temperature majorant xs.
-    !!
-    !! Assume that call to this procedure implies that data is NOT up-to-date
-    !!
-    !! Args:
-    !!   E [in]       -> required energy [MeV]
-    !!   matIdx [in]  -> material index that needs to be updated
-    !!   rand [inout] -> random number generator
-    !!
-    subroutine updateTrackMatXS(self, E, matIdx, rand)
-      import :: ceNeutronDatabase, defReal, shortInt, RNG
-      class(ceNeutronDatabase), intent(in) :: self
-      real(defReal), intent(in)            :: E
-      integer(shortInt), intent(in)        :: matIdx
-      class(RNG), optional, intent(inout)  :: rand
-    end subroutine updateTrackMatXS
-
-    !!
-    !! Make sure that totalXS of material with matIdx is at energy E
-    !! in ceNeutronChache
-    !!
-    !! ANY CHANGE in ceNeutronChache is POSSIBLE
-    !!   E.G. All material XSs may be updated to energy E
+    !! ANY CHANGE in ceNeutronCache is POSSIBLE
+    !!   E.G. Extra materials may be set to energy E as well
     !!
     !! Assume that call to this procedure implies that data is NOT up-to-date
     !!
@@ -162,19 +135,19 @@ module ceNeutronDatabase_inter
     !!   matIdx [in]  -> material index that needs to be updated
     !!   rand [inout] -> random number generator
     !!
-    subroutine updateTotalMatXS(self, E, kT, matIdx, rand)
+    subroutine updateMacroXSs(self, densityFactor, E, kT, matIdx, rand)
       import :: ceNeutronDatabase, defReal, shortInt, RNG
       class(ceNeutronDatabase), intent(in) :: self
-      real(defReal), intent(in)            :: E, kT
+      real(defReal), intent(in)            :: densityFactor, E, kT
       integer(shortInt), intent(in)        :: matIdx
-      class(RNG), optional, intent(inout)  :: rand
-    end subroutine updateTotalMatXS
+      type(RNG), optional, intent(inout)  :: rand
+    end subroutine updateMacroXSs
 
     !!
     !! Make sure that the majorant of ALL Active materials is at energy E
-    !! in ceNeutronChache
+    !! in ceNeutronCache
     !!
-    !! ANY CHANGE in ceNeutronChache is POSSIBLE
+    !! ANY CHANGE in ceNeutronCache is POSSIBLE
     !!   E.G. All material XSs may be updated to energy E
     !!
     !! Assume that call to this procedure implies that data is NOT up-to-date
@@ -187,60 +160,14 @@ module ceNeutronDatabase_inter
       import :: ceNeutronDatabase, defReal, RNG
       class(ceNeutronDatabase), intent(in) :: self
       real(defReal), intent(in)            :: E
-      class(RNG), optional, intent(inout)  :: rand
+      type(RNG), optional, intent(inout)  :: rand
     end subroutine updateMajorantXS
-
-    !!
-    !! Make sure that the macroscopic XSs for the material with matIdx are set
-    !! to energy E in ceNeutronCache
-    !!
-    !! ANY CHANGE in ceNeutronChache is POSSIBLE
-    !!   E.G. Extra materials may be set to energy E as well
-    !!
-    !! Assume that call to this procedure implies that data is NOT up-to-date
-    !!
-    !! Args:
-    !!   E [in]       -> required energy [MeV]
-    !!   matIdx [in]  -> material index that needs to be updated
-    !!   rand [inout] -> random number generator
-    !!
-    subroutine updateMacroXSs(self, E, kT, matIdx, rand)
-      import :: ceNeutronDatabase, defReal, shortInt, RNG
-      class(ceNeutronDatabase), intent(in) :: self
-      real(defReal), intent(in)            :: E, kT
-      integer(shortInt), intent(in)        :: matIdx
-      class(RNG), optional, intent(inout)  :: rand
-    end subroutine updateMacroXSs
-
-    !!
-    !! Make sure that totalXS of nuclide with nucIdx is at energy E
-    !! in ceNeutronChache
-    !!
-    !! ANY CHANGE in ceNeutronChache is POSSIBLE
-    !!   E.G. All nuclid XSs may be updated to energy E
-    !!
-    !! Assume that call to this procedure implies that data is NOT up-to-date
-    !!
-    !! Args:
-    !!   E [in]       -> required energy [MeV]
-    !!   nucIdx [in]  -> nuclide index that needs to be updated
-    !!   kT [in]      -> thermal energy of material [MeV]
-    !!   rand [inout] -> random number generator
-    !!
-    subroutine updateTotalXS(self, E, nucIdx, kT, rand)
-      import :: ceNeutronDatabase, defReal, shortInt, RNG
-      class(ceNeutronDatabase), intent(in) :: self
-      real(defReal), intent(in)            :: E
-      integer(shortInt), intent(in)        :: nucIdx
-      real(defReal), intent(in)            :: kT
-      class(RNG), intent(inout), optional  :: rand
-    end subroutine updateTotalXS
 
     !!
     !! Make sure that the microscopic XSs for the nuclide with nucIdx are set
     !! to energy E in ceNeutronCache
     !!
-    !! ANY CHANGE in ceNeutronChache is POSSIBLE
+    !! ANY CHANGE in ceNeutronCache is POSSIBLE
     !!   E.G. Extra nuclides may be set to energy E as well
     !!
     !! Assume that call to this procedure implies that data is NOT up-to-date
@@ -257,8 +184,54 @@ module ceNeutronDatabase_inter
       real(defReal), intent(in)            :: E
       integer(shortInt), intent(in)        :: nucIdx
       real(defReal), intent(in)            :: kT
-      class(RNG), optional, intent(inout)  :: rand
+      type(RNG), optional, intent(inout)  :: rand
     end subroutine updateMicroXSs
+
+    !!
+    !! Make sure that totalXS of material with matIdx is at energy E
+    !! in ceNeutronCache
+    !!
+    !! ANY CHANGE in ceNeutronCache is POSSIBLE
+    !!   E.G. All material XSs may be updated to energy E
+    !!
+    !! Assume that call to this procedure implies that data is NOT up-to-date
+    !!
+    !! Args:
+    !!   E [in]       -> required energy [MeV]
+    !!   matIdx [in]  -> material index that needs to be updated
+    !!   rand [inout] -> random number generator
+    !!
+    subroutine updateTotalMatXS(self, densityFactor, E, kT, matIdx, rand)
+      import :: ceNeutronDatabase, defReal, shortInt, RNG
+      class(ceNeutronDatabase), intent(in) :: self
+      real(defReal), intent(in)            :: densityFactor, E, kT
+      integer(shortInt), intent(in)        :: matIdx
+      type(RNG), optional, intent(inout)  :: rand
+    end subroutine updateTotalMatXS
+
+    !!
+    !! Make sure that totalXS of nuclide with nucIdx is at energy E
+    !! in ceNeutronCache
+    !!
+    !! ANY CHANGE in ceNeutronCache is POSSIBLE
+    !!   E.G. All nuclide XSs may be updated to energy E
+    !!
+    !! Assume that call to this procedure implies that data is NOT up-to-date
+    !!
+    !! Args:
+    !!   E [in]       -> required energy [MeV]
+    !!   nucIdx [in]  -> nuclide index that needs to be updated
+    !!   kT [in]      -> thermal energy of material [MeV]
+    !!   rand [inout] -> random number generator
+    !!
+    subroutine updateTotalNucXS(self, E, nucIdx, kT, rand)
+      import :: ceNeutronDatabase, defReal, shortInt, RNG
+      class(ceNeutronDatabase), intent(in) :: self
+      real(defReal), intent(in)            :: E
+      integer(shortInt), intent(in)        :: nucIdx
+      real(defReal), intent(in)            :: kT
+      type(RNG), intent(inout), optional  :: rand
+    end subroutine updateTotalNucXS
 
     !!
     !! Subroutine to retrieve the nuclide total majorant cross section over a range
@@ -285,9 +258,119 @@ module ceNeutronDatabase_inter
       integer(shortInt), intent(in)        :: nucIdx
     end subroutine updateTotalTempNucXS
 
+    !!
+    !! Make sure that trackXS of material with matIdx is at energy E = E_track
+    !! in ceNeutronCache
+    !!
+    !! The tracking xs corresponds to the material total cross section unless TMS
+    !! is used. In that case, this is the material temperature majorant xs.
+    !!
+    !! Assume that call to this procedure implies that data is NOT up-to-date
+    !!
+    !! Args:
+    !!   E [in]       -> required energy [MeV]
+    !!   matIdx [in]  -> material index that needs to be updated
+    !!   rand [inout] -> random number generator
+    !!
+    subroutine updateTrackMatXS(self, densityFactor, E, kT, matIdx, rand)
+      import :: ceNeutronDatabase, defReal, shortInt, RNG
+      class(ceNeutronDatabase), intent(in) :: self
+      real(defReal), intent(in)            :: densityFactor, E, kT
+      integer(shortInt), intent(in)        :: matIdx
+      type(RNG), optional, intent(inout)  :: rand
+    end subroutine updateTrackMatXS
+
   end interface
 
 contains
+  !!
+  !! Cast nuclearDatabase pointer to ceNeutronDatabase pointer
+  !!
+  !! Args:
+  !!   source [in]    -> source pointer of class nuclearDatabase
+  !!
+  !! Result:
+  !!   Null is source is not of ceNuclearDatabase class
+  !!   Target points to source if source is ceNuclearDatabase class
+  !!
+  pure function ceNeutronDatabase_CptrCast(source) result(ptr)
+    class(nuclearDatabase), pointer, intent(in) :: source
+    class(ceNeutronDatabase), pointer           :: ptr
+
+    select type(source)
+      class is(ceNeutronDatabase)
+        ptr => source
+
+      class default
+        ptr => null()
+
+    end select
+
+  end function ceNeutronDatabase_CptrCast
+
+  !!
+  !! Return Majorant XS
+  !!
+  !! See nuclearDatabase_inter for details
+  !!
+  !! Error:
+  !!   fatalError if particle is not CE Neutron
+  !!
+  function getMajorantXS(self, object) result(xs)
+    class(ceNeutronDatabase), intent(inout) :: self
+    class(transportObject), intent(in)      :: object
+    real(defReal)                           :: energy, xs
+    type(CENeutron), pointer                :: CENeutronPtr
+
+    ! Check dynamic type of the particle
+    CENeutronPtr => castCENeutronPtr(object)
+    energy = CENeutronPtr % getEnergy()
+    associate(majCache => majorantCache(1))
+      ! Check Cache and update if needed
+      if (majorantCache(1) % E /= energy) call self % updateMajorantXS(energy, CENeutronPtr % getRNGPtr())
+
+      ! Return Cross-Section
+      xs = majorantCache(1) % xs
+
+    end associate
+
+  end function getMajorantXS
+
+  !!
+  !! Return Total XS for matIdx
+  !!
+  !! See nuclearDatabase_inter for details!
+  !!
+  !! Error:
+  !!   fatalError if particle is not CE Neutron
+  !!
+  function getTotalMatXS(self, object, matIdx) result(xs)
+    class(ceNeutronDatabase), intent(inout) :: self
+    class(transportObject), intent(in)      :: object
+    integer(shortInt), intent(in)           :: matIdx
+    real(defReal)                           :: densityFactor, energy, kT, xs
+    type(CENeutron), pointer                :: CENeutronPtr
+    type(coordList), pointer                :: coordListPtr
+
+    ! Check dynamic type of the particle.
+    CENeutronPtr => castCENeutronPtr(object)
+    coordListPtr => CENeutronPtr % getCoordsPtr()
+
+    associate(matCache => materialCache(matIdx))
+      ! Check Cache and update if needed
+      densityFactor = getScalarFieldValue(nameDensity, ONE, coordListPtr)
+      energy = CENeutronPtr % getEnergy()
+      kT = getScalarFieldValue(nameTemperature, self % getMaterial_kT(matIdx), coordListPtr, kBoltzmann_MeV)
+      if (any([matCache % densityFactor_tot, matCache % E_tot, matCache % kT_tot] /= [densityFactor, energy, kT])) &
+      call self % updateTotalMatXS(densityFactor, energy, kT, matIdx, CENeutronPtr % getRNGPtr())
+
+      ! Return Cross-Section
+      xs = matCache % xss % total
+
+    end associate
+
+  end function getTotalMatXS
+
   !!
   !! Return tracking XS requested
   !!
@@ -302,7 +385,7 @@ contains
     integer(shortInt), intent(in)           :: matIdx, what
     class(CENeutron), pointer               :: CENeutronPtr
     real(defReal)                           :: energy, xs
-    character(*), parameter                 :: here = 'getTrackingXS (ceNeutronDatabase_inter.f90)'
+    character(*), parameter                 :: HERE = 'getTrackingXS (ceNeutronDatabase_inter.f90)'
 
     ! Check dynamic type of physical particle then process request.
     CENeutronPtr => castCENeutronPtr(object)
@@ -321,12 +404,12 @@ contains
           return
 
         else
-          call fatalError(here, 'Failed to update cache during tracking.')
+          call fatalError(HERE, 'Failed to update cache during tracking.')
 
         end if
 
       case default
-        call fatalError(here, 'Neither material xs nor majorant xs was asked')
+        call fatalError(HERE, 'Neither material xs nor majorant xs was asked')
 
     end select
 
@@ -351,18 +434,21 @@ contains
     class(ceNeutronDatabase), intent(inout) :: self
     class(transportObject), intent(in)      :: object
     integer(shortInt), intent(in)           :: matIdx
-    real(defReal)                           :: energy, kT, xs
+    real(defReal)                           :: densityFactor, energy, kT, xs
     type(CENeutron), pointer                :: CENeutronPtr
+    type(coordList), pointer                :: coordListPtr
 
     ! Check dynamic type of the particle
     CENeutronPtr => castCENeutronPtr(object)
+    coordListPtr => CENeutronPtr % getCoordsPtr()
 
     ! Check Cache and update if needed
     associate(matCache => materialCache(matIdx))
-      kT = self % get_kT(CENeutronPtr, matIdx)
+      densityFactor = getScalarFieldValue(nameDensity, ONE, coordListPtr)
       energy = CENeutronPtr % getEnergy()
-      if (matCache % E_track /= energy .or. matCache % kT /= kT) &
-      call self % updateTrackMatXS(energy, kT, matIdx, CENeutronPtr % getRNGPtr())
+      kT = getScalarFieldValue(nameTemperature, self % getMaterial_kT(matIdx), coordListPtr, kBoltzmann_MeV)
+      if (any([matCache % densityFactor_track, matCache % E_track, matCache % kT_track] /= [densityFactor, energy, kT])) &
+      call self % updateTrackMatXS(densityFactor, energy, kT, matIdx, CENeutronPtr % getRNGPtr())
 
       ! Return Cross-Section
       xs = matCache % trackXS
@@ -370,112 +456,5 @@ contains
     end associate
 
   end function getTrackMatXS
-
-  !!
-  !! Return Total XS for matIdx
-  !!
-  !! See nuclearDatabase_inter for details!
-  !!
-  !! Error:
-  !!   fatalError if particle is not CE Neutron
-  !!
-  function getTotalMatXS(self, object, matIdx) result(xs)
-    class(ceNeutronDatabase), intent(inout) :: self
-    class(transportObject), intent(in)      :: object
-    integer(shortInt), intent(in)           :: matIdx
-    real(defReal)                           :: energy, kT, xs
-    type(CENeutron), pointer                :: CENeutronPtr
-    character(*), parameter                 :: Here = 'getTotalMatXS (ceNeutronDatabase_inter.f90)'
-
-    ! Check dynamic type of the particle.
-    CENeutronPtr => castCENeutronPtr(object)
-
-    associate(matCache => materialCache(matIdx))
-      ! Check Cache and update if needed
-      kT = self % get_kT(CENeutronPtr, matIdx)
-      energy = CENeutronPtr % getEnergy()
-      if (matCache % E_tot /= energy .or. matCache % kT /= kT) &
-      call self % updateTotalMatXS(energy, kT, matIdx, CENeutronPtr % getRNGPtr())
-
-      ! Return Cross-Section
-      xs = matCache % xss % total
-
-    end associate
-
-  end function getTotalMatXS
-
-  !!
-  !!
-  !!
-  function get_kT(self, n_CE, matIdx) result(kT)
-    class(ceNeutronDatabase), intent(in) :: self
-    type(CENeutron), intent(in)          :: n_CE
-    integer(shortInt), intent(in)        :: matIdx
-    class(scalarField), pointer          :: temperatureFieldPtr
-    real(defReal)                        :: kT, temperature
-
-    ! Retrieve temperature from temperature field.
-    kT = self % getMaterial_kT(matIdx)
-    temperatureFieldPtr => getTemperatureFieldPtr()
-    if (associated(temperatureFieldPtr)) then
-      temperature = temperatureFieldPtr % at(n_CE % getCoordsPtr())
-      if (ZERO < temperature) kT = kBoltzmann * temperature / joulesPerMeV
-
-    end if
-
-  end function get_kT
-
-  !!
-  !! Return Majorant XS
-  !!
-  !! See nuclearDatabase_inter for details
-  !!
-  !! Error:
-  !!   fatalError if particle is not CE Neutron
-  !!
-  function getMajorantXS(self, object) result(xs)
-    class(ceNeutronDatabase), intent(inout) :: self
-    class(transportObject), intent(in)      :: object
-    real(defReal)                           :: energy, xs
-    type(CENeutron), pointer                :: CENeutronPtr
-    character(*), parameter                 :: here = 'getMajorantXS (ceNeutronDatabase_inter.f90)'
-
-    ! Check dynamic type of the particle
-    CENeutronPtr => castCENeutronPtr(object)
-    energy = CENeutronPtr % getEnergy()
-    associate(majCache => majorantCache(1))
-      ! Check Cache and update if needed
-      if (majorantCache(1) % E /= energy) call self % updateMajorantXS(energy, CENeutronPtr % getRNGPtr())
-
-      ! Return Cross-Section
-      xs = majorantCache(1) % xs
-
-    end associate
-
-  end function getMajorantXS
-
-  !!
-  !! Cast nuclearDatabase pointer to ceNeutronDatabase pointer
-  !!
-  !! Args:
-  !!   source [in]    -> source pointer of class nuclearDatabase
-  !!
-  !! Result:
-  !!   Null is source is not of ceNuclearDatabase class
-  !!   Target points to source if source is ceNuclearDatabase class
-  !!
-  pure function ceNeutronDatabase_CptrCast(source) result(ptr)
-    class(nuclearDatabase), pointer, intent(in) :: source
-    class(ceNeutronDatabase), pointer           :: ptr
-
-    select type(source)
-      class is(ceNeutronDatabase)
-        ptr => source
-
-      class default
-        ptr => null()
-    end select
-
-  end function ceNeutronDatabase_CptrCast
 
 end module ceNeutronDatabase_inter

@@ -15,7 +15,7 @@ module heatTransferPhysicsPackage_class
   use physicsPackage_inter,       only : init_super => init, initPhysicsPackagePayload, kill_super => kill, physicsPackage
   use randomWalker_class,         only : newRandomWalker, randomWalker
   use RNG_class,                  only : RNG
-  use scalarField_inter,          only : getHeatSourceFieldPtr, scalarField
+  use scalarField_inter,          only : getScalarFieldValue
   use tallyAdmin_class,           only : tallyAdmin
   use topologicalObject_inter,    only : topologicalObjectBox
   use transportOperatorWoS_class, only : transportOperatorWoS
@@ -26,6 +26,10 @@ module heatTransferPhysicsPackage_class
   implicit none
   private
 
+  ! Parameters.
+  integer(shortInt), parameter :: DEFAULT_N_WALKS_PER_BATCH = 1000
+  real(defReal), parameter     :: DEFAULT_CONVERGENCE_CRITERION = 1.0e-3_defReal, DEFAULT_SURFACE_TOLERANCE = 1.0e-3_defReal
+
   ! Parameters (for now).
   real(defReal), parameter :: conductivity = 27.0e-2_defReal ! W cm⁻¹ K⁻¹
 
@@ -35,10 +39,10 @@ module heatTransferPhysicsPackage_class
   type, public, extends(physicsPackage)      :: heatTransferPhysicsPackage
     private
     class(unstructuredMesh), pointer         :: unstructuredMeshPtr => null()
-    integer(shortInt)                        :: nRuns = 0
+    integer(shortInt)                        :: nRuns = 0, nWalksPerBatch = 0
     real(defReal)                            :: convergenceCriterion = ZERO, surfaceTolerance = ZERO
-    real(defReal), dimension(:), allocatable :: means, parentErrors, parentSumOfScores, parentSumOfScoresSquared, variances
-    type(RNG)                                :: rand
+    real(defReal), dimension(:), allocatable :: means, M2, parentErrors, parentSumOfScores, parentSumOfScoresSquared, variances
+    type(RNG), pointer                       :: RNGPtr => null()
     type(tallyAdmin), pointer                :: tallyPtr => null()
     type(transportOperatorWoS)               :: transportOperator
   contains
@@ -106,8 +110,9 @@ contains
     call init_super(self, payload)
 
     ! Load parameters.
-    call payload % dict % getOrDefault(self % convergenceCriterion, 'convergenceCriterion', 1.0e-3_defReal)
-    call payload % dict % getOrDefault(self % surfaceTolerance, 'surfaceTolerance', 1.0e-3_defReal)
+    call payload % dict % getOrDefault(self % nWalksPerBatch, 'walksPerBatch', DEFAULT_N_WALKS_PER_BATCH)
+    call payload % dict % getOrDefault(self % convergenceCriterion, 'convergenceCriterion', DEFAULT_CONVERGENCE_CRITERION)
+    call payload % dict % getOrDefault(self % surfaceTolerance, 'surfaceTolerance', DEFAULT_SURFACE_TOLERANCE)
 
     ! Retrieve pointer to mesh geometry (hardcoded for now).
     geometryPtr => self % getGeometryPtr()
@@ -119,19 +124,21 @@ contains
     self % unstructuredMeshPtr => unstructuredMeshPtr
 
     nParentElements = self % unstructuredMeshPtr % getParentElementsNumber()
-    allocate(self % means(nParentElements), self % parentErrors(nParentElements), &
+    allocate(self % means(nParentElements), self % M2(nParentElements), self % parentErrors(nParentElements), &
              self % parentSumOfScores(nParentElements), self % parentSumOfScoresSquared(nParentElements), &
              self % variances(nParentElements))
 
     ! Initialise variables.
     self % means = ZERO
+    self % M2 = ZERO
     self % parentErrors = INF
     self % parentSumOfScores = ZERO
     self % parentSumOfScoresSquared = ZERO
     self % variances = ZERO
 
     ! Initialise RNG.
-    call self % rand % init(self % getInitialSeed())
+    allocate(self % RNGPtr)
+    call self % RNGPtr % init(self % getInitialSeed())
 
   end subroutine init
 
@@ -146,12 +153,15 @@ contains
 
     ! Local.
     self % unstructuredMeshPtr => null()
+    self % nWalksPerBatch = 0
     self % convergenceCriterion = ZERO
     self % surfaceTolerance = ZERO
     if (allocated(self % means)) deallocate(self % means)
+    if (allocated(self % M2)) deallocate(self % M2)
     if (allocated(self % parentErrors)) deallocate(self % parentErrors)
     if (allocated(self % parentSumOfScores)) deallocate(self % parentSumOfScores)
     if (allocated(self % parentSumOfScoresSquared)) deallocate(self % parentSumOfScoresSquared)
+    if (associated(self % RNGPtr)) deallocate(self % RNGPtr)
     self % tallyPtr => null()
     call self % transportOperator % kill()
 
@@ -162,12 +172,13 @@ contains
   !!
   subroutine run(self)
     class(heatTransferPhysicsPackage), intent(inout) :: self
-    integer(shortInt)                                :: elementIdx, i, nWalks, nTotalWalks
+    integer(shortInt)                                :: elementIdx, i, j, nWalks, nWalksBatchStart
     integer(shortInt), dimension(:), allocatable     :: childrenIdxs
-    real(defReal)                                    :: accumulatedValue, mean, previousMean, randomNumber, variance
+    real(defReal)                                    :: accumulatedValue, batchMean, batchVariance, previousMean, randomNumber
     type(coordList), pointer                         :: coordsPtr
     type(elementBox)                                 :: box, childBox
     type(randomWalker)                               :: walker
+    type(RNG)                                        :: wRNG
     character(*), parameter                          :: here = 'run (heatTransferPhysicsPackage_class.f90)'
 
     print *, repeat("<>", 50)
@@ -179,7 +190,7 @@ contains
 
     ! Loop over all regions.
     self % nRuns = self % nRuns + 1
-    nTotalWalks = 0
+    ! Initialise walks at centroid of each mesh elements (this should be handled by tally map).
     do i = 1, self % unstructuredMeshPtr % getElementsNumber()
       ! Retrieve current element. Check if it is a parent element.
       box = self % unstructuredMeshPtr % getElementBox(i)
@@ -189,66 +200,109 @@ contains
         nWalks = 0
         previousMean = ZERO
         do while(self % convergenceCriterion < self % parentErrors(i))
-          ! Generate a new random walker and check if the current parent element is active.
-          walker = newRandomWalker()
-          coordsPtr => walker % getCoordsPtr()
-          call coordsPtr % setNesting(1)
-          call coordsPtr % setMeshIdx(1, 1)
-          if (box % ptr % getIsActive()) then
-            ! Current parent is active. Initialise the coordinates to the centroid of this element.
-            call coordsPtr % setPosition(box % ptr % getCentroid(), 1)
-            call coordsPtr % setElementIdx(elementIdx, 1)
+          
+          nWalksBatchStart = nWalks
+          ! Initialise parallel region here.
+          !$omp parallel do &
+          !$omp private(accumulatedValue, childBox, childrenIdxs, coordsPtr, j, randomNumber, wRNG, walker) &
+          !$omp shared(box, elementIdx, nWalks, nWalksBatchStart, self) schedule(dynamic)
+          
+          ! Loop for a fixed number of walks.
+          do j = 1, self % nWalksPerBatch
+            ! Generate a new random walker and check if the current parent element is active.
+            walker = newRandomWalker()
+            wRNG = self % RNGPtr
+            call walker % setRNGPtr(wRNG)
+            call walker % strideRNG(nWalksBatchStart + j)
+            coordsPtr => walker % getCoordsPtr()
+            
+            call coordsPtr % setNesting(1)
+            call coordsPtr % setMeshIdx(1, 1)
+            if (box % ptr % getIsActive()) then
+              ! Current parent is active. Initialise the coordinates to the centroid of this element.
+              call coordsPtr % setPosition(box % ptr % getCentroid(), 1)
+              call coordsPtr % setElementIdx(elementIdx, 1)
 
-          else
-            ! Pick a child element at random and set the position to its centroid.
-            childrenIdxs = box % ptr % getChildrenIdxs()
-            call self % rand % generate(randomNumber)
-            childBox = self % unstructuredMeshPtr % getElementBox(childrenIdxs(int(randomNumber * size(childrenIdxs)) + 1))
-            call coordsPtr % setPosition(childBox % ptr % getCentroid(), 1)
-            call coordsPtr % setElementIdx(childBox % ptr % getIdx(), 1)
+            else
+              ! Pick a child element at random and set the position to its centroid.
+              childrenIdxs = box % ptr % getChildrenIdxs()
 
-          end if
-          call self % walk(walker)
+              call walker % generateRandomNumber(randomNumber)
 
-          ! Increment number of walks and total walks.
-          nWalks = nWalks + 1
-          nTotalWalks = nTotalWalks + 1
-
-          ! Retrieve accumulated value and update scores.
-          accumulatedValue = walker % getAccumulatedValue()
-          if (accumulatedValue == ZERO) cycle
-          associate(sum => self % parentSumOfScores(elementIdx), sumOfSquares => self % parentSumOfScoresSquared(elementIdx))
-            sum = sum + accumulatedValue
-            sumOfSquares = sumOfSquares + accumulatedValue * accumulatedValue
-
-            ! Update standard error for current parent.
-            if (2000 < nWalks) then
-              mean = sum / nWalks
-              variance = (sumOfSquares - sum * mean) / (nWalks - 1)
-              self % parentErrors(i) = abs((mean - previousMean) / mean)
-              previousMean = mean
+              childBox = self % unstructuredMeshPtr % getElementBox(childrenIdxs(int(randomNumber * size(childrenIdxs)) + 1))
+              call coordsPtr % setPosition(childBox % ptr % getCentroid(), 1)
+              call coordsPtr % setElementIdx(childBox % ptr % getIdx(), 1)
 
             end if
+            ! Walk now. Move this to transport operator.
+            ! call self % transportOperator % transport(walker, self % tallyPtr)
+            call self % walk(walker)
 
-          end associate
+            ! Update statistics here. Retrieve accumulated value and update scores.
+            accumulatedValue = walker % getAccumulatedValue()
+
+            ! Increment number of walks.
+            !$omp atomic update
+            nWalks = nWalks + 1
+            !$omp end atomic
+
+            if (accumulatedValue == ZERO) cycle
+            associate(sum => self % parentSumOfScores(elementIdx), sumOfSquares => self % parentSumOfScoresSquared(elementIdx))
+              !$omp atomic update
+              sum = sum + accumulatedValue
+
+              !$omp atomic update
+              sumOfSquares = sumOfSquares + accumulatedValue * accumulatedValue
+
+            end associate
+
+          end do
+          !$omp end parallel do
+
+          ! Update standard error for current parent.
+          if (2000 < nWalks) then
+            associate(sum => self % parentSumOfScores(elementIdx), sumOfSquares => self % parentSumOfScoresSquared(elementIdx))
+              ! Compute mean and variance for the current batch.
+              batchMean = sum / nWalks
+              batchVariance = (sumOfSquares - sum * batchMean) / (nWalks - 1)
+
+              ! Update global statistics.
+              previousMean = self % means(i)
+              self % means(i) = self % means(i) + (batchMean - self % means(i)) / self % nRuns
+
+              if (self % nRuns == 1) then
+                self % variances(i) = batchVariance / nWalks
+
+              else
+                self % M2(i) = self % M2(i) + (batchMean - previousMean) * (batchMean - self % means(i))
+                self % variances(i) = self % M2(i) / (self % nRuns - 1)
+
+              end if
+
+              ! Convergence check.
+              if (self % means(i) /= ZERO) then
+                if (self % nRuns == 1) then
+                  self % parentErrors(i) = sqrt(batchVariance / nWalks) / abs(self % means(i))
+
+                else
+                  self % parentErrors(i) = sqrt(self % variances(i) / self % nRuns) / abs(self % means(i))
+
+                end if
+
+              end if
+
+            end associate
+
+          end if
 
         end do
 
-        previousMean = self % means(i)
-        self % means(i) = self % means(i) + (mean - self % means(i)) / self % nRuns
-        if (1 < self % nRuns) then
-          self % variances(i) = (self % variances(i) + (mean - previousMean) * (mean - self % means(i))) / (self % nRuns - 1)
-
-        end if
-
-        print *, 'Temperature:', self % means(i), '+/-', self % variances(i)
+        print *, 'Temperature:', self % means(i), '+/-', sqrt(self % variances(i))
         print *, 'Number of walks:', nWalks
 
       end if
 
     end do
-
-    print *, 'Total number of walks:', nTotalWalks
 
     print *
     print *, "\/\/ END OF HEAT TRANSFER CALCULATION \/\/"
@@ -262,7 +316,6 @@ contains
   subroutine walk(self, walker)
     class(heatTransferPhysicsPackage), intent(inout)      :: self
     type(randomWalker), intent(inout)                     :: walker
-    class(scalarField), pointer                           :: heatSourceFieldPtr
     integer(shortInt)                                     :: boundaryCondition, i, j, nSharingElements
     real(defReal)                                         :: minDistance, mu, phi, remainingDistance, transmissionProbability, &
                                                              valueToAccumulate, dist
@@ -274,6 +327,7 @@ contains
     type(elementBox)                                      :: box
     type(elementIntersectionTestResult)                   :: faceIntersectionResults
     type(orientatedFaceBox), dimension(:), allocatable    :: faceBoxes
+    type(RNG), pointer                                    :: RNGPtr
     type(topologicalObjectBox), dimension(:), allocatable :: sharingElements
     character(*), parameter                               :: here = 'walk (heatTransferPhysicsPackage_class.f90)'
 
@@ -282,8 +336,9 @@ contains
 
     walkLoop: do
       ! Sample initial direction on the unit sphere and set it.
-      call self % rand % generateMu(mu)
-      call self % rand % generatePhi(phi)
+      RNGPtr => walker % getRNGPtr()
+      call RNGPtr % generateMu(mu)
+      call RNGPtr % generatePhi(phi)
       u = rotateVector([ONE, ZERO, ZERO], mu, phi)
       call coordsPtr % setDirection(u, 1)
       
@@ -348,14 +403,14 @@ contains
         end do
 
         ! Compute transmission probability.
-        call self % rand % generate(transmissionProbability)
+        call RNGPtr % generate(transmissionProbability)
 
         if (transmissionProbability < HALF) then
           ! Walker is reflected back into original element. Check that it points in the correct direction.
           chosenElementPtr => elementPtr
           do while(ZERO <= dot_product(u, outwardNormal))
-            call self % rand % generateMu(mu)
-            call self % rand % generatePhi(phi)
+            call RNGPtr % generateMu(mu)
+            call RNGPtr % generatePhi(phi)
             u = rotateVector([ONE, ZERO, ZERO], mu, phi)
 
           end do
@@ -364,8 +419,8 @@ contains
           ! Walker transmits into the neighbouring element. Check that it points in the correct direction.
           chosenElementPtr => neighbourElementPtr
           do while(dot_product(u, outwardNormal) <= ZERO)
-            call self % rand % generateMu(mu)
-            call self % rand % generatePhi(phi)
+            call RNGPtr % generateMu(mu)
+            call RNGPtr % generatePhi(phi)
             u = rotateVector([ONE, ZERO, ZERO], mu, phi)
 
           end do
@@ -430,12 +485,7 @@ contains
       end do transportLoop
 
       ! Accumulate heat source. Set valueToAccumulate = ZERO in case the heat source field does not exist.
-      valueToAccumulate = ZERO
-      heatSourceFieldPtr => getHeatSourceFieldPtr()
-      if (associated(heatSourceFieldPtr)) then
-        valueToAccumulate = SIXTH * heatSourceFieldPtr % at(coordsPtr) * minDistance * minDistance / conductivity
-
-      end if
+      valueToAccumulate = getScalarFieldValue(nameHeatSource, ZERO, coordsPtr, SIXTH * minDistance * minDistance / conductivity)
       call walker % accumulateValue(valueToAccumulate)
 
     end do walkLoop

@@ -1087,7 +1087,7 @@ contains
   subroutine sampleInitialPosition(self, elementIdx, rand, localId, r)
     class(unstructuredMesh), intent(in)      :: self
     integer(shortInt), intent(in)            :: elementIdx
-    class(RNG), intent(inout)                :: rand
+    type(RNG), intent(inout)                :: rand
     integer(shortInt), intent(out)           :: localId
     real(defReal), dimension(3), intent(out) :: r
     type(elementBox)                         :: box

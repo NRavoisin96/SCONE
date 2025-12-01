@@ -33,7 +33,7 @@ contains
     real(defReal), intent(out)               :: mu
     real(defReal), intent(out)               :: E_out
     real(defReal), intent(in)                :: E_in
-    class(RNG), intent(inout)                :: rand
+    type(RNG), intent(inout)                :: rand
 
     call self % slot % sample(mu,E_out,E_in,rand)
 
