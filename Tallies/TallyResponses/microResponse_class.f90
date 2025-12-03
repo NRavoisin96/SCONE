@@ -65,32 +65,33 @@ contains
   !!   fatalError if the nuclide has density 0.0
   !!
   subroutine init(self, dict)
-    class(microResponse), intent(inout) :: self
-    class(dictionary), intent(in)       :: dict
-    integer(shortInt)                   :: MT, i
-    character(15)                       :: mName
-    type(materialItem), pointer         :: mat
-    character(*), parameter :: Here = 'init ( microResponse_class.f90)'
+    class(microResponse), intent(inout)      :: self
+    class(dictionary), intent(in)            :: dict
+    character(15)                            :: mName
+    integer(shortInt)                        :: MT, i
+    real(defReal), dimension(:), allocatable :: atomicDensities
+    type(materialItem), pointer              :: mat
+    character(*), parameter                  :: HERE = 'init ( microResponse_class.f90)'
 
     ! Load MT number and material name
     call dict % get(MT, 'MT')
     call dict % get(mName, 'material')
 
     ! Find corresponding material index
-    do i = 1,nMat()
+    do i = 1, nMat()
       if (mName == matName(i)) self % matIdx = i
+
     end do
 
     ! Get pointer to the material
     mat => getMatPtr(self % matIdx)
 
-    if (size(mat % dens) > 1) call fatalError(Here, 'Material '//trim(mName)//' &
-                                              & has more than one nuclide' )
-    self % dens = mat % dens(1)
-
-    if (self % dens == ZERO) call fatalError(Here, 'Density of material &
-                                             & '//trim(mName)//' cannot be 0' )
-    ! Build response
+    atomicDensities = mat % getAtomicDensities()
+    if (1 < size(atomicDensities)) call fatalError(HERE, 'Material: '//trim(mName)//' has more than one nuclide.')
+    self % dens = atomicDensities(1)
+    if (self % dens == ZERO) call fatalError(HERE, 'Density of material: '//trim(mName)//' cannot be ZERO.')
+    
+    ! Build response.
     call self % build(MT)
 
   end subroutine init

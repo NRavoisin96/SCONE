@@ -1,5 +1,6 @@
 module materialHandle_inter
 
+  use errors_mod, only : fatalError
   use numPrecision
 
   implicit none
@@ -16,8 +17,11 @@ module materialHandle_inter
   !!
   type, public, abstract :: materialHandle
     private
+    real(defReal) :: inverseDensity = ZERO
   contains
+    procedure                 :: getInverseDensity
     procedure(kill), deferred :: kill
+    procedure                 :: setInverseDensity
   end type materialHandle
 
   abstract interface
@@ -30,5 +34,28 @@ module materialHandle_inter
     end subroutine kill
 
   end interface
+
+contains
+  !!
+  !!
+  !!
+  elemental function getInverseDensity(self) result(inverseDensity)
+    class(materialHandle), intent(in) :: self
+    real(defReal)                     :: inverseDensity
+
+    inverseDensity = self % inverseDensity
+
+  end function getInverseDensity
+
+  !!
+  !!
+  !!
+  elemental subroutine setInverseDensity(self, inverseDensity)
+    class(materialHandle), intent(inout) :: self
+    real(defReal), intent(in)            :: inverseDensity
+
+    self % inverseDensity = inverseDensity
+
+  end subroutine setInverseDensity
 
 end module materialHandle_inter

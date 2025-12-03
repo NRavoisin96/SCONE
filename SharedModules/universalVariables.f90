@@ -7,8 +7,7 @@ module universalVariables
   ! *** DON'T CHANGE THIS. HARDCODED IS FINE
   ! CHANGE THIS: NUMBER MUST BE CALCULATED DURING INITIAL GEOMETRY PROCESSING
   ! Problematic for separating modules!
-  integer(shortInt), parameter, public :: HARDCODED_MAX_NEST = 8
-  integer(shortInt), parameter, public :: MAX_OUTGOING_PARTICLES = 5
+  integer(shortInt), parameter, public :: HARDCODED_MAX_NEST = 8, MAX_OUTGOING_PARTICLES = 5
 
   ! CHANGE THIS: NUMBER WILL DEPEND ON SYSTEM ARCHITECTURE
   ! WILL AFFECT PARALLEL SCALING
@@ -18,10 +17,10 @@ module universalVariables
   integer(shortInt), parameter, public :: MAX_COL = 70 ! Maximum number of columns in console display
 
   ! Define variables which are important for tracking neutrons in the geometry
-  real(defReal), parameter, public :: INF    = 2.0_defReal**63, &
-                                      SURF_TOL    = 1.0E-12_defReal, & ! Tol. on closeness to surface
-                                      NUDGE       = 1.0e-8_defReal, &  ! Distance to poke neutrons across boundaries for surface tracking
-                                      MISS_TOL    = ONE + 10.0_defReal * epsilon(ONE) ! Tol. on corner skims.
+  real(defReal), parameter, public :: INF = 2.0_defReal ** 63, &
+                                      SURF_TOL = 1.0e-12_defReal, & ! Tol. on closeness to surface
+                                      NUDGE = 1.0e-8_defReal, &  ! Distance to poke neutrons across boundaries for surface tracking
+                                      MISS_TOL = ONE + 10.0_defReal * epsilon(ONE) ! Tol. on corner skims.
 
   ! Flags for different possible events in movement in geometry
   integer(shortInt), parameter, public :: COLL_EV = 1, &
@@ -97,15 +96,20 @@ module universalVariables
 
   ! Physical constants
   ! Neutron mass and speed of light in vacuum from from https://physics.nist.gov/cuu/Constants/index.html
-  real(defReal), parameter :: neutronMass = 939.56542194_defReal, & ! Neutron mass in MeV (m * c^2)
-                              lightSpeed = 2.99792458e10_defReal, & ! Light speed in cm/s
-                              kBoltzmann = 1.380649e-23_defReal, &  ! Boltzmann constant in J / K
-                              energyPerFission = 200.0_defReal      ! MeV
+  real(defReal), parameter :: AVOGADRO_CONSTANT = 6.02214076e23_defReal, & ! Avogadro's constant (mol⁻¹)
+                              neutronMass = 939.56542194_defReal, &        ! Neutron mass in MeV (m * c^2)
+                              lightSpeed = 2.99792458e10_defReal, &        ! Light speed in cm/s
+                              kBoltzmann = 1.380649e-23_defReal, &         ! Boltzmann constant in J / K
+                              energyPerFission = 200.0_defReal             ! MeV
 
   ! Unit conversion
-  real(defReal), parameter :: centimetresPerMetre = 1.0e2_defReal, & ! Convert metres to centimetres
-                              joulesPerMeV = 1.60218e-13_defReal, &  ! Convert MeV to J
-                              shakesPerS = 1.0e-8_defReal            ! Convert shakes to s
+  real(defReal), parameter :: BARNS_PER_CENTIMETRE_SQUARED = 1.0e24_defReal, &        ! 1 cm² = 10²⁴ b
+                              CENTIMETRES_SQUARED_PER_BARN = 1.0e-24_defReal, &       ! 1 b = 10⁻²⁴ cm²
+                              CUBIC_METRES_PER_CUBIC_CENTIMETRE = 1.0e-6_defReal, &   ! 1 cm³ = 10⁻⁶ m³
+                              KILOGRAMS_PER_ATOMIC_MASS_UNIT = 1.66054e-27_defReal, & ! 1 amu = 1.66054 x 10⁻²⁷ kg
+                              centimetresPerMetre = 1.0e2_defReal, &                  ! Convert metres to centimetres
+                              joulesPerMeV = 1.60218e-13_defReal, &                   ! Convert MeV to J
+                              shakesPerS = 1.0e-8_defReal                             ! Convert shakes to s
 
   ! Useful pre-computations.
   real(defReal), parameter :: kBoltzmann_MeV = kBoltzmann / joulesPerMeV ! Boltzmann constant in MeV / K

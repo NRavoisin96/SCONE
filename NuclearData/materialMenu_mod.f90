@@ -21,50 +21,22 @@
 !!
 module materialMenu_mod
 
+  use atomicDensitiesCalculator_inter,       only : atomicDensitiesCalculator
+  use atomicDensitiesCalculatorFactory_func, only : new_atomicDensitiesCalculator
+  use charMap_class,                         only : charMap
+  use colours_func,                          only : rgb24bit
+  use dictionary_class,                      only : dictionary
+  use errors_mod,                            only : fatalError
+  use genericProcedures,                     only : charToInt, numToChar
+  use intMap_class,                          only : intMap
+  use nuclideInfo_class,                     only : buildNuclideInfoPayload, nuclideInfo
   use numPrecision
-  use universalVariables, only : NOT_FOUND, VOID_MAT, OUTSIDE_MAT, UNDEF_MAT
-  use genericProcedures,  only : fatalError, charToInt, numToChar
-  use colours_func,       only : rgb24bit
-  use intMap_class,       only : intMap
-  use charMap_class,      only : charMap
-  use dictionary_class,   only : dictionary
+  use physicalPropertyLaw_inter,             only : physicalPropertyLaw
+  use physicalPropertyLawFactory_func,       only : new_physicalPropertyLaw
+  use universalVariables,                    only : NOT_FOUND, OUTSIDE_MAT, UNDEF_MAT, VOID_MAT
 
   implicit none
   private
-
-  !!
-  !! Information about a single nuclide
-  !!
-  !! Based somewhat on MCNP conventions.
-  !! Atomic and Mass number identify clearly a nuclide species
-  !! Evaluation number T allows to refer to multiple states/evaluations of the same nuclide species
-  !! E.G. at a Different temperature as in MCNP Library.
-  !!
-  !! Public members:
-  !!   Z -> Atomic number
-  !!   A -> Mass number
-  !!   T -> Evaluation number
-  !!   hasSab -> Does the nuclide have S(a,b) data?
-  !!   sabMix -> Does the nuclide mix S(a,b) data?
-  !!   file_Sab1 -> First (and maybe only) S(a,b) file
-  !!   file_Sab2 -> Second S(a,b) file
-  !!
-  !! Interface:
-  !!   init -> build from a string
-  !!
-  type, public :: nuclideInfo
-    integer(shortInt)  :: Z = -1
-    integer(shortInt)  :: A = -1
-    integer(shortInt)  :: T = -1
-    logical(defBool)   :: hasSab = .false.
-    logical(defBool)   :: sabMix = .false.
-    character(nameLen) :: file_Sab1
-    character(nameLen) :: file_Sab2
-  contains
-    procedure :: init   => init_nuclideInfo
-    procedure :: toChar => toChar_nuclideInfo
-  end type nuclideInfo
-
 
   !!
   !! This is a type which collects all information about a single material definition
@@ -114,37 +86,34 @@ module materialMenu_mod
   !!       stochastic interpolation between the two data libraries.
   !!
   type, public :: materialItem
-    character(nameLen)                           :: name   = ''
-    integer(shortInt)                            :: matIdx = 0
-    real(defReal)                                :: T = ZERO
-    real(defReal), dimension(:), allocatable     :: dens
-    type(nuclideInfo), dimension(:), allocatable :: nuclides
-    type(dictionary)                             :: extraInfo
-    logical(defBool)                             :: hasTMS = .false.
+    character(:), allocatable                     :: name
+    class(atomicDensitiesCalculator), allocatable :: densitiesCalculator
+    class(physicalPropertyLaw), allocatable       :: densityLaw, thermalConductivityLaw
+    integer(shortInt)                             :: matIdx = 0
+    logical(defBool)                              :: hasTMS = .false.
+    real(defReal)                                 :: density = ZERO, inverseDensity = ZERO, T = ZERO
+    type(dictionary)                              :: extraInfo
+    type(nuclideInfo), dimension(:), allocatable  :: nuclides
   contains
-    procedure :: init    => init_materialItem
-    procedure :: kill    => kill_materialItem
+    procedure :: getAtomicDensities
+    procedure :: getAtomicDensity
+    procedure :: init => init_materialItem
+    procedure :: initNuclide
+    procedure :: kill => kill_materialItem
     procedure :: display => display_materialItem
   end type materialItem
 
   !! Parameters
-  integer(shortInt), parameter :: COL_OUTSIDE = int(z'ffffff', shortInt)
-  integer(shortInt), parameter :: COL_VOID    = int(z'000000', shortInt)
-  integer(shortInt), parameter :: COL_UNDEF   = int(z'00ff00', shortInt)
+  integer(shortInt), parameter :: OUTSIDE_COLOUR = int(z'ffffff', shortInt), UNDEFINED_COLOUR = int(z'00ff00', shortInt), &
+                                  VOID_COLOUR = int(z'000000', shortInt)
 
 
   !! MODULE COMPONENTS
   type(materialItem), dimension(:), allocatable, target, public :: materialDefs
-  type(charMap), target, public                             :: nameMap
-  type(intMap), public                                      :: colourMap
+  type(charMap), target, public                                 :: nameMap
+  type(intMap), public                                          :: colourMap
 
-  public :: init
-  public :: kill
-  public :: display
-  public :: getMatPtr
-  public :: nMat
-  public :: matName
-  public :: matIdx
+  public :: display, getMatPtr, init, kill, matIdx, matName, nMat
 
 contains
 
@@ -173,7 +142,7 @@ contains
     allocate(materialDefs(size(matNames)))
 
     ! Load definitions
-    do i= 1, size(matNames)
+    do i = 1, size(matNames)
       call materialDefs(i) % init(matNames(i), i, dict % getDictPtr(matNames(i)))
       call nameMap % add(matNames(i), i)
 
@@ -186,9 +155,9 @@ contains
     call nameMap % add(temp, OUTSIDE_MAT)
 
     !! Load colours for the special materials
-    call colourMap % add(VOID_MAT, COL_VOID)
-    call colourMap % add(OUTSIDE_MAT, COL_OUTSIDE)
-    call colourMap % add(UNDEF_MAT, COL_UNDEF)
+    call colourMap % add(VOID_MAT, VOID_COLOUR)
+    call colourMap % add(OUTSIDE_MAT, OUTSIDE_COLOUR)
+    call colourMap % add(UNDEF_MAT, UNDEFINED_COLOUR)
 
   end subroutine init
 
@@ -285,6 +254,35 @@ contains
 !!<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 !! TYPE PROCEDURES
 !!<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+  !!
+  !!
+  !!
+  pure function getAtomicDensities(self) result(atomicDensities)
+    class(materialItem), intent(in)          :: self
+    real(defReal), dimension(:), allocatable :: atomicDensities
+
+    if (allocated(self % nuclides)) then
+      allocate(atomicDensities(size(self % nuclides)))
+      atomicDensities = self % nuclides % getDensity()
+
+    else
+      allocate(atomicDensities(0))
+
+    end if
+
+  end function getAtomicDensities
+
+  !!
+  !!
+  !!
+  elemental function getAtomicDensity(self, idx) result(atomicDensity)
+    class(materialItem), intent(in) :: self
+    integer(shortInt), intent(in)   :: idx
+    real(defReal)                   :: atomicDensity
+
+    atomicDensity = self % nuclides(idx) % getDensity()
+
+  end function getAtomicDensity
 
   !!
   !! Initialise material definition from a dictionary and name
@@ -301,92 +299,86 @@ contains
     class(materialItem), intent(inout)            :: self
     character(nameLen), intent(in)                :: name
     integer(shortInt), intent(in)                 :: idx
-    class(dictionary), intent(in)                 :: dict
-    character(nameLen), dimension(:), allocatable :: keys, moderKeys, filenames
+    type(dictionary), intent(in)                  :: dict
+    character(nameLen), dimension(:), allocatable :: keys, moderKeys
+    integer(shortInt)                             :: i, nNuclides, nSab, foundModer
     integer(shortInt), dimension(:), allocatable  :: temp
-    integer(shortInt)                             :: i, nSab, foundModer
-    class(dictionary), pointer                     :: compDict, moderDict
-    character(*), parameter :: Here = 'init_materialItem (materialMenu_mod.f90)'
+    real(defReal), dimension(:), allocatable      :: densitiesCalculatorInputArray
+    type(dictionary), pointer                     :: compDict, moderDict, nuclidesDict
+    character(*), parameter                       :: HERE = 'init_materialItem (materialMenu_mod.f90)'
 
     ! Return to initial state
     call self % kill()
 
     ! Load easy components properties
-    self % name = name
+    self % name = trim(name)
     self % matIdx = idx
 
     ! Check TMS flag and read temperature
     call dict % getOrDefault(self % hasTMS, 'tms', .false.)
     call dict % getOrDefault(self % T, 'temp', ZERO)
     if (self % T < ZERO) &
-    call fatalError(Here, 'Temperature of material: '//numToChar(idx)//' is negative: '//numToChar(self % T)//'.')
+    call fatalError(HERE, 'Temperature of material: '//self % name//' is negative: '//numToChar(self % T)//'K.')
 
-    ! Get composition dictionary and load composition
+    ! Build density law and compute density.
+    if (dict % isPresent('densityLaw')) then
+      call new_physicalPropertyLaw(dict % getDictPtr('densityLaw'), self % densityLaw)
+      self % density = self % densityLaw % computeProperty(self % T)
+      self % inverseDensity = ONE / self % density
+
+    end if
+
+    ! Get composition dictionary and load composition.
+    if (.not. dict % isPresent('composition')) &
+    call fatalError(HERE, "Missing 'composition' subdictionary for material: "//self % name//'.')
     compDict => dict % getDictPtr('composition')
-    call compDict % keys(keys)
 
-    ! Allocate space for nuclide information
-    allocate(self % nuclides(size(keys)))
-    allocate(self % dens(size(keys)))
+    ! Allocate space for nuclide information.
+    nNuclides = 0
+    if (compDict % isPresent('nuclides')) then
+      nuclidesDict => compDict % getDictPtr('nuclides')
+      call nuclidesDict % keys(keys)
+      nNuclides = size(keys)
+      allocate(densitiesCalculatorInputArray(nNuclides), self % nuclides(nNuclides))
+      call new_atomicDensitiesCalculator(compDict, self % densitiesCalculator)
+
+    end if
 
     ! Check if S(a,b) files are specified.
+    nSab = 0
     if (dict % isPresent('moder')) then
       moderDict => dict % getDictPtr('moder')
       call moderDict % keys(moderKeys)
       nSab = size(moderKeys)
-
-    else
-      nSab = 0
       
     end if
 
-    ! Load definitions
+    ! Build nuclides.
     foundModer = 0
-    do i = 1, size(keys)
-      ! Check if S(a,b) is on and required for that nuclide
-      if ((nSab > 0) .and. moderDict % isPresent(keys(i))) then
-        self % nuclides(i) % hasSab = .true.
-        foundModer = foundModer + 1
+    if (0 < nNuclides) then
+      do i = 1, nNuclides
+        ! Retrieve input density for current nuclide and initialise current nuclide.
+        call nuclidesDict % get(densitiesCalculatorInputArray(i), keys(i))
+        call self % initNuclide(keys(i), nSab, moderDict, foundModer, self % nuclides(i))
 
-        ! Check for stochastic mixing - this will depend on the
-        ! size of the array of files produce
-        call moderDict % get(filenames, keys(i))
-        if (size(filenames) == 2) then
-          self % nuclides(i) % file_Sab1 = filenames(1)
-          self % nuclides(i) % file_Sab2 = filenames(2)
-          self % nuclides(i) % sabMix = .true.
-        elseif (size(filenames) == 1) then
-          self % nuclides(i) % file_Sab1 = filenames(1)
-        else
-          print *, filenames
-          call fatalError(Here,'Unexpectedly long moder contents. Should be 1 or 2 '//&
-                  'entries.')
-        end if
-      end if
+      end do
+      call self % densitiesCalculator % computeAtomicDensities(self % density, densitiesCalculatorInputArray, self % nuclides)
 
-      ! Initialise the nuclides
-      call compDict % get(self % dens(i), keys(i))
-      call self % nuclides(i) % init(keys(i))
+    end if
 
-    end do
-
-    ! Make sure if a moderator is provided the nuclide is present
-    ! in the composition
+    ! Make sure if a moderator is provided the nuclide is present in the composition
     if (foundModer /= nSab) then
       print *, moderKeys
-      call fatalError(Here, 'Nuclides requested for S(alpha,beta) are not present in composition. '// &
+      call fatalError(HERE, 'Nuclides requested for S(alpha, beta) are not present in composition. '// &
               numToChar(nSab)//' nuclides requested but '//numToChar(foundModer)//' nuclides found.')
     end if
 
     ! Add colour info if present
     if (dict % isPresent('rgb')) then
       call dict % get(temp, 'rgb')
-
-      if (size(temp) /= 3) then
-        call fatalError(Here, "'rgb' keyword must have 3 values")
-      end if
-
+      if (size(temp) /= 3) call fatalError(HERE, "'rgb' keyword must have 3 values.")
       call colourMap % add(idx, rgb24bit(temp(1), temp(2), temp(3)))
+
     end if
 
     ! Save dictionary
@@ -398,19 +390,127 @@ contains
   end subroutine init_materialItem
 
   !!
+  !!
+  !!
+  subroutine initNuclide(self, key, nSab, moderDict, nModerators, nuclide)
+    class(materialItem), intent(in)               :: self
+    character(nameLen), intent(in)                :: key
+    integer(shortInt), intent(in)                 :: nSab
+    type(dictionary), intent(in)                  :: moderDict
+    integer(shortInt), intent(inout)              :: nModerators
+    type(nuclideInfo), intent(out)                :: nuclide
+    character(nameLen), dimension(:), allocatable :: filenames
+    integer(shortInt)                             :: dot, nFiles
+    logical(defBool)                              :: flag
+    type(buildNuclideInfoPayload)                 :: payload
+    character(*), parameter                       :: HERE = 'initNuclide (materialMenu_mod.f90)'
+
+    ! First ensure nuclide definition is valid.
+    if (.not. isNucDefinition(key)) call fatalError(HERE, 'Input is not ZZZAAA.TT formated definition: '//trim(key)//'.')
+
+    ! Assemble payload. Find location of the dot and catch leading zeros in ZA id.
+    dot = scan(key, '.')
+    if (key(1:1) == '0') call fatalError(HERE, 'ZA id begins with 0.')
+    
+    payload % atomicNumber = charToInt(key(1:dot - 4), error = flag)
+    payload % massNumber = charToInt(key(dot - 3:dot - 1), error = flag)
+    payload % evaluationNumber = charToInt(key(dot + 1:len_trim(key)), error = flag)
+    if (flag) call fatalError(HERE, 'Failed to convert: '//trim(key)//' into nuclide information.')
+
+    ! Now check if S(alpha, beta) is on and required for that nuclide.
+    if (0 < nSab .and. moderDict % isPresent(key)) then
+      payload % hasSab = .true.
+      nModerators = nModerators + 1
+
+      ! Check for stochastic mixing - this will depend on the size of the array of files produced.
+      call moderDict % get(filenames, key)
+      nFiles = size(filenames)
+      select case(nFiles)
+        case(1, 2)
+          payload % sabFiles = filenames
+          if (nFiles == 2) payload % sabMix = .true.
+
+        case default
+          print *, filenames
+          call fatalError(HERE, 'Unexpectedly long moder contents. Should be 1 or 2 entries.')
+
+      end select
+
+    end if
+    call nuclide % init(payload)
+
+    contains
+      !!
+      !! Helper function to identify nuclide definition string
+      !!
+      !! Nuclide definition string has a following format:
+      !!   ZZZAAA.TT
+      !!
+      !! ZZZ -> Up to 3 Digits   [0-9] that specify Atomic Number (minimum 1)
+      !! AAA -> EXACTLY 3 Digits [0-9] that specify Mass Number
+      !! TT  -> EXACTLY 2 Digits [0-9] that specify Evaluation Number
+      !!
+      !! Must also be left-adjusted and padded only with spaces.
+      !!
+      !! Args:
+      !!   str [in] -> character string that may or may not contain Nuclide definition
+      !!
+      !! Result:
+      !!   True if str matches the Nuclide Definition format. False otherwise
+      !!
+      function isNucDefinition(str) result(isIt)
+        character(nameLen), intent(in) :: str
+        character(:), allocatable      :: subStr
+        logical(defBool)               :: isIt
+        integer(shortInt)              :: L
+        character(*), parameter        :: SET = '0123456789'
+
+        ! Initialise isIt = .false.
+        isIt = .false.
+
+        ! Save trim length of the string
+        L = len_trim(str)
+
+        ! Check that length is as expected
+        if (L < 7 .or. 9 < L) return
+
+        ! Verify that the location of the dot is consistent from number of digits before and after dot.
+        subStr = str(1:L)
+        isIt = all([verify(subStr, SET), verify(subStr, SET, back = .true.)] == scan(subStr, '.'))
+
+      end function isNucDefinition
+
+  end subroutine initNuclide
+
+  !!
   !! Return material Item to uninitialised state
   !!
   subroutine kill_materialItem(self)
     class(materialItem), intent(inout) :: self
+    integer(shortInt)                  :: i
 
     ! Return static components to default
-    self % name   = ''
     self % matIdx = 0
-    self % T      = ZERO
+    self % density = ZERO
+    self % inverseDensity = ZERO
+    self % T = ZERO
 
     ! Deallocate allocatable components
-    if (allocated(self % dens)) deallocate(self % dens)
-    if (allocated(self % nuclides)) deallocate(self % nuclides)
+    if (allocated(self % name)) deallocate(self % name)
+    if (allocated(self % densitiesCalculator)) deallocate(self % densitiesCalculator)
+    if (allocated(self % densityLaw)) then
+      call self % densityLaw % kill()
+      deallocate(self % densityLaw)
+
+    end if
+    if (allocated(self % nuclides)) then
+      do i = 1, size(self % nuclides)
+        call self % nuclides(i) % kill()
+
+      end do
+      deallocate(self % nuclides)
+
+    end if
     call self % extraInfo % kill()
 
   end subroutine kill_materialItem
@@ -434,120 +534,11 @@ contains
     print '(3A13, A20)', 'Atomic #', 'Mass #', 'Evaluation #', 'Density [1/barn/cm]'
 
     do i = 1, size(self % nuclides)
-      print '(3I13, ES20.10)', self % nuclides(i) % Z, self % nuclides(i) % A, self % nuclides(i) % T, &
-                           self % dens(i)
+      call self % nuclides(i) % display('(3I13, ES20.10)')
+
     end do
 
-
   end subroutine display_materialItem
-
-
-  !!
-  !! Helper function to identify nuclide definition string
-  !!
-  !! Nuclide definition string has a following format:
-  !!   ZZZAAA.TT
-  !!
-  !! ZZZ -> Up to 3 Digits   [0-9] that specify Atomic Number (minimum 1)
-  !! AAA -> EXACTLY 3 Digits [0-9] that specify Mass Number
-  !! TT  -> EXACTLY 2 Digits [0-9] that specify Evaluation Number
-  !!
-  !! Must also be left-adjusted and padded only with spaces.
-  !!
-  !! Args:
-  !!   key [in] -> character string that may or may not contain Nuclide definition
-  !!
-  !! Result:
-  !!   True if key matches the Nuclide Definition format. False otherwise
-  !!
-  function isNucDefinition(key) result(isIt)
-    character(nameLen), intent(in) :: key
-    logical(defBool)               :: isIt
-    integer(shortInt)              :: dot, za, tt, L
-
-    ! Save trim length of the string
-    L = len_trim(key)
-
-    ! Check that length is as expected
-    if (L > 9 .or. L < 7) then ! Length cannot fit the format
-      isIt = .false.
-      return
-    end if
-
-    ! Find location of the dot
-    dot = scan(key(1:L),'.')
-
-    ! Verify that number of digits before and after dot
-    za = verify(key(1:L),'0123456789')
-    tt = verify(key(1:L),'0123456789', back = .true.)
-
-    ! Verify that the location of the dot is consistent
-    isIt = dot == za .and. dot == tt
-
-  end function isNucDefinition
-
-  !!
-  !! Load information into nuclideInfo from string
-  !!
-  !! Takes ZZZAAA.TT string and converts it into Atomic, Mass and Evaluation number
-  !!
-  !! Args:
-  !!   str [in] -> Input string in ZZZAAA.TT format
-  !!
-  !! Errors:
-  !!   Returns fatal error if it fails to correctly convert string (e.g. string is not ZZZAAA.TT)
-  !!
-  subroutine init_nuclideInfo(self, str)
-    class(nuclideInfo), intent(inout) :: self
-    character(nameLen), intent(in)    :: str
-    integer(shortInt)                 :: dot
-    logical(defBool)                  :: flag
-    character(*), parameter           :: Here = 'init_nuclideInto (materialMenu_mod.f90)'
-
-    if (.not.isNucDefinition(str)) then
-      call fatalError(Here,'Input is not ZZZAAA.TT formated definition: '//trim(str))
-    end if
-
-    ! Find location of the dot
-    dot = scan(str, '.')
-
-    ! Catch leading zeros in ZAID
-    if (str(1:1) == '0') call fatalError(Here, 'ZA ID begins with a 0')
-
-    self % Z = charToInt(str(1:dot - 4), error = flag)
-    self % A = charToInt(str(dot - 3:dot - 1), error = flag)
-    self % T = charToInt(str(dot + 1:len_trim(str)), error = flag)
-
-    if (flag) call fatalError(Here,'Failed to convert: '//trim(str)// ' to nuclide information')
-
-  end subroutine init_nuclideInfo
-
-  !!
-  !! Convert nuclide information to the definition character
-  !!
-  !! Args:
-  !!   None
-  !!
-  !! Result:
-  !!   Character in format ZZAAA.TT that describes nuclide definition
-  !!
-  !! Errors:
-  !!   None
-  !!
-  elemental function toChar_nuclideInfo(self) result(str)
-    class(nuclideInfo), intent(in) :: self
-    character(nameLen)             :: str
-    character(3)                   :: ZZ
-    character(3)                   :: AAA
-    character(2)                   :: TT
-
-    write(ZZ, '(I3)')   self % Z
-    write(AAA,'(I3.3)') self % A
-    write(TT, '(I2.2)') self % T
-
-    str = trim(adjustl(ZZ)) // AAA // "." // TT
-
-  end function toChar_nuclideInfo
 
   !!
   !! Get pointer to a material definition under matIdx
@@ -565,20 +556,16 @@ contains
   function getMatPtr(idx) result(ptr)
     integer(shortInt), intent(in) :: idx
     type(materialItem), pointer   :: ptr
-    character(*), parameter :: Here = 'getMatPtr (materialMenu_mod.f90)'
+    character(*), parameter       :: HERE = 'getMatPtr (materialMenu_mod.f90)'
 
     ! Check if materialMenu is initialised
-    if (.not.allocated(materialDefs)) then
-      call fatalError(Here, "Material definitions were not loaded")
-    end if
+    if (.not. allocated(materialDefs)) call fatalError(HERE, "Material definitions were not loaded.")
 
     ! Verify matIdx
-    if (idx <= 0 .or. idx > nMat()) then
-      call fatalError(Here,"matIdx: "//numToChar(idx)// &
-                           " does not correspond to any defined material")
-    end if
+    if (idx < 1 .or. nMat() < idx) call fatalError(HERE, "matIdx: "//numToChar(idx)//&
+                                                   " does not correspond to any material.")
 
-    ! Attach pointer
+    ! Attach pointer.
     ptr => materialDefs(idx)
 
   end function getMatPtr
@@ -596,14 +583,11 @@ contains
   !! Errors:
   !!   Return 0 if materialMenu was not yet loaded
   !!
-  function nMat() result(N)
+  elemental function nMat() result(N)
     integer(shortInt) :: N
 
-    if (allocated(materialDefs)) then
-      N = size(materialDefs)
-    else
-      N = 0
-    end if
+    N = 0
+    if (allocated(materialDefs)) N = size(materialDefs)
 
   end function nMat
 

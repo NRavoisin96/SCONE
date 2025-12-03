@@ -10,17 +10,31 @@ module materialMenu_test
 
   implicit none
 
-  character(*), parameter :: INPUT_STR = "     &
+  character(*), parameter :: INPUT_STR = "    &
   &mat1 { temp 273;                           &
+  &       densityLaw {                        &
+  &         type constantPropertyLaw;         &
+  &         value 1000.0;                     &
+  &       }                                   &
   &      composition {                        &
-  &        1001.03 12;                        &
-  &        8016.07 0.00654;                   &
+  &       type rawAtomicDensities;            &
+  &       nuclides {                          &
+  &         1001.03 12;                       &
+  &         8016.07 0.00654;                  &
+  &       }                                   &
   &      }                                    &
   &      xsPath ./A_PATH;                     &
   &     }                                     &
   &mat2 { temp 1;                             &
+  &       densityLaw {                        &
+  &         type constantPropertyLaw;         &
+  &         value 0.0;                        &
+  &       }                                   &
   &       composition {                       &
-  &         100253.00 7.0E+4;                 &
+  &         type rawAtomicDensities;          &
+  &         nuclides {                        &
+  &           100253.00 7.0E+4;               &
+  &         }                                 &
   &       }                                   &
   &     }                                     "
 
@@ -65,15 +79,15 @@ contains
     @assertEqual('./A_PATH', trim(name))
 
     ! Check individual compositions
-    do i= 1, 2
-      if (materialDefs(i1) % nuclides(i) % Z == 1) then
-        @assertEqual(1, materialDefs(i1) % nuclides(i) % A)
-        @assertEqual(3, materialDefs(i1) % nuclides(i) % T)
-        @assertEqual(12.0_defReal, materialDefs(i1) % dens(i), TOL*12.0_defReal)
-      else if (materialDefs(i1) % nuclides(i) % Z == 8) then
-        @assertEqual(16, materialDefs(i1) % nuclides(i) % A)
-        @assertEqual(7, materialDefs(i1) % nuclides(i) % T)
-        @assertEqual(0.00654_defReal, materialDefs(i1) % dens(i), TOL*0.00654_defReal)
+    do i = 1, 2
+      if (materialDefs(i1) % nuclides(i) % getAtomicNumber() == 1) then
+        @assertEqual(1, materialDefs(i1) % nuclides(i) % getMassNumber())
+        @assertEqual(3, materialDefs(i1) % nuclides(i) % getEvaluationNumber())
+        @assertEqual(12.0_defReal, materialDefs(i1) % getAtomicDensity(i), TOL * 12.0_defReal)
+      else if (materialDefs(i1) % nuclides(i) % getAtomicNumber() == 8) then
+        @assertEqual(16, materialDefs(i1) % nuclides(i) % getMassNumber())
+        @assertEqual(7, materialDefs(i1) % nuclides(i) % getEvaluationNumber())
+        @assertEqual(0.00654_defReal, materialDefs(i1) % getAtomicDensity(i), TOL * 0.00654_defReal)
       else
         @assertTrue(.false., 'Error when reading Mat 1 compositions')
       end if
@@ -82,10 +96,10 @@ contains
     ! mat 2
     @assertEqual(1.0_defReal, materialDefs(i2) % T, TOL)
     @assertEqual(i2, materialDefs(i2) % matIdx)
-    @assertEqual(7.0E+4_defReal, materialDefs(i2) % dens(1), TOL*7.0E+4_defReal)
-    @assertEqual(100, materialDefs(i2) % nuclides(1) % Z)
-    @assertEqual(253, materialDefs(i2) % nuclides(1) % A)
-    @assertEqual(0,   materialDefs(i2) % nuclides(1) % T)
+    @assertEqual(7.0E+4_defReal, materialDefs(i2) % getAtomicDensity(1), TOL*7.0E+4_defReal)
+    @assertEqual(100, materialDefs(i2) % nuclides(1) % getAtomicNumber())
+    @assertEqual(253, materialDefs(i2) % nuclides(1) % getMassNumber())
+    @assertEqual(0,   materialDefs(i2) % nuclides(1) % getEvaluationNumber())
 
     ! Get number of materials
     @assertEqual(2, nMat())

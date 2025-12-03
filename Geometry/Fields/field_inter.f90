@@ -16,6 +16,7 @@ module field_inter
   !!   kill -> Return to uninitialised state
   !!
   type, public, abstract :: field
+    private
   contains
     procedure(init), deferred :: init
     procedure(kill), deferred :: kill

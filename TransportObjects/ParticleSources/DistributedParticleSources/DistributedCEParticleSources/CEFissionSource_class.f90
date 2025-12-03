@@ -11,7 +11,6 @@ module CEFissionSource_class
   use neutronMaterial_inter,      only : neutronMaterial
   use numPrecision
   use RNG_class,                  only : RNG
-  use scalarField_inter,          only : getScalarFieldValue
   use universalVariables,         only : kBoltzmann_MeV, nameDensity, OUTSIDE_MAT, VOID_MAT
 
   implicit none

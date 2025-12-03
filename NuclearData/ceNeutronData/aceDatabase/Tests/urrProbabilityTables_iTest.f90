@@ -16,11 +16,14 @@ module urrProbabilityTables_iTest
 
   ! Material definitions
   character(*), parameter :: MAT_INPUT_STR = &
-  & " uo2  {                   &
-  &        composition {       &
-  &        92235.03 1.0E-3;    &
-  &        8016.03  2.0E-3;    &
-  &        }                   &
+  & " uo2  {                          &
+  &        composition {              &
+  &          type rawAtomicDensities; &
+  &          nuclides {               &
+  &            92235.03 1.0E-3;       &
+  &            8016.03  2.0E-3;       &
+  &          }                        &
+  &        }                          &
   &      }"
 
   ! CE Neutron Database specification

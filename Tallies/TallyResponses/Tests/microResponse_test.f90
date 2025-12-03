@@ -31,7 +31,7 @@ contains
   !!
   subroutine setUp(this)
     class(test_microResponse), intent(inout) :: this
-    type(dictionary)                         :: tempDict, dictMat1, dictMat2, dictMat3
+    type(dictionary)                         :: tempDict, dictMat1, dictMat2, dictMat3, dictMat4
 
     ! Allocate and initialise test nuclearData
     ! Cross-sections:          Total        eScatering   IeScatter Capture     Fission       nuFission    Heating
@@ -40,9 +40,13 @@ contains
     ! Set dictionaries to initialise material
     call dictMat1 % init(1)
     call dictMat2 % init(2)
-    call dictMat3 % init(1)
+    call dictMat3 % init(2)
+    call dictMat4 % init(1)
 
-    call dictMat3 % store('54135.03', 2.0_defReal)
+    call dictMat4 % store('54135.03', 2.0_defReal)
+
+    call dictMat3 % store('type', 'rawAtomicDensities')
+    call dictMat3 % store('nuclides', dictMat4)
 
     call dictMat2 % store('temp', 300.0_defReal)
     call dictMat2 % store('composition', dictMat3)

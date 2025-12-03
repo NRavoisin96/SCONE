@@ -342,7 +342,8 @@ contains
 
     ! Retrieve material temperature and density from temperature and density fields.
     coordListPtr => p % getCoordsPtr()
-    CECollisionDataPtr % densityFactor = getScalarFieldValue(nameDensity, ONE, coordListPtr)
+    CECollisionDataPtr % densityFactor = getScalarFieldValue(nameDensity, ONE, coordListPtr, &
+                                                             CENeutronMaterialPtr % getInverseDensity())
     CECollisionDataPtr % kT = getScalarFieldValue(nameTemperature, CENeutronMaterialPtr % kT, coordListPtr, kBoltzmann_MeV)
 
     ! Select collision nuclide.

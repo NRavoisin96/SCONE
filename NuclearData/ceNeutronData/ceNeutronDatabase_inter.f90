@@ -50,20 +50,21 @@ module ceNeutronDatabase_inter
   type, public, abstract, extends(nuclearDatabase) :: ceNeutronDatabase
     type(intMap) :: mapDBRCnuc
   contains
-    procedure(energyBounds), deferred         :: energyBounds
-    procedure                                 :: getMajorantXS
-    procedure(getMaterial_kT), deferred       :: getMaterial_kT
-    procedure(getScattMicroMajXS), deferred   :: getScattMicroMajXS
-    procedure                                 :: getTotalMatXS
-    procedure                                 :: getTrackingXS
-    procedure                                 :: getTrackMatXS
-    procedure(updateMacroXSs), deferred       :: updateMacroXSs
-    procedure(updateMajorantXS), deferred     :: updateMajorantXS
-    procedure(updateMicroXSs), deferred       :: updateMicroXSs
-    procedure(updateTotalMatXS), deferred     :: updateTotalMatXS
-    procedure(updateTotalNucXS), deferred     :: updateTotalNucXS
-    procedure(updateTotalTempNucXS), deferred :: updateTotalTempNucXS
-    procedure(updateTrackMatXS), deferred     :: updateTrackMatXS
+    procedure(energyBounds), deferred               :: energyBounds
+    procedure                                       :: getMajorantXS
+    procedure(getMaterial_inverseDensity), deferred :: getMaterial_inverseDensity
+    procedure(getMaterial_kT), deferred             :: getMaterial_kT
+    procedure(getScattMicroMajXS), deferred         :: getScattMicroMajXS
+    procedure                                       :: getTotalMatXS
+    procedure                                       :: getTrackingXS
+    procedure                                       :: getTrackMatXS
+    procedure(updateMacroXSs), deferred             :: updateMacroXSs
+    procedure(updateMajorantXS), deferred           :: updateMajorantXS
+    procedure(updateMicroXSs), deferred             :: updateMicroXSs
+    procedure(updateTotalMatXS), deferred           :: updateTotalMatXS
+    procedure(updateTotalNucXS), deferred           :: updateTotalNucXS
+    procedure(updateTotalTempNucXS), deferred       :: updateTotalTempNucXS
+    procedure(updateTrackMatXS), deferred           :: updateTrackMatXS
   end type ceNeutronDatabase
 
   abstract interface
@@ -86,6 +87,16 @@ module ceNeutronDatabase_inter
       real(defReal), intent(out)           :: eMin
       real(defReal), intent(out)           :: eMax
     end subroutine energyBounds
+
+    !!
+    !!
+    !!
+    function getMaterial_inverseDensity(self, matIdx) result(inverseDensity)
+      import                               :: ceNeutronDatabase, defReal, shortInt
+      class(ceNeutronDatabase), intent(in) :: self
+      integer(shortInt), intent(in)        :: matIdx
+      real(defReal)                        :: inverseDensity
+    end function getMaterial_inverseDensity
 
     !!
     !!
@@ -358,7 +369,7 @@ contains
 
     associate(matCache => materialCache(matIdx))
       ! Check Cache and update if needed
-      densityFactor = getScalarFieldValue(nameDensity, ONE, coordListPtr)
+      densityFactor = getScalarFieldValue(nameDensity, ONE, coordListPtr, self % getMaterial_inverseDensity(matIdx))
       energy = CENeutronPtr % getEnergy()
       kT = getScalarFieldValue(nameTemperature, self % getMaterial_kT(matIdx), coordListPtr, kBoltzmann_MeV)
       if (any([matCache % densityFactor_tot, matCache % E_tot, matCache % kT_tot] /= [densityFactor, energy, kT])) &
@@ -444,7 +455,7 @@ contains
 
     ! Check Cache and update if needed
     associate(matCache => materialCache(matIdx))
-      densityFactor = getScalarFieldValue(nameDensity, ONE, coordListPtr)
+      densityFactor = getScalarFieldValue(nameDensity, ONE, coordListPtr, self % getMaterial_inverseDensity(matIdx))
       energy = CENeutronPtr % getEnergy()
       kT = getScalarFieldValue(nameTemperature, self % getMaterial_kT(matIdx), coordListPtr, kBoltzmann_MeV)
       if (any([matCache % densityFactor_track, matCache % E_track, matCache % kT_track] /= [densityFactor, energy, kT])) &

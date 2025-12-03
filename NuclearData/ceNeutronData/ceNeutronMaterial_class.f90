@@ -49,7 +49,7 @@ module ceNeutronMaterial_class
   !!     happened
   !!
   type, public, extends(neutronMaterial) :: ceNeutronMaterial
-    character(nameLen)                           :: name = ''
+    character(:), allocatable                    :: name
     integer(shortInt)                            :: matIdx = 0
     class(ceNeutronDatabase), pointer            :: data => null()
     real(defReal), dimension(:), allocatable     :: dens
@@ -167,7 +167,8 @@ contains
 
     CENeutronPtr => castCENeutronPtr(object)
     coordListPtr => CENeutronPtr % getCoordsPtr()
-    call self % getMacroXSs(getScalarFieldValue(nameDensity, ONE, coordListPtr), CENeutronPtr % getEnergy(), &
+    call self % getMacroXSs(getScalarFieldValue(nameDensity, ONE, coordListPtr, self % getInverseDensity()), &
+                            CENeutronPtr % getEnergy(), &
                             getScalarFieldValue(nameTemperature, self % kT, coordListPtr, kBoltzmann_MeV), &
                             CENeutronPtr % getRNGPtr(), xss)
 
@@ -199,6 +200,7 @@ contains
   elemental subroutine kill(self)
     class(ceNeutronMaterial), intent(inout) :: self
 
+    if (allocated(self % name)) deallocate(self % name)
     self % matIdx = 0
     self % kT = ZERO
     self % data => null()
@@ -517,33 +519,35 @@ contains
   !!   eUpperSab [in] -> upper energy of S(a,b) range in the material
   !!   eLowerURR [in] -> lower energy of ures range in the material
   !!
-  subroutine set(self, name, matIdx, database, fissile, hasTMS, temp, eUpperSab, eLowerURR)
+  subroutine set(self, name, matIdx, database, fissile, hasTMS, temp, eUpperSab, eLowerURR, inverseDensity)
     class(ceNeutronMaterial), intent(inout)                 :: self
-    character(nameLen), intent(in), optional                :: name
+    character(:), allocatable, intent(in), optional         :: name
     integer(shortInt), intent(in), optional                 :: matIdx
     class(ceNeutronDatabase), pointer, optional, intent(in) :: database
-    logical(defBool), intent(in), optional                  :: fissile
-    logical(defBool), intent(in), optional                  :: hasTMS
-    real(defReal), intent(in), optional                     :: temp
-    real(defReal), intent(in), optional                     :: eUpperSab
-    real(defReal), intent(in), optional                     :: eLowerURR
-    character(*), parameter :: Here = 'set (ceNeutronMaterial_class.f90)'
+    logical(defBool), intent(in), optional                  :: fissile, hasTMS
+    real(defReal), intent(in), optional                     :: temp, eUpperSab, eLowerURR, inverseDensity
+    character(*), parameter                                 :: HERE = 'set (ceNeutronMaterial_class.f90)'
 
-    if (present(name)) self % name = name
+    if (present(name)) then
+      if (.not. allocated(name)) call fatalError(HERE, 'Empty name for material with index: '//numToChar(matIdx)//'.')
+      self % name = name
+
+    end if
     if (present(database)) self % data => database
     if (present(fissile)) self % fissile = fissile
     if (present(matIdx)) self % matIdx = matIdx
     if (present(hasTMS)) self % hasTMS = hasTMS
     if (present(temp)) self % kT = temp * kBoltzmann_MeV
+    if (present(inverseDensity)) call self % setInverseDensity(inverseDensity)
 
     if (present(eUpperSab)) then
-      if (eUpperSab < ZERO) call fatalError (Here, 'Upper Sab energy limit of material '&
+      if (eUpperSab < ZERO) call fatalError (HERE, 'Upper Sab energy limit of material '&
                                              &//numToChar(matIdx)//' is negative.')
       self % eUpperSab  = eUpperSab
     end if
 
     if (present(eLowerURR)) then
-      if (eLowerURR < ZERO) call fatalError (Here, 'Lower URR energy limit of material '&
+      if (eLowerURR < ZERO) call fatalError (HERE, 'Lower URR energy limit of material '&
                                              &//numToChar(matIdx)//' is negative.')
       self % eLowerURR  = eLowerURR
     end if
@@ -551,7 +555,7 @@ contains
     ! Check to make sure URR energy and S(a,b) energy do not overlap
     ! Possible in principle, but would be quite strange...
     if (present(eLowerURR) .and. present(eUpperSab)) then
-      if (eUpperSab > eLowerUrr) call fatalError(Here,self % name//&
+      if (eUpperSab > eLowerUrr) call fatalError(HERE,self % name//&
               ' has an overlap in URR and S(alpha, beta) energy ranges. Dodgy data?')
     end if
 
@@ -576,19 +580,23 @@ contains
     class(ceNeutronMaterial), intent(inout)     :: self
     real(defReal), dimension(:), intent(in)     :: dens
     integer(shortInt), dimension(:), intent(in) :: nucIdxs
-    character(*), parameter :: Here = 'setComposition (ceNeutronMaterial_class.f90)'
+    integer(shortInt)                           :: nDensities, nNuclides
+    character(*), parameter :: HERE = 'setComposition (ceNeutronMaterial_class.f90)'
 
-    ! Check input
-    if (size(dens) /= size(nucIdxs)) call fatalError(Here,'Different sizes of density and nuclide vector')
-    if (any(dens < ZERO)) call fatalError(Here,'-ve nuclide densities are present')
-    if (size(dens) == 0)  call fatalError(Here,'Empty composition is not allowed')
+    ! Check input.
+    nDensities = size(dens)
+    nNuclides = size(nucIdxs)
+    if (nDensities == 0) call fatalError(HERE, 'Empty composition is not allowed.')
+    if (nDensities == 0) call fatalError(HERE, 'Empty nuclide indices.')
+    if (nDensities /= nNuclides) call fatalError(HERE, 'Different sizes of density and nuclide vectors.')
+    if (any(dens < ZERO)) call fatalError(HERE, '-ve nuclide densities are present')
 
     ! Clean any current content
-    if (allocated(self % dens))     deallocate(self % dens)
+    if (allocated(self % dens)) deallocate(self % dens)
     if (allocated(self % nuclides)) deallocate(self % nuclides)
 
     ! Load values
-    self % dens     = dens
+    self % dens = dens
     self % nuclides = nucIdxs
 
   end subroutine setComposition

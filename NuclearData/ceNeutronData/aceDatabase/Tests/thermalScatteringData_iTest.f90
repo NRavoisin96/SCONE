@@ -17,28 +17,37 @@ module thermalScatteringData_iTest
   implicit none
 
   ! Material definitions
-  character(*), parameter :: MAT_INPUT_STR =        &
+  character(*), parameter :: MAT_INPUT_STR =       &
   & "water {                                       &
   &       moder {1001.03 (h-h2o.49); }             &
   &       composition {                            &
-  &       1001.03  2.0E-3;                         &
-  &       8016.03  1.0E-3;                         &
-  &                   }                            &
-  &      }                                         &
+  &         type rawAtomicDensities;               &
+  &         nuclides {                             &
+  &           1001.03  2.0E-3;                     &
+  &           8016.03  1.0E-3;                     &
+  &         }                                      &
+  &       }                                        &
+  &  }                                             &
   &  graphite {                                    &
   &          moder {6012.06  (grph30.46);}         &
   &          composition {                         &
-  &          6012.06 2.0E-3;                       &
-  &                       }                        &
+  &            type rawAtomicDensities;            &
+  &            nuclides {                          &
+  &              6012.06 2.0E-3;                   &
   &            }                                   &
+  &          }                                     &
+  & }                                              &
   & waterMix {                                     &
   &       temp 500;                                &
   &       moder {1001.03 (h-h2o.50 h-h2o.49); }    &
   &       composition {                            &
-  &       1001.03  2.0E-3;                         &
-  &       8016.03  1.0E-3;                         &
-  &                   }                            &
-  &      }  "
+  &         type rawAtomicDensities;               &
+  &         nuclides {                             &
+  &           1001.03  2.0E-3;                     &
+  &           8016.03  1.0E-3;                     &
+  &         }                                      &
+  &       }                                        &
+  & }  "
 
   ! CE Neutron Database specification
   character(*), parameter :: ACE_INPUT_STR = &

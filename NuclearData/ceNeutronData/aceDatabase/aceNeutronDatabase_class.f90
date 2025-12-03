@@ -17,10 +17,11 @@ module aceNeutronDatabase_class
   use geometryReg_mod,         only : fieldPtrByName
   use intMap_class,            only : intMap
   use materialHandle_inter,    only : materialHandle
-  use materialMenu_mod,        only : materialItem, nuclideInfo, mm_nMat => nMat, mm_getMatPtr => getMatPtr, mm_nameMap => nameMap
+  use materialMenu_mod,        only : materialItem, mm_nMat => nMat, mm_getMatPtr => getMatPtr, mm_nameMap => nameMap
   use neutronXSPackages_class, only : neutronMicroXSs
   use nuclearDatabase_inter,   only : nuclearDatabase
   use nuclideHandle_inter,     only : nuclideHandle
+  use nuclideInfo_class,       only : nuclideInfo
   use numPrecision
   use reactionHandle_inter,    only : reactionHandle
   use RNG_class,               only : RNG
@@ -77,6 +78,7 @@ module aceNeutronDatabase_class
     procedure :: kill
     procedure :: matNamesMap
     procedure :: getMaterial
+    procedure :: getMaterial_inverseDensity
     procedure :: getMaterial_kT
     procedure :: getNuclide
     procedure :: getReaction
@@ -170,6 +172,18 @@ contains
     end if
 
   end function getMaterial
+
+  !!
+  !!
+  !!
+  function getMaterial_inverseDensity(self, matIdx) result(inverseDensity)
+    class(aceNeutronDatabase), intent(in) :: self
+    integer(shortInt), intent(in)         :: matIdx
+    real(defReal)                         :: inverseDensity
+
+    inverseDensity = self % materials(matIdx) % getInverseDensity()
+
+  end function getMaterial_inverseDensity
 
   !!
   !!
@@ -946,7 +960,7 @@ contains
           
         ! Check to ensure stochastic mixing temperature 
         ! is bounded by Sab temperatures
-        if (mat % nuclides(j) % sabMix) then
+        if (mat % nuclides(j) % getSabMix()) then
           sabT = self % nuclides(nucIdxs(j)) % getSabTBounds()
           if (min_kT < sabT(1) .or. sabT(2) < max_kT) call fatalError(HERE, &
             'Material temperature must be bounded by the provided S(alpha,beta) data. '//&
@@ -961,8 +975,9 @@ contains
 
       ! Load data into material
       call self % materials(i) % set(name = mat % name, matIdx = i, database = ptr_ceDatabase, &
-                                     temp = mat % T, hasTMS = mat % hasTMS, fissile = isFissileMat)
-      call self % materials(i) % setComposition(mat % dens, nucIdxs(1:size(mat % nuclides)))
+                                     temp = mat % T, hasTMS = mat % hasTMS, fissile = isFissileMat, &
+                                     inverseDensity = mat % inverseDensity)
+      call self % materials(i) % setComposition(mat % getAtomicDensities(), nucIdxs(1:size(mat % nuclides)))
 
       eUpSab  = self % eBounds(1)
       eLowURR = self % eBounds(2)
@@ -1035,25 +1050,26 @@ contains
   !! variants, including stochastic mixing
   !!
   function makeNuclideName(self, nuclide) result(name)
-    class(aceNeutronDatabase), intent(in) :: self
-    type(nuclideInfo), intent(in)         :: nuclide
-    character(nameLen)                    :: name
-    character(:), allocatable             :: file
+    class(aceNeutronDatabase), intent(in)         :: self
+    type(nuclideInfo), intent(in)                 :: nuclide
+    character(nameLen)                            :: name
+    character(nameLen), dimension(:), allocatable :: sabFiles
+    character(:), allocatable                     :: file
         
     name = trim(nuclide % toChar())
 
-    ! Name is extended if there is S(alpha,beta) to 
+    ! Name is extended if there is S(alpha, beta) to 
     ! uniquely identify from data without thermal
     ! scattering
-    if (nuclide % hasSab) then
- 
-      file = trim(nuclide % file_Sab1)
+    if (nuclide % getHasSab()) then
+      sabFiles = nuclide % getSabFiles()
+      file = trim(sabFiles(1))
       name = trim(name) // '+' // file
       deallocate(file)
      
       ! Attach second Sab file for stochastic mixing
-      if (nuclide % sabMix) then
-        file = trim(nuclide % file_Sab2)
+      if (nuclide % getSabMix()) then
+        file = trim(sabFiles(2))
         name = trim(name) // '#' // file
         deallocate(file)
 
@@ -1256,7 +1272,7 @@ contains
           
         ! Check to ensure stochastic mixing temperature 
         ! is bounded by Sab temperatures
-        if (mat % nuclides(j) % sabMix) then
+        if (mat % nuclides(j) % getSabMix()) then
           sabT = self % nuclides(nucIdxs(j)) % getSabTBounds()
           if (min_kT < sabT(1) .or. sabT(2) < max_kT) call fatalError(Here,&
             'Material temperature must be bounded by the provided S(alpha,beta) data. '//&
