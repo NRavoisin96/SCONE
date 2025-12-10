@@ -58,6 +58,7 @@ module particle_class
     integer(shortInt)          :: matIdx   = -1     ! Material index where particle is
     integer(shortInt)          :: cellIdx  = -1     ! Cell idx at the lowest coord level
     integer(shortInt)          :: elementIdx = 0    ! Unstructured mesh element index at the lowest coord level
+    integer(shortInt)          :: meshIdx = 0       ! Unstructured mesh index at the lowest coord level
     integer(shortInt)          :: uniqueID = -1     ! Unique id at the lowest coord level
     integer(shortInt)          :: collisionN = 0    ! Number of collisions
     integer(shortInt)          :: broodID = 0       ! ID of the source particle
@@ -696,6 +697,7 @@ contains
     LHS % uniqueID = RHS % coords % getUniqueId()
     LHS % cellIdx  = RHS % coords % getLowestCellIdx()
     LHS % elementIdx = RHS % coords % getLowestElementIdx()
+    LHS % meshIdx = RHS % coords % getLowestMeshIdx()
     LHS % collisionN = RHS % collisionN
     LHS % broodID    = RHS % broodID
 

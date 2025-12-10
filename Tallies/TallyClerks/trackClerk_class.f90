@@ -415,6 +415,9 @@ contains
     ! tranfer information about Prestate material to a temporary particle
     pTmp = p
     call pTmp % setMaterialIdx(prePathStatePtr % getMaterialIdx())
+    call pTmp % setNesting(1)
+    call pTmp % setLowestMeshIdx(prePathStatePtr % getLowestMeshIdx())
+    call pTmp % setLowestElementIdx(prePathStatePtr % getElementIdx())
 
     ! Calculate flux sample L = path travelled
     flx = L

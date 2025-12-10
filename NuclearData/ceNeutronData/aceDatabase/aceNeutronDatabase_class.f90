@@ -388,13 +388,13 @@ contains
     integer(shortInt), intent(in)         :: matIdx
     type(RNG), optional, intent(inout)    :: rand
 
-    associate (matCache => cache_materialCache(matIdx), mat => self % materials(matIdx))
+    associate (matCache => cache_materialCache(matIdx))
       ! Set new density, energy, and kT.
       matCache % densityFactor_track = densityFactor
       matCache % E_track = E
       matCache % kT_track = kT
 
-      if (mat % useTMS(E)) then
+      if (self % materials(matIdx) % useTMS(E)) then
         ! The material tracking xs is the temperature majorant in the case of TMS
         call self % updateTotalTempMajXS(densityFactor, E, kT, matIdx)
 
@@ -831,19 +831,24 @@ contains
       call get_environment_variable("SCONE_ACE", aceLibPath, status = envFlag)
 
       ! Process potential errors
-      if (envFlag == -1) then
-        call fatalError(HERE,'$SCONE_ACE EnVar must have length smaller then: '//numToChar(pathLen))
+      if (envFlag /= 0) then
+        select case(envFlag)
+          case(-1)
+            call fatalError(HERE, '$SCONE_ACE EnVar must have length smaller than: '//numToChar(pathLen)//'.')
+          
+          case(1)
+            call fatalError(HERE, "EnVar $SCONE_ACE does not exist. Needs to point to ACE library.")
 
-      else if (envFlag == 1) then
-        call fatalError(HERE,"EnVar $SCONE_ACE does not exist! Need to point to ACE Library")
+          case(2)
+            call fatalError(HERE,"Compiler does not support EnVariables. Replace $SCONE_ACE with path in input file.")
 
-      else if (envFlag == 2) then
-        call fatalError(HERE,"Compiler does not support EnVariables. &
-                              &Replace $SCONE_ACE with path in input file!")
-      else if (envFlag /= 0) then
-        call fatalError(HERE,"Impossible value of envFlag:"//numToChar(envFlag))
+          case default
+            call fatalError(HERE, "Impossible value of envFlag: "//numToChar(envFlag)//'.')
+
+        end select
 
       end if
+
     end if
 
     ! Load library
@@ -864,6 +869,7 @@ contains
         nucDBRC(i)  = numToChar(zaidDBRC(i))
         nucDBRC_temp = trim(nucDBRC(i))//'.00'
         call nucSet % add(nucDBRC_temp, IN_SET)
+
       end do
 
     end if
@@ -873,7 +879,6 @@ contains
     i = nucSet % begin()
     nucIdx = 1
     do while (i /= nucSet % end())
-
       idx1 = index(nucSet % atKey(i), '+')
       idx2 = index(nucSet % atKey(i), '#')
       if (idx1 /= 0) then
@@ -1210,7 +1215,8 @@ contains
 
       end do
 
-      ! Precompute majorant cross section
+      ! Precompute majorant cross section.
+      ! TODO: Use maximum temperature per material. Use this value across geometry rather than input file.
       call self % initMajorant(loud, max(getMaximumScalarFieldValue(nameDensity, defaultValue = ONE), ONE), &
                                max(getMaximumScalarFieldValue(nameTemperature, defaultValue = max_kT, mult = kBoltzmann_MeV), &
                                    max_kT))

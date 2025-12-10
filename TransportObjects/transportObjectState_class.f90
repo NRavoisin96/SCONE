@@ -14,7 +14,8 @@ module transportObjectState_class
   !!
   !!
   type, public :: buildTransportObjectStatePayload
-    integer(shortInt)           :: geometryIdx = 0, lowestCellIdx = 0, lowestElementIdx = 0, materialIdx = 0, uniqueId = 0
+    integer(shortInt)           :: geometryIdx = 0, lowestCellIdx = 0, lowestElementIdx = 0, lowestMeshIdx = 0, &
+                                   materialIdx = 0, uniqueId = 0
     real(defReal)               :: time = ZERO, weight = ONE
     real(defReal), dimension(3) :: rGlobal = ZERO, uGlobal = ZERO
   end type buildTransportObjectStatePayload
@@ -24,7 +25,8 @@ module transportObjectState_class
   !!
   type, public :: transportObjectState
     private
-    integer(shortInt)           :: geometryIdx = 0, lowestCellIdx = 0, lowestElementIdx = 0, materialIdx = 0, uniqueId = 0
+    integer(shortInt)           :: geometryIdx = 0, lowestCellIdx = 0, lowestElementIdx = 0, lowestMeshIdx = 0, &
+                                   materialIdx = 0, uniqueId = 0
     real(defReal)               :: time = ZERO, weight = ONE
     real(defReal), dimension(3) :: rGlobal = ZERO, uGlobal = ZERO
   contains
@@ -39,6 +41,7 @@ module transportObjectState_class
     generic            :: getGlobalPosition => getGlobalPosition_defReal, getGlobalPosition_defRealArray
     procedure, private :: getGlobalPosition_defReal
     procedure, private :: getGlobalPosition_defRealArray
+    procedure          :: getLowestMeshIdx
     procedure          :: getMaterialIdx
     procedure          :: getUniqueId
     procedure          :: getWeight
@@ -54,6 +57,7 @@ module transportObjectState_class
     procedure, private :: setGlobalPosition_defRealArray
     procedure          :: setLowestCellIdx
     procedure          :: setLowestElementIdx
+    procedure          :: setLowestMeshIdx
     procedure          :: setMaterialIdx
     procedure          :: setTime
     procedure          :: setUniqueId
@@ -81,6 +85,7 @@ contains
     print *, 'Time: ', self % time
     print *, 'Geometry index: ', self % geometryIdx
     print *, 'Cell index: ', self % lowestCellIdx
+    print *, 'Mesh index: ', self % lowestMeshIdx
     print *, 'Element index: ', self % lowestElementIdx
     print *, 'Unique id: ', self % uniqueId
     print *, 'Material index: ', self % materialIdx
@@ -108,6 +113,7 @@ contains
     data % geometryIdx = self % geometryIdx
     data % lowestCellIdx = self % lowestCellIdx
     data % lowestElementIdx = self % lowestElementIdx
+    data % lowestMeshIdx = self % lowestMeshIdx
     data % materialIdx = self % materialIdx
     data % uniqueId = self % uniqueId
     data % rGlobal = self % rGlobal
@@ -186,6 +192,17 @@ contains
   !!
   !!
   !!
+  elemental function getLowestMeshIdx(self) result(lowestMeshIdx)
+    class(transportObjectState), intent(in) :: self
+    integer(shortInt)                       :: lowestMeshIdx
+
+    lowestMeshIdx = self % lowestMeshIdx
+
+  end function getLowestMeshIdx
+
+  !!
+  !!
+  !!
   elemental function getMaterialIdx(self) result(materialIdx)
     class(transportObjectState), intent(in) :: self
     integer(shortInt)                       :: materialIdx
@@ -240,6 +257,7 @@ contains
     self % geometryIdx = payload % geometryIdx
     self % lowestCellIdx = payload % lowestCellIdx
     self % lowestElementIdx = payload % lowestElementIdx
+    self % lowestMeshIdx = payload % lowestMeshIdx
     self % materialIdx = payload % materialIdx
     self % uniqueId = payload % uniqueId
     self % time = payload % time
@@ -259,6 +277,7 @@ contains
     self % geometryIdx = 0
     self % lowestCellIdx = 0
     self % lowestElementIdx = 0
+    self % lowestMeshIdx = 0
     self % materialIdx = 0
     self % uniqueId = 0
     self % time = ZERO
@@ -279,6 +298,7 @@ contains
     payload % geometryIdx = self % geometryIdx
     payload % lowestCellIdx = self % lowestCellIdx
     payload % lowestElementIdx = self % lowestElementIdx
+    payload % lowestMeshIdx = self % lowestMeshIdx
     payload % materialIdx = self % materialIdx
     payload % uniqueId = self % uniqueId
     payload % time = self % time
@@ -358,6 +378,17 @@ contains
   !!
   !!
   !!
+  elemental subroutine setLowestMeshIdx(self, lowestMeshIdx)
+    class(transportObjectState), intent(inout) :: self
+    integer(shortInt), intent(in)              :: lowestMeshIdx
+
+    self % lowestMeshIdx = lowestMeshIdx
+
+  end subroutine setLowestMeshIdx
+
+  !!
+  !!
+  !!
   elemental subroutine setMaterialIdx(self, materialIdx)
     class(transportObjectState), intent(inout) :: self
     integer(shortInt), intent(in)              :: materialIdx
@@ -410,6 +441,7 @@ contains
     self % geometryIdx = data % geometryIdx
     self % lowestCellIdx = data % lowestCellIdx
     self % lowestElementIdx = data % lowestElementIdx
+    self % lowestMeshIdx = data % lowestMeshIdx
     self % materialIdx = data % materialIdx
     self % uniqueId = data % uniqueId
     self % rGlobal = data % rGlobal

@@ -18,12 +18,12 @@ module transportObject_inter
   !!
   type, public, abstract :: transportObject
     private
-    type(RNG), pointer                      :: RNGPtr => null()
     class(transportObjectState), allocatable :: currentState, preTransitionState
     integer(shortInt)                        :: fate = 0
     logical(defBool)                         :: isDead = .false.
     real(defReal)                            :: initialWgt = ONE
     type(coordList)                          :: coords
+    type(RNG), pointer                       :: RNGPtr => null()
   contains
     procedure                           :: allocatePayload
     procedure(allocateState), deferred  :: allocateState
@@ -72,7 +72,10 @@ module transportObject_inter
     procedure                           :: setGlobalDirection
     procedure                           :: setGlobalPosition
     procedure                           :: setIsDead
+    procedure                           :: setLowestElementIdx
+    procedure                           :: setLowestMeshIdx
     procedure                           :: setMaterialIdx
+    procedure                           :: setNesting
     procedure                           :: setRNGPtr
     procedure                           :: setWeight
     procedure                           :: strideRNG
@@ -633,6 +636,28 @@ contains
   !!
   !!
   !!
+  elemental subroutine setLowestElementIdx(self, lowestElementIdx)
+    class(transportObject), intent(inout) :: self
+    integer(shortInt), intent(in)         :: lowestElementIdx
+
+    call self % coords % setLowestElementIdx(lowestElementIdx)
+
+  end subroutine setLowestElementIdx
+
+  !!
+  !!
+  !!
+  elemental subroutine setLowestMeshIdx(self, lowestMeshIdx)
+    class(transportObject), intent(inout) :: self
+    integer(shortInt), intent(in)         :: lowestMeshIdx
+
+    call self % coords % setLowestMeshIdx(lowestMeshIdx)
+
+  end subroutine setLowestMeshIdx
+
+  !!
+  !!
+  !!
   elemental subroutine setMaterialIdx(self, materialIdx)
     class(transportObject), intent(inout) :: self
     integer(shortInt), intent(in)         :: materialIdx
@@ -640,6 +665,17 @@ contains
     call self % coords % setMaterialIdx(materialIdx)
 
   end subroutine setMaterialIdx
+
+  !!
+  !!
+  !!
+  elemental subroutine setNesting(self, nesting)
+    class(transportObject), intent(inout) :: self
+    integer(shortInt), intent(in)         :: nesting
+
+    call self % coords % setNesting(nesting)
+
+  end subroutine setNesting
 
   !!
   !!

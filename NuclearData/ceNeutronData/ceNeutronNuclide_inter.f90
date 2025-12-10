@@ -226,12 +226,8 @@ contains
 
     associate(nucCache => nuclideCache(self % nucIdx))
       ! Check Cache and update if needed
-      if (nucCache % E_tail /= E .or. nucCache % deltakT /= kT) then
-        call self % data % updateMicroXSs(E, self % nucIdx, kT, rand)
-
-      end if
-
-      xss = nuclideCache(self % nucIdx) % xss
+      if (nucCache % E_tail /= E) call self % data % updateMicroXSs(E, self % nucIdx, kT, rand)
+      xss = nucCache % xss
 
     end associate
 

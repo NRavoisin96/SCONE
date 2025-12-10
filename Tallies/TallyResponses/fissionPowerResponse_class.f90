@@ -1,7 +1,7 @@
 module fissionPowerResponse_class
 
   use dictionary_class,        only : dictionary
-  use endfConstants
+  use endfConstants,           only : macroFission
   use errors_mod,              only : fatalError
   use nuclearDatabase_inter,   only : nuclearDatabase
   use numPrecision

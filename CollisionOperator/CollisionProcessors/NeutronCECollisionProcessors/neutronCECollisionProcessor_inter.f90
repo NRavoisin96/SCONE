@@ -327,7 +327,7 @@ contains
     class(physicalParticle), intent(in)               :: p
     class(collisionData), intent(inout)               :: collDat
     class(ceNeutronMaterial), pointer                 :: CENeutronMaterialPtr
-    real(defReal)                                     :: randomNumber, temperature
+    real(defReal)                                     :: randomNumber
     type(CECollisionData), pointer                    :: CECollisionDataPtr
     type(coordList), pointer                          :: coordListPtr
     type(neutronMicroXSs)                             :: microXSs
@@ -358,8 +358,8 @@ contains
     if (.not. associated(self % nuc)) call fatalError(Here, 'Failed to retrieve CE Neutron Nuclide')
 
     ! Select Main reaction channel
-    call self % nuc % getMicroXSs(CECollisionDataPtr % reactionEnergy, CECollisionDataPtr % kT, &
-                                  microXSs, CECollisionDataPtr % RNGPtr)
+    call self % nuc % getMicroXSs(CECollisionDataPtr % reactionEnergy, CECollisionDataPtr % kT, microXSs, &
+                                  CECollisionDataPtr % RNGPtr)
     call CECollisionDataPtr % RNGPtr % generate(randomNumber)
     CECollisionDataPtr % MT = microXss % invert(randomNumber)
     CECollisionDataPtr % sigma_elasticScatter = microXSs % elasticScatter

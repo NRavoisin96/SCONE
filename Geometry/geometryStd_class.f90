@@ -192,13 +192,14 @@ contains
     class(geometryStd), intent(in) :: self
     type(coordList), intent(inout) :: coords
     integer(shortInt), intent(in)  :: start
-    integer(shortInt)              :: fill, uniqueId, i
+    integer(shortInt)              :: fill, i, localId, uniqueId
     type(coordData)                :: data
     character(*), parameter        :: Here = 'diveToMat (geometryStd_class.f90)'
 
     do i = start, HARDCODED_MAX_NEST
       ! Find cell fill
-      call self % geom % getFill(coords % getUniverseRootId(i), coords % getLocalId(i), fill, uniqueId)
+      localId = coords % getLocalId(i)
+      call self % geom % getFill(coords % getUniverseRootId(i), localId, fill, uniqueId)
 
       if (0 <= fill) then ! Found material cell
         call coords % setMaterialIdx(fill)
@@ -212,7 +213,7 @@ contains
 
       ! Get current universe
       data = newCoordData(coords % getPosition(i) - &
-                          self % geom % getUniverseCellOffset(coords % getUniverseIdx(i), coords % getLocalId(i)), &
+                          self % geom % getUniverseCellOffset(coords % getUniverseIdx(i), localId), &
                           coords % getDirection(i), universeRootId = uniqueId)
 
       ! Enter nested universe

@@ -65,11 +65,12 @@ module coordList_class
     procedure          :: getCellIdx
     procedure          :: getCoordinatesData
     procedure          :: getDirection
+    procedure          :: getElementIdx
     procedure          :: getGeometryIdx
     procedure          :: getLocalId
     procedure          :: getLowestCellIdx
-    procedure          :: getLowestMeshIdx
     procedure          :: getLowestElementIdx
+    procedure          :: getLowestMeshIdx
     procedure          :: getMaterialIdx
     procedure          :: getMeshIdx
     procedure          :: getNesting
@@ -88,6 +89,8 @@ module coordList_class
     procedure          :: setGeometryIdx
     procedure          :: setIsRotated
     procedure          :: setLocalId
+    procedure          :: setLowestElementIdx
+    procedure          :: setLowestMeshIdx
     procedure          :: setMaterialIdx
     procedure          :: setMeshIdx
     procedure          :: setNesting
@@ -220,6 +223,18 @@ contains
   !!
   !!
   !!
+  elemental function getElementIdx(self, lvl) result(elementIdx)
+    class(coordList), intent(in)  :: self
+    integer(shortInt), intent(in) :: lvl
+    integer(shortInt)             :: elementIdx
+
+    elementIdx = self % lvl(lvl) % getElementIdx()
+
+  end function getElementIdx
+
+  !!
+  !!
+  !!
   elemental function getGeometryIdx(self) result(geometryIdx)
     class(coordList), intent(in) :: self
     integer(shortInt)            :: geometryIdx
@@ -260,17 +275,6 @@ contains
   !!
   !!
   !!
-  elemental function getLowestMeshIdx(self) result(meshIdx)
-    class(coordList), intent(in) :: self
-    integer(shortInt)            :: meshIdx
-
-    meshIdx = self % lvl(max(self % nesting, 1)) % getMeshIdx()
-
-  end function getLowestMeshIdx
-
-  !!
-  !!
-  !!
   elemental function getLowestElementIdx(self) result(elementIdx)
     class(coordList), intent(in) :: self
     integer(shortInt)            :: elementIdx
@@ -278,6 +282,17 @@ contains
     elementIdx = self % lvl(max(self % nesting, 1)) % getElementIdx()
 
   end function getLowestElementIdx
+
+  !!
+  !!
+  !!
+  elemental function getLowestMeshIdx(self) result(meshIdx)
+    class(coordList), intent(in) :: self
+    integer(shortInt)            :: meshIdx
+
+    meshIdx = self % lvl(max(self % nesting, 1)) % getMeshIdx()
+
+  end function getLowestMeshIdx
 
   !!
   !!
@@ -326,6 +341,7 @@ contains
     data % geometryIdx = self % geometryIdx
     data % lowestCellIdx = self % lvl(level) % getCellIdx()
     data % lowestElementIdx = self % lvl(level) % getElementIdx()
+    data % lowestMeshIdx = self % lvl(level) % getMeshIdx()
     data % materialIdx = self % materialIdx
     data % uniqueId = self % uniqueId
     data % rGlobal = self % lvl(1) % getPosition()
@@ -658,6 +674,28 @@ contains
     call self % lvl(lvl) % setLocalId(localId)
 
   end subroutine setLocalId
+
+  !!
+  !!
+  !!
+  elemental subroutine setLowestElementIdx(self, lowestElementIdx)
+    class(coordList), intent(inout) :: self
+    integer(shortInt), intent(in)   :: lowestElementIdx
+
+    call self % lvl(self % nesting) % setElementIdx(lowestElementIdx)
+
+  end subroutine setLowestElementIdx
+
+  !!
+  !!
+  !!
+  elemental subroutine setLowestMeshIdx(self, lowestMeshIdx)
+    class(coordList), intent(inout) :: self
+    integer(shortInt), intent(in)   :: lowestMeshIdx
+
+    call self % lvl(self % nesting) % setMeshIdx(lowestMeshIdx)
+
+  end subroutine setLowestMeshIdx
 
   !!
   !!
