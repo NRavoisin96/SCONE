@@ -1,0 +1,148 @@
+type eigenPhysicsPackage;
+
+pop      200000;
+cycles   500;
+inactive 50;
+XSdata ce;
+dataType ce;
+seed 1;
+
+collisionOperator { neutronCE {type neutronCEstd;} }
+
+transportOperator { type transportOperatorDT; cache 0; }
+
+inactiveTally {
+
+}
+
+activeTally 
+{
+    clerks 
+    {
+    	display (keff);
+        fissionPower
+        {
+            type trackClerk;
+            map {
+                type unstructuredMeshMap;
+                meshId 1;
+            }
+            response (fissionPower);
+            fissionPower {
+                type fissionPowerResponse;
+            }
+        }
+        keff
+        {
+        	type keffAnalogClerk;
+        }
+    }
+    normalisationMethod {
+        type volumeNormalisationMethod;
+        targetValue 200000.0;
+        normalisationClerk fissionPower;
+    }
+}
+
+geometry {
+	type geometryStd;
+	graph {type shrunk;}
+	boundary (1 1 1 1 1 1);
+	
+	cells {
+   		hostCell {id 1; type simpleCell; surfaces (-1); filltype mat; material water;}
+  	}
+  	
+  	fields {
+  		T
+	    {
+	        type mixedScalarField;
+	        meshFields {
+	            squareRod {
+	                type OpenFOAMScalarField;
+	                meshId 1;
+	                path /home/parallels/Desktop/Academic/SCONE/IntegrationTestFiles/Fields/ScalarFields/T;
+	            }
+	        }
+	    }
+  	}
+
+	meshes { 
+		squareRod {
+		    id 1;
+		    type OpenFOAMMesh;
+		    path /home/parallels/Desktop/Academic/SCONE/IntegrationTestFiles/Geometry/Meshes/OpenFOAM/squareRod/;
+		    localIds {
+		        assignmentMethod all;
+		    }
+		    fills (fuel);
+		}
+	}
+	
+  	surfaces {
+		boxContainer { id 1; type box; origin (0.0 0.0 0.0); halfwidth (20.0 50.001 50.001); }
+  	}
+  	
+  	universes {
+    	root { id 1; type rootUniverse; border 1; fill u<2>; }
+		mesh { id 2; type meshUniverse; origin (0.0 0.0 0.0); rotation (0.0 0.0 0.0); cell 1; mesh 1; }
+  	}
+
+}
+
+nuclearData {
+	handles {
+    	ce {type aceNeutronDatabase; aceLibrary $SCONE_ACE;}
+  	}
+  
+	materials {
+
+		water {
+      			tms 1;
+      			temp 300;
+      			densityLaw {
+      				type polynomialPropertyLaw;
+      				coefficients (866.20039 1.20404 -0.00256);
+      			}
+      			rgb (0 0 139); // Colour of water is dark blue
+      			moder { 1001.03 (hh2o.03); }
+      			composition {
+      				type atomicDensityFraction;
+      				nuclides {
+      					1001.03 0.667;
+      					8016.03 0.333;
+      				}
+			    }
+      		}
+      		
+      	nitrogen {
+      		tms 1;
+      		temp 300;
+      		densityLaw {
+      			type constantPropertyLaw;
+      			value 1.0;
+      		}
+      		composition {
+      			type massFraction;
+      			nuclides {
+      				7014.03 1.0;
+      			}
+      		}
+      	}
+
+    	fuel {
+    	    tms 1;
+    	    temp 300;
+    	    densityLaw {
+    	    	type constantPropertyLaw;
+    	    	value 19094.519;
+    	    }
+       		composition {
+       			type massFraction;
+       			nuclides {
+       				94239.03  1.0;
+       			}
+			}
+      	}
+	}
+}
