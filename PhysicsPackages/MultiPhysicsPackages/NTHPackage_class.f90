@@ -11,10 +11,12 @@ module NTHPackage_class
   use outputFile_class,                 only : outputFile
   use particleDungeon_class,            only : particleDungeon
   use particlePhysicsPackage_inter,     only : initParticlePhysicsPackagePayload, particlePhysicsPackage
+  use physicalParticle_inter,           only : physicalParticle
   use physicsPackage_inter,             only : copyPayload, init_super => init, initPhysicsPackagePayload, physicsPackage
+  use RNG_class,                        only : RNG
   use scalarField_inter,                only : castScalarFieldPtr, scalarField
   use tallyAdmin_class,                 only : tallyAdmin
-  use tallyResult_class,                only : tallyResult, tallyResultArrays
+  use tallyResult_class,                only : castTallyResultArraysPtr, tallyResult, tallyResultArrays
   use timer_mod,                        only : timerReset, timerStart
   use transportOperator_inter,          only : transportOperator
   use universalVariables,               only : nameHeatSource, nameTemperature
@@ -196,59 +198,76 @@ contains
     class(scalarField), pointer, intent(inout) :: heatSourceFieldPtr, temperatureFieldPtr
     type(tallyAdmin), pointer, intent(inout)   :: tallyAdminPtr
     logical(defBool), intent(in), optional     :: flush
+    class(physicalParticle), allocatable       :: p
     class(tallyResult), allocatable            :: tallyResults
     class(transportOperator), allocatable      :: transOp
-    integer(shortInt)                          :: i, j
+    integer(shortInt)                          :: i, j, geometryIdx, nInitialParticles
     logical(defBool)                           :: flushResults
     type(collisionOperator)                    :: collOp
     type(particleDungeon)                      :: buffer
-    character(*), parameter                    :: here = 'runCycles (NTHPackage_class.f90)'
+    type(RNG)                                  :: pRNG
+    type(tallyResultArrays), pointer           :: tallyResultArraysPtr
+    character(*), parameter                    :: HERE = 'runCycles (NTHPackage_class.f90)'
 
     flushResults = .false.
     if (present(flush)) flushResults = flush
 
+    ! Initialise shared variables.
+    geometryIdx = 0
+    nInitialParticles = 0
+
+    ! Create parallel region here.
+    !$omp parallel default(shared) private(buffer, collOp, i, j, p, pRNG, tallyResultArraysPtr, transOp)
+
     ! Initialise buffer then get collision and transport operators from neutronics package.
     call buffer % init(self % neutronicsPackage % getBufferSize())
     collOp = self % neutronicsPackage % getCollisionOperator()
-    transOp = self % neutronicsPackage % getTransportOperator()
+    allocate(transOp, source = self % neutronicsPackage % getTransportOperator())
+    !$omp barrier
 
     ! Loop through inactive cycles first (if any).
     do i = 1, nCycles
       ! Run neutronics simulation and get fission power results from tallyAdminPtr.
-      !call self % neutronicsPackage % runCycle(i, nCycles, transOp, collOp, buffer, tallyAdminPtr)
+      call self % neutronicsPackage % runCycle(i, nCycles, p, transOp, geometryIdx, nInitialParticles, collOp, buffer, &
+                                               pRNG, tallyAdminPtr)
+      !$omp barrier
+      
+      !$omp master
       call tallyAdminPtr % getResult(tallyResults, 'fissionPower')
 
       ! Downcast tallyResults to correct type and update heat source field.
-      select type(ptr => tallyResults)
-        class is(tallyResultArrays)
-          ! Find the result corresponding to the fissionPower clerk.
-          if (.not. allocated(ptr % results)) call fatalError(here, 'Empty tally results.')
-          do j = 1, size(ptr % results)
-            if (ptr % results(j) % clerkName == 'fissionPower') then
-              call heatSourceFieldPtr % setValues(ptr % results(j) % values)
+      tallyResultArraysPtr => castTallyResultArraysPtr(tallyResults)
+      if (.not. allocated(tallyResultArraysPtr % results)) call fatalError(HERE, 'Empty tally results.')
+      do j = 1, size(tallyResultArraysPtr % results)
+        if (tallyResultArraysPtr % results(j) % clerkName == 'fissionPower') then
+          call heatSourceFieldPtr % setValues(tallyResultArraysPtr % results(j) % values)
 
-            end if
+        end if
 
-          end do
-
-        class default
-          call fatalError(here, 'Invalid tally results type.')
-
-      end select
+      end do
+      !$omp end master
+      !$omp barrier
 
       ! Run heat transfer simulation and update temperature field. This is ugly for now (NR).
-      call self % heatTransferPackage % run()
+      call self % heatTransferPackage % runWalkers()
+      !$omp barrier
+      
+      !$omp master
       call temperatureFieldPtr % setValues(self % heatTransferPackage % getMeans())
 
       ! Update neutronics package nuclear data using the new temperature field and flush tallies.
-      !call self % neutronicsPackage % updateNuclearData()
+      call self % neutronicsPackage % updateNuclearData()
       if (flushResults) then
         call self % heatTransferPackage % flushResults()
         call tallyAdminPtr % flush('fissionPower')
 
       end if
+      !$omp end master
+      !$omp barrier
 
     end do
+
+    !$omp end parallel
 
   end subroutine runCycles
 

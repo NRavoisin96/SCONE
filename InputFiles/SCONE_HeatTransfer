@@ -1,6 +1,6 @@
 type heatTransferPhysicsPackage;
 
-convergenceCriterion 1.0e-3;
+convergenceCriterion 1.0e-2;
 surfaceTolerance 1.0e-4;
 walksPerBatch 50;
 XSdata ce;
@@ -64,10 +64,13 @@ nuclearData {
       			rgb (0 0 139); // Colour of water is dark blue
       			moder { 1001.03 (hh2o.03); }
       			composition {
-      				1001.03    6.700E-002;
-      				8016.03    3.350E-002;
-      				5010.03    5.560E-006;
-      				5011.03    2.224E-005; 
+      				type rawAtomicDensities;
+      				nuclides {
+      					1001.03    6.700E-002;
+      					8016.03    3.350E-002;
+      					5010.03    5.560E-006;
+      					5011.03    2.224E-005; 
+      				}
 			    }
       		}
 
@@ -75,8 +78,11 @@ nuclearData {
     	    tms 1;
     	    temp 3000;
        		composition {
-      			92235.03  1.450E-003;
-      			92238.03  4.690E-002;
+       			type rawAtomicDensities;
+       			nuclides {
+       				92235.03  1.450E-003;
+      				92238.03  4.690E-002;
+       			}
 			}
       	}
 	}

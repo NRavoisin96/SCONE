@@ -1,6 +1,6 @@
 type eigenPhysicsPackage;
 
-pop      2000;
+pop      10000;
 cycles   200;
 inactive 100;
 XSdata ce;
@@ -17,18 +17,6 @@ activeTally {
     clerks {
         display (k_eff);
         k_eff {type keffAnalogClerk;}
-        fissionPowerClerk {
-            type collisionClerk;
-            map {
-                type unstructuredMeshMap;
-                meshId 1;
-            }
-            response (fissionPower);
-            fissionPower {
-                type macroResponse;
-                MT -80;
-            }
-        }
     }
 }
 
@@ -61,7 +49,6 @@ geometry {
 		    boundaryConditions {
 		        assignmentMethod boundary;
 		        transportBCs (1);
-		        temperatureBCs (1);
 		    }
 		    fills (fuel water fuel water);
 		}
@@ -91,7 +78,7 @@ nuclearData {
 
     	fuel {
     	    tms 1;
-    	    temp 300;
+    	    temp 3000;
        		composition {
       			92235.03  1.450E-003;
       			92238.03  4.690E-002;

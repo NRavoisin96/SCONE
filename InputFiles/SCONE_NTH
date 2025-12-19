@@ -1,0 +1,176 @@
+type NTHPackage;
+
+packages {
+    neutronics {
+        type eigenPhysicsPackage;
+        XSdata ce;
+        dataType ce;
+        seed 1;
+        
+        pop 200000;
+        inactive 50;
+        cycles 500;
+        
+        collisionOperator { neutronCE {type neutronCEstd;} }
+        transportOperator { type transportOperatorST; cache 0; }
+        
+        inactiveTally {
+            clerks {
+                fissionPower
+                {
+                    type trackClerk;
+                    map {
+                        type unstructuredMeshMap;
+                        meshId 1;
+                    }
+                    response (fissionPower);
+                    fissionPower {
+                        type fissionPowerResponse;
+                    }
+                }
+            }
+            normalisationMethod {
+                type volumeNormalisationMethod;
+                targetValue 200000.0;
+                normalisationClerk fissionPower;
+            }
+        }
+
+        activeTally {
+            clerks {
+                display (k_eff);
+                k_eff {type keffAnalogClerk;}
+                fissionPower
+                {
+                    type trackClerk;
+                    map {
+                        type unstructuredMeshMap;
+                        meshId 1;
+                    }
+                    response (fissionPower);
+                    fissionPower {
+                        type fissionPowerResponse;
+                    }
+                }
+            }
+            normalisationMethod {
+                type volumeNormalisationMethod;
+                targetValue 200000.0;
+                normalisationClerk fissionPower;
+            }
+        }
+    }
+    
+    heatTransfer {
+        type heatTransferPackage;
+        convergenceCriterion 1.0e-2;
+        surfaceTolerance 1.0e-4;
+        seed 3;
+    }
+}
+
+geometry {
+	type geometryStd;
+	boundary (1 1 1 1 1 1);
+	graph {type shrunk;}
+	
+	cells {
+   		hostCell {id 1; type simpleCell; surfaces (-1); filltype mat; material water;}
+  	}
+	
+	fields {
+	    Q
+	    {
+	        type mixedScalarField;
+	        meshFields {
+	            testMesh {
+	                type OpenFOAMScalarField;
+	                meshId 1;
+	                path ./IntegrationTestFiles/Fields/ScalarFields/Q;
+	            }
+	        }
+	    }
+	    
+	    T
+	    {
+	        type mixedScalarField;
+	        meshFields {
+	            testMesh {
+	                type OpenFOAMScalarField;
+	                meshId 1;
+	                path ./IntegrationTestFiles/Fields/ScalarFields/T;
+	            }
+	        }
+	    }
+	}
+
+	meshes { 
+		testMesh {
+		    id 1;
+		    type OpenFOAMMesh;
+		    path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/squareRod/;
+		    localIds {
+		        assignmentMethod all;
+		    }
+		    boundaryConditions {
+		        assignmentMethod boundary;
+		        temperatureBCs (1 1 2);
+		        fixedTemperatureValues (300.0 300.0);
+		    }
+		    fills (fuel);
+		}
+	}
+	
+	surfaces {
+		boxContainer { id 1; type box; origin (0.0 0.0 0.0); halfwidth (20.0 50.001 50.001); }
+  	}
+  	
+  	universes {
+    	root { id 1; type rootUniverse; border 1; fill u<2>; }
+		mesh { id 2; type meshUniverse; origin (0.0 0.0 0.0); rotation (0.0 0.0 0.0); cell 1; mesh 1; }
+  	}
+
+}
+
+nuclearData {
+	handles {
+    	ce {type aceNeutronDatabase; aceLibrary $SCONE_ACE;}
+  	}
+  
+	materials {
+
+		water {
+      		tms 1;
+      		temp 300;
+      		rgb (0 0 139); // Colour of water is dark blue
+      		moder { 1001.03 (hh2o.03); }
+      		densityLaw {
+      			type polynomialPropertyLaw;
+      			coefficients (866.20039 1.20404 -0.00256);
+      		}
+      		composition {
+      			type atomicDensityFraction;
+      			nuclides {
+      				1001.03    0.667;
+      				8016.03    0.333;
+      			}
+		    }
+      	}
+
+    	fuel {
+    		tms 1;
+    	    temp 300;
+    	    densityLaw {
+    	    	type constantPropertyLaw;
+    	    	value 19094.519;
+    	    }
+       		composition {
+       			type massFraction;
+       			nuclides {
+       				94239.03  1.0;	
+       			}
+			}
+      	}
+	}
+}
+

@@ -36,15 +36,17 @@ module heatTransferPhysicsPackage_class
   !!
   !!
   !!
-  type, public, extends(physicsPackage)      :: heatTransferPhysicsPackage
+  type, public, extends(physicsPackage)          :: heatTransferPhysicsPackage
     private
-    class(unstructuredMesh), pointer         :: unstructuredMeshPtr => null()
-    integer(shortInt)                        :: nRuns = 0, nWalksPerBatch = 0
-    real(defReal)                            :: convergenceCriterion = ZERO, surfaceTolerance = ZERO
-    real(defReal), dimension(:), allocatable :: means, M2, parentErrors, parentSumOfScores, parentSumOfScoresSquared, variances
-    type(RNG), pointer                       :: RNGPtr => null()
-    type(tallyAdmin), pointer                :: tallyPtr => null()
-    type(transportOperatorWoS)               :: transportOperator
+    class(unstructuredMesh), pointer             :: unstructuredMeshPtr => null()
+    integer(shortInt)                            :: nRuns = 0, nWalksPerBatch = 0
+    integer(shortInt), dimension(:), allocatable :: nWalks
+    logical(defBool), dimension(:), allocatable  :: isConverged
+    real(defReal)                                :: convergenceCriterion = ZERO, surfaceTolerance = ZERO
+    real(defReal), dimension(:), allocatable     :: means, M2, parentErrors, parentSumOfScores, parentSumOfScoresSquared, variances
+    type(RNG), pointer                           :: RNGPtr => null()
+    type(tallyAdmin), pointer                    :: tallyPtr => null()
+    type(transportOperatorWoS)                   :: transportOperator
   contains
     procedure :: collectSpecificResults
     procedure :: flushResults
@@ -52,6 +54,7 @@ module heatTransferPhysicsPackage_class
     procedure :: init
     procedure :: kill
     procedure :: run
+    procedure :: runWalkers
     procedure :: walk
   end type heatTransferPhysicsPackage
 
@@ -74,6 +77,8 @@ contains
     self % means = ZERO
     self % variances = ZERO
     self % nRuns = 0
+    self % nWalks = 0
+    self % isConverged = .false.
 
   end subroutine flushResults
 
@@ -124,17 +129,19 @@ contains
     self % unstructuredMeshPtr => unstructuredMeshPtr
 
     nParentElements = self % unstructuredMeshPtr % getParentElementsNumber()
-    allocate(self % means(nParentElements), self % M2(nParentElements), self % parentErrors(nParentElements), &
-             self % parentSumOfScores(nParentElements), self % parentSumOfScoresSquared(nParentElements), &
-             self % variances(nParentElements))
+    allocate(self % isConverged(nParentElements), self % means(nParentElements), self % M2(nParentElements), &
+             self % parentErrors(nParentElements), self % parentSumOfScores(nParentElements), &
+             self % parentSumOfScoresSquared(nParentElements), self % variances(nParentElements), self % nWalks(nParentElements))
 
     ! Initialise variables.
+    self % isConverged = .false.
     self % means = ZERO
     self % M2 = ZERO
     self % parentErrors = INF
     self % parentSumOfScores = ZERO
     self % parentSumOfScoresSquared = ZERO
     self % variances = ZERO
+    self % nWalks = 0
 
     ! Initialise RNG.
     allocate(self % RNGPtr)
@@ -156,12 +163,14 @@ contains
     self % nWalksPerBatch = 0
     self % convergenceCriterion = ZERO
     self % surfaceTolerance = ZERO
-    if (allocated(self % means)) deallocate(self % means)
-    if (allocated(self % M2)) deallocate(self % M2)
-    if (allocated(self % parentErrors)) deallocate(self % parentErrors)
-    if (allocated(self % parentSumOfScores)) deallocate(self % parentSumOfScores)
-    if (allocated(self % parentSumOfScoresSquared)) deallocate(self % parentSumOfScoresSquared)
-    if (associated(self % RNGPtr)) deallocate(self % RNGPtr)
+    if(allocated(self % isConverged)) deallocate(self % isConverged)
+    if(allocated(self % means)) deallocate(self % means)
+    if(allocated(self % M2)) deallocate(self % M2)
+    if(allocated(self % parentErrors)) deallocate(self % parentErrors)
+    if(allocated(self % parentSumOfScores)) deallocate(self % parentSumOfScores)
+    if(allocated(self % parentSumOfScoresSquared)) deallocate(self % parentSumOfScoresSquared)
+    if(allocated(self % nWalks)) deallocate(self % nWalks)
+    if(associated(self % RNGPtr)) deallocate(self % RNGPtr)
     self % tallyPtr => null()
     call self % transportOperator % kill()
 
@@ -172,40 +181,60 @@ contains
   !!
   subroutine run(self)
     class(heatTransferPhysicsPackage), intent(inout) :: self
-    integer(shortInt)                                :: elementIdx, i, j, nWalks, nWalksBatchStart
-    integer(shortInt), dimension(:), allocatable     :: childrenIdxs
+    
+    ! Create parallel region here then run.
+    !$omp parallel default(shared)
+    call self % runWalkers()
+    !$omp end parallel
+
+  end subroutine run
+
+  !!
+  !!
+  !!
+  subroutine runWalkers(self)
+    class(heatTransferPhysicsPackage), intent(inout) :: self
+    integer(shortInt)                                :: elementIdx, i, j, nWalksBatchStart
+    integer(shortInt), dimension(:), allocatable     :: childrenIdxs, testIdxs
     real(defReal)                                    :: accumulatedValue, batchMean, batchVariance, previousMean, randomNumber
     type(coordList), pointer                         :: coordsPtr
     type(elementBox)                                 :: box, childBox
     type(randomWalker)                               :: walker
     type(RNG)                                        :: wRNG
-    character(*), parameter                          :: here = 'run (heatTransferPhysicsPackage_class.f90)'
+    character(*), parameter                          :: HERE = 'runWalkers (heatTransferPhysicsPackage_class.f90)'
 
+    !$omp master
     print *, repeat("<>", 50)
     print *, "/\/\ HEAT TRANSFER CALCULATION /\/\"
 
     self % parentErrors = INF
     self % parentSumOfScores = ZERO
     self % parentSumOfScoresSquared = ZERO
+    self % nWalks = 0
+    self % nRuns = self % nRuns + 1
+    nWalksBatchStart = 0
+    !$omp end master
+
+    testIdxs = [1, 10, 2, 9, 3, 8, 4, 7, 5, 6]
+
+    ! Ensure global initialisation is finished before launching parallel execution.
+    !$omp barrier
 
     ! Loop over all regions.
-    self % nRuns = self % nRuns + 1
     ! Initialise walks at centroid of each mesh elements (this should be handled by tally map).
     do i = 1, self % unstructuredMeshPtr % getElementsNumber()
       ! Retrieve current element. Check if it is a parent element.
-      box = self % unstructuredMeshPtr % getElementBox(i)
+      box = self % unstructuredMeshPtr % getElementBox(testIdxs(i))
       if (box % ptr % getParentIdx() == 0) then
-        ! Loop until the error for this parent is below the convergence criterion.
         elementIdx = box % ptr % getIdx()
-        nWalks = 0
+        ! Loop until the error for this parent is below the convergence criterion.
+        !$omp master
         previousMean = ZERO
-        do while(self % convergenceCriterion < self % parentErrors(i))
-          
-          nWalksBatchStart = nWalks
-          ! Initialise parallel region here.
-          !$omp parallel do &
-          !$omp private(accumulatedValue, childBox, childrenIdxs, coordsPtr, j, randomNumber, wRNG, walker) &
-          !$omp shared(box, elementIdx, nWalks, nWalksBatchStart, self) schedule(dynamic)
+        !$omp end master
+        !$omp barrier
+        do while(.not. self % isConverged(testidxs(i)))
+          ! Launch parallel execution.
+          !$omp do schedule(dynamic)
           
           ! Loop for a fixed number of walks.
           do j = 1, self % nWalksPerBatch
@@ -243,11 +272,12 @@ contains
 
             ! Increment number of walks.
             !$omp atomic update
-            nWalks = nWalks + 1
+            self % nWalks(elementIdx) = self % nWalks(elementIdx) + 1
             !$omp end atomic
 
             if (accumulatedValue == ZERO) cycle
             associate(sum => self % parentSumOfScores(elementIdx), sumOfSquares => self % parentSumOfScoresSquared(elementIdx))
+              
               !$omp atomic update
               sum = sum + accumulatedValue
 
@@ -257,37 +287,46 @@ contains
             end associate
 
           end do
-          !$omp end parallel do
+          !$omp end do
+
+          nWalksBatchStart = nWalksBatchStart + self % nWalksPerBatch
+          !$omp barrier
 
           ! Update standard error for current parent.
-          if (2000 < nWalks) then
-            associate(sum => self % parentSumOfScores(elementIdx), sumOfSquares => self % parentSumOfScoresSquared(elementIdx))
+          !$omp master
+          if (2000 < self % nWalks(elementIdx)) then
+            associate(nWalks => self % nWalks(elementIdx), sum => self % parentSumOfScores(elementIdx), &
+                      sumOfSquares => self % parentSumOfScoresSquared(elementIdx))
               ! Compute mean and variance for the current batch.
               batchMean = sum / nWalks
               batchVariance = (sumOfSquares - sum * batchMean) / (nWalks - 1)
 
+
               ! Update global statistics.
-              previousMean = self % means(i)
-              self % means(i) = self % means(i) + (batchMean - self % means(i)) / self % nRuns
+              previousMean = self % means(testIdxs(i))
+              self % means(testIdxs(i)) = self % means(testIdxs(i)) + (batchMean - self % means(testIdxs(i))) / self % nRuns
 
               if (self % nRuns == 1) then
-                self % variances(i) = batchVariance / nWalks
+                self % variances(testIdxs(i)) = batchVariance / nWalks
 
               else
-                self % M2(i) = self % M2(i) + (batchMean - previousMean) * (batchMean - self % means(i))
-                self % variances(i) = self % M2(i) / (self % nRuns - 1)
+                self % M2(testIdxs(i)) = self % M2(testIdxs(i)) + &
+                                         (batchMean - previousMean) * (batchMean - self % means(testIdxs(i)))
+                self % variances(testIdxs(i)) = self % M2(testIdxs(i)) / (self % nRuns - 1)
 
               end if
 
               ! Convergence check.
-              if (self % means(i) /= ZERO) then
+              if (self % means(testIdxs(i)) /= ZERO) then
                 if (self % nRuns == 1) then
-                  self % parentErrors(i) = sqrt(batchVariance / nWalks) / abs(self % means(i))
+                  self % parentErrors(testIdxs(i)) = sqrt(batchVariance / nWalks) / abs(self % means(testIdxs(i)))
 
                 else
-                  self % parentErrors(i) = sqrt(self % variances(i) / self % nRuns) / abs(self % means(i))
+                  self % parentErrors(testIdxs(i)) = sqrt(self % variances(testIdxs(i)) / self % nRuns) / &
+                                                     abs(self % means(testIdxs(i)))
 
                 end if
+                if(self % parentErrors(testIdxs(i)) <= self % convergenceCriterion) self % isConverged(testIdxs(i)) = .true.
 
               end if
 
@@ -295,20 +334,29 @@ contains
 
           end if
 
-        end do
+          ! Display progress.
+          if(self % isConverged(testIdxs(i))) then
+            print *, 'Temperature of element '//numToChar(testIdxs(i))//': ', self % means(testIdxs(i)), '+/-', &
+                      sqrt(self % variances(testIdxs(i)))
+            print *, 'Number of walks: ', self % nWalks(elementIdx)
 
-        print *, 'Temperature:', self % means(i), '+/-', sqrt(self % variances(i))
-        print *, 'Number of walks:', nWalks
+          end if
+          !$omp end master
+          !$omp barrier
+
+        end do
 
       end if
 
     end do
 
+    !$omp master
     print *
     print *, "\/\/ END OF HEAT TRANSFER CALCULATION \/\/"
     print *
+    !$omp end master
 
-  end subroutine run
+  end subroutine runWalkers
 
   !!
   !!
@@ -429,6 +477,13 @@ contains
         ! Exit loop.
         call coordsPtr % setDirection(u, 1)
         call coordsPtr % setElementIdx(chosenElementPtr % getIdx(), 1)
+
+        ! Test: if chosen element is already converged, accumulate its values and return immediately.
+        if(self % isConverged(chosenElementPtr % getIdx())) then
+          call walker % accumulateValue(self % means(chosenElementPtr % getIdx()))
+          return
+
+        end if
 
         minDistance = INF
         faceBoxes = elementPtr % getOrientatedFaces()

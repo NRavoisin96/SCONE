@@ -15,10 +15,14 @@
 !!
 module tallyResult_class
 
+  use errors_mod,  only : fatalError
   use numPrecision
 
   implicit none
   private
+
+  ! Public procedures.
+  public :: castTallyResultArraysPtr
 
   !!
   !! Empty abstract class to allow polymorphism of all result subclasses
@@ -59,5 +63,33 @@ module tallyResult_class
   type, public, extends(tallyResult) :: tallyResultEmpty
 
   end type tallyResultEmpty
+
+contains
+  !!
+  !!
+  !!
+  function castTallyResultArraysPtr(source, fatal) result(ptr)
+    class(tallyResult), intent(in)         :: source
+    logical(defBool), intent(in), optional :: fatal
+    class(tallyResultArrays), pointer      :: ptr
+    logical(defBool)                       :: throwError
+    character(*), parameter                :: HERE = 'castTallyResultArraysPtr (tallyResult_class.f90)'
+
+    ! Downcast.
+    select type(temp => source)
+      class is(tallyResultArrays)
+        ptr => temp
+
+      class default
+        ptr => null()
+
+    end select
+
+    ! Throw error if requested.
+    throwError = .true.
+    if(present(fatal)) throwError = fatal
+    if(throwError .and. .not. associated(ptr)) call fatalError(HERE, "Tally result is not of class 'tallyResultArrays'.")
+
+  end function castTallyResultArraysPtr
 
 end module tallyResult_class
