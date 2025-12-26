@@ -31,7 +31,7 @@ module element_inter
   !!
   type, public, abstract                         :: element
     private
-    integer(shortInt)                            :: idx = 0, parentIdx = 0
+    integer(shortInt)                            :: idx = 0, parentIdx = 0, localId = 0
     integer(shortInt), dimension(:), allocatable :: edgeIdxs, faceIdxs, vertexIdxs, tetrahedronIdxs
     real(defReal)                                :: volume = ZERO
     real(defReal), dimension(3)                  :: centroid = ZERO
@@ -48,6 +48,7 @@ module element_inter
     procedure, non_overridable                   :: computeConvexity
     procedure, non_overridable                   :: init
     procedure, non_overridable                   :: setIdx
+    procedure, non_overridable                   :: setLocalId
     procedure(split), deferred                   :: split
     ! Runtime procedures.
     procedure, non_overridable                   :: computeIntersectedFace
@@ -58,6 +59,7 @@ module element_inter
     procedure, non_overridable                   :: getFaceIdxs
     procedure, non_overridable                   :: getIdx
     procedure, non_overridable                   :: getIsConvex
+    procedure, non_overridable                   :: getLocalId
     procedure, non_overridable                   :: getParentIdx
     procedure, non_overridable                   :: getType
     procedure, non_overridable                   :: getVertexIdxs
@@ -441,6 +443,9 @@ contains
 
   end function getIdx
 
+  !!
+  !!
+  !!
   elemental function getIsConvex(self) result(isConvex)
     class(element), intent(in) :: self
     logical(defBool)           :: isConvex
@@ -448,6 +453,17 @@ contains
     isConvex = self % isConvex
 
   end function getIsConvex
+
+  !!
+  !!
+  !!
+  elemental function getLocalId(self) result(localId)
+    class(element), intent(in) :: self
+    integer(shortInt)          :: localId
+
+    localId = self % localId
+
+  end function getLocalId
 
   !! Function 'getParentIdx'
   !!
@@ -546,6 +562,7 @@ contains
     
     self % idx = 0
     self % parentIdx = 0
+    self % localId = 0
     self % volume = ZERO
     self % centroid = ZERO
     self % isConvex = .false.
@@ -614,6 +631,17 @@ contains
     self % idx = idx
 
   end subroutine setIdx
+
+  !!
+  !!
+  !!
+  elemental subroutine setLocalId(self, localId)
+    class(element), intent(inout) :: self
+    integer(shortInt), intent(in) :: localId
+
+    self % localId = localId
+
+  end subroutine setLocalId
   
   !! Subroutine 'testForInclusion'
   !!

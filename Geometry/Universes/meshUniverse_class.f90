@@ -129,7 +129,7 @@ contains
     ! (needs to be changed)
     !fillNames = ["fuel ", "water"]
     nFills = size(fillNames)
-    if (self % mesh % ptr % getElementZonesNumber() /= nFills) call fatalError(Here, &
+    if (self % mesh % ptr % getLocalIdsNumber() /= nFills) call fatalError(Here, &
     'The number of fills does not match the number of element zones in mesh geometry with id: '//numToChar(meshId)//'.')
     
     ! Create fill array. First entry is fill of the CSG cell, remaining entries are the fills for 
@@ -154,7 +154,14 @@ contains
     
     ! Set cellIdx to the index of the CSG cell, then find elementIdx and localId within mesh.
     call coords % setCellIdx(self % cell % idx)
-    call self % mesh % ptr % findOccupiedElementIdx(coords)
+    call self % mesh % ptr % findHostElement(coords)
+    if(0 < coords % getElementIdx()) then
+      call coords % setLocalId(coords % getLocalId() + 1)
+
+    else
+      call coords % setLocalId(1)
+
+    end if
 
   end subroutine findCell
   

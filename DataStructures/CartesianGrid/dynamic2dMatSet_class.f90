@@ -768,19 +768,22 @@ contains
   !! init
   !!
   subroutine init(self, n_slices, hint_unique)
-    class(dynamic2dMatSet), intent(inout) :: self
-    integer(shortInt), intent(in) :: n_slices
+    class(dynamic2dMatSet), intent(inout)   :: self
+    integer(shortInt), intent(in)           :: n_slices
     integer(shortInt), intent(in), optional :: hint_unique
+    integer(shortInt)                       :: initValue
 
-    call self%kill()
+    call self % kill()
 
-    if (n_slices < 0_shortInt) then
-       call fatalError("dynamic2dMatSet:init", "n_slices < 0")
-    end if
+    if (n_slices < 0) call fatalError("dynamic2dMatSet:init", "n_slices < 0")
 
-    allocate(self%slice(max(0, n_slices)))
-    self%nused = 0_shortInt
-    call self%gids%init(merge(hint_unique, 8_shortInt, present(hint_unique)))
+    allocate(self % slice(max(0, n_slices)))
+    self % nused = 0
+
+    initValue = 8
+    if(present(hint_unique)) initValue = hint_unique
+    call self % gids % init(initValue)
+
   end subroutine init
 
   !!

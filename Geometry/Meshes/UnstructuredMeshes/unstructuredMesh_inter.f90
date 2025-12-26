@@ -1,7 +1,6 @@
 module unstructuredMesh_inter
 
   use accelerationStructure_inter,   only : accelerationStructure
-  use cellZoneShelf_class,           only : cellZoneShelf
   use coord_class,                   only : coord
   use dictionary_class,              only : dictionary
   use edgeShelf_class,               only : edgeShelf
@@ -67,9 +66,11 @@ module unstructuredMesh_inter
     procedure                       :: computePrimitives
     procedure(importMesh), deferred :: importMesh
     procedure                       :: init
+    procedure                       :: initElementZones
     procedure                       :: kill
     procedure, non_overridable      :: printComposition
     procedure                       :: setEdgeShelf
+    procedure                       :: setElementLocalId
     procedure                       :: setElementShelf
     procedure                       :: setFaceShelf
     procedure                       :: setVertexShelf
@@ -94,16 +95,14 @@ module unstructuredMesh_inter
     !!   d [out]        -> Distance to the next intersected face.
     !!   coords [inout] -> Particle's coordinates.
     !!
-    subroutine importMesh(self, folderPath, edges, elements, elementZones, faces, vertices)
-      import                                 :: unstructuredMesh, cellZoneShelf, edgeShelf, elementShelf, faceShelf, vertexShelf
+    subroutine importMesh(self, folderPath, edges, elements, faces, vertices)
+      import                                 :: unstructuredMesh, edgeShelf, elementShelf, faceShelf, vertexShelf
       class(unstructuredMesh), intent(inout) :: self
       character(*), intent(in)               :: folderPath
       type(edgeShelf), intent(out)           :: edges
       type(elementShelf), intent(out)        :: elements
-      type(cellZoneShelf), intent(out)       :: elementZones
       type(faceShelf), intent(out)           :: faces
       type(vertexShelf), intent(out)         :: vertices
-
     end subroutine importMesh
 
   end interface
@@ -329,8 +328,9 @@ contains
     ! Else, retrieve the elements sharing the intersected face from mesh connectivity then
     ! update elementIdx and localId.
     faceToElements = self % faces % getFaceElementIdxs(intersectedFaceIdx)
-    call coords % setElementIdx(findDifferent(faceToElements, elementIdx))
-    call coords % setLocalId(self % findElementZoneIdx(self % elements % getElementParentIdx(coords % getElementIdx())))
+    elementIdx = findDifferent(faceToElements, elementIdx)
+    call coords % setElementIdx(elementIdx)
+    call coords % setLocalId(self % elements % getElementLocalId(elementIdx))
 
   end subroutine distanceToNextFace
 
@@ -345,15 +345,18 @@ contains
   subroutine findHostElement(self, coords)
     class(unstructuredMesh), intent(in)          :: self 
     type(coord), intent(inout)                   :: coords
-    integer(shortInt), dimension(:), allocatable :: potentialElementsIdxs
+    integer(shortInt), dimension(:), allocatable :: potentialElementsIdxs, bruteForceElementVertexIdxs, &
+                                                    patchSearchElementVertexIdxs
     integer(shortInt)                            :: i, nPotentialElements, potentialElementIdx
     real(defReal), dimension(3)                  :: r
+    type(coord)                                  :: coordsCopy
     type(inclusionTestResult)                    :: testResult
     integer(shortInt)           :: coordPatch, coordBrute, coordOctree !!!
     
     ! Initialise parentIdx = 0. Retrieve the mesh's bounding box. If the particle is outside the bounding box we can return early.
     call coords % setElementIdx(0)
     call coords % setParentElementIdx(0)
+    coordsCopy = coords
     if (allocated(self % acceleration)) then
       call self % acceleration % findHostElement(self % vertices, self % edges, self % faces, self % elements, coords)
       
@@ -371,6 +374,7 @@ contains
           if (testResult % status == INSIDE_ELEMENT) then
             call coords % setElementIdx(i)
             call coords % setParentElementIdx(self % elements % getElementParentIdx(i))
+            call coords % setLocalId(self % elements % getElementLocalId(i))
 
             !!!
             ! coordBrute = coords % getElementIdx()
@@ -404,6 +408,7 @@ contains
               ! If coordinates are now well inside the element, we have found our element.
               call coords % setElementIdx(i)
               call coords % setParentElementIdx(self % elements % getElementParentIdx(i))
+              call coords % setLocalId(self % elements % getElementLocalId(i))
               
               !!!
               ! coordBrute = coords % getElementIdx()
@@ -485,7 +490,6 @@ contains
     class(dictionary), intent(in)          :: dict
     type(edgeShelf)                        :: edges, newEdges
     type(elementShelf)                     :: elements, newElements
-    type(cellZoneShelf)                    :: elementZones
     type(faceShelf)                        :: faces, newFaces
     type(vertexShelf)                      :: newVertices, vertices
     logical(defBool)                       :: triangulate
@@ -495,7 +499,7 @@ contains
     call self % setupBase(dict)
     
     ! Import mesh from files.
-    call self % importMesh(folderPath, edges, elements, elementZones, faces, vertices)
+    call self % importMesh(folderPath, edges, elements, faces, vertices)
 
     ! Check if triangulation was requested.
     call dict % getOrDefault(triangulate, 'triangulate', .false.)
@@ -514,8 +518,8 @@ contains
 
     end if
 
-    ! Set elements zones.
-    call self % setElementZones(elementZones)
+    ! Set element zones here.
+    call self % initElementZones()
 
     ! Check if acceleration structure was required by user and initialise it if applicable.
     call dict % getOrDefault(acceleration, 'accelerationMethod', 'none')
@@ -527,6 +531,16 @@ contains
     end if
 
   end subroutine init
+
+  !!
+  !!
+  !!
+  subroutine initElementZones(self)
+    class(unstructuredMesh), intent(inout) :: self
+
+    ! Do nothing by default.
+
+  end subroutine initElementZones
 
   !! Subroutine 'kill'
   !!
@@ -619,6 +633,17 @@ contains
     self % edges = edges
 
   end subroutine setEdgeShelf
+
+  !!
+  !!
+  !!
+  subroutine setElementLocalId(self, elementIdx, localId)
+    class(unstructuredMesh), intent(inout) :: self
+    integer(shortInt), intent(in)          :: elementIdx, localId
+
+    call self % elements % setElementLocalId(elementIdx, localId)
+
+  end subroutine
 
   !! Subroutine 'setElementShelf'
   !!

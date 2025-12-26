@@ -2,6 +2,7 @@ module patchSingleAcceleration_class
 
   use accelerationStructure_inter, only : accelerationStructure
   use coord_class,                 only : coord
+  use element_inter,               only : inclusionTestResult
   use elementShelf_class,          only : elementShelf
   use faceShelf_class,             only : faceShelf
   use numPrecision
@@ -9,7 +10,8 @@ module patchSingleAcceleration_class
   use edgeShelf_class,             only : edgeShelf
   use cartesianGridSingle_class,   only : cartesianGridSingle
   use cartesianGenericProcedures,  only : binarySearchAngle
-    use genericProcedures,            only : fatalError
+  use genericProcedures,           only : fatalError
+  use universalVariables,          only : INSIDE_ELEMENT
   !!!!!
   ! With analysis on distribution
   !use analysisDistribution
@@ -53,6 +55,7 @@ contains
     integer(shortInt), dimension(2)              :: currEdgeVertexIdxs
     real(defReal)                                :: thetaHat, xLocalCoord, yLocalCoord, gridSpacingReciprocal
     integer(shortInt), dimension(:), allocatable :: elementIdxsArray
+    type(inclusionTestResult)                    :: testResult
     
     ! retrieve the coordinates of neutron
     ! (needs to be changed) (needs checking) (is it correct to use "getPositionToNudge" or other coordinates?)
@@ -109,8 +112,13 @@ contains
 
     ! if element index is valid (the current cell, characterised by "cellIdxs", is fully contained within that element)
     if (potentialElementIdx > 0) then
-      call coords % setElementIdx(potentialElementIdx)
-      call coords % setParentElementIdx(elements % getElementParentIdx(potentialElementIdx))
+      testResult = elements % isPointInside(potentialElementIdx, r, faces)
+      if (testResult % status == INSIDE_ELEMENT) then
+        call coords % setElementIdx(potentialElementIdx)
+        call coords % setParentElementIdx(elements % getElementParentIdx(potentialElementIdx))
+        call coords % setLocalId(elements % getElementLocalId(potentialElementIdx))
+
+      end if
       return
 
     ! in case the current cell lies outside the computational domain for the unstructured mesh, return.
@@ -162,11 +170,14 @@ contains
         ! if pushed coordinate has direct mapping for element index, use that
         ! (needs to be changed) (possible acceleration for this and other parts of the subroutine)
         ! (needs checking) (is pushed position has direct mapping for element idx, is it guaranteed to lie inside. OW, ">=" not "/=")
-        if (potentialElementIdx /= 0) then
-          call coords % setElementIdx(potentialElementIdx)
-          ! (needs to be changed) (temp:there is no internal subdivision)
-          !call coords % setParentElementIdx(elements % getElementParentIdx(potentialElementIdx))
-          call coords % setParentElementIdx(potentialElementIdx)
+        if (potentialElementIdx > 0) then
+          testResult = elements % isPointInside(potentialElementIdx, r, faces)
+          if (testResult % status == INSIDE_ELEMENT) then
+            call coords % setElementIdx(potentialElementIdx)
+            call coords % setParentElementIdx(elements % getElementParentIdx(potentialElementIdx))
+            call coords % setLocalId(elements % getElementLocalId(potentialElementIdx))
+
+          end if
 
               !!!!!
               !print*, "elementIdx2", potentialElementIdx
@@ -181,6 +192,9 @@ contains
     ! end if
 
           return
+        else if(potentialElementIdx == -1) then
+          return
+
         end if
 
         ! !!!
@@ -214,8 +228,13 @@ contains
       ! if the neutron turns out to lie outside the mesh domain, return 
       if (potentialElementIdx == 0) return
 
-      call coords % setElementIdx(potentialElementIdx)
-      call coords % setParentElementIdx(elements % getElementParentIdx(potentialElementIdx))
+      testResult = elements % isPointInside(potentialElementIdx, r, faces)
+      if (testResult % status == INSIDE_ELEMENT) then
+        call coords % setElementIdx(potentialElementIdx)
+        call coords % setParentElementIdx(elements % getElementParentIdx(potentialElementIdx))
+        call coords % setLocalId(elements % getElementLocalId(potentialElementIdx))
+
+      end if
 
     !!!!!
     !print*, "elementIdx3", potentialElementIdx

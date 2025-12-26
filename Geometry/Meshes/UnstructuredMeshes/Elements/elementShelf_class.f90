@@ -40,6 +40,7 @@ module elementShelf_class
     procedure                                   :: getElementEdgeIdxs
     procedure                                   :: getElementFaceIdxs
     procedure                                   :: getElementIsConvex
+    procedure                                   :: getElementLocalId
     procedure                                   :: getElementParentIdx
     procedure                                   :: getElementType
     procedure                                   :: getElementVertexIdxs
@@ -48,6 +49,7 @@ module elementShelf_class
     procedure                                   :: initElement
     procedure                                   :: kill
     procedure                                   :: pushFromElementBoundary
+    procedure                                   :: setElementLocalId
     procedure                                   :: splitElement
     procedure                                   :: isPointInside
   end type elementShelf
@@ -361,6 +363,18 @@ contains
 
   end function getElementIsConvex
 
+  !!
+  !!
+  !!
+  elemental function getElementLocalId(self, idx) result(localId)
+    class(elementShelf), intent(in) :: self
+    integer(shortInt), intent(in)   :: idx
+    integer(shortInt)               :: localId
+
+    localId = self % shelf(idx) % item % getLocalId()
+
+  end function getElementLocalId
+
   !! Function 'getElementParentIdx'
   !!
   !! Basic description:
@@ -508,6 +522,17 @@ contains
     call self % shelf(idx) % item % pushFromBoundary(faces, coords)
 
   end subroutine pushFromElementBoundary
+
+  !!
+  !!
+  !!
+  subroutine setElementLocalId(self, idx, localId)
+    class(elementShelf), intent(inout) :: self
+    integer(shortInt), intent(in)      :: idx, localId
+
+    call self % shelf(idx) % item % setLocalId(localId)
+
+  end subroutine setElementLocalId
 
   !! Subroutine 'splitElement'
   !!

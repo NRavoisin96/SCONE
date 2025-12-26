@@ -1,7 +1,6 @@
 module mesh_inter
   
   use axisAlignedBoundingBox_class, only : axisAlignedBoundingBox
-  use cellZoneShelf_class,          only : cellZoneShelf
   use coord_class,                  only : coord
   use dictionary_class,             only : dictionary
   use genericProcedures,            only : fatalError, numToChar, openToRead
@@ -44,17 +43,13 @@ module mesh_inter
   !!
   type, public, abstract                        :: mesh
     private
-    integer(shortInt)                           :: id = 0, nElementZones = 0
-    logical(defBool)                            :: elementZonesFile = .false.
-    type(cellZoneShelf)                         :: elementZones
+    integer(shortInt)                           :: id = 0, nLocalIds = 0
     type(axisAlignedBoundingBox)                :: boundingBox
   contains
     ! Build procedures.
     procedure, non_overridable                  :: setBoundingBox
-    procedure, non_overridable                  :: setElementZones
-    procedure, non_overridable                  :: setElementZonesFile
-    procedure, non_overridable                  :: setElementZonesNumber
     procedure, non_overridable                  :: setId
+    procedure, non_overridable                  :: setLocalIdsNumber
     procedure, non_overridable                  :: setupBase
     procedure(init), deferred                   :: init
     procedure                                   :: kill
@@ -63,12 +58,9 @@ module mesh_inter
     procedure, non_overridable                  :: distanceToBoundary
     procedure(distanceToBoundaryFace), deferred :: distanceToBoundaryFace
     procedure(distanceToNextFace), deferred     :: distanceToNextFace
-    procedure, non_overridable                  :: findOccupiedElementIdx
     procedure(findHostElement), deferred        :: findHostElement
-    procedure, non_overridable                  :: findElementZoneIdx
     procedure, non_overridable                  :: getBoundingBox
-    procedure, non_overridable                  :: getElementZonesFile
-    procedure, non_overridable                  :: getElementZonesNumber
+    procedure, non_overridable                  :: getLocalIdsNumber
     procedure, non_overridable                  :: getId
   end type mesh
   
@@ -166,6 +158,7 @@ contains
     real(defReal), intent(out)    :: d
     type(coord), intent(inout)    :: coords
     logical(defBool), intent(out) :: isInside
+    integer(shortInt)             :: elementIdx
 
     ! Initialise isInside = .true.
     isInside = .true.
@@ -173,20 +166,13 @@ contains
     ! If particle is already inside a tetrahedron, simply compute the distance to the next mesh face and return.
     if (coords % getElementIdx() > 0) then
       call self % distanceToNextFace(d, coords)
-      return
+
+    else
+      ! If not, we need to check if the particle enters the mesh. If yes, update localId from index of the parent element and return.
+      call self % distanceToBoundary(d, coords)
+      if(coords % getElementIdx() == 0) isInside = .false.
 
     end if
-
-    ! If not, we need to check if the particle enters the mesh. If yes, update localId from index of the parent element and return.
-    call self % distanceToBoundary(d, coords)
-    if (coords % getElementIdx() > 0) then
-      call coords % setLocalId(self % elementZones % findCellZone(coords % getParentElementIdx()))
-      return
-
-    end if
-      
-    ! If reached here, the particle does not enter the mesh and CSG tracking resumes.
-    isInside = .false.
 
   end subroutine distance
 
@@ -219,53 +205,6 @@ contains
 
   end subroutine distanceToBoundary
 
-  !! Subroutine 'findOccupiedElementIdx'
-  !!
-  !! Basic description:
-  !!   Returns the index of the element occupied by the particle as well as the localId to which the element belongs.
-  !!
-  !! Arguments:
-  !!   r [in]           -> Position of the particle.
-  !!   u [in]           -> Direction of the particle.
-  !!   elementIdx [out] -> Index of the element in which the particle is.
-  !!   localId [out]    -> Local Id for the given particle.
-  !!
-  subroutine findOccupiedElementIdx(self, coords)
-    class(mesh), intent(in)    :: self
-    type(coord), intent(inout) :: coords
-    integer(shortInt)          :: parentIdx
-
-    ! Initialise localId = 1 (corresponds to the particle being in the CSG cell).
-    call coords % setLocalId(1)
-
-    ! Find indices of the occupied mesh element and its parent element. Update localId only if particle is not 
-    ! outside the mesh.
-    call self % findHostElement(coords)
-    parentIdx = coords % getParentElementIdx()
-    if (parentIdx > 0) call coords % setLocalId(self % findElementZoneIdx(parentIdx))
-
-  end subroutine findOccupiedElementIdx
-
-  !! Function 'findElementZoneIdx'
-  !!
-  !! Basic description:
-  !!   Returns the index of the element zone containing a given element.
-  !!
-  !! Arguments:
-  !!   elementIdx [in] -> Index of the element.
-  !!
-  !! Result:
-  !!   elementZoneIdx  -> Index of the element zone containing the element.
-  !!
-  elemental function findElementZoneIdx(self, elementIdx) result(elementZoneIdx)
-    class(mesh), intent(in)       :: self
-    integer(shortInt), intent(in) :: elementIdx
-    integer(shortInt)             :: elementZoneIdx
-
-    elementZoneIdx = self % elementZones % findCellZone(elementIdx)
-
-  end function findElementZoneIdx
-
   !! Function 'getBoundingBox'
   !!
   !! Basic description:
@@ -282,22 +221,6 @@ contains
 
   end function getBoundingBox
 
-  !! Function 'getElementZonesFile'
-  !!
-  !! Basic description:
-  !!   Returns .true. if a file exists to assign element zones in the mesh.
-  !!
-  !! Result:
-  !!   exists -> .true. if a file exists to assign element zones in the mesh.
-  !!
-  elemental function getElementZonesFile(self) result(exists)
-    class(mesh), intent(in) :: self
-    logical(defBool)        :: exists
-
-    exists = self % elementZonesFile
-
-  end function getElementZonesFile
-
   !! Function 'getElementZonesNumber'
   !!
   !! Basic description:
@@ -307,13 +230,13 @@ contains
   !! Result:
   !!   nElementZones -> Number of element zones in the mesh.
   !!
-  elemental function getElementZonesNumber(self) result(nElementZones)
+  elemental function getLocalIdsNumber(self) result(nLocalIds)
     class(mesh), intent(in) :: self
-    integer(shortInt)       :: nElementZones
+    integer(shortInt)       :: nLocalIds
 
-    nElementZones = self % nElementZones
+    nLocalIds = self % nLocalIds
 
-  end function getElementZonesNumber
+  end function getLocalIdsNumber
   
   !! Subroutine 'setBoundingBox'
   !!
@@ -334,38 +257,6 @@ contains
 
   end subroutine setBoundingBox
 
-  !! Subroutine 'setElementZones'
-  !!
-  !! Basic description:
-  !!   Sets the elementZoneShelf of the mesh.
-  !!
-  !! Arguments:
-  !!   elementZones [in] -> An elementZoneShelf.
-  !!
-  elemental subroutine setElementZones(self, elementZones)
-    class(mesh), intent(inout)      :: self
-    type(cellZoneShelf), intent(in) :: elementZones
-
-    self % elementZones = elementZones
-
-  end subroutine setElementZones
-
-  !! Subroutine 'setElementZonesFile'
-  !!
-  !! Basic description:
-  !!   Sets whether a file exists to assign element zones in the mesh.
-  !!
-  !! Arguments:
-  !!   exists [in] -> .true. if a file exists to assign element zones in the mesh.
-  !!
-  elemental subroutine setElementZonesFile(self, exists)
-    class(mesh), intent(inout)   :: self
-    logical(defBool), intent(in) :: exists
-
-    self % elementZonesFile = exists
-
-  end subroutine setElementZonesFile
-
   !! Subroutine 'setElementZonesNumber'
   !!
   !! Basic description:
@@ -374,13 +265,13 @@ contains
   !! Arguments:
   !!   nElementZones [in] -> Number of element zones in the mesh.
   !!
-  elemental subroutine setElementZonesNumber(self, nElementZones)
+  elemental subroutine setLocalIdsNumber(self, nLocalIds)
     class(mesh), intent(inout)    :: self
-    integer(shortInt), intent(in) :: nElementZones
+    integer(shortInt), intent(in) :: nLocalIds
 
-    self % nElementZones = nElementZones
+    self % nLocalIds = nLocalIds
 
-  end subroutine setElementZonesNumber
+  end subroutine setLocalIdsNumber
   
   !! Subroutine 'setId'
   !!
@@ -453,10 +344,8 @@ contains
     class(mesh), intent(inout) :: self
    
     self % id = 0
-    self % nElementZones = 0
-    self % elementZonesFile = .false.
+    self % nLocalIds = 0
     call self % boundingBox % kill()
-    call self % elementZones % kill()
 
   end subroutine kill
 

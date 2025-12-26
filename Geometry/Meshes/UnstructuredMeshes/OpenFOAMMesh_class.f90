@@ -4,7 +4,6 @@ module OpenFOAMMesh_class
   use coord_class,                  only : coord
   use edgeShelf_class,              only : edgeShelf
   use elementShelf_class,           only : elementShelf
-  use cellZoneShelf_class,          only : cellZoneShelf
   use faceShelf_class,              only : faceShelf
   use genericProcedures,            only : append, fatalError, numToChar, openToRead, quickSort
   use numPrecision
@@ -21,6 +20,7 @@ module OpenFOAMMesh_class
 
   type, public, extends(unstructuredMesh) :: OpenFOAMMesh
     private
+    character(:), allocatable :: directoryPath
   contains
     ! Superclass procedures.
     procedure                             :: distanceToBoundaryFace
@@ -32,7 +32,7 @@ module OpenFOAMMesh_class
     procedure                             :: getMeshInfo
     procedure                             :: importMesh
     procedure                             :: initElementShelf
-    procedure                             :: initElementZoneShelf
+    procedure                             :: initElementZones
     procedure                             :: initFaceShelf
     procedure                             :: initVertexShelf
     procedure                             :: kill
@@ -144,31 +144,25 @@ contains
   !! Notes:
   !!   The existence of the 'owner' file is checked in 'getMeshInfo'.
   !!
-  subroutine checkFiles(self, folderPath, nInternalFaces)
+  subroutine checkFiles(self)
     class(OpenFOAMMesh), intent(inout) :: self
-    character(*), intent(in)           :: folderPath
-    integer(shortInt), intent(in)      :: nInternalFaces
-    logical(defBool)                   :: pointsFile, facesFile, neighbourFile, cellZonesFile
+    logical(defBool)                   :: pointsFile, facesFile, neighbourFile
     character(*), parameter            :: Here = 'checkFiles (OpenFOAMMesh_class.f90)'
 
     ! Check the existence of the 'points' and 'faces' files and report errors if they are not found.
-    inquire(file = folderPath//'points', exist = pointsFile)
+    inquire(file = self % directoryPath//'points', exist = pointsFile)
     if (.not. pointsFile) call fatalError(Here, "Missing 'points' file for OpenFOAM mesh with Id: "//numToChar(self % getId())//'.')
     
-    inquire(file = folderPath//'faces', exist = facesFile)
+    inquire(file = self % directoryPath//'faces', exist = facesFile)
     if (.not. facesFile) call fatalError(Here, "Missing 'faces' file for OpenFOAM mesh with Id: "//numToChar(self % getId())//'.')
     
     ! If nInternal = 0, return early.
-    if (nInternalFaces == 0) return
+    if (self % nInternalFaces == 0) return
 
     ! If reached here check that the 'neighbour' file exists and report error if not.
-    inquire(file = folderPath//'neighbour', exist = neighbourFile)
+    inquire(file = self % directoryPath//'neighbour', exist = neighbourFile)
     if (.not. neighbourFile) call fatalError(Here, &
     "Missing 'neighbour' file for OpenFOAM mesh with Id: "//numToChar(self % getId())//'.')
-
-    ! Check that the 'cellZones' file exists and register information into mesh.
-    inquire(file = folderPath//'cellZones', exist = cellZonesFile)
-    call self % setElementZonesFile(cellZonesFile)
 
   end subroutine checkFiles
 
@@ -235,9 +229,8 @@ contains
   !! Arguments:
   !!   folderPath [in] -> Path of the folder containing the files of the mesh.
   !!
-  subroutine getMeshInfo(self, folderPath)
+  subroutine getMeshInfo(self)
     class(OpenFOAMMesh), intent(inout) :: self
-    character(*), intent(in)           :: folderPath
     logical(defBool)                   :: ownerFile
     integer(shortInt)                  :: colIdx, nIdx, endQuoteIdx
     integer(shortInt), parameter       :: unit = 10
@@ -246,7 +239,7 @@ contains
     character(*), parameter            :: Here = 'getMeshInfo (OpenFOAMMesh_class.f90)'
 
     ! Initialise ownerPath and perform a first check for the existence of the 'owner' file. Call fatalError if not found.
-    ownerPath = folderPath//'owner'
+    ownerPath = self % directoryPath//'owner'
     inquire(file = ownerPath, exist = ownerFile)
     if (.not. ownerFile) call fatalError(Here, "Missing 'owner' file for OpenFOAM mesh with Id: "//numToChar(self % getId())//'.')
     
@@ -289,7 +282,7 @@ contains
     close(unit)
     
     ! Now check existence of remaining mesh files.
-    call self % checkFiles(folderPath, self % nInternalFaces)
+    call self % checkFiles()
 
   end subroutine getMeshInfo
 
@@ -319,20 +312,21 @@ contains
   !! Errors:
   !!   - fatalError if the mesh contains concave elements.
   !!
-  subroutine importMesh(self, folderPath, edges, elements, elementZones, faces, vertices)
+  subroutine importMesh(self, folderPath, edges, elements, faces, vertices)
     class(OpenFOAMMesh), intent(inout) :: self
     character(*), intent(in)           :: folderPath
     type(edgeShelf), intent(out)       :: edges
     type(elementShelf), intent(out)    :: elements
-    type(cellZoneShelf), intent(out)   :: elementZones
     type(faceShelf), intent(out)       :: faces
     type(vertexShelf), intent(out)     :: vertices
     integer(shortInt)                  :: nConcaveElements
     type(axisAlignedBoundingBox)       :: boundingBox
     character(*), parameter            :: Here = 'importMesh (OpenFOAMMesh_class.f90)'
+
+    self % directoryPath = folderPath
     
     ! Retrieve preliminary information about the mesh and allocate memory.
-    call self % getMeshInfo(folderPath)
+    call self % getMeshInfo()
     call elements % allocateShelf(self % nElements)
     call faces % allocateShelf(self % nFaces)
     call vertices % allocateShelf(self % nVertices)
@@ -353,21 +347,6 @@ contains
 
     ! Build edges from elements, faces and vertices.
     call self % buildEdges(edges, elements, faces, vertices)
-
-    ! Print original mesh composition.
-    !    call self % printComposition(nTetrahedra)
-
-    ! If the 'cellZones' file is missing, allocate only one 'cellZones' structure and return.
-    if (.not. self % getElementZonesFile()) then
-      call self % setElementZonesNumber(1)
-      call elementZones % allocateShelf(1)
-      call elementZones % initElementZone('Default', 1, 1, self % nElements)
-    
-    else
-      ! If reached here import cell zones.
-      call self % initElementZoneShelf(elementZones, folderPath)
-
-    end if
 
   end subroutine importMesh
 
@@ -546,18 +525,31 @@ contains
   !! Arguments:
   !!   folderPath [in] -> Path of the folder containing the OpenFOAM mesh files.
   !!
-  subroutine initElementZoneShelf(self, elementZones, folderPath)
+  subroutine initElementZones(self)
     class(OpenFOAMMesh), intent(inout)           :: self
-    class(cellZoneShelf), intent(inout)          :: elementZones
-    character(*), intent(in)                     :: folderPath
-    integer(shortInt)                            :: i, j, unit = 10, nElements, nElementZones
+    integer(shortInt)                            :: i, j, nElements, nElementZones
     integer(shortInt), allocatable, dimension(:) :: elementIndices
     character(100)                               :: string
-    character(:), allocatable                    :: name
-    logical(defBool)                             :: singleLine
+    character(:), allocatable                    :: name, path
+    logical(defBool)                             :: elementZonesFileExists, singleLine
+    integer(shortInt), parameter                 :: unit = 10
+
+    ! Check that the 'cellZones' file exists.
+    path = self % directoryPath//'cellZones'
+    inquire(file = path, exist = elementZonesFileExists)
+
+    ! If there is no cellZones file, just create a single element zone and assign every element to it.
+    if(.not. elementZonesFileExists) then
+      do i = 1, self % nElements
+        call self % setElementLocalId(i, 1)
+
+      end do
+      return
+
+    end if
 
     ! Open the 'cellZones' data file and read it. Skip lines until a blank line is encountered.
-    call openToRead(unit, folderPath//'cellZones')
+    call openToRead(unit, path)
     read(unit, "(a)") string
     do while (len_trim(string) > 0)
       read(unit, "(a)") string
@@ -568,8 +560,7 @@ contains
     read(string, *) nElementZones
     
     ! Allocate memory and loop through all cell zones.
-    call self % setElementZonesNumber(nElementZones)
-    call elementZones % allocateShelf(nElementZones)
+    call self % setLocalIdsNumber(nElementZones)
     do i = 1, nElementZones
       ! Initialise singleLine = .false. and skip lines until a '{' is encountered.
       singleLine = .false.
@@ -639,15 +630,19 @@ contains
 
       ! Set the start and end elements in the cell zone (note that we encrement by one since Fortran
       ! starts indexing at one instead of zero) and reset elementIndices array.
-      call elementZones % initElementZone(name, i, elementIndices(1) + 1, elementIndices(nElements) + 1)
-      deallocate(elementIndices)
+      elementIndices = elementIndices + 1
+      do j = 1, size(elementIndices)
+        call self % setElementLocalId(elementIndices(j), i)
+
+      end do
+      if(allocated(elementIndices)) deallocate(elementIndices)
 
     end do
     
     ! Close the 'cellZones' file.
     close(unit)
 
-  end subroutine initElementZoneShelf
+  end subroutine initElementZones
 
   !! Subroutine 'initFaceShelf'
   !!
@@ -669,12 +664,12 @@ contains
     class(faceShelf), intent(inout)              :: faces
     class(vertexShelf), intent(inout)            :: vertices
     character(*), intent(in)                     :: folderPath
-    integer(shortInt), parameter                 :: unit = 10
-    integer(shortInt)                            :: i, j, k, nVertices, vertexIdx
+    integer(shortInt)                            :: i, j, nVertices, vertexIdx
     integer(shortInt), dimension(:), allocatable :: vertexIdxs
     character(100)                               :: string
     character(:), allocatable                    :: type
     type(axisAlignedBoundingBox)                 :: boundingBox
+    integer(shortInt), parameter                 :: unit = 10
 
     ! Open the 'faces' data file and read it until a line containing the symbol ')' is encountered.
     call openToRead(unit, folderPath//'faces')
@@ -839,6 +834,9 @@ contains
 
     ! Call unstructuredMesh procedure.
     call kill_super(self)
+
+    ! Local.
+    if(allocated(self % directoryPath)) deallocate(self % directoryPath)
 
   end subroutine kill
 
