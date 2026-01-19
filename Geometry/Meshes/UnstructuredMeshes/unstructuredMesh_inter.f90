@@ -347,7 +347,8 @@ contains
     type(coord), intent(inout)                   :: coords
     integer(shortInt), dimension(:), allocatable :: potentialElementsIdxs, bruteForceElementVertexIdxs, &
                                                     patchSearchElementVertexIdxs
-    integer(shortInt)                            :: i, nPotentialElements, potentialElementIdx
+    integer(shortInt)                            :: i, nPotentialElements, potentialElementIdx, coordsElementIdx, &
+                                                    coordsCopyElementIdx
     real(defReal), dimension(3)                  :: r
     type(coord)                                  :: coordsCopy
     type(inclusionTestResult)                    :: testResult
@@ -360,11 +361,57 @@ contains
     if (allocated(self % acceleration)) then
       call self % acceleration % findHostElement(self % vertices, self % edges, self % faces, self % elements, coords)
       
-    !!!
-    ! coordPatch = coords % getElementIdx()
-    ! !coordPatch = coords % getParentElementIdx()
-    ! end if
-    !!!
+      ! Perform brute-force search and compare.
+      bruteLoop: do
+        do i = 1, self % nElements
+          testResult = self % elements % isPointInside(i, coordsCopy % getPositionToNudge(), self % faces)
+          if (testResult % status == INSIDE_ELEMENT) then
+            call coordsCopy % setElementIdx(i)
+            call coordsCopy % setParentElementIdx(self % elements % getElementParentIdx(i))
+            call coordsCopy % setLocalId(self % elements % getElementLocalId(i))
+            exit bruteLoop
+
+          elseif (testResult % status == ON_BOUNDARY_ELEMENT) then
+            ! If coordinates are on the element boundary (very rare), we need to push them off.
+            do while (testResult % status == ON_BOUNDARY_ELEMENT)
+              call self % elements % pushFromElementBoundary(i, self % faces, coordsCopy)
+
+              ! Perform containment test again.
+              testResult = self % elements % isPointInside(i, coordsCopy % getPositionToNudge(), self % faces)
+
+            end do
+
+            ! Now the coordinates are not on the boundary of the element anymore.
+            if (testResult % status == INSIDE_ELEMENT) then
+              ! If coordinates are now well inside the element, we have found our element.
+              call coordsCopy % setElementIdx(i)
+              call coordsCopy % setParentElementIdx(self % elements % getElementParentIdx(i))
+              call coordsCopy % setLocalId(self % elements % getElementLocalId(i))
+              exit bruteLoop
+
+            elseif (testResult % status == OUTSIDE_ELEMENT) then
+              ! If the nudge has resulted in an overshoot, we cycle searchLoop and begin the entire process again.
+              cycle bruteLoop
+
+            end if
+
+          end if
+
+        end do
+        exit bruteLoop
+
+      end do bruteLoop
+
+      coordsElementIdx = coords % getElementIdx()
+      coordsCopyElementIdx = coordsCopy % getElementIdx()
+      if(coordsElementIdx /= coordsCopyElementIdx) then
+        print *, 'Patch-Search element index: ', coordsElementIdx
+        print *, 'Brute-force element index: ', coordsCopyElementIdx
+        print *, 'Coordinates: ', coords % getPositionToNudge()
+        print *, 'Copied coordinates: ', coordsCopy % getPositionToNudge()
+        call fatalError('Test', 'STOP.')
+
+      end if
 
     else !!!
       ! Perform brute-force search.

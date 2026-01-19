@@ -47,6 +47,7 @@ module face_inter
     procedure, non_overridable                   :: build
     procedure(computeComponents), deferred       :: computeComponents
     procedure, non_overridable                   :: computeIntersection
+    procedure                                    :: computeSATData
     procedure(createTriangle), deferred          :: createTriangle
     procedure, non_overridable                   :: distanceSquared
     procedure, non_overridable                   :: distanceSquaredToEdge
@@ -100,6 +101,16 @@ module face_inter
   type, public               :: faceBox
     class(face), allocatable :: item
   end type
+
+  !!
+  !!
+  !!
+  type, public :: faceSATData
+    real(defReal)                                  :: faceConstant = ZERO
+    real(defReal), dimension(3)                    :: faceNormal = ZERO
+    real(defReal), dimension(:, :), allocatable    :: edgeVectors
+    real(defReal), dimension(:, :, :), allocatable :: edgeAxesIntervals
+  end type faceSATData
 
   abstract interface
 
@@ -334,6 +345,64 @@ contains
     if (self % isPointInside(rIntersection, vertices)) d = norm2(diff)
 
   end subroutine computeIntersection
+
+  !!
+  !!
+  !!
+  elemental function computeSATData(self, edges, vertices) result(cache)
+    class(face), intent(in)                     :: self
+    type(edgeShelf), intent(in)                 :: edges
+    type(vertexShelf), intent(in)               :: vertices
+    integer(shortInt)                           :: i, j, k, nEdges, nVertices
+    real(defReal), dimension(3)                 :: projections, vertexCoords
+    real(defReal), dimension(:, :), allocatable :: verticesCoords
+    type(faceSATData)                           :: cache
+
+    ! Store face data.
+    cache % faceNormal = self % normal
+    cache % faceConstant = self % const
+
+    ! Compute nEdges then allocate memory.
+    nEdges = 0
+    if(allocated(self % edgeIdxs)) nEdges = size(self % edgeIdxs)
+    allocate(cache % edgeVectors(3, nEdges), cache % edgeAxesIntervals(3, nEdges, 2))
+
+    ! Compute nVertices, allocate memory then pre-fetch the coordinates of all vertices in the face.
+    nVertices = 0
+    if(allocated(self % vertexIdxs)) nVertices = size(self % vertexIdxs)
+    allocate(verticesCoords(3, nVertices))
+    do i = 1, nVertices
+      verticesCoords(:, i) = vertices % getVertexCoordinates(self % vertexIdxs(i))
+
+    end do
+
+    ! Loop through all the edges in the face and compute the projection intervals.
+    do i = 1, nEdges
+      cache % edgeVectors(:, i) = edges % getEdgeUnitVector(self % edgeIdxs(i))
+
+      ! Initialise projections and cache.
+      projections(1) = cache % edgeVectors(3, i) * verticesCoords(2, 1) - cache % edgeVectors(2, i) * verticesCoords(3, 1) ! X-axis
+      projections(2) = -cache % edgeVectors(3, i) * verticesCoords(1, 1) + cache % edgeVectors(1, i) * verticesCoords(3, 1) ! Y-axis
+      projections(3) = cache % edgeVectors(2, i) * verticesCoords(1, 1) - cache % edgeVectors(1, i) * verticesCoords(2, 1) ! Z-axis
+      cache % edgeAxesIntervals(:, i, 1) = projections
+      cache % edgeAxesIntervals(:, i, 2) = projections
+
+      ! Loop through the remaining vertices.
+      do j = 2, nVertices
+        ! Project vertex onto axes.
+        projections(1) = cache % edgeVectors(3, i) * verticesCoords(2, j) - cache % edgeVectors(2, i) * verticesCoords(3, j) ! X-axis
+        projections(2) = -cache % edgeVectors(3, i) * verticesCoords(1, j) + cache % edgeVectors(1, i) * verticesCoords(3, j) ! Y-axis
+        projections(3) = cache % edgeVectors(2, i) * verticesCoords(1, j) - cache % edgeVectors(1, i) * verticesCoords(2, j) ! Z-axis
+        
+        ! Update cache.
+        cache % edgeAxesIntervals(:, i, 1) = min(cache % edgeAxesIntervals(:, i, 1), projections)
+        cache % edgeAxesIntervals(:, i, 2) = max(cache % edgeAxesIntervals(:, i, 2), projections)
+
+      end do
+
+    end do
+
+  end function computeSATData
 
   !!
   !!

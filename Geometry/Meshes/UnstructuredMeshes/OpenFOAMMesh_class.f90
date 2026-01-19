@@ -102,6 +102,7 @@ contains
 
         ! Add the index of the current face to the edge and add the edge to the current face.
         call edges % addFaceIdxToEdge(edgeIdx, i)
+        if(faces % getFaceIsBoundary(i)) call edges % setEdgeIsBoundary(edgeIdx, .true.)
         call faces % addEdgeIdxToFace(i, edgeIdx)
         
         ! Retrieve all elements sharing the current face and update connectivity information.

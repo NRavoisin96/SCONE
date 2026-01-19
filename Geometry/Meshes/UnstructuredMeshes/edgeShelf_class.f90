@@ -28,7 +28,7 @@ module edgeShelf_class
     procedure                             :: getEdgeDotProductOfVector
     procedure                             :: getEdgeAnglesArray
     procedure                             :: getEdgeElementIdxsArray
-    !procedure                             :: getEdgeIsBoundary
+    procedure                             :: getEdgeIsBoundary
     procedure                             :: setEdgeUnitVector
     procedure                             :: setEdgeVector ! This can be removed and retrieved from UnitVector (memory vs time)
     procedure                             :: setEdgeLocalBasis1
@@ -37,7 +37,7 @@ module edgeShelf_class
     procedure                             :: setEdgeDotProductOfVector
     procedure                             :: setEdgeAnglesArray
     procedure                             :: setEdgeElementIdxsArray
-    !procedure                             :: setEdgeIsboundary
+    procedure                             :: setEdgeIsboundary
     procedure                             :: isAllocatedEdgeAnglesArray
     procedure                             :: initEdge
     procedure                             :: kill
@@ -310,9 +310,9 @@ contains
   !!
   !!
   pure function getEdgeAnglesArray(self, idx) result(anglesArray)
-    class(edgeShelf), intent(in)               :: self
-    integer(shortInt), intent(in)              :: idx
-    real(defReal), dimension(:), allocatable   :: anglesArray
+    class(edgeShelf), intent(in)                :: self
+    integer(shortInt), intent(in)               :: idx
+    real(defReal), dimension(:, :), allocatable :: anglesArray
 
     anglesArray = self % shelf(idx) % getAnglesArray()
 
@@ -330,17 +330,17 @@ contains
 
   end function getEdgeElementIdxsArray
 
-  ! !!
-  ! !!
-  ! !!
-  ! elemental function getEdgeIsBoundary(self, idx) result(isBoundary)
-  !   class(edgeShelf), intent(in)                   :: self
-  !   integer(shortInt), intent(in)                  :: idx
-  !   logical                                        :: isBoundary
+  !!
+  !!
+  !!
+  elemental function getEdgeIsBoundary(self, idx) result(isBoundary)
+    class(edgeShelf), intent(in)                   :: self
+    integer(shortInt), intent(in)                  :: idx
+    logical                                        :: isBoundary
 
-  !   isBoundary = self % shelf(idx) % getIsBoundary()
+    isBoundary = self % shelf(idx) % getIsBoundary()
 
-  ! end function getEdgeIsBoundary
+  end function getEdgeIsBoundary
 
   !!
   !!
@@ -420,7 +420,7 @@ contains
   pure subroutine setEdgeAnglesArray(self, idx, anglesArray)
     class(edgeShelf), intent(inout)             :: self
     integer(shortInt), intent(in)               :: idx
-    real(defReal), dimension(:), intent(in)     :: anglesArray
+    real(defReal), dimension(:, :), intent(in)  :: anglesArray
 
     call self % shelf(idx) % setAnglesArray(anglesArray)
 
@@ -438,16 +438,17 @@ contains
 
   end subroutine setEdgeElementIdxsArray
 
-  ! !!
-  ! !! no need to know if isBoundary == .TRUE. because if this is called, isBoundary == .TRUE.
-  ! !! Otherwise, we keep isBoundary == .FALSE. from the initialisation
-  ! elemental subroutine setEdgeIsBoundary(self, idx)
-  !   class(edgeShelf), intent(inout)                 :: self
-  !   integer(shortInt), intent(in)                   :: idx
+  !!
+  !!
+  !!
+  elemental subroutine setEdgeIsBoundary(self, idx, isBoundary)
+    class(edgeShelf), intent(inout) :: self
+    integer(shortInt), intent(in)   :: idx
+    logical(defBool), intent(in)    :: isBoundary
 
-  !   call self % shelf(idx) % setIsBoundary()
+    call self % shelf(idx) % setIsBoundary(isBoundary)
 
-  ! end subroutine setEdgeIsBoundary
+   end subroutine setEdgeIsBoundary
 
   !!
   !!

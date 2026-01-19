@@ -24,8 +24,8 @@ module edge_class
     real(defReal), dimension(3)                  :: unitVector = ZERO, localBasis1 = ZERO, localBasis2 = ZERO, &
                                                     vector = ZERO
     real(defReal)                                :: length = ZERO, dotProductOfVector = ZERO
-    real(defReal), dimension(:), allocatable     :: anglesArray
-    !logical                                      :: isBoundary = .FALSE.
+    real(defReal), dimension(:, :), allocatable  :: anglesArray
+    logical(defBool)                             :: isBoundary = .false.
 
   contains
 
@@ -44,7 +44,7 @@ module edge_class
     procedure                                    :: setAnglesArray
     procedure                                    :: setElementIdxsArray
     procedure                                    :: isAllocatedAnglesArray
-    !procedure                                    :: setIsBoundary
+    procedure                                    :: setIsBoundary
     ! Runtime procedures.
     procedure                                    :: getElementIdxs
     procedure                                    :: getFaceIdxs
@@ -58,7 +58,7 @@ module edge_class
     procedure                                    :: getDotProductOfVector
     procedure                                    :: getAnglesArray
     procedure                                    :: getElementIdxsArray
-    !procedure                                    :: getIsBoundary
+    procedure                                    :: getIsBoundary
   end type edge
 
 contains
@@ -229,10 +229,16 @@ contains
   !!
   !!
   pure function getAnglesArray(self) result(anglesArray)
-    class(edge), intent(in)                    :: self
-    real(defReal), dimension(:), allocatable   :: anglesArray
+    class(edge), intent(in)                     :: self
+    real(defReal), dimension(:, :), allocatable :: anglesArray
 
-    anglesArray = self % anglesArray
+    if(allocated(self % anglesArray)) then
+      anglesArray = self % anglesArray
+
+    else
+      allocate(anglesArray(0, 2))
+
+    end if
 
   end function getAnglesArray
 
@@ -247,16 +253,16 @@ contains
 
   end function getElementIdxsArray
 
-  ! !!
-  ! !!
-  ! !!
-  ! elemental function getIsBoundary(self) result(isBoundary)
-  !   class(edge), intent(in)                        :: self
-  !   logical                                        :: isBoundary
+  !!
+  !!
+  !!
+  elemental function getIsBoundary(self) result(isBoundary)
+    class(edge), intent(in) :: self
+    logical(defBool)        :: isBoundary
 
-  !   isBoundary = self % isBoundary
+    isBoundary = self % isBoundary
 
-  ! end function getIsBoundary
+  end function getIsBoundary
 
 
   !! Subroutine 'kill'
@@ -269,6 +275,7 @@ contains
 
     self % idx = 0
     self % vertexIdxs = 0
+    self % isBoundary = .false.
     if (allocated(self % faceIdxs)) deallocate(self % faceIdxs)
     if (allocated(self % elementIdxs)) deallocate(self % elementIdxs)
 
@@ -376,8 +383,8 @@ contains
   !!
   !!
   pure subroutine setAnglesArray(self, anglesArray)
-    class(edge), intent(inout)               :: self
-    real(defReal), intent(in), dimension(:)  :: anglesArray
+    class(edge), intent(inout)                 :: self
+    real(defReal), dimension(:, :), intent(in) :: anglesArray
 
     self % anglesArray = anglesArray
 
@@ -405,14 +412,15 @@ contains
 
   end function isAllocatedAnglesArray
 
-  ! !!
-  ! !! no need to know if isBoundary == .TRUE. because if this is called, isBoundary == .TRUE.
-  ! !! Otherwise, we keep isBoundary == .FALSE. from the initialisation
-  ! elemental subroutine setIsBoundary(self)
-  !   class(edge), intent(inout)                      :: self
+  !!
+  !!
+  !!
+  elemental subroutine setIsBoundary(self, isBoundary)
+    class(edge), intent(inout)   :: self
+    logical(defBool), intent(in) :: isBoundary
 
-  !   self % isBoundary = .TRUE.
+    self % isBoundary = isBoundary
 
-  ! end subroutine setIsBoundary
+  end subroutine setIsBoundary
 
 end module edge_class

@@ -1,0 +1,85 @@
+type eigenPhysicsPackage;
+
+pop      10000;
+active   50;
+inactive 50;
+XSdata ce;
+dataType ce;
+seed 3;
+
+collisionOperator { neutronCE {type neutronCEstd;} }
+
+transportOperator { type transportOperatorDT; }
+
+inactiveTally {}
+
+activeTally {
+	display (k_eff);
+        k_eff { type keffAnalogClerk;}
+}
+
+geometry {
+	type geometryStd;
+  	boundary (1 1 1 1 1 1);
+  	graph {type shrunk;}
+
+  	surfaces {
+		boxContainer { id 1; type box; origin (0.0 0.0 0.0); halfwidth (2.17 2.17 0.051); }
+  	}
+
+	cells {
+   		hostCell {id 1; type simpleCell; surfaces (-1); filltype mat; material water;}
+  	}
+
+	meshes { 
+		testMesh {
+			id 1; 
+			type OpenFOAMMesh; 
+			path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/3x3Assembly/; 
+			accelerationMethod patchSingle;
+		}
+	}
+
+	universes {
+    		root { id 1; type rootUniverse; border 1; fill u<2>; }
+		mesh { id 2; type meshUniverse; origin (0.0 0.0 0.0); rotation (0.0 0.0 0.0); cell 1; mesh 1; fills (fuel cladding water); }
+  	}
+
+}
+
+
+
+nuclearData {
+	handles {
+    	ce {type aceNeutronDatabase; aceLibrary $SCONE_ACE;}
+  	}
+
+	materials {
+		water {
+      		rgb (0 0 139); // Colour of water is dark blue
+      		moder { 1001.03 (hh2o.09); }
+      		composition {
+      			1001.03    6.700E-002;
+      			8016.03    3.350E-002;
+			}
+      	}
+
+    	fuel {
+       		composition {
+                92235.03 1.3294E-003;   // 235U number density [atoms/b·cm]
+                92238.03 2.6082E-002;  // 238U number density
+                8016.03  5.4822E-002;  // Oxygen (assumed all 16O)
+			}
+      	}
+      	
+      	cladding {
+      		composition {
+      			40090.03 4.3002E-002; // Zr-90
+      			50120.03 6.3550E-004; // Sn-120
+      			26056.03 9.2038E-005; // Fe-56
+      			8016.03 5.4785E-005;  // O-16
+      			24052.03 4.3828E-005; // Cr-52
+      		}
+      	}
+	}
+}

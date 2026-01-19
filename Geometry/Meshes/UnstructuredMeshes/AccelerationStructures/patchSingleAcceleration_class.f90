@@ -11,7 +11,7 @@ module patchSingleAcceleration_class
   use cartesianGridSingle_class,   only : cartesianGridSingle
   use cartesianGenericProcedures,  only : binarySearchAngle
   use genericProcedures,           only : fatalError
-  use universalVariables,          only : INSIDE_ELEMENT
+  use universalVariables,          only : INSIDE_ELEMENT, valueOutsideArray
   !!!!!
   ! With analysis on distribution
   !use analysisDistribution
@@ -51,217 +51,88 @@ contains
     type(coord), intent(inout)                   :: coords
     integer(shortInt)                            :: potentialElementIdx, i, edgeIdx, vertexIdx, pointerIdx
     integer(shortInt), dimension(3)              :: cellIdxs
-    real(defReal), dimension(3)                  :: r, v_eCoord, rLocalCoord, dummyVector, phiCoord, gridBounds_min
+    real(defReal), dimension(3)                  :: r, rLocalCoord, dummyVector, phiCoord, gridBounds_min
     integer(shortInt), dimension(2)              :: currEdgeVertexIdxs
     real(defReal)                                :: thetaHat, xLocalCoord, yLocalCoord, gridSpacingReciprocal
-    integer(shortInt), dimension(:), allocatable :: elementIdxsArray
-    type(inclusionTestResult)                    :: testResult
+    integer(shortInt), dimension(:), allocatable :: elementIdxsArray, elementVertexIdxs, edgeFaceIdxs, edgeElementIdxs
+    real(defReal), dimension(:, :), allocatable  :: angularSectorsArray
     
     ! retrieve the coordinates of neutron
-    ! (needs to be changed) (needs checking) (is it correct to use "getPositionToNudge" or other coordinates?)
     r = coords % getPositionToNudge()
 
-    ! print*, r, "original coord"
-
-    !!!!!
-    !r = [-0.40675141160938533,      -0.57523604333256917,        5.3471601775829991E-002]
-    !print*, "coord", r
-    !!!!!
-
-    ! !!!
-    ! if (.NOT. self % grid % getGridIsOutsideBounds(r)) then
-    !   print*, r
-    ! end if
-    ! !!!
-
     ! check if the position of neutron is inside the catesian grid bounds
-    if (self % grid % getGridIsOutsideBounds(r)) return
+    if(self % grid % getGridIsOutsideBounds(r)) return
 
-    !print*, "here"
     ! retrieve grid properties
     gridBounds_min = self % grid % getGridBounds_min()
     gridSpacingReciprocal = self % grid % getSpacingReciprocal()
 
-    ! find cartesian cell indices
-    do i = 1, 3
-      cellIdxs(i) = ceiling((r(i) - gridBounds_min(i))*(gridSpacingReciprocal))
-    end do
-
-    !!!!!
-    !print*, "indices", cellIdxs
-    !!!!!
-
-    !!!
-    ! print*, "here"
-    ! print*, r
-    ! print*, self % grid % getGridChi(cellIdxs)
-    ! print*, self % grid % getGridPhi(cellIdxs)
-    ! print*, self % grid % getGridPhiCapital(cellIdxs)
-    !!!
-
-
+    ! Find cartesian cell indices. In case the current cell lies outside the computational domain for the unstructured mesh, 
+    ! return.
+    cellIdxs = ceiling((r - gridBounds_min) * gridSpacingReciprocal)
+    if(self % grid % getCellIsOutside(cellIdxs)) return
 
     ! retrieve element index from chi mapping.
     potentialElementIdx = self % grid % getGridChi(cellIdxs)
 
-    !!!!!
-    !print*, "elementIdx1", potentialElementIdx
-    !!!!!
-
-    ! print*, potentialElementIdx, "OriginalPotentialElementIdx"
-
     ! if element index is valid (the current cell, characterised by "cellIdxs", is fully contained within that element)
-    if (potentialElementIdx > 0) then
-      testResult = elements % isPointInside(potentialElementIdx, r, faces)
-      if (testResult % status == INSIDE_ELEMENT) then
-        call coords % setElementIdx(potentialElementIdx)
-        call coords % setParentElementIdx(elements % getElementParentIdx(potentialElementIdx))
-        call coords % setLocalId(elements % getElementLocalId(potentialElementIdx))
-
-      end if
+    if(potentialElementIdx > 0) then
+      call coords % setElementIdx(potentialElementIdx)
+      call coords % setParentElementIdx(elements % getElementParentIdx(potentialElementIdx))
+      call coords % setLocalId(elements % getElementLocalId(potentialElementIdx))
       return
-
-    ! in case the current cell lies outside the computational domain for the unstructured mesh, return.
-    ! this is tested after testing if (chi > 0) because that is the most likely case in terms of the number of the cells
-    elseif (potentialElementIdx == -1) then
-
-    ! if (abs(r(1) + 0.18162572041166308) <  0.0001) then
-    !   if (abs(r(2) + 0.62507425157176821) < 0.0001) then
-    !     if (abs(r(3) - 0.11402506185224603) < 0.0001) then
-    !       call fatalError("as", "as")
-    !     end if
-    !   end if
-    ! end if
-
-      return
-      
-    ! otherwise, the current cell intersects with either face(s) or edge(s). Start patch searching.
-    else
-      edgeIdx = self % grid % getGridPhiCapital(cellIdxs)
-
-      ! print*, edgeIdx, "OriginalEdgeIdx"
-
-      if (edgeIdx == 0) then
-        ! push the coordinates away from the current vertex (= phi)
-        ! (needs to be changed) (possible improvement/acceleration for the rest of the subroutine below?)
-        vertexIdx = self % grid % getGridPhi(cellIdxs)
-        phiCoord = vertices % getVertexCoordinates(vertexIdx)
-        dummyVector = r - phiCoord
-        r = phiCoord + (self % grid % getGridWStar())/(norm2(dummyVector))*(dummyVector)
-
-        ! !!!
-        ! print*, "-----------------------------------------------------------------------"
-        ! print*, "original vertex", vertexIdx
-        ! print*, "original Edge", self % grid % getGridPhiCapital(cellIdxs)
-        ! print*, "original Element", self % grid % getGridChi(cellIdxs)
-        ! !!! 
-
-        ! find updated cartesian cell indices
-        do i = 1, 3
-          cellIdxs(i) = ceiling((r(i) - gridBounds_min(i))*(gridSpacingReciprocal))
-        end do
-
-        ! get updated edge and element index
-        edgeIdx = self % grid % getGridPhiCapital(cellIdxs)
-        potentialElementIdx = self % grid % getGridChi(cellIdxs)
-
-        ! print*, potentialElementIdx, "NewPotentialElementIdx"
-
-        ! if pushed coordinate has direct mapping for element index, use that
-        ! (needs to be changed) (possible acceleration for this and other parts of the subroutine)
-        ! (needs checking) (is pushed position has direct mapping for element idx, is it guaranteed to lie inside. OW, ">=" not "/=")
-        if (potentialElementIdx > 0) then
-          testResult = elements % isPointInside(potentialElementIdx, r, faces)
-          if (testResult % status == INSIDE_ELEMENT) then
-            call coords % setElementIdx(potentialElementIdx)
-            call coords % setParentElementIdx(elements % getElementParentIdx(potentialElementIdx))
-            call coords % setLocalId(elements % getElementLocalId(potentialElementIdx))
-
-          end if
-
-              !!!!!
-              !print*, "elementIdx2", potentialElementIdx
-              !!!!!
-
-    ! if (abs(r(1) + 0.18162572041166308) <  0.0001) then
-    !   if (abs(r(2) + 0.62507425157176821) < 0.0001) then
-    !     if (abs(r(3) - 0.11402506185224603) < 0.0001) then
-    !       call fatalError("as", "as")
-    !     end if
-    !   end if
-    ! end if
-
-          return
-        else if(potentialElementIdx == -1) then
-          return
-
-        end if
-
-        ! !!!
-        ! print*, "new vertex", self % grid % getGridPhi(cellIdxs)
-        ! print*, "new Edge", self % grid % getGridPhiCapital(cellIdxs)
-        ! print*, "new Element", self % grid % getGridChi(cellIdxs)
-        ! !!!
-
-      end if
-
-      ! print*, vertexIdx, "NewVertex"
-      ! print*, edgeIdx, "newEdge"
-      ! print*, r, "newCoord"
-      ! print*, vertices % getVertexCoordinates(vertexIdx), "newVertexCoord"
-    
-      ! calculate pseudo angle
-      currEdgeVertexIdxs = edges % getEdgeVertexIdxs(edgeIdx)
-      v_eCoord = vertices % getVertexCoordinates(currEdgeVertexIdxs(2))
-      rLocalCoord = r - v_eCoord
-      xLocalCoord = dot_product(rLocalCoord, edges % getEdgeLocalBasis1(edgeIdx))
-      yLocalCoord = dot_product(rLocalCoord, edges % getEdgeLocalBasis2(edgeIdx))
-      thetaHat = SIGN(1 - (xLocalCoord / (abs(xLocalCoord) + abs(yLocalCoord))), yLocalCoord)
-
-      ! perform binary search and return index pointer
-      ! (needs checking) (index order and mechanics)
-      !isBoundary = edges % getEdgeIsBoundary(edgeIdx) !!! not needed anymore
-      pointerIdx = binarySearchAngle(edges % getEdgeAnglesArray(edgeIdx), thetaHat)
-      elementIdxsArray = edges % getEdgeElementIdxsArray(edgeIdx)
-      potentialElementIdx = elementIdxsArray(pointerIdx)
-
-      ! if the neutron turns out to lie outside the mesh domain, return 
-      if (potentialElementIdx == 0) return
-
-      testResult = elements % isPointInside(potentialElementIdx, r, faces)
-      if (testResult % status == INSIDE_ELEMENT) then
-        call coords % setElementIdx(potentialElementIdx)
-        call coords % setParentElementIdx(elements % getElementParentIdx(potentialElementIdx))
-        call coords % setLocalId(elements % getElementLocalId(potentialElementIdx))
-
-      end if
-
-    !!!!!
-    !print*, "elementIdx3", potentialElementIdx
-    !!!!!
-
-    ! if (abs(r(1) + 0.18162572041166308) <  0.0001) then
-    !   if (abs(r(2) + 0.62507425157176821) < 0.0001) then
-    !     if (abs(r(3) - 0.11402506185224603) < 0.0001) then
-    !       call fatalError("as", "as")
-    !     end if
-    !   end if
-    ! end if
-
-      return
-
-
-
 
     end if
+      
+    ! otherwise, the current cell intersects with either face(s) or edge(s). Start patch searching.
+    edgeIdx = self % grid % getGridPhiCapital(cellIdxs)
+    if (edgeIdx == 0) then
+      ! push the coordinates away from the current vertex (= phi)
+      ! (needs to be changed) (possible improvement/acceleration for the rest of the subroutine below?)
+      vertexIdx = self % grid % getGridPhi(cellIdxs)
+      phiCoord = vertices % getVertexCoordinates(vertexIdx)
+      dummyVector = r - phiCoord
+      r = phiCoord + self % grid % getGridWStar() * dummyVector / norm2(dummyVector)
 
-    !outside of this subroutine:
-    ! check if functions at cellClass is callable
-    ! check spacingReciprocal
-    ! getphi, getPhiCapital, getChi
+      ! find updated cartesian cell indices
+      cellIdxs = ceiling((r - gridBounds_min) * gridSpacingReciprocal)
+      if(self % grid % getCellIsOutside(cellIdxs)) return
 
+      ! get updated edge and element index
+      potentialElementIdx = self % grid % getGridChi(cellIdxs)
+      if(potentialElementIdx > 0) then
+        call coords % setElementIdx(potentialElementIdx)
+        call coords % setParentElementIdx(elements % getElementParentIdx(potentialElementIdx))
+        call coords % setLocalId(elements % getElementLocalId(potentialElementIdx))
+        return
 
+      end if
+      edgeIdx = self % grid % getGridPhiCapital(cellIdxs)
 
+    end if
+  
+    ! calculate pseudo angle
+    currEdgeVertexIdxs = edges % getEdgeVertexIdxs(edgeIdx) 
+    rLocalCoord = r - vertices % getVertexCoordinates(currEdgeVertexIdxs(2))
+    xLocalCoord = dot_product(rLocalCoord, edges % getEdgeLocalBasis1(edgeIdx))
+    yLocalCoord = dot_product(rLocalCoord, edges % getEdgeLocalBasis2(edgeIdx))
+    thetaHat = sign(ONE - xLocalCoord / (abs(xLocalCoord) + abs(yLocalCoord)), yLocalCoord)
+
+    ! perform binary search and return index pointer
+    elementIdxsArray = edges % getEdgeElementIdxsArray(edgeIdx)
+    angularSectorsArray = edges % getEdgeAnglesArray(edgeIdx)
+
+    do i = 1, size(angularSectorsArray, 1)
+      if(angularSectorsArray(i, 1) <= thetaHat .and. thetaHat <= angularSectorsArray(i, 2)) then
+        potentialElementIdx = elementIdxsArray(i)
+        call coords % setElementIdx(potentialElementIdx)
+        call coords % setParentElementIdx(elements % getElementParentIdx(potentialElementIdx))
+        call coords % setLocalId(elements % getElementLocalId(potentialElementIdx))
+        return
+
+      end if
+
+    end do
 
   end subroutine findHostElement
 

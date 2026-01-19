@@ -1,11 +1,12 @@
 module cartesianGenericProcedures
 
-  use vertexShelf_class,            only : vertexShelf
-  use edgeShelf_class,              only : edgeShelf
-  use faceShelf_class,              only : faceShelf
-  use elementShelf_class,           only : elementShelf
-  use genericProcedures,            only : findCommon
-  use numPrecision   
+  use vertexShelf_class,  only : vertexShelf
+  use edgeShelf_class,    only : edgeShelf
+  use faceShelf_class,    only : faceShelf
+  use elementShelf_class, only : elementShelf
+  use genericProcedures,  only : findCommon
+  use numPrecision
+  use universalVariables, only : valueOutsideArray
 
   implicit none
 
@@ -14,8 +15,7 @@ module cartesianGenericProcedures
   !! A custom data structure to hold a number and its corresponding frequency.
   !! Used for: sortByHighestFrequency
   type :: num_freq
-      integer :: number
-      integer :: frequency
+    integer(shortInt) :: number = 0, frequency = 0
   end type num_freq
 
 contains
@@ -24,15 +24,14 @@ contains
   !!
   !!
   pure function findMinFaceAngle(edges, faces) result(maxCosValue)
-    class(edgeShelf), intent(in)                        :: edges
-    class(faceShelf), intent(in)                        :: faces
-    integer(shortInt)                                   :: i, j, k, l ,m, sign1, sign2
-    real(defReal)                                       :: currCosValue, maxCosValue
-    integer(shortInt), dimension(:), allocatable        :: currFaceEdgeIdxs
-    integer(shortInt), dimension(2)                     :: currEdge1VertexIdxs, currEdge2VertexIdxs
+    class(edgeShelf), intent(in)                 :: edges
+    class(faceShelf), intent(in)                 :: faces
+    integer(shortInt)                            :: i, j, k, l , m
+    real(defReal)                                :: maxCosValue
+    integer(shortInt), dimension(:), allocatable :: currFaceEdgeIdxs
+    integer(shortInt), dimension(2)              :: currEdge1VertexIdxs, currEdge2VertexIdxs
 
-    maxCosValue = -1.0d0
-
+    maxCosValue = -ONE
     do i = 1, faces % getSize()
       currFaceEdgeIdxs = faces % getFaceEdgeIdxs(i)
 
@@ -43,31 +42,12 @@ contains
           currEdge2VertexIdxs = edges % getEdgeVertexIdxs(currFaceEdgeIdxs(k))
 
           do l = 1, 2
-
             do m = 1, 2
-              if (currEdge1VertexIdxs(l) == currEdge2VertexIdxs(m)) then
-
-                ! correct the direction of unit vector of each edge
-                if (l == 1) then
-                  sign1 = 1
-                else 
-                  sign1 = -1
-                end if
-
-                if (m == 1) then
-                  sign2 = 1
-                else 
-                  sign2 = -1
-                end if
-
-                ! calculate cosine value
-                currCosValue = dot_product(edges % getEdgeUnitvector(currFaceEdgeIdxs(j)), &
-                                           edges % getEdgeUnitvector(currFaceEdgeIdxs(k)))*sign1*sign2
-
-                ! update maxCosValue
-                if (maxCosValue < currCosValue) maxCosValue = currCosValue
-
-              end if
+              ! Update maxCosValue. Correct the direction of unit vector of each edge.
+              if (currEdge1VertexIdxs(l) == currEdge2VertexIdxs(m)) &
+              maxCosValue = max(maxCosValue, &
+                                dot_product(edges % getEdgeUnitvector(currFaceEdgeIdxs(j)), &
+                                            edges % getEdgeUnitvector(currFaceEdgeIdxs(k))) * merge(1, -1, l == m))
 
             end do
 
@@ -89,35 +69,27 @@ contains
     class(faceShelf), intent(in)                        :: faces
     class(elementShelf), intent(in)                     :: elements
     integer(shortInt)                                   :: i, j, k
-    real(defReal)                                       :: currCosValue, maxCosValue
+    real(defReal)                                       :: maxCosValue
     integer(shortInt), dimension(:), allocatable        :: currElementFaceIdxs, currElementEdgeIdxs
     integer(shortInt), dimension(2)                     :: candidateFaceIdxs, candidateElementIdxs, signArray
 
-    maxCosValue = -1.0d0
-
+    maxCosValue = -ONE
     do i = 1, elements % getSize()
       currElementFaceIdxs = abs(elements % getElementFaceIdxs(i))
       currElementEdgeIdxs = elements % getElementEdgeIdxs(i)
 
       do j = 1, size(currElementEdgeIdxs)
+        ! Find indices of faces in the current element which share the current edge.
         candidateFaceIdxs = findCommon(currElementFaceIdxs, edges % getEdgeFaceIdxs(currElementEdgeIdxs(j)))
 
         do k = 1, 2
           candidateElementIdxs = faces % getFaceElementIdxs(candidateFaceIdxs(k))
-
-          if (i < candidateElementIdxs(1) .OR. i < candidateElementIdxs(2)) then
-            signArray(k) = 1
-          else
-            signArray(k) = -1
-          end if
+          signArray(k) = merge(1, -1, any(i < candidateElementIdxs))
 
         end do
-
-        currCosValue = dot_product(faces % getFaceNormal(candidateFaceIdxs(1)), &
-                                   faces % getFaceNormal(candidateFaceIdxs(2)))*signArray(1)*signArray(2)*(-1)
-
-        ! update maxCosValue
-        if (maxCosValue < currCosValue) maxCosValue = currCosValue
+        ! Update maxCosValue.
+        maxCosValue = max(maxCosValue, -dot_product(faces % getFaceNormal(candidateFaceIdxs(1)), &
+                                                    faces % getFaceNormal(candidateFaceIdxs(2))) * product(signArray))
         
       end do
 
@@ -135,38 +107,33 @@ contains
   !! (, and we do not have to calculate indices fresh for each layer)
   !!
   !! AABBIndices = [xmin, ymin, zmin, xmax, ymax, zmax]
-  pure function constructAABB(vertices, currVertexIdxs, gridBounds_min, gridSpacing) result(AABBIndices)
+  pure function constructAABB(vertices, vertexIdxs, gridBounds_min, inverseSpacing) result(cellIdxs)
     class(vertexShelf), intent(in)                         :: vertices
-    integer(shortInt), dimension(:), intent(in)            :: currVertexIdxs
+    integer(shortInt), dimension(:), intent(in)            :: vertexIdxs
     real(defReal), dimension(3), intent(in)                :: gridBounds_min
-    real(defReal), intent(in)                              :: gridSpacing
-    integer(shortInt), dimension(6)                        :: AABBIndices
-    real(defreal), dimension(3)                            :: xyz_min, xyz_max, currVertexCoords
+    real(defReal), intent(in)                              :: inverseSpacing
+    integer(shortInt), dimension(6)                        :: cellIdxs
+    real(defreal), dimension(3)                            :: xyz_min, xyz_max, vertexCoords
     integer(shortInt)                                      :: i, j
 
     ! initialise xyz_min and xyz_max using the first vertex
-    currVertexCoords = vertices % getVertexCoordinates(currVertexIdxs(1))
-    xyz_max = currVertexCoords
-    xyz_min = currVertexCoords
+    vertexCoords = vertices % getVertexCoordinates(vertexIdxs(1))
+    xyz_max = vertexCoords
+    xyz_min = vertexCoords
 
     ! find xyz_min and xyz_max 
-    do i = 2, size(currVertexIdxs)
-        currVertexCoords = vertices % getVertexCoordinates(currVertexIdxs(i))
-
-        do j = 1, 3
-            if (xyz_min(j) > currVertexCoords(j)) then
-                 xyz_min(j) = currVertexCoords(j)
-            elseif (xyz_max(j) < currVertexCoords(j)) then
-                xyz_max(j) = currVertexCoords(j)
-            end if
-        end do
+    do i = 2, size(vertexIdxs)
+      vertexCoords = vertices % getVertexCoordinates(vertexIdxs(i))
+      xyz_min = min(xyz_min, vertexCoords)
+      xyz_max = max(xyz_max, vertexCoords)
 
     end do
 
-    ! find AABBIndices
+    ! Find cell indices.
     do i = 1, 3
-        AABBIndices(i) = ceiling((xyz_min(i) - gridBounds_min(i))/(gridSpacing)) 
-        AABBIndices(3+i) = ceiling((xyz_max(i) - gridBounds_min(i))/(gridSpacing)) 
+      cellIdxs(i) = ceiling((xyz_min(i) - gridBounds_min(i)) * inverseSpacing)
+      cellIdxs(3 + i) = ceiling((xyz_max(i) - gridBounds_min(i)) * inverseSpacing)
+
     end do
 
   end function constructAABB
@@ -179,22 +146,25 @@ contains
   !! sorted using the exactly the same swaps made during arrayReal sorting process.
   ! (needs to be changed) (move to genericProcedures)
   pure subroutine sortPairs(arrayReal, arrayInt)
-    real(defReal), dimension(:), intent(inout)            :: arrayReal
-    integer(shortInt), dimension(:), intent(inout)        :: arrayInt
-    integer(shortInt)                                     :: i, j
-    real(defReal)                                         :: key_real
-    integer(shortInt)                                     :: key_Int
+    real(defReal), dimension(:), intent(inout)     :: arrayReal
+    integer(shortInt), dimension(:), intent(inout) :: arrayInt
+    integer(shortInt)                              :: i, j
+    real(defReal)                                  :: key_real
+    integer(shortInt)                              :: key_Int
 
     do i = 2, size(arrayReal)
-       key_real = arrayReal(i);  key_Int = arrayInt(i)
-       j = i - 1
-       do while (j >= 1 .and. arrayReal(j) > key_real)
-          arrayReal(j+1) = arrayReal(j)
-          arrayInt(j+1) = arrayInt(j)
-          j      = j - 1
-       end do
-       arrayReal(j+1) = key_real
-       arrayInt(j+1) = key_Int
+      key_real = arrayReal(i)
+      key_Int = arrayInt(i)
+      j = i - 1
+      do while (j >= 1 .and. arrayReal(j) > key_real)
+        arrayReal(j + 1) = arrayReal(j)
+        arrayInt(j + 1) = arrayInt(j)
+        j = j - 1
+
+      end do
+      arrayReal(j + 1) = key_real
+      arrayInt(j + 1) = key_Int
+
     end do
 
   end subroutine sortPairs
@@ -210,22 +180,20 @@ contains
     real(defReal), intent(in)                           :: value
     integer(shortInt)                                   :: idx, bottom, top, i
 
-    ! in case of value being outside the ranges of "array", manually assign idx = size(array).
-    if (value > array(size(array))) then
-      idx = size(array)
-      return
-    elseif (value < array(1)) then
-      idx = size(array)
-      return
-    end if
-
     ! Find Top and Bottom Index Array
     bottom = 1
     top = size(array)
 
-    do i = 1,100
-      !Calculate mid point
-      idx = (top + bottom)*0.5
+    ! in case of value being outside the ranges of "array", manually assign idx = size(array).
+    if(value < array(bottom) .or. array(top) < value) then
+      idx = valueOutsideArray
+      return
+
+    end if
+
+    do i = 1, 100
+      ! Calculate mid point
+      idx = (top + bottom) / 2
 
       ! Termination condition
       if (bottom == idx) return
@@ -233,9 +201,12 @@ contains
       ! Binary Step
       if (array(idx) <= value) then
         bottom = idx
+
       else
         top = idx
+
       end if
+      
     end do
 
   end function binarySearchAngle

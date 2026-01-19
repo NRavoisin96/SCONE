@@ -7,8 +7,7 @@ XSdata ce;
 dataType ce;
 seed 1;
 
-collisionOperator { neutronCE {type neutronCEstd;}
-                    neutronMG {type neutronMGstd;} }
+collisionOperator { neutronCE {type neutronCEstd;} }
 
 transportOperator { type transportOperatorDT; }
 
@@ -25,7 +24,7 @@ geometry {
   	graph {type shrunk;}
 
   	surfaces {
-		boxContainer { id 1; type box; origin (0.0 0.0 0.0); halfwidth (0.630939043079365 0.630939043079365 0.300080764391406); }
+		boxContainer { id 1; type box; origin (0.0 0.0 0.0); halfwidth (0.631 0.631 0.301); }
   	}
 
 	cells {
@@ -33,7 +32,7 @@ geometry {
   	}
 
 	meshes { 
-		testMesh {id 1; type OpenFOAMMesh; path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/FinalFuelPinTet298/; accelerationMethod octree;}
+		testMesh {id 1; type OpenFOAMMesh; path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/FinalFuelPinTet298/; accelerationMethod patchSingle;}
 	}
 
 	universes {

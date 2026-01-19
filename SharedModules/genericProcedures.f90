@@ -144,6 +144,8 @@ contains
     integer(shortInt), dimension(:), allocatable, intent(inout) :: array
     integer(shortInt), intent(in)                               :: value
     logical(defBool), intent(in), optional                      :: excludeIfPresent
+    integer(shortInt)                                           :: arraySize
+    integer(shortInt), dimension(:), allocatable                :: temp
     
     if (.not. allocated(array)) then
       allocate(array(1))
@@ -154,14 +156,25 @@ contains
 
     if (present(excludeIfPresent)) then
       if (excludeIfPresent) then
-        if (linFind(array, value) == targetNotFound) array = [array, value]
+        if (linFind(array, value) == targetNotFound) then
+          arraySize = size(array)
+          allocate(temp(arraySize + 1))
+          temp(1:arraySize) = array
+          temp(arraySize + 1) = value
+          call move_alloc(temp, array)
+
+        end if
         return
 
       end if
 
     end if
     
-    array = [array, value]
+    arraySize = size(array)
+    allocate(temp(arraySize + 1))
+    temp(1:arraySize) = array
+    temp(arraySize + 1) = value
+    call move_alloc(temp, array)
 
   end subroutine append_shortInt
   

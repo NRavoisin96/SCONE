@@ -495,7 +495,7 @@ contains
 
       ! perform binary search and return index pointer
       ! (needs checking) (index order and mechanics)
-      pointerIdx = binarySearchAngle(edges % getEdgeAnglesArray(edgeIdx), thetaHat)
+      !pointerIdx = binarySearchAngle(edges % getEdgeAnglesArray(edgeIdx), thetaHat)
       elementIdxsArray = edges % getEdgeElementIdxsArray(edgeIdx)
       potentialElementIdx = elementIdxsArray(pointerIdx)
 

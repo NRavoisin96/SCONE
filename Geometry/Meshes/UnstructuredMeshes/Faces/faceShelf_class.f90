@@ -5,7 +5,7 @@ module faceShelf_class
   use edgeShelf_class,              only : edgeShelf
   use numPrecision
   use genericProcedures,            only : fatalError, findCommon, removeDuplicates, quickSort
-  use face_inter,                   only : face, faceBox
+  use face_inter,                   only : face, faceBox, faceSATData
   use polygon_class,                only : polygon
   use triangle_class,               only : triangle
   use vertexShelf_class,            only : vertexShelf
@@ -32,6 +32,7 @@ module faceShelf_class
     procedure                                :: allocateShelf
     procedure                                :: buildFace
     procedure                                :: computeFaceIntersection
+    procedure                                :: computeFaceSATData
     procedure                                :: distanceSquaredFromFace
     procedure                                :: findCommonEdgeIdx
     procedure                                :: findCommonVertexIdx
@@ -229,6 +230,20 @@ contains
     call self % shelf(idx) % item % computeIntersection(coords, vertices, d)
 
   end subroutine computeFaceIntersection
+
+  !!
+  !!
+  !!
+  elemental function computeFaceSATData(self, idx, edges, vertices) result(cache)
+    class(faceShelf), intent(in)  :: self
+    integer(shortInt), intent(in) :: idx
+    type(edgeShelf), intent(in)   :: edges
+    type(vertexShelf), intent(in) :: vertices
+    type(faceSATData)             :: cache
+
+    cache = self % shelf(idx) % item % computeSATData(edges, vertices)
+
+  end function computeFaceSATData
 
   !! Function 'distanceSquaredFromFace'
   !!

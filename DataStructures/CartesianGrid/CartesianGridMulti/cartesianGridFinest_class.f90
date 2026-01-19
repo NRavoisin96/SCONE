@@ -765,8 +765,8 @@ contains
               !!!
 
               ! pass and set elementIdxsArray and anglesArray to each corresponding edge
-              call edges % setEdgeAnglesArray(currPhiCapital, anglesArray)
-              call edges % setEdgeElementIdxsArray(currPhiCapital, elementIdxsArray)
+              !call edges % setEdgeAnglesArray(currPhiCapital, anglesArray)
+              !call edges % setEdgeElementIdxsArray(currPhiCapital, elementIdxsArray)
 
             end if
           end if
