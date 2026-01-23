@@ -18,11 +18,11 @@ module cartesianGridSingle_class
   !!
   type, public :: cartesianGridSingle
     private
+    integer(shortInt), dimension(3)                            :: n_xyz = 0
     real(defReal)                                              :: wStar = ZERO, alpha = ZERO, l_min = ZERO, &
                                                                   spacingReciprocal = ZERO, spacing = ZERO
     real(defReal), dimension(3)                                :: gridBounds_max = ZERO, gridBounds_min = ZERO, &
                                                                   meshBounds_max = ZERO, meshBounds_min = ZERO
-    integer(shortInt), dimension(3)                            :: n_xyz = 0
     type(cartesianCellSingle), dimension(:, :, :), allocatable :: grid
   contains
 

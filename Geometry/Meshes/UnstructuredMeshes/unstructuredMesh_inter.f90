@@ -12,6 +12,7 @@ module unstructuredMesh_inter
   use mesh_inter,                    only : mesh, kill_super => kill
   use numPrecision
   use octreeAcceleration_class,      only : octreeAcceleration
+  use patchSearchAcceleration_class, only : patchSearchAcceleration
   use patchSingleAcceleration_class, only : patchSingleAcceleration
   use patchMultiAcceleration_class,  only : patchMultiAcceleration
   use universalVariables
@@ -570,11 +571,11 @@ contains
 
     ! Check if acceleration structure was required by user and initialise it if applicable.
     call dict % getOrDefault(acceleration, 'accelerationMethod', 'none')
-    if (acceleration /= 'none') then
-      if (acceleration == 'octree') allocate(octreeAcceleration :: self % acceleration)
-      if (acceleration == 'patchSingle') allocate(patchSingleAcceleration :: self % acceleration)
-      if (acceleration == 'patchMulti') allocate(patchMultiAcceleration :: self % acceleration)
-      call self % acceleration % init(self % vertices, self % edges, self % faces, self % elements)
+    if(acceleration /= 'none') then
+      if(acceleration == 'octree') allocate(octreeAcceleration :: self % acceleration)
+      if(acceleration == 'patchSearch') allocate(patchSearchAcceleration :: self % acceleration)
+      if(acceleration == 'patchSingle') allocate(patchSingleAcceleration :: self % acceleration)
+      call self % acceleration % init(dict, self % vertices, self % edges, self % faces, self % elements)
     end if
 
   end subroutine init

@@ -2,6 +2,7 @@ module octreeAcceleration_class
 
   use accelerationStructure_inter, only : accelerationStructure
   use coord_class,                 only : coord
+  use dictionary_class,            only : dictionary
   use element_inter,               only : inclusionTestResult
   use elementShelf_class,          only : elementShelf
   use faceShelf_class,             only : faceShelf
@@ -114,8 +115,9 @@ contains
   !!
   !!
   !!
-  subroutine init(self, vertices, edges, faces, elements)
+  subroutine init(self, dict, vertices, edges, faces, elements)
     class(octreeAcceleration), intent(inout) :: self
+    type(dictionary), intent(in)             :: dict
     type(vertexShelf), intent(in)            :: vertices
     type(faceShelf), intent(inout)           :: faces
     type(elementShelf), intent(in)           :: elements

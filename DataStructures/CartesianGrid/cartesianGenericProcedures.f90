@@ -19,7 +19,6 @@ module cartesianGenericProcedures
   end type num_freq
 
 contains
-
   !!
   !!
   !!
@@ -114,7 +113,7 @@ contains
     real(defReal), intent(in)                              :: inverseSpacing
     integer(shortInt), dimension(6)                        :: cellIdxs
     real(defreal), dimension(3)                            :: xyz_min, xyz_max, vertexCoords
-    integer(shortInt)                                      :: i, j
+    integer(shortInt)                                      :: i
 
     ! initialise xyz_min and xyz_max using the first vertex
     vertexCoords = vertices % getVertexCoordinates(vertexIdxs(1))
@@ -130,11 +129,8 @@ contains
     end do
 
     ! Find cell indices.
-    do i = 1, 3
-      cellIdxs(i) = ceiling((xyz_min(i) - gridBounds_min(i)) * inverseSpacing)
-      cellIdxs(3 + i) = ceiling((xyz_max(i) - gridBounds_min(i)) * inverseSpacing)
-
-    end do
+    cellIdxs(1:3) = ceiling((xyz_min - gridBounds_min) * inverseSpacing)
+    cellIdxs(4:6) = ceiling((xyz_max - gridBounds_min) * inverseSpacing)
 
   end function constructAABB
 

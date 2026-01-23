@@ -2,6 +2,7 @@ module patchSingleAcceleration_class
 
   use accelerationStructure_inter, only : accelerationStructure
   use coord_class,                 only : coord
+  use dictionary_class,            only : dictionary
   use element_inter,               only : inclusionTestResult
   use elementShelf_class,          only : elementShelf
   use faceShelf_class,             only : faceShelf
@@ -86,6 +87,13 @@ contains
       
     ! otherwise, the current cell intersects with either face(s) or edge(s). Start patch searching.
     edgeIdx = self % grid % getGridPhiCapital(cellIdxs)
+    if(r(1) == 0.51820435860406611_defReal .and. r(2) == -0.56919346894461487_defReal .and. &
+       r(3) == -0.29700069864751000_defReal) then
+      print *, 'Host cell indices: ', cellIdxs
+      print *, 'Edge index: ', edgeIdx
+      call fatalError('CATA', 'STOP.')
+
+    end if
     if (edgeIdx == 0) then
       ! push the coordinates away from the current vertex (= phi)
       ! (needs to be changed) (possible improvement/acceleration for the rest of the subroutine below?)
@@ -351,8 +359,9 @@ contains
   !!
   !!
   !!
-  subroutine init(self, vertices, edges, faces, elements)
+  subroutine init(self, dict, vertices, edges, faces, elements)
     class(patchSingleAcceleration), intent(inout)    :: self
+    type(dictionary), intent(in)                     :: dict
     type(vertexShelf), intent(in)                    :: vertices
     type(faceShelf), intent(inout)                   :: faces
     type(elementShelf), intent(in)                   :: elements

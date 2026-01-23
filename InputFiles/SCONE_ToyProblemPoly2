@@ -33,7 +33,7 @@ geometry {
   	}
 
 	meshes { 
-		testMesh {id 1; type OpenFOAMMesh; path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/FinalFuelPinPoly468/; accelerationMethod octree;}
+		testMesh {id 1; type OpenFOAMMesh; path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/FinalFuelPinPoly468/; accelerationMethod patchSearch;}
 	}
 
 	universes {

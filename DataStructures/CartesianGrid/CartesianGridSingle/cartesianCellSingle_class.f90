@@ -122,8 +122,8 @@ contains
   !!
   !!
   !!
-  subroutine cellTestFaceIntersection_new(self, faceIdx, cellSpacing, extraDistance, targetDistance, centroid, edges, cache, &
-                                          faces, vertices)
+  pure subroutine cellTestFaceIntersection_new(self, faceIdx, cellSpacing, extraDistance, targetDistance, centroid, edges, &
+                                               cache, faces, vertices)
     class(cartesianCellSingle), intent(inout)    :: self
     integer(shortInt), intent(in)                :: faceIdx
     real(defReal), intent(in)                    :: cellSpacing, extraDistance, targetDistance

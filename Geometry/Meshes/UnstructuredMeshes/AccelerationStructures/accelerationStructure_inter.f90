@@ -1,6 +1,7 @@
 module accelerationStructure_inter
 
   use coord_class,        only : coord
+  use dictionary_class,   only : dictionary
   use elementShelf_class, only : elementShelf
   use faceShelf_class,    only : faceShelf
   use vertexShelf_class,  only : vertexShelf
@@ -40,9 +41,10 @@ module accelerationStructure_inter
     !!
     !!
     !!
-    subroutine init(self, vertices, edges, faces, elements)
-      import :: accelerationStructure, elementShelf, faceShelf, vertexShelf, edgeShelf
+    subroutine init(self, dict, vertices, edges, faces, elements)
+      import :: accelerationStructure, dictionary, elementShelf, faceShelf, vertexShelf, edgeShelf
       class(accelerationStructure), intent(inout) :: self
+      type(dictionary), intent(in)                :: dict
       type(vertexShelf), intent(in)               :: vertices
       type(faceShelf), intent(inout)              :: faces
       type(elementShelf), intent(in)              :: elements

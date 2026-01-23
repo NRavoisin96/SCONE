@@ -254,6 +254,22 @@ contains
 
   end subroutine append_defReal
 
+  !!
+  !!
+  !!
+  pure function computePseudoAngle(r, unitVector1, unitVector2) result(pseudoAngle)
+    real(defReal), dimension(3), intent(in) :: r, unitVector1, unitVector2
+    real(defReal)                           :: pseudoAngle, x, y
+
+    x = dot_product(r, unitVector1)
+    y = dot_product(r, unitVector2)
+    pseudoAngle = sign(ONE - x / (abs(x) + abs(y)), y)
+
+  end function computePseudoAngle
+
+  !!
+  !!
+  !!
   pure function computePyramidCentre(array) result(centre)
     real(defReal), dimension(2, 3), intent(in) :: array
     real(defReal), dimension(3)                :: centre
@@ -262,6 +278,9 @@ contains
 
   end function computePyramidCentre
 
+  !!
+  !!
+  !!
   pure function computePyramidVolume(array) result(volume)
     real(defReal), dimension(2, 3), intent(in) :: array
     real(defReal)                              :: volume

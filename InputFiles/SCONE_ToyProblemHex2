@@ -32,7 +32,13 @@ geometry {
   	}
 
 	meshes { 
-		testMesh {id 1; type OpenFOAMMesh; path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/FinalFuelPinHex243/; accelerationMethod patchSingle;}
+		testMesh {
+			id 1;
+			type OpenFOAMMesh;
+			path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/FinalFuelPinHex243/;
+			accelerationMethod patchSearch;
+			nLayers 3;
+		}
 	}
 
 	universes {
