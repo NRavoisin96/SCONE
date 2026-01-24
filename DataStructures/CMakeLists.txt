@@ -1,7 +1,6 @@
 
 # Add Source Files to a global List
 add_subdirectory(BoundingBoxes)
-add_subdirectory(CartesianGrid)
 add_subdirectory(CartesianGrids)
 add_subdirectory(Trees)
 

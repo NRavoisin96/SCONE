@@ -13,8 +13,6 @@ module unstructuredMesh_inter
   use numPrecision
   use octreeAcceleration_class,      only : octreeAcceleration
   use patchSearchAcceleration_class, only : patchSearchAcceleration
-  use patchSingleAcceleration_class, only : patchSingleAcceleration
-  use patchMultiAcceleration_class,  only : patchMultiAcceleration
   use universalVariables
   use vertexShelf_class,             only : vertexShelf
   use errors_mod,                    only : fatalError !!!
@@ -574,7 +572,6 @@ contains
     if(acceleration /= 'none') then
       if(acceleration == 'octree') allocate(octreeAcceleration :: self % acceleration)
       if(acceleration == 'patchSearch') allocate(patchSearchAcceleration :: self % acceleration)
-      if(acceleration == 'patchSingle') allocate(patchSingleAcceleration :: self % acceleration)
       call self % acceleration % init(dict, self % vertices, self % edges, self % faces, self % elements)
     end if
 

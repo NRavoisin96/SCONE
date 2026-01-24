@@ -2,18 +2,16 @@ module patchSearchAcceleration_class
 
   use accelerationStructure_inter, only : accelerationStructure
   use CartesianGrid_class,         only : CartesianGrid
-  use cartesianGenericProcedures,  only : constructAABB
   use coord_class,                 only : coord
   use dictionary_class,            only : dictionary
   use edgeShelf_class,             only : edgeShelf
-  use element_inter,               only : inclusionTestResult
   use elementShelf_class,          only : elementShelf
   use errors_mod,                  only : fatalError
   use face_inter,                  only : faceSATData
   use faceShelf_class,             only : faceShelf
   use genericProcedures,           only : computePseudoAngle, crossProduct, findCommon, numToChar
   use numPrecision
-  use universalVariables,          only : INF, INSIDE_ELEMENT, NUDGE
+  use universalVariables,          only : INF
   use vertexShelf_class,           only : vertexShelf
 
   implicit none
@@ -397,15 +395,14 @@ contains
       end do
 
     end if
-
     extraDistances = HALF * (self % spacings(1) - mod(self % meshBounds(4:6) - self % meshBounds(1:3), self % spacings(1)))
     gridBounds(1:3) = self % meshBounds(1:3) - extraDistances
     gridBounds(4:6) = self % meshBounds(4:6) + extraDistances
 
     ! Initialise root grid and map it.
     call self % rootGrid % init(self % spacings(1), gridBounds)
-    call self % mapGrid([(i, i = 1, elements % getSize())], [(i, i = 1, faces % getSize())], edges, elements, faces, vertices, &
-                        self % rootGrid)
+    call self % mapGrid([(i, i = 1, elements % getSize())], [(i, i = 1, faces % getSize())], self % nLayers == 1, edges, &
+                        elements, faces, vertices, self % rootGrid)
 
     ! Refine root grid if needed.
     if(1 < self % nLayers) then
@@ -452,9 +449,10 @@ contains
   !!
   !!
   !!
-  subroutine mapGrid(self, elementIdxs, faceIdxs, edges, elements, faces, vertices, grid)
+  subroutine mapGrid(self, elementIdxs, faceIdxs, isFinestLayer, edges, elements, faces, vertices, grid)
     class(patchSearchAcceleration), intent(in)   :: self
     integer(shortInt), dimension(:), intent(in)  :: elementIdxs, faceIdxs
+    logical(defBool), intent(in)                 :: isFinestLayer
     type(edgeShelf), intent(in)                  :: edges
     type(elementShelf), intent(in)               :: elements
     type(faceShelf), intent(in)                  :: faces
@@ -464,13 +462,12 @@ contains
     integer(shortInt), dimension(3)              :: nCells
     integer(shortInt), dimension(6)              :: cellIdxs
     integer(shortInt), dimension(:), allocatable :: elementFaceIdxs, elementVertexIdxs, faceVertexIdxs
-    real(defReal)                                :: extraDistance, inverseSpacing, spacing
+    real(defReal)                                :: extraDistance, spacing
     real(defReal), dimension(3)                  :: centroid
     real(defReal), dimension(6)                  :: bounds
 
     ! Retrieve grid spacing and bounds.
     nCells = grid % getCellsNumber()
-    inverseSpacing = grid % getInverseSpacing()
     spacing = grid % getSpacing()
     bounds = grid % getBounds()
 
@@ -480,7 +477,7 @@ contains
 
       ! Generate the indices of the cells contained in the current face's AABB.
       faceVertexIdxs = faces % getFaceVertexIdxs(faceIdxs(i))
-      cellIdxs = constructAABB(vertices, faceVertexIdxs, bounds(1:3), inverseSpacing)
+      cellIdxs = grid % constructCellIdxs(faceVertexIdxs, vertices)
 
       ! Loop over all cells.
       do l = max(1, cellIdxs(3)), min(nCells(3), cellIdxs(6))
@@ -490,8 +487,10 @@ contains
           do j = max(1, cellIdxs(1)), min(nCells(1), cellIdxs(4))
             centroid(1) = bounds(1) + spacing * (j - HALF)
             ! Now test current cell for intersection with the current face.
-            call grid % testCellFaceIntersection(faceIdxs(i), j, k, l, extraDistance, self % targetDistance, centroid, edges, &
-                                                 self % faceCaches(faceIdxs(i)), faces, vertices)
+            call grid % testCellFaceIntersection(faceIdxs(i), j, k, l, extraDistance, centroid, self % faceCaches(faceIdxs(i)))
+
+            ! If we are at the finest layer, map the cell.
+            if(isFinestLayer) call grid % mapCell(j, k, l, self % targetDistance, centroid, edges, faces, vertices)
 
           end do
 
@@ -506,7 +505,7 @@ contains
       ! Generate the indices of the cells contained in the current element's AABB.
       elementFaceIdxs = elements % getElementFaceIdxs(elementIdxs(i))
       elementVertexIdxs = elements % getElementVertexIdxs(elementIdxs(i))
-      cellIdxs = constructAABB(vertices, elementVertexIdxs, bounds(1:3), inverseSpacing)
+      cellIdxs = grid % constructCellIdxs(elementVertexIdxs, vertices)
 
       ! Loop over all cells.
       do l = max(1, cellIdxs(3)), min(nCells(3), cellIdxs(6))
@@ -540,9 +539,9 @@ contains
     type(elementShelf), intent(in)                        :: elements
     type(faceShelf), intent(in)                           :: faces
     type(vertexShelf), intent(in)                         :: vertices
-    integer(shortInt)                                     :: i, j, k, l, newDepth
+    integer(shortInt)                                     :: i, j, k, newDepth
     integer(shortInt), dimension(3)                       :: nCells
-    integer(shortInt), dimension(:), allocatable          :: cellElementIdxs, cellIntersectedFaceIdxs
+    integer(shortInt), dimension(:), allocatable          :: cellIntersectedFaceIdxs
     real(defReal)                                         :: gridSpacing
     real(defReal), dimension(6)                           :: cellBounds, gridBounds
     type(CartesianGrid), pointer                          :: currentGridPtr
@@ -570,7 +569,7 @@ contains
         cellBounds(2) = cellBounds(5) - gridSpacing
         do i = 1, nCells(1)
           ! Check if the current cell needs to be refined and request index for next available subgrid.
-          !if(currentGridPtr % isCellSimple(i, j, k)) cycle
+          if(currentGridPtr % isCellSimple(i, j, k)) cycle
           call self % addSubGrid()
 
           ! Re-acquire pointer since memory reallocation may have corrupted pointers.
@@ -591,13 +590,11 @@ contains
           cellBounds(1) = cellBounds(4) - gridSpacing
           call self % subGrids(self % nSubGrids) % init(self % spacings(newDepth), cellBounds)
 
-          ! Get indices of faces intersected by the current cell and construct the array of unique element indices.
+          ! Get indices of faces intersected by the current cell, map current subgrid then refine if deepest layer has not been 
+          ! reached yet.
           cellIntersectedFaceIdxs = currentGridPtr % getCellIntersectedFaceIdxs(i, j, k)
-          cellElementIdxs = faces % getFaceElementIdxs(cellIntersectedFaceIdxs)
-
-          ! Map current subgrid then refine if deepest layer has not been reached yet.
-          call self % mapGrid([(l, l = 1, elements % getSize())], [(l, l = 1, faces % getSize())], edges, elements, faces, &
-                              vertices, self % subGrids(self % nSubGrids))
+          call self % mapGrid(faces % getFaceElementIdxs(cellIntersectedFaceIdxs), cellIntersectedFaceIdxs, &
+                              self % nLayers == newDepth, edges, elements, faces, vertices, self % subGrids(self % nSubGrids))
           call self % refineGrid(newDepth, self % nSubGrids, edges, elements, faces, vertices)
 
           ! Now re-acquire pointer.
@@ -636,7 +633,6 @@ contains
     real(defReal), dimension(3)                        :: displacementVector, vertexCoords
     real(defReal), dimension(:, :), allocatable        :: angularSectorsArray
     type(CartesianGrid), pointer                       :: currentGridPtr
-    type(inclusionTestResult)                          :: elementInclusionResults
 
     ! Start at the root grid then search until we hit a terminal cell.
     currentGridPtr => self % rootGrid
@@ -661,15 +657,15 @@ contains
       intersectedFaceIdxs = currentGridPtr % getCellIntersectedFaceIdxs(hostCellIdxs(1), hostCellIdxs(2), hostCellIdxs(3))
       if(size(intersectedFaceIdxs) == 1) then
         potentialElementIdxs = faces % getFaceElementIdxs(intersectedFaceIdxs(1))
-        do i = 1, size(potentialElementIdxs)
-          elementInclusionResults = elements % isPointInside(potentialElementIdxs(i), r, faces)
-          if(elementInclusionResults % status == INSIDE_ELEMENT) then
-            elementIdx = potentialElementIdxs(i)
-            return
+        if(ZERO < dot_product(faces % getFaceCentroid(intersectedFaceIdxs(1)) - r, &
+           faces % getFaceNormal(intersectedFaceIdxs(1)))) then
+          elementIdx = minval(potentialElementIdxs)
 
-          end if
+        elseif(.not. faces % getFaceIsBoundary(intersectedFaceIdxs(1))) then
+          elementIdx = maxval(potentialElementIdxs)
 
-        end do
+        end if
+        return
 
       end if
 

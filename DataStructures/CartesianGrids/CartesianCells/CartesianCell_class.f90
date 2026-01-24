@@ -1,6 +1,5 @@
 module CartesianCell_class
 
-  use cartesianGenericProcedures, only : testIntervalIntersection
   use edgeShelf_class,            only : edgeShelf
   use elementShelf_class,         only : elementShelf
   use errors_mod,                 only : fatalError
@@ -30,6 +29,7 @@ module CartesianCell_class
     procedure :: isSimple
     procedure :: isUnprocessed
     procedure :: kill
+    procedure :: map
     procedure :: setSubGridIdx
     procedure :: testElementInclusion
     procedure :: testFaceIntersection
@@ -104,7 +104,7 @@ contains
     class(CartesianCell), intent(in) :: self
     logical(defBool)                 :: isIt
 
-    isIt = self % edgeIdx == 0 .and. self % elementIdx == 0 .and. self % vertexIdx == 0
+    isIt = self % elementIdx == 0 .and. .not. allocated(self % intersectedFaceIdxs)
 
   end function isOutside
 
@@ -148,87 +148,25 @@ contains
   !!
   !!
   !!
-  elemental subroutine setSubGridIdx(self, subGridIdx)
-    class(CartesianCell), intent(inout) :: self
-    integer(shortInt), intent(in)       :: subGridIdx
-
-    self % subGridIdx = subGridIdx
-
-  end subroutine setSubGridIdx
-
-  !!
-  !!
-  !!
-  pure subroutine testElementInclusion(self, elementIdx, elementFaceIdxs, centroid, elements, faces)
-    class(CartesianCell), intent(inout)         :: self
-    integer(shortInt), intent(in)               :: elementIdx
-    integer(shortInt), dimension(:), intent(in) :: elementFaceIdxs
-    real(defReal), dimension(3), intent(in)     :: centroid
-    type(elementShelf), intent(in)              :: elements
-    type(faceShelf), intent(in)                 :: faces
-    integer(shortInt)                           :: faceIdx, i
-
-    ! Test centroid inclusion within element.
-    do i = 1, size(elementFaceIdxs)
-      faceIdx = elementFaceIdxs(i)
-      if(dot_product(faces % getFaceCentroid(abs(faceIdx)) - centroid, faces % getFaceNormal(faceIdx)) < ZERO) return
-
-    end do
-    self % elementIdx = elementIdx
-
-  end subroutine testElementInclusion
-
-  !!
-  !!
-  !!
-  subroutine testFaceIntersection(self, faceIdx, extraDistance, spacing, targetDistance, centroid, edges, cache, faces, &
-                                       vertices)
+  pure subroutine map(self, targetDistance, centroid, edges, faces, vertices)
     class(CartesianCell), intent(inout)          :: self
-    integer(shortInt), intent(in)                :: faceIdx
-    real(defReal), intent(in)                    :: extraDistance, spacing, targetDistance
+    real(defReal), intent(in)                    :: targetDistance
     real(defReal), dimension(3), intent(in)      :: centroid
     type(edgeShelf), intent(in)                  :: edges
-    type(faceSATData), intent(in)                :: cache
     type(faceShelf), intent(in)                  :: faces
     type(vertexShelf), intent(in)                :: vertices
     integer(shortInt)                            :: commonEdgeIdx, i, j, nIntersectedFaces
     integer(shortInt), dimension(2)              :: commonEdgeVertexIdxs
-    integer(shortInt), dimension(:), allocatable :: faceEdgeIdxs, tempArray
+    integer(shortInt), dimension(:), allocatable :: faceEdgeIdxs
     real(defReal)                                :: distanceToVertex1Squared, distanceToVertex2Squared, projection
-    real(defReal), dimension(3)                  :: commonEdgeUnitVector, commonEdgeVertex1Coords, projections, radii, temp
+    real(defReal), dimension(3)                  :: commonEdgeUnitVector, commonEdgeVertex1Coords, temp
 
     ! Return immediately if mapping has already been assigned for this cell.
-    if(0 < self % edgeIdx .and. 0 < self % vertexIdx) return
-
-    ! Test along face normal.
-    projection = dot_product(centroid, cache % faceNormal)
-    if(.not. testIntervalIntersection(projection - extraDistance, projection + extraDistance, -cache % faceConstant, &
-                                      -cache % faceConstant)) return
-
-    ! Now test along edge axes using cached intervals.
-    do i = 1, size(cache % edgeVectors, 2)
-      ! Compute centroid projections and radii along each axis.
-      projections(1) = cache % edgeVectors(3, i) * centroid(2) - cache % edgeVectors(2, i) * centroid(3)
-      projections(2) = cache % edgeVectors(1, i) * centroid(3) - cache % edgeVectors(3, i) * centroid(1)
-      projections(3) = cache % edgeVectors(2, i) * centroid(1) - cache % edgeVectors(1, i) * centroid(2)
-      radii(1) = HALF * (abs(cache % edgeVectors(2, i)) + abs(cache % edgeVectors(3, i))) * spacing
-      radii(2) = HALF * (abs(cache % edgeVectors(1, i)) + abs(cache % edgeVectors(3, i))) * spacing
-      radii(3) = HALF * (abs(cache % edgeVectors(1, i)) + abs(cache % edgeVectors(2, i))) * spacing
-
-      do j = 1, 3
-        if(.not. testIntervalIntersection(projections(j) - radii(j), projections(j) + radii(j), &
-                                          cache % edgeAxesIntervals(j, i, 1), cache % edgeAxesIntervals(j, i, 2))) return
-
-      end do
-
-    end do
-
-    ! If reached here, the cell intersects the face so append the index to the list of intersected faces.
-    call append(self % intersectedFaceIdxs, faceIdx)
+    if(.not. allocated(self % intersectedFaceIdxs) .or. (0 < self % edgeIdx .and. 0 < self % vertexIdx)) return
     nIntersectedFaces = size(self % intersectedFaceIdxs)
     if(nIntersectedFaces == 1) then
       ! Assign edge mapping to first edge in the face.
-      faceEdgeIdxs = faces % getFaceEdgeIdxs(faceIdx)
+      faceEdgeIdxs = faces % getFaceEdgeIdxs(self % intersectedFaceIdxs(1))
       self % edgeIdx = faceEdgeIdxs(1)
 
     else
@@ -268,6 +206,92 @@ contains
       end do outerLoop
 
     end if
+
+  end subroutine map
+
+  !!
+  !!
+  !!
+  elemental subroutine setSubGridIdx(self, subGridIdx)
+    class(CartesianCell), intent(inout) :: self
+    integer(shortInt), intent(in)       :: subGridIdx
+
+    self % subGridIdx = subGridIdx
+
+  end subroutine setSubGridIdx
+
+  !!
+  !!
+  !!
+  pure subroutine testElementInclusion(self, elementIdx, elementFaceIdxs, centroid, elements, faces)
+    class(CartesianCell), intent(inout)         :: self
+    integer(shortInt), intent(in)               :: elementIdx
+    integer(shortInt), dimension(:), intent(in) :: elementFaceIdxs
+    real(defReal), dimension(3), intent(in)     :: centroid
+    type(elementShelf), intent(in)              :: elements
+    type(faceShelf), intent(in)                 :: faces
+    integer(shortInt)                           :: faceIdx, i
+
+    ! Test centroid inclusion within element.
+    do i = 1, size(elementFaceIdxs)
+      faceIdx = elementFaceIdxs(i)
+      if(dot_product(faces % getFaceCentroid(abs(faceIdx)) - centroid, faces % getFaceNormal(faceIdx)) < ZERO) return
+
+    end do
+    self % elementIdx = elementIdx
+
+  end subroutine testElementInclusion
+
+  !!
+  !!
+  !!
+  pure subroutine testFaceIntersection(self, faceIdx, extraDistance, spacing, centroid, cache)
+    class(CartesianCell), intent(inout)          :: self
+    integer(shortInt), intent(in)                :: faceIdx
+    real(defReal), intent(in)                    :: extraDistance, spacing
+    real(defReal), dimension(3), intent(in)      :: centroid
+    type(faceSATData), intent(in)                :: cache
+    integer(shortInt)                            :: i, j
+    real(defReal)                                :: projection
+    real(defReal), dimension(3)                  :: projections, radii
+
+    ! Test along face normal.
+    projection = dot_product(centroid, cache % faceNormal)
+    if(.not. testIntervalIntersection(projection - extraDistance, projection + extraDistance, -cache % faceConstant, &
+                                      -cache % faceConstant)) return
+
+    ! Now test along edge axes using cached intervals.
+    do i = 1, size(cache % edgeVectors, 2)
+      ! Compute centroid projections and radii along each axis.
+      projections(1) = cache % edgeVectors(3, i) * centroid(2) - cache % edgeVectors(2, i) * centroid(3)
+      projections(2) = cache % edgeVectors(1, i) * centroid(3) - cache % edgeVectors(3, i) * centroid(1)
+      projections(3) = cache % edgeVectors(2, i) * centroid(1) - cache % edgeVectors(1, i) * centroid(2)
+      radii(1) = HALF * (abs(cache % edgeVectors(2, i)) + abs(cache % edgeVectors(3, i))) * spacing
+      radii(2) = HALF * (abs(cache % edgeVectors(1, i)) + abs(cache % edgeVectors(3, i))) * spacing
+      radii(3) = HALF * (abs(cache % edgeVectors(1, i)) + abs(cache % edgeVectors(2, i))) * spacing
+
+      do j = 1, 3
+        if(.not. testIntervalIntersection(projections(j) - radii(j), projections(j) + radii(j), &
+                                          cache % edgeAxesIntervals(j, i, 1), cache % edgeAxesIntervals(j, i, 2))) return
+
+      end do
+
+    end do
+
+    ! If reached here, the cell intersects the face so append the index to the list of intersected faces.
+    call append(self % intersectedFaceIdxs, faceIdx)
+
+    contains
+      !!
+      !!
+      !!
+      elemental function testIntervalIntersection(min1, max1, min2, max2) result(intersects)
+        real(defReal), intent(in) :: min1, max1, min2, max2
+        logical(defBool)          :: intersects
+
+        intersects = min1 <= max2 .and. min2 <= max1
+
+      end function testIntervalIntersection
 
   end subroutine testFaceIntersection
 

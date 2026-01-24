@@ -37,7 +37,7 @@ geometry {
 			type OpenFOAMMesh;
 			path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/FinalFuelPinHex243/;
 			accelerationMethod patchSearch;
-			nLayers 3;
+			nLayers 6;
 		}
 	}
 

@@ -1,7 +1,6 @@
 module CartesianGrid_class
 
   use CartesianCell_class,        only : CartesianCell
-  use cartesianGenericProcedures, only : calculateAvgEdgeLength, constructAABB, findMinDihedralAngle, findMinFaceAngle
   use dictionary_class,           only : dictionary
   use edgeShelf_class,            only : edgeShelf
   use elementShelf_class,         only : elementShelf
@@ -25,6 +24,7 @@ module CartesianGrid_class
     real(defReal), dimension(6)                          :: bounds = ZERO
     type(CartesianCell), dimension(:, :, :), allocatable :: cells
   contains
+    procedure :: constructCellIdxs
     procedure :: findHostCellIdxs
     procedure :: getBounds
     procedure :: getCellsNumber
@@ -41,6 +41,7 @@ module CartesianGrid_class
     procedure :: isCellUnprocessed
     procedure :: isOutsideBounds
     procedure :: kill
+    procedure :: mapCell
     procedure :: setBounds
     procedure :: setCellsNumber
     procedure :: setCellSubGridIdx
@@ -49,6 +50,36 @@ module CartesianGrid_class
   end type CartesianGrid
 
 contains
+  !!
+  !!
+  !!
+  pure function constructCellIdxs(self, vertexIdxs, vertices) result(cellIdxs)
+    class(CartesianGrid), intent(in)            :: self
+    integer(shortInt), dimension(:), intent(in) :: vertexIdxs
+    type(vertexShelf), intent(in)               :: vertices
+    integer(shortInt)                           :: i
+    integer(shortInt), dimension(6)             :: cellIdxs
+    real(defreal), dimension(3)                 :: xyz_min, xyz_max, vertexCoords
+
+    ! initialise xyz_min and xyz_max using the first vertex
+    vertexCoords = vertices % getVertexCoordinates(vertexIdxs(1))
+    xyz_max = vertexCoords
+    xyz_min = vertexCoords
+
+    ! find xyz_min and xyz_max 
+    do i = 2, size(vertexIdxs)
+      vertexCoords = vertices % getVertexCoordinates(vertexIdxs(i))
+      xyz_min = min(xyz_min, vertexCoords)
+      xyz_max = max(xyz_max, vertexCoords)
+
+    end do
+
+    ! Find cell indices.
+    cellIdxs(1:3) = ceiling((xyz_min - self % bounds(1:3)) * self % inverseSpacing)
+    cellIdxs(4:6) = ceiling((xyz_max - self % bounds(1:3)) * self % inverseSpacing)
+
+  end function constructCellIdxs
+
   !!
   !!
   !!
@@ -265,6 +296,22 @@ contains
   !!
   !!
   !!
+  pure subroutine mapCell(self, xIdx, yIdx, zIdx, targetDistance, centroid, edges, faces, vertices)
+    class(CartesianGrid), intent(inout)     :: self
+    integer(shortInt), intent(in)           :: xIdx, yIdx, zIdx
+    real(defReal), intent(in)               :: targetDistance
+    real(defReal), dimension(3), intent(in) :: centroid
+    type(edgeShelf), intent(in)             :: edges
+    type(faceShelf), intent(in)             :: faces
+    type(vertexShelf), intent(in)           :: vertices
+
+    call self % cells(xIdx, yIdx, zIdx) % map(targetDistance, centroid, edges, faces, vertices)
+
+  end subroutine mapCell
+
+  !!
+  !!
+  !!
   pure subroutine setCellsNumber(self, nCells)
     class(CartesianGrid), intent(inout)         :: self
     integer(shortInt), dimension(3), intent(in) :: nCells
@@ -313,19 +360,14 @@ contains
   !!
   !!
   !!
-  subroutine testCellFaceIntersection(self, faceIdx, xIdx, yIdx, zIdx, extraDistance, targetDistance, centroid, edges, &
-                                           cache, faces, vertices)
+  pure subroutine testCellFaceIntersection(self, faceIdx, xIdx, yIdx, zIdx, extraDistance, centroid, cache)
     class(CartesianGrid), intent(inout)     :: self
     integer(shortInt), intent(in)           :: faceIdx, xIdx, yIdx, zIdx
-    real(defReal), intent(in)               :: extraDistance, targetDistance
+    real(defReal), intent(in)               :: extraDistance
     real(defReal), dimension(3), intent(in) :: centroid
-    type(edgeShelf), intent(in)             :: edges
     type(faceSATData), intent(in)           :: cache
-    type(faceShelf), intent(in)             :: faces
-    type(vertexShelf), intent(in)           :: vertices
 
-    call self % cells(xIdx, yIdx, zIdx) % testFaceIntersection(faceIdx, extraDistance, self % spacing, targetDistance, &
-                                                               centroid, edges, cache, faces, vertices)
+    call self % cells(xIdx, yIdx, zIdx) % testFaceIntersection(faceIdx, extraDistance, self % spacing, centroid, cache)
 
   end subroutine testCellFaceIntersection
 
