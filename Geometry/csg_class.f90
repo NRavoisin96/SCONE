@@ -201,15 +201,6 @@ contains
       print *, repeat('<>', MAX_COL/2)
     end if
 
-    ! end timer for initialisation and print
-    call timerStop(timerIdx)   ! Wall-time
-    call cpu_time(t2)          ! CPU-time
-    print*, "-------------------------------------------------------------"
-    print*, "/\/\ Initialisation procedure time /\/\"
-    print*, "CPU  time: ", t2 - t1, " seconds"
-    print*, "Wall time: ", trim(secToChar(timerTime(timerIdx)))
-    print*, "-------------------------------------------------------------"
-
   end subroutine init
 
   !!

@@ -35,9 +35,11 @@ geometry {
 		testMesh {
 			id 1; 
 			type OpenFOAMMesh; 
-			path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/3x3Assembly/; 
-			accelerationMethod patchSearch;
-			grid { type uniform; }
+			path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/3x3Assembly/;
+			accelerationStructure {
+				type patchSearchAcceleration;
+				depth 3;
+			}
 		}
 	}
 

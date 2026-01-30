@@ -60,6 +60,7 @@ contains
         potentialElementIdx = potentialElementIdxs(1)
         call coords % setElementIdx(potentialElementIdx)
         call coords % setParentElementIdx(elements % getElementParentIdx(potentialElementIdx))
+        call coords % setLocalId(elements % getElementLocalId(potentialElementIdx))
         return
 
       end if
@@ -75,6 +76,7 @@ contains
             ! If coordinates are fully inside, we have found our element.
             call coords % setElementIdx(potentialElementIdx)
             call coords % setParentElementIdx(elements % getElementParentIdx(potentialElementIdx))
+            call coords % setLocalId(elements % getElementLocalId(potentialElementIdx))
             return
 
           elseif (testResult % status == ON_BOUNDARY_ELEMENT) then
@@ -92,6 +94,7 @@ contains
               ! If coordinates are now well inside the element, we have found our element.
               call coords % setElementIdx(potentialElementIdx)
               call coords % setParentElementIdx(elements % getElementParentIdx(potentialElementIdx))
+              call coords % setLocalId(elements % getElementLocalId(potentialElementIdx))
               return
 
             elseif (testResult % status == OUTSIDE_ELEMENT) then
@@ -124,7 +127,7 @@ contains
     type(edgeShelf), intent(inout)           :: edges
 
     ! Simply initialise the octree.
-    call self % tree % init(vertices, faces, elements)
+    call self % tree % init(dict, vertices, faces, elements)
 
   end subroutine init
 

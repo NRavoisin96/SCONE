@@ -1,21 +1,20 @@
 module unstructuredMesh_inter
 
-  use accelerationStructure_inter,   only : accelerationStructure
-  use coord_class,                   only : coord
-  use dictionary_class,              only : dictionary
-  use edgeShelf_class,               only : edgeShelf
-  use element_inter,                 only : elementBox, inclusionTestResult
-  use elementShelf_class,            only : elementShelf
-  use face_inter,                    only : faceBox
-  use faceShelf_class,               only : faceShelf
-  use genericProcedures,             only : append, findDifferent, numToChar
-  use mesh_inter,                    only : mesh, kill_super => kill
+  use accelerationStructure_inter,       only : accelerationStructure
+  use accelerationStructureFactory_func, only : new_accelerationStructure
+  use coord_class,                       only : coord
+  use dictionary_class,                  only : dictionary
+  use edgeShelf_class,                   only : edgeShelf
+  use element_inter,                     only : elementBox, inclusionTestResult
+  use elementShelf_class,                only : elementShelf
+  use face_inter,                        only : faceBox
+  use faceShelf_class,                   only : faceShelf
+  use genericProcedures,                 only : append, findDifferent, numToChar
+  use mesh_inter,                        only : mesh, kill_super => kill
   use numPrecision
-  use octreeAcceleration_class,      only : octreeAcceleration
-  use patchSearchAcceleration_class, only : patchSearchAcceleration
   use universalVariables
-  use vertexShelf_class,             only : vertexShelf
-  use errors_mod,                    only : fatalError !!!
+  use vertexShelf_class,                 only : vertexShelf
+  use errors_mod,                        only : fatalError !!!
 
   implicit none
   private
@@ -359,58 +358,6 @@ contains
     coordsCopy = coords
     if (allocated(self % acceleration)) then
       call self % acceleration % findHostElement(self % vertices, self % edges, self % faces, self % elements, coords)
-      
-      ! Perform brute-force search and compare.
-      bruteLoop: do
-        do i = 1, self % nElements
-          testResult = self % elements % isPointInside(i, coordsCopy % getPositionToNudge(), self % faces)
-          if (testResult % status == INSIDE_ELEMENT) then
-            call coordsCopy % setElementIdx(i)
-            call coordsCopy % setParentElementIdx(self % elements % getElementParentIdx(i))
-            call coordsCopy % setLocalId(self % elements % getElementLocalId(i))
-            exit bruteLoop
-
-          elseif (testResult % status == ON_BOUNDARY_ELEMENT) then
-            ! If coordinates are on the element boundary (very rare), we need to push them off.
-            do while (testResult % status == ON_BOUNDARY_ELEMENT)
-              call self % elements % pushFromElementBoundary(i, self % faces, coordsCopy)
-
-              ! Perform containment test again.
-              testResult = self % elements % isPointInside(i, coordsCopy % getPositionToNudge(), self % faces)
-
-            end do
-
-            ! Now the coordinates are not on the boundary of the element anymore.
-            if (testResult % status == INSIDE_ELEMENT) then
-              ! If coordinates are now well inside the element, we have found our element.
-              call coordsCopy % setElementIdx(i)
-              call coordsCopy % setParentElementIdx(self % elements % getElementParentIdx(i))
-              call coordsCopy % setLocalId(self % elements % getElementLocalId(i))
-              exit bruteLoop
-
-            elseif (testResult % status == OUTSIDE_ELEMENT) then
-              ! If the nudge has resulted in an overshoot, we cycle searchLoop and begin the entire process again.
-              cycle bruteLoop
-
-            end if
-
-          end if
-
-        end do
-        exit bruteLoop
-
-      end do bruteLoop
-
-      coordsElementIdx = coords % getElementIdx()
-      coordsCopyElementIdx = coordsCopy % getElementIdx()
-      if(coordsElementIdx /= coordsCopyElementIdx) then
-        print *, 'Patch-Search element index: ', coordsElementIdx
-        print *, 'Brute-force element index: ', coordsCopyElementIdx
-        print *, 'Coordinates: ', coords % getPositionToNudge()
-        print *, 'Copied coordinates: ', coordsCopy % getPositionToNudge()
-        call fatalError('Test', 'STOP.')
-
-      end if
 
     else !!!
       ! Perform brute-force search.
@@ -539,7 +486,6 @@ contains
     type(faceShelf)                        :: faces, newFaces
     type(vertexShelf)                      :: newVertices, vertices
     logical(defBool)                       :: triangulate
-    character(nameLen)                     :: acceleration
 
     ! Set up base components.
     call self % setupBase(dict)
@@ -568,12 +514,9 @@ contains
     call self % initElementZones()
 
     ! Check if acceleration structure was required by user and initialise it if applicable.
-    call dict % getOrDefault(acceleration, 'accelerationMethod', 'none')
-    if(acceleration /= 'none') then
-      if(acceleration == 'octree') allocate(octreeAcceleration :: self % acceleration)
-      if(acceleration == 'patchSearch') allocate(patchSearchAcceleration :: self % acceleration)
-      call self % acceleration % init(dict, self % vertices, self % edges, self % faces, self % elements)
-    end if
+    if(dict % isPresent('accelerationStructure')) &
+    call new_accelerationStructure(dict % getDictPtr('accelerationStructure'), self % vertices, self % edges, self % faces, &
+                                   self % elements, self % acceleration)
 
   end subroutine init
 

@@ -1,22 +1,7 @@
-type eigenPhysicsPackage;
+type hostElementDetPackage;
 
-pop      100000;
-active   50;
-inactive 50;
-XSdata ce;
-dataType ce;
+pop      1000000000;
 seed 1;
-
-collisionOperator { neutronCE {type neutronCEstd;} }
-
-transportOperator { type transportOperatorDT; }
-
-inactiveTally {}
-
-activeTally {
-	display (k_eff);
-        k_eff { type keffAnalogClerk;}
-}
 
 geometry {
 	type geometryStd;
@@ -24,7 +9,7 @@ geometry {
   	graph {type shrunk;}
 
   	surfaces {
-		boxContainer { id 1; type box; origin (0.0 0.0 0.0); halfwidth (0.631 0.631 0.301); }
+		boxContainer { id 1; type box; origin (0.0 0.0 0.0); halfwidth (0.630939043079365 0.630939043079365 0.300080764391406); }
   	}
 
 	cells {
@@ -33,17 +18,20 @@ geometry {
 
 	meshes { 
 		testMesh {
-			id 1;
-			type OpenFOAMMesh;
-			path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/FinalFuelPinHex243/;
-			accelerationMethod patchSearch;
-			nLayers 1;
+			id 1; 
+			type OpenFOAMMesh; 
+			path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/FinalFuelPinTet427/;
+			accelerationStructure {
+				type octreeAcceleration;
+				depth 14;
+				nMaxFaces 11;
+			}
 		}
 	}
 
 	universes {
     		root { id 1; type rootUniverse; border 1; fill u<2>; }
-		mesh { id 2; type meshUniverse; origin (0.0 0.0 0.0); rotation (0.0 0.0 0.0); cell 1; mesh 1; fills (water water water fuel water fuel fuel fuel fuel); }
+		mesh { id 2; type meshUniverse; origin (0.0 0.0 0.0); rotation (0.0 0.0 0.0); cell 1; mesh 1; fills (fuel water); }
   	}
 
 }

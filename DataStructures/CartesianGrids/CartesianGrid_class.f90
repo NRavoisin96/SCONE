@@ -27,11 +27,12 @@ module CartesianGrid_class
     procedure :: constructCellIdxs
     procedure :: findHostCellIdxs
     procedure :: getBounds
-    procedure :: getCellsNumber
-    procedure :: getCellSubGridIdx
     procedure :: getCellEdgeIdx
     procedure :: getCellElementIdx
     procedure :: getCellIntersectedFaceIdxs
+    procedure :: getCellPtr
+    procedure :: getCellsNumber
+    procedure :: getCellSubGridIdx
     procedure :: getCellVertexIdx
     procedure :: getInverseSpacing
     procedure :: getSpacing
@@ -41,6 +42,7 @@ module CartesianGrid_class
     procedure :: isCellUnprocessed
     procedure :: isOutsideBounds
     procedure :: kill
+    procedure :: map
     procedure :: mapCell
     procedure :: setBounds
     procedure :: setCellsNumber
@@ -103,30 +105,7 @@ contains
 
   end function getBounds
 
-  !!
-  !!
-  !!
-  pure function getCellsNumber(self) result(nCells)
-    class(CartesianGrid), intent(in) :: self
-    integer(shortInt), dimension(3)  :: nCells
-
-    nCells = self % nCells
-
-  end function getCellsNumber
-
-  !!
-  !!
-  !!
-  elemental function getCellSubGridIdx(self, xIdx, yIdx, zIdx) result(subGridIdx)
-    class(CartesianGrid), intent(in) :: self
-    integer(shortInt), intent(in)    :: xIdx, yIdx, zIdx
-    integer(shortInt)                :: subGridIdx
-
-    subGridIdx = self % cells(xIdx, yIdx, zIdx) % getSubGridIdx()
-
-  end function getCellSubGridIdx
-
-  !!
+!!
   !!
   !!
   elemental function getCellEdgeIdx(self, xIdx, yIdx, zIdx) result(edgeIdx)
@@ -161,6 +140,41 @@ contains
     intersectedFaceIdxs = self % cells(xIdx, yIdx, zIdx) % getIntersectedFaceIdxs()
 
   end function getCellIntersectedFaceIdxs
+
+  !!
+  !!
+  !!
+  function getCellPtr(self, xIdx, yIdx, zIdx) result(cellPtr)
+    class(CartesianGrid), target, intent(in) :: self
+    integer(shortInt), intent(in)            :: xIdx, yIdx, zIdx
+    type(CartesianCell), pointer             :: cellPtr
+
+    cellPtr => self % cells(xIdx, yIdx, zIdx)
+
+  end function getCellPtr
+
+  !!
+  !!
+  !!
+  pure function getCellsNumber(self) result(nCells)
+    class(CartesianGrid), intent(in) :: self
+    integer(shortInt), dimension(3)  :: nCells
+
+    nCells = self % nCells
+
+  end function getCellsNumber
+
+  !!
+  !!
+  !!
+  elemental function getCellSubGridIdx(self, xIdx, yIdx, zIdx) result(subGridIdx)
+    class(CartesianGrid), intent(in) :: self
+    integer(shortInt), intent(in)    :: xIdx, yIdx, zIdx
+    integer(shortInt)                :: subGridIdx
+
+    subGridIdx = self % cells(xIdx, yIdx, zIdx) % getSubGridIdx()
+
+  end function getCellSubGridIdx
 
   !!
   !!
@@ -292,6 +306,83 @@ contains
     end if
 
   end subroutine kill
+
+  !!
+  !!
+  !!
+  subroutine map(self, elementIdxs, faceIdxs, isFinestLayer, mapCells, targetDistance, edges, elements, faces, caches, vertices)
+    class(CartesianGrid), intent(inout)          :: self
+    integer(shortInt), dimension(:), intent(in)  :: elementIdxs, faceIdxs
+    logical(defBool), intent(in)                 :: isFinestLayer, mapCells
+    real(defReal), intent(in)                    :: targetDistance
+    type(edgeShelf), intent(in)                  :: edges
+    type(elementShelf), intent(in)               :: elements
+    type(faceShelf), intent(in)                  :: faces
+    type(faceSATData), dimension(:), intent(in)  :: caches
+    type(vertexShelf), intent(in)                :: vertices
+    integer(shortInt)                            :: i, j, k, l
+    integer(shortInt), dimension(:), allocatable :: cellIdxs, elementFaceIdxs, elementVertexIdxs, faceVertexIdxs
+    real(defReal)                                :: extraDistance
+    real(defReal), dimension(3)                  :: centroid
+
+    ! Loop over all faces.
+    do i = 1, size(faceIdxs)
+      extraDistance = HALF * sum(abs(caches(faceIdxs(i)) % faceNormal)) * self % spacing
+
+      ! Generate the indices of the cells contained in the current face's AABB.
+      faceVertexIdxs = faces % getFaceVertexIdxs(faceIdxs(i))
+      cellIdxs = self % constructCellIdxs(faceVertexIdxs, vertices)
+
+      ! Loop over all cells.
+      do l = max(1, cellIdxs(3)), min(self % nCells(3), cellIdxs(6))
+        centroid(3) = self % bounds(3) + self % spacing * (l - HALF)
+        do k = max(1, cellIdxs(2)), min(self % nCells(2), cellIdxs(5))
+          centroid(2) = self % bounds(2) + self % spacing * (k - HALF)
+          do j = max(1, cellIdxs(1)), min(self % nCells(1), cellIdxs(4))
+            centroid(1) = self % bounds(1) + self % spacing * (j - HALF)
+            ! Now test current cell for intersection with the current face.
+            call self % cells(j, k, l) % testFaceIntersection(faceIdxs(i), extraDistance, self % spacing, centroid, &
+                                                              caches(faceIdxs(i)))
+
+            ! If we are at the finest layer, map the cell.
+            if(mapCells .and. isFinestLayer) call self % cells(j, k, l) % map(targetDistance, centroid, edges, faces, vertices)
+
+          end do
+
+        end do
+
+      end do
+
+    end do
+
+    ! Now loop over all elements.
+    do i = 1, size(elementIdxs)
+      ! Generate the indices of the cells contained in the current element's AABB.
+      elementFaceIdxs = elements % getElementFaceIdxs(elementIdxs(i))
+      elementVertexIdxs = elements % getElementVertexIdxs(elementIdxs(i))
+      cellIdxs = self % constructCellIdxs(elementVertexIdxs, vertices)
+
+      ! Loop over all cells.
+      do l = max(1, cellIdxs(3)), min(self % nCells(3), cellIdxs(6))
+        centroid(3) = self % bounds(3) + self % spacing * (l - HALF)
+        do k = max(1, cellIdxs(2)), min(self % nCells(2), cellIdxs(5))
+          centroid(2) = self % bounds(2) + self % spacing * (k - HALF)
+          do j = max(1, cellIdxs(1)), min(self % nCells(1), cellIdxs(4))
+            if(self % cells(j, k, l) % isUnprocessed()) then
+              centroid(1) = self % bounds(1) + self % spacing * (j - HALF)
+              call self % cells(j, k, l) % testElementInclusion(elementIdxs(i), elementFaceIdxs, centroid, elements, faces)
+
+            end if
+
+          end do
+
+        end do
+
+      end do
+
+    end do
+
+  end subroutine map
 
   !!
   !!

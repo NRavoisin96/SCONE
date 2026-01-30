@@ -249,7 +249,13 @@ contains
     class(edge), intent(in)                        :: self
     integer(shortInt), dimension(:), allocatable   :: elementIdxsArray
 
-    elementIdxsArray = self % elementIdxsArray
+    if(allocated(self % elementIdxsArray)) then
+      elementIdxsArray = self % elementIdxsArray
+
+    else
+      allocate(elementIdxsArray(0))
+
+    end if
 
   end function getElementIdxsArray
 
