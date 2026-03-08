@@ -1,7 +1,6 @@
 module element_inter
 
   use axisAlignedBoundingBox_class, only : axisAlignedBoundingBox
-  use coord_class,                  only : coord
   use edgeShelf_class,              only : edgeShelf
   use face_inter,                   only : faceBox
   use faceShelf_class,              only : faceShelf
@@ -9,7 +8,7 @@ module element_inter
                                            computeTetrahedronCentre, computeTetrahedronVolume, findCommon, &
                                            fatalError, numToChar
   use numPrecision
-  use universalVariables,           only : INSIDE_ELEMENT, INF, ON_BOUNDARY_ELEMENT, OUTSIDE_ELEMENT, SURF_TOL, ZERO
+  use universalVariables,           only : INSIDE_ELEMENT, INF, NUDGE, ON_BOUNDARY_ELEMENT, OUTSIDE_ELEMENT, SURF_TOL
   use vertexShelf_class,            only : vertexShelf
   
   implicit none
@@ -67,6 +66,7 @@ module element_inter
     procedure                                    :: kill
     procedure, non_overridable                   :: pushFromBoundary
     procedure, non_overridable                   :: isPointInside
+    procedure, non_overridable                   :: isPointInsideNoBoundaryCheck
   end type element
 
   !!
@@ -578,17 +578,16 @@ contains
   !!
   !!
   !!
-  elemental subroutine pushFromBoundary(self, faces, coords)
-    class(element), intent(in)   :: self
-    type(faceShelf), intent(in)  :: faces
-    type(coord), intent(inout)   :: coords
-    real(defReal), dimension(3)  :: normal, nudgeDirection, r, u
-    integer(shortInt)            :: absFaceIdx, faceIdx, i
+  pure subroutine pushFromBoundary(self, faces, u, r)
+    class(element), intent(in)                 :: self
+    type(faceShelf), intent(in)                :: faces
+    real(defReal), dimension(3), intent(in)    :: u
+    real(defReal), dimension(3), intent(inout) :: r
+    real(defReal), dimension(3)                :: normal, nudgeDirection
+    integer(shortInt)                          :: absFaceIdx, faceIdx, i
 
     ! Initialise nudgeDirection = ZERO then loop over all the faces in the element.
     nudgeDirection = ZERO
-    r = coords % getPositionToNudge()
-    u = coords % getDirection()
     do i = 1, size(self % faceIdxs)
       ! Retrieve the index of the current face and make an absolute index.
       faceIdx = self % faceIdxs(i)
@@ -596,21 +595,21 @@ contains
 
       ! Retrieve the normal vector of the current face and test whether the coordinates lie on the face.
       normal = faces % getFaceNormal(faceIdx)
-      if (areEqual(dot_product(faces % getFaceCentroid(absFaceIdx) - r, normal), ZERO)) then
+      if(areEqual(dot_product(faces % getFaceCentroid(absFaceIdx) - r, normal), ZERO)) then
         ! If coordinates are parallel to the plane of the current face, append the negative of the normal to
         ! nudgeDirection.
-        if (areEqual(dot_product(u, normal), ZERO)) nudgeDirection = nudgeDirection - normal
+        if(areEqual(dot_product(u, normal), ZERO)) nudgeDirection = nudgeDirection - normal
 
       end if
 
     end do
 
     ! Now nudge coordinates with the appropriate direction.
-    if (any(nudgeDirection /= ZERO)) then
-      call coords % nudgePosition(nudgeDirection / norm2(nudgeDirection))
+    if(any(nudgeDirection /= ZERO)) then
+      r = r + nudgeDirection * NUDGE / norm2(nudgeDirection)
 
     else
-      call coords % nudgePosition()
+      r = r + u * NUDGE
 
     end if
 
@@ -716,5 +715,26 @@ contains
     if (isOnBoundary) result % status = ON_BOUNDARY_ELEMENT
 
   end function isPointInside
+
+  !!
+  !!
+  !!
+  pure function isPointInsideNoBoundaryCheck(self, r, faces) result(isIt)
+    class(element), intent(in)              :: self
+    real(defReal), dimension(3), intent(in) :: r
+    type(faceShelf), intent(in)             :: faces
+    integer(shortInt)                       :: i
+    logical(defBool)                        :: isIt
+
+    isIt = .false.
+    if(.not. allocated(self % faceIdxs)) return
+    do i = 1, size(self % faceIdxs)
+      if(dot_product(faces % getFaceCentroid(abs(self % faceIdxs(i))) - r, &
+                     faces % getFaceNormal(self % faceIdxs(i))) < ZERO) return
+
+    end do
+    isIt = .true.
+
+  end function isPointInsideNoBoundaryCheck
 
 end module element_inter

@@ -39,7 +39,6 @@ module vertexKDTree_class
     procedure :: getDataNumber
     procedure :: getLeavesNumber
     procedure :: getNodesNumber
-    procedure :: getRootBoundingBox
   end type vertexKDTree
 
 contains
@@ -162,21 +161,5 @@ contains
     nNodes = self % nNodes
 
   end function getNodesNumber
-
-  !! Function 'getRootBoundingBox'
-  !!
-  !! Basic description:
-  !!   Returns the bounding box of the root node of the tree.
-  !!
-  !! Result:
-  !!   boundingBox -> Bounding box of the root node of the tree.
-  !!
-  pure function getRootBoundingBox(self) result(boundingBox)
-    class(vertexKDTree), intent(in) :: self
-    type(axisAlignedBoundingBox)    :: boundingBox
-
-    boundingBox = self % root % getBoundingBox()
-
-  end function getRootBoundingBox
 
 end module vertexKDTree_class

@@ -220,19 +220,16 @@ contains
   !!   parent [in]          -> Parent node.
   !!
   subroutine setupBase(self, data, idxs, lowerBound, upperBound, nNodes, nLeaves, parentIdx)
-    class(kdTreeNode), intent(inout)                                 :: self
-    real(defReal), dimension(:, :), intent(in)                       :: data
-    integer(shortInt), dimension(:), intent(inout)                   :: idxs
-    integer(shortInt), intent(in)                                    :: lowerBound, upperBound
-    integer(shortInt), intent(inout)                                 :: nNodes, nLeaves
-    integer(shortInt), intent(in), optional                          :: parentIdx
-    integer(shortInt)                                                :: i, j, cutDimension, cutDatumIdx, nData, middleIdx
-    integer(shortInt), dimension(:), allocatable                     :: indicesArray
-    integer(shortInt), dimension(upperBound - lowerBound + 1)        :: nodeDataIdxs, sortedNodeDataIdxs
-    real(defReal)                                                    :: cutValue, mean, variance, maxVariance, difference
-    logical(defBool)                                                 :: isChild
-    real(defReal), dimension(upperBound - lowerBound + 1)            :: sortedCoords
-    real(defReal), dimension(6)                                      :: bounds
+    class(kdTreeNode), intent(inout)                          :: self
+    real(defReal), dimension(:, :), intent(in)                :: data
+    integer(shortInt), dimension(:), intent(inout)            :: idxs
+    integer(shortInt), intent(in)                             :: lowerBound, upperBound
+    integer(shortInt), intent(inout)                          :: nNodes, nLeaves
+    integer(shortInt), intent(in), optional                   :: parentIdx
+    integer(shortInt)                                         :: i, j, cutDimension, nData, middleIdx
+    integer(shortInt), dimension(upperBound - lowerBound + 1) :: nodeDataIdxs, sortedNodeDataIdxs
+    real(defReal)                                             :: cutValue, mean, variance, maxVariance, difference
+    real(defReal), dimension(upperBound - lowerBound + 1)     :: sortedCoords
 
     ! Initialise superclass.
     nNodes = nNodes + 1

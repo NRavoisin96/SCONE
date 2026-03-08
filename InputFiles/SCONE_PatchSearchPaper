@@ -1,7 +1,10 @@
 type hostElementDetPackage;
 
-pop      1000000000;
-seed 1;
+pop 1;
+octreeDepth 6;
+octreeNMaxFaces 1;
+depths (1 2 3 4 5);
+seeds (1);
 
 geometry {
 	type geometryStd;
@@ -20,18 +23,13 @@ geometry {
 		testMesh {
 			id 1; 
 			type OpenFOAMMesh; 
-			path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/FinalFuelPinTet427/;
-			accelerationStructure {
-				type octreeAcceleration;
-				depth 14;
-				nMaxFaces 11;
-			}
+			path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/FinalFuelPinHex1944/;
 		}
 	}
 
 	universes {
     		root { id 1; type rootUniverse; border 1; fill u<2>; }
-		mesh { id 2; type meshUniverse; origin (0.0 0.0 0.0); rotation (0.0 0.0 0.0); cell 1; mesh 1; fills (fuel water); }
+		mesh { id 2; type meshUniverse; origin (0.0 0.0 0.0); rotation (0.0 0.0 0.0); cell 1; mesh 1; fills (water water water fuel water fuel fuel fuel fuel); }
   	}
 
 }

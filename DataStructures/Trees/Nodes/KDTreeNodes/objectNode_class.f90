@@ -34,7 +34,7 @@ contains
     class(objectNode), intent(in)                               :: self
     type(axisAlignedBoundingBox), intent(in)                    :: boundingBox
     integer(shortInt), dimension(:), allocatable, intent(inout) :: objectIdxs
-    type(axisAlignedBoundingBox)                                :: nodeBoundingBox
+    type(axisAlignedBoundingBox), pointer                       :: nodeBoundingBoxPtr
 
     ! If current node is a leaf, check for intersection against each face in the node.
     if (self % getIsLeaf()) then
@@ -44,8 +44,8 @@ contains
     end if
     
     ! Check if the bounding box intersects the current node's bounding box.
-    nodeBoundingBox = self % getBoundingBox()
-    if (.not. nodeBoundingBox % intersects(boundingBox)) return
+    nodeBoundingBoxPtr => self % getBoundingBoxPtr()
+    if (.not. nodeBoundingBoxPtr % intersects(boundingBox)) return
 
     ! If the bounding box intersects the bounding box of the current node, descend deeper into the tree.
     call self % left % findPotentiallyIntersectedObjects_BoundingBox(boundingBox, objectIdxs)
@@ -116,7 +116,6 @@ contains
 
     ! If node has been identified as a leaf, compute its bounding box here.
     if (self % getIsLeaf()) then
-      boundingBox = self % getBoundingBox()
       call boundingBox % computeBounds(boundingBoxes(idxs(self % getLowerBound():self % getUpperBound())))
       call self % setBoundingBox(boundingBox)
       return
@@ -139,8 +138,7 @@ contains
     call self % right % init(data, idxs, cutIdx + 1, upperBound, nNodes, nLeaves, boundingBoxes, self % getIdx())
 
     ! Update bounding box from children bounding boxes.
-    boundingBox = self % getBoundingBox()
-    call boundingBox % computeBounds([self % left % getBoundingBox(), self % right % getBoundingBox()])
+    call boundingBox % computeBounds([self % left % getBoundingBoxPtr(), self % right % getBoundingBoxPtr()])
     call self % setBoundingBox(boundingBox)
 
   end subroutine init
@@ -215,7 +213,7 @@ contains
     type(faceShelf), intent(in)                 :: faces
     integer(shortInt), intent(out)              :: idx
     class(objectNode), pointer                  :: nearNode, farNode
-    type(axisAlignedBoundingBox)                :: boundingBox
+    type(axisAlignedBoundingBox), pointer       :: boundingBoxPtr
     
     ! If the current node is a leaf simply process it.
     if (self % getIsLeaf()) then
@@ -240,9 +238,9 @@ contains
 
     ! Search the further node only if the distance to its bounding box is less than the current
     ! best distance.
-    if (associated(farNode)) then
-      boundingBox = farNode % getBoundingBox()
-      if (boundingBox % distanceSquared(r) < radiusSquared) call farNode % search(r, radiusSquared, idxs, vertices, faces, idx)
+    if(associated(farNode)) then
+      boundingBoxPtr => farNode % getBoundingBoxPtr()
+      if(boundingBoxPtr % distanceSquared(r) < radiusSquared) call farNode % search(r, radiusSquared, idxs, vertices, faces, idx)
 
     end if
 

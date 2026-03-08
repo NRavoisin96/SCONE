@@ -14,6 +14,7 @@ module physicsPackageFactory_func
   use eigenPhysicsPackage_class,             only : eigenPhysicsPackage
   use fixedSourcePhysicsPackage_class,       only : fixedSourcePhysicsPackage
   use hostElementDeterminationPackage_class, only : hostElementDeterminationPackage
+  use octreeOptimisationPackage_class,       only : octreeOptimisationPackage
   use vizPhysicsPackage_class,               only : vizPhysicsPackage
   use rayVolPhysicsPackage_class,            only : rayVolPhysicsPackage
 !  use dynamPhysicsPackage_class, only : dynamPhysicsPackage
@@ -28,6 +29,7 @@ module physicsPackageFactory_func
   character(nameLen), dimension(*), parameter :: AVAILABLE_physicsPackages = ['eigenPhysicsPackage      ', &
                                                                               'fixedSourcePhysicsPackage', &
                                                                               'hostElementDetPackage    ', &
+                                                                              'octreeOptimisationPackage', &
                                                                               'vizPhysicsPackage        ', &
                                                                               'rayVolPhysicsPackage     ']
 
@@ -61,6 +63,9 @@ contains
 
       case('hostElementDetPackage')
         allocate(hostElementDeterminationPackage :: new)
+
+      case('octreeOptimisationPackage')
+        allocate(octreeOptimisationPackage :: new)
 
       case('vizPhysicsPackage')
         allocate(vizPhysicsPackage :: new)

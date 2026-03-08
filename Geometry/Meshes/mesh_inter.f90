@@ -41,10 +41,10 @@ module mesh_inter
   !!   findElementAndParentIdxs -> Finds the index of the mesh element occupied by a particle and
   !!                               the index of the parent element of the occupied element.
   !!
-  type, public, abstract                        :: mesh
+  type, public, abstract :: mesh
     private
-    integer(shortInt)                           :: id = 0, nLocalIds = 0
-    type(axisAlignedBoundingBox)                :: boundingBox
+    integer(shortInt)            :: id = 0, nLocalIds = 0
+    type(axisAlignedBoundingBox) :: boundingBox
   contains
     ! Build procedures.
     procedure, non_overridable                  :: setBoundingBox
@@ -59,7 +59,7 @@ module mesh_inter
     procedure(distanceToBoundaryFace), deferred :: distanceToBoundaryFace
     procedure(distanceToNextFace), deferred     :: distanceToNextFace
     procedure(findHostElement), deferred        :: findHostElement
-    procedure, non_overridable                  :: getBoundingBox
+    procedure, non_overridable                  :: getBoundingBoxPtr
     procedure, non_overridable                  :: getLocalIdsNumber
     procedure, non_overridable                  :: getId
   end type mesh
@@ -213,13 +213,13 @@ contains
   !! Result:
   !!   boundingBox -> AABB of the mesh.
   !!
-  pure function getBoundingBox(self) result(boundingBox)
-    class(mesh), intent(in)      :: self
-    type(axisAlignedBoundingBox) :: boundingBox
+  function getBoundingBoxPtr(self) result(boundingBoxPtr)
+    class(mesh), target, intent(in)       :: self
+    type(axisAlignedBoundingBox), pointer :: boundingBoxPtr
     
-    boundingBox = self % boundingBox
+    boundingBoxPtr => self % boundingBox
 
-  end function getBoundingBox
+  end function getBoundingBoxPtr
 
   !! Function 'getElementZonesNumber'
   !!

@@ -54,7 +54,7 @@ module node_inter
     ! Runtime procedures.
     generic            :: boundingBoxContains => boundingBoxContains_Coords
     procedure, private :: boundingBoxContains_Coords
-    procedure          :: getBoundingBox
+    procedure          :: getBoundingBoxPtr
     procedure          :: getBoundingBoxBounds
     procedure          :: getBoundingBoxCentre
     procedure          :: getBucketSize
@@ -112,13 +112,13 @@ contains
   !! Result:
   !!   boundingBox -> Bounding box of the node.
   !!
-  elemental function getBoundingBox(self) result(boundingBox)
-    class(node), intent(in)      :: self
-    type(axisAlignedBoundingBox) :: boundingBox
+  function getBoundingBoxPtr(self) result(boundingBoxPtr)
+    class(node), target, intent(in)       :: self
+    type(axisAlignedBoundingBox), pointer :: boundingBoxPtr
 
-    boundingBox = self % boundingBox
+    boundingBoxPtr => self % boundingBox
 
-  end function getBoundingBox
+  end function getBoundingBoxPtr
 
   !!
   !!

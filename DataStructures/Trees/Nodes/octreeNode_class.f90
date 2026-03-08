@@ -1,213 +1,112 @@
 module octreeNode_class
 
-  use axisAlignedBoundingBox_class, only : axisAlignedBoundingBox
-  use coord_class,                  only : coord
-  use element_inter,                only : inclusionTestResult
-  use elementShelf_class,           only : elementShelf
-  use face_inter,                   only : face
-  use faceShelf_class,              only : faceShelf
-  use genericProcedures,            only : append, areEqual, fatalError
-  use objectKDTree_class,           only : objectKDTree
+  use element_inter,      only : inclusionTestResult
+  use elementShelf_class, only : elementShelf
+  use faceShelf_class,    only : faceShelf
+  use node_inter,         only : node, kill_super => kill
   use numPrecision
-  use node_inter,                   only : node, kill_super => kill
-  use universalVariables,           only : HALF, INF, INSIDE_ELEMENT, NUDGE, ON_BOUNDARY_ELEMENT, OUTSIDE_ELEMENT
-  use vertexShelf_class,            only : vertexShelf
+  use universalVariables, only : INSIDE_ELEMENT, ON_BOUNDARY_ELEMENT, OUTSIDE_ELEMENT
 
   implicit none
   private
 
   type, public, extends(node) :: octreeNode
     private
-    integer(shortInt)                            :: level = 0, nIntersectingFaces = 0
-    integer(shortInt), dimension(:), allocatable :: elementIdxs
-    logical(defBool)                             :: isUnchecked = .true., isInside = .false., isOutside = .false., &
-                                                    isIntersecting = .false.
-    type(octreeNode), dimension(:), allocatable  :: children
-    type(octreeNode), pointer                    :: parent => null()
+    integer(shortInt)                            :: firstChildIdx = 0, level = 0
+    integer(shortInt), dimension(:), allocatable :: elementIdxs, intersectedFaceIdxs
   contains
-    ! Build procedures.
-    procedure :: assignElement
-    procedure :: init
-    procedure :: kill
-    procedure :: refine
-    procedure :: split
-    ! Runtime procedures.
-    procedure :: countInside
-    procedure :: countOutside
-    procedure :: findLeaf
+    procedure :: findHostElementIdx
+    procedure :: getDepth
     procedure :: getElementIdxs
-    procedure :: getIsInside
-    procedure :: getIsIntersecting
-    procedure :: getIsOutside
+    procedure :: getFirstChildIdx
+    procedure :: getIntersectedFaceIdxs
+    procedure :: getStorageSize
+    procedure :: init
+    procedure :: isInside
+    procedure :: isOutside
+    procedure :: kill
+    procedure :: setElementIdxs
+    procedure :: setFirstChildIdx
+    procedure :: setIntersectedFaceIdxs
   end type octreeNode
 
 contains
   !!
   !!
   !!
-  recursive subroutine assignElement(self, tree, vertices, faces, elements)
-    class(octreeNode), intent(inout)             :: self
-    type(objectKDTree), intent(in)               :: tree
-    type(vertexShelf), intent(in)                :: vertices
-    type(faceShelf), intent(in)                  :: faces
-    type(elementShelf), intent(in)               :: elements
-    integer(shortInt)                            :: elementIdx, i, nearestFaceIdx
-    integer(shortInt), dimension(:), allocatable :: elementIdxs
-    real(defReal), dimension(3)                  :: boundingBoxCentre
-    type(inclusionTestResult)                    :: insideResult
+  pure subroutine findHostElementIdx(self, u, elements, faces, elementIdx, r, exitLoop)
+    class(octreeNode), intent(in)              :: self
+    real(defReal), dimension(3), intent(in)    :: u
+    type(elementShelf), intent(in)             :: elements
+    type(faceShelf), intent(in)                :: faces
+    integer(shortInt), intent(inout)           :: elementIdx
+    real(defReal), dimension(3), intent(inout) :: r
+    logical(defBool), intent(out)              :: exitLoop
+    integer(shortInt)                          :: i, nElements
+    type(inclusionTestResult)                  :: testResult
 
-    ! If the cell is not a leaf, descend deeper into the tree.
-    if (.not. self % getIsLeaf()) then
-      do i = 1, 8
-        call self % children(i) % assignElement(tree, vertices, faces, elements)
+    exitLoop = .true.
+    if(self % isOutside()) return
 
-      end do
+    nElements = size(self % elementIdxs)
+    if(nElements == 1) then
+      elementIdx = self % elementIdxs(1)
+      return
+
+    elseif(size(self % intersectedFaceIdxs) == 1) then
+      call faces % testFaceHalfSpace(self % intersectedFaceIdxs(1), r, elementIdx)
       return
 
     end if
 
-    ! If the cell has already been checked simply return.
-    if (.not. self % isUnchecked) return
+    do i = 1, nElements
+      ! Perform inclusion test for the current element.
+      testResult = elements % isPointInside(self % elementIdxs(i), r, faces)
 
-    ! If the cell is unchecked, find the nearest mesh face from the tree.
-    self % isUnchecked = .false.
-    boundingBoxCentre = self % getBoundingBoxCentre()
-    nearestFaceIdx = tree % findNearestObject(boundingBoxCentre, vertices, faces)
-    
-    ! Retrieve the elements associated with the nearest face.
-    elementIdxs = faces % getFaceElementIdxs(nearestFaceIdx)
-    do i = 1, size(elementIdxs)
-      ! Check for inclusion in the current element.
-      elementIdx = elementIdxs(i)
-      insideResult = elements % isPointInside(elementIdx, boundingBoxCentre, faces)
-
-      ! If the current element contains the bounding box, assign it to the cell
-      ! and return.
-      if (insideResult % status == INSIDE_ELEMENT) then
-        allocate(self % elementIdxs(1))
-        self % elementIdxs(1) = elementIdx
-        self % isInside = .true.
+      if(testResult % status == INSIDE_ELEMENT) then
+        ! If coordinates are fully inside, we have found our element.
+        elementIdx = self % elementIdxs(i)
         return
+
+      elseif(testResult % status == ON_BOUNDARY_ELEMENT) then
+        ! If coordinates are on the element boundary (very rare), we need to push them off.
+        do while (testResult % status == ON_BOUNDARY_ELEMENT)
+          call elements % pushFromElementBoundary(self % elementIdxs(i), u, faces, r)
+
+          ! Perform containment test again.
+          testResult = elements % isPointInside(self % elementIdxs(i), r, faces)
+
+        end do
+
+        ! Now the coordinates are not on the boundary of the element anymore.
+        if(testResult % status == INSIDE_ELEMENT) then
+          ! If coordinates are now well inside the element, we have found our element.
+          elementIdx = self % elementIdxs(i)
+          return
+
+        elseif(testResult % status == OUTSIDE_ELEMENT) then
+          ! If the nudge has resulted in an overshoot, we cycle searchLoop and begin the entire process again.
+          exitLoop = .false.
+          return
+
+        end if
 
       end if
 
     end do
 
-    ! If reached here, the cell is not in any element, so set it as being outside.
-    self % isOutside = .true.
-
-  end subroutine assignElement
+  end subroutine findHostElementIdx
 
   !!
   !!
   !!
-  pure recursive subroutine countInside(self, nInside)
-    class(octreeNode), intent(in)    :: self
-    integer(shortInt), intent(inout) :: nInside
-    integer(shortInt)                :: i
+  elemental function getDepth(self) result(depth)
+    class(octreeNode), intent(in) :: self
+    integer(shortInt)             :: depth
 
-    if (.not. self % getIsLeaf()) then
-      do i = 1, 8
-        call self % children(i) % countInside(nInside)
+    depth = self % level
 
-      end do
-      return
-
-    end if
-
-    if (self % isInside) nInside = nInside + 1
-
-  end subroutine countInside
-
-  !!
-  !!
-  !!
-  pure recursive subroutine countOutside(self, nOutside)
-    class(octreeNode), intent(in)    :: self
-    integer(shortInt), intent(inout) :: nOutside
-    integer(shortInt)                :: i
-
-    if (.not. self % getIsLeaf()) then
-      do i = 1, 8
-        call self % children(i) % countOutside(nOutside)
-
-      end do
-      return
-
-    end if
-
-    if (self % isOutside) nOutside = nOutside + 1
-
-  end subroutine countOutside
-
-  !!
-  !!
-  !!
-  recursive subroutine findLeaf(self, coords, leaf, requiresContainmentCheck)
-    class(octreeNode), intent(in), target  :: self
-    type(coord), intent(inout)             :: coords
-    type(octreeNode), intent(out), pointer :: leaf
-    logical(defBool), intent(in), optional :: requiresContainmentCheck
-    logical(defBool)                       :: checkContainment, inside
-    real(defReal), dimension(3)            :: boundingBoxCentre, r
-    integer(shortInt)                      :: i, idx
-
-    ! Only perform containment check if it has been required.
-    checkContainment = .false.
-    if (present(requiresContainmentCheck)) checkContainment = requiresContainmentCheck
-
-    ! Perform containment check if needed.
-    if (checkContainment) then
-      if (.not. self % boundingBoxContains(coords % getPositionToNudge())) then
-        if (associated(self % parent)) then
-          call self % parent % findLeaf(coords, leaf, .true.)
-
-        else
-          leaf => null()
-
-        end if
-        return
-
-      end if
-
-    end if
-
-    ! Push coordinates from boundary of bounding box if applicable.
-    call self % pushFromBoundingBoxBoundary(coords, inside)
-
-    ! Check for overshoot.
-    if (.not. inside) then
-      if (associated(self % parent)) then
-        call self % parent % findLeaf(coords, leaf, .true.)
-
-        else
-            ! We are at the root and overshot. Particle is outside the domain.
-            leaf => null()
-
-        end if
-        return
-
-    end if
-
-    ! If cell is a leaf, simply associate the leaf pointer and return.
-    if (self % getIsLeaf()) then
-      leaf => self
-      return
-
-    end if
-
-    ! Retrieve coordinates position and descend into correct child node.
-    r = coords % getPositionToNudge()
-    boundingBoxCentre = self % getBoundingBoxCentre()
-    idx = 1
-    if (r(1) >= boundingBoxCentre(1)) idx = idx + 4
-    if (r(2) >= boundingBoxCentre(2)) idx = idx + 2
-    if (r(3) >= boundingBoxCentre(3)) idx = idx + 1
-
-    ! Check the correct child cell.
-    call self % children(idx) % findLeaf(coords, leaf)
-
-  end subroutine findLeaf
+  end function getDepth
 
   !!
   !!
@@ -216,12 +115,11 @@ contains
     class(octreeNode), intent(in)                :: self
     integer(shortInt), dimension(:), allocatable :: elementIdxs
 
-    ! Check if the elementIdxs component is allocated and return empty array if not.
-    if (.not. allocated(self % elementIdxs)) then
-      allocate(elementIdxs(0))
+    if(allocated(self % elementIdxs)) then
+      elementIdxs = self % elementIdxs
 
     else
-      elementIdxs = self % elementIdxs
+      allocate(elementIdxs(0))
 
     end if
 
@@ -230,58 +128,87 @@ contains
   !!
   !!
   !!
-  elemental function getIsInside(self) result(isInside)
+  elemental function getFirstChildIdx(self) result(firstChildIdx)
     class(octreeNode), intent(in) :: self
-    logical(defBool)              :: isInside
+    integer(shortInt)             :: firstChildIdx
 
-    isInside = self % isInside
+    firstChildIdx = self % firstChildIdx
 
-  end function getIsInside
+  end function getFirstChildIdx
 
   !!
   !!
   !!
-  elemental function getIsIntersecting(self) result(isIntersecting)
+  pure function getIntersectedFaceIdxs(self) result(intersectedFaceIdxs)
+    class(octreeNode), intent(in)                :: self
+    integer(shortInt), dimension(:), allocatable :: intersectedFaceIdxs
+
+    if(allocated(self % intersectedFaceIdxs)) then
+      intersectedFaceIdxs = self % intersectedFaceIdxs
+
+    else
+      allocate(intersectedFaceIdxs(0))
+
+    end if
+
+  end function getIntersectedFaceIdxs
+
+  !!
+  !!
+  !!
+  elemental function getStorageSize(self) result(storageSize)
     class(octreeNode), intent(in) :: self
-    logical(defBool)              :: isIntersecting
+    integer(longInt)              :: storageSize
 
-    isIntersecting = self % isIntersecting
+    storageSize = storage_size(self) / 8
+    if(allocated(self % elementIdxs)) storageSize = storageSize + 4 * size(self % elementIdxs)
+    if(allocated(self % intersectedFaceIdxs)) storageSize = storageSize + 4 * size(self % intersectedFaceIdxs)
 
-  end function getIsIntersecting
-
-  !!
-  !!
-  !!
-  elemental function getIsOutside(self) result(isOutside)
-    class(octreeNode), intent(in) :: self
-    logical(defBool)              :: isOutside
-
-    isOutside = self % isOutside
-
-  end function getIsOutside
+  end function getStorageSize
 
   !! Subroutine 'init'
   !!
   !! Basic description:
   !!   
-  subroutine init(self, boundingBoxBounds, tree, vertices, faces, level, maxFacesNumber, maxRefinementLevel, &
-                  nLeaves, parent)
+  subroutine init(self, depth, parentIdx, boundingBoxBounds)
     class(octreeNode), intent(inout)               :: self
+    integer(shortInt), intent(in)                  :: depth, parentIdx
     real(defReal), dimension(6), intent(in)        :: boundingBoxBounds
-    type(objectKDTree), intent(in)                 :: tree
-    type(vertexShelf), intent(in)                  :: vertices
-    type(faceShelf), intent(in)                    :: faces
-    integer(shortInt), intent(in)                  :: level, maxFacesNumber, maxRefinementLevel
-    integer(shortInt), intent(inout)               :: nLeaves
-    type(octreeNode), intent(in), target, optional :: parent
 
-    ! Set the cell's bounding box and level, then begin the recursive refinement procedure.
+    ! Set the node's depth, parent index, and bounding box.
+    self % level = depth
+    call self % setParentIdx(parentIdx)
     call self % initBoundingBox(boundingBoxBounds)
-    self % level = level
-    if (present(parent)) self % parent => parent
-    call self % refine(tree, vertices, faces, maxFacesNumber, maxRefinementLevel, nLeaves)
 
   end subroutine init
+
+  !!
+  !!
+  !!
+  elemental function isInside(self) result(isIt)
+    class(octreeNode), intent(in) :: self
+    logical(defBool)              :: isIt
+
+    if(allocated(self % elementIdxs)) then
+      isIt = size(self % elementIdxs) == 1
+
+    else
+      isIt = .false.
+
+    end if
+
+  end function isInside
+
+  !!
+  !!
+  !!
+  elemental function isOutside(self) result(isIt)
+    class(octreeNode), intent(in) :: self
+    logical(defBool)              :: isIt
+
+    isIt = .not. allocated(self % elementIdxs) .and. .not. allocated(self % intersectedFaceIdxs)
+
+  end function isOutside
 
   !! Subroutine 'kill'
   !!
@@ -290,189 +217,49 @@ contains
   !!
   pure recursive subroutine kill(self)
     class(octreeNode), intent(inout) :: self
-    integer(shortInt)                :: i
 
     ! Superclass.
     call kill_super(self)
 
     ! Local.
+    self % firstChildIdx = 0
     self % level = 0
-    self % nIntersectingFaces = 0
-    if (allocated(self % elementIdxs)) deallocate(self % elementIdxs)
-    self % isUnchecked = .true.
-    self % isInside = .false.
-    self % isOutside = .false.
-    self % isIntersecting = .false.
-    if (associated(self % parent)) nullify(self % parent)
-    if (allocated(self % children)) then
-      do i = 1, size(self % children)
-        call self % children(i) % kill()
-
-      end do
-      deallocate(self % children)
-
-    end if
+    if(allocated(self % elementIdxs)) deallocate(self % elementIdxs)
+    if(allocated(self % intersectedFaceIdxs)) deallocate(self % intersectedFaceIdxs)
 
   end subroutine kill
 
-  !! Subroutine 'refine'
   !!
-  !! Basic description:
-  !!   Recursively refines a Cartesian grid cell based on the number of mesh faces it intersects.
   !!
-  recursive subroutine refine(self, tree, vertices, faces, maxFacesNumber, maxRefinementLevel, nLeaves)
-    class(octreeNode), intent(inout)      :: self
-    type(objectKDTree), intent(in)               :: tree
-    type(vertexShelf), intent(in)                :: vertices
-    type(faceShelf), intent(in)                  :: faces
-    integer(shortInt), intent(in)                :: maxFacesNumber, maxRefinementLevel
-    integer(shortInt), intent(inout)             :: nLeaves
-    integer(shortInt)                            :: potentialFaceIdx, i, nFaces, nIntersectedFaces
-    integer(shortInt), dimension(:), allocatable :: potentialFaceIdxs, intersectedFaceIdxs
-    type(axisAlignedBoundingBox)                 :: boundingBox
-
-    ! Use simplified logic for the root Cartesian grid cell.
-    if (self % level == 1) then
-      self % isUnchecked = .false.
-      self % isIntersecting = .true.
-      ! Retrieve the number of faces in the tree.
-      nFaces = tree % getDataNumber()
-
-      ! If nFaces <= maxFacesNumber (very simple unstructured mesh geometries), there is no need
-      ! to refine the cell and we can simply return.
-      if (nFaces <= maxFacesNumber) then
-        call self % setIsLeaf()
-        nLeaves = nLeaves + 1
-        self % nIntersectingFaces = faces % getSize()
-        allocate(intersectedFaceIdxs(self % nIntersectingFaces))
-        do i = 1, self % nIntersectingFaces
-          intersectedFaceIdxs(i) = i
-
-        end do
-        self % elementIdxs = faces % getFaceElementIdxs(intersectedFaceIdxs)
-        return
-
-      end if
-
-      ! Else, split the cell and return.
-      call self % split(tree, vertices, faces, maxFacesNumber, maxRefinementLevel, nLeaves)
-      return
-
-    end if
-
-    ! Check the number of intersections between the current cell and the faces in the mesh by traversing the
-    ! k-d tree starting from the root node.
-    boundingBox = self % getBoundingBox()
-    call tree % findPotentiallyIntersectedObjects(boundingBox, potentialFaceIdxs)
-    nIntersectedFaces = 0
-    do i = 1, size(potentialFaceIdxs)
-      ! First check if bounding box intersects the current face's bounding box.
-      potentialFaceIdx = potentialFaceIdxs(i)
-      if (.not. faces % intersectsFaceBoundingBox(potentialFaceIdx, boundingbox)) cycle
-
-      ! If the bounding boxes intersect, perform a test based on the separating axis theorem to determine if the bounding box actually
-      ! intersects the face.
-      if (.not. faces % intersectsFace(potentialFaceIdx, vertices, boundingbox)) cycle
-      
-      ! For now, just increment nIntersectedPrimitives and append the index of the face to the list.
-      nIntersectedFaces = nIntersectedFaces + 1
-      call append(intersectedFaceIdxs, potentialFaceIdx)
-
-    end do
-
-    self % nIntersectingFaces = nIntersectedFaces
-    if (nIntersectedFaces == 0) then
-      call self % setIsLeaf()
-      nLeaves = nLeaves + 1
-
-    else
-      self % isUnchecked = .false.
-      self % isIntersecting = .true.
-      if (self % level == maxRefinementLevel .or. nIntersectedFaces <= maxFacesNumber) then
-        call self % setIsLeaf()
-        nLeaves = nLeaves + 1
-        self % elementIdxs = faces % getFaceElementIdxs(intersectedFaceIdxs)
-
-      else
-        call self % split(tree, vertices, faces, maxFacesNumber, maxRefinementLevel, nLeaves)
-
-      end if
-
-    end if
-
-  end subroutine refine
-
-  !! Subroutine 'split'
   !!
-  !! Basic description:
-  !!   Splits the current Cartesian grid cell into eight children. Computes the bounding box of each child
-  !!   from the current cell's bounding box, then initialises each child cell.
+  pure subroutine setElementIdxs(self, elementIdxs)
+    class(octreeNode), intent(inout)            :: self
+    integer(shortInt), dimension(:), intent(in) :: elementIdxs
+
+    self % elementIdxs = elementIdxs
+
+  end subroutine setElementIdxs
+
   !!
-  subroutine split(self, tree, vertices, faces, maxFacesNumber, maxRefinementLevel, nLeaves)
+  !!
+  !!
+  elemental subroutine setFirstChildIdx(self, firstChildIdx)
     class(octreeNode), intent(inout) :: self
-    type(objectKDTree), intent(in)          :: tree
-    type(vertexShelf), intent(in)           :: vertices
-    type(faceShelf), intent(in)             :: faces
-    integer(shortInt), intent(in)           :: maxFacesNumber, maxRefinementLevel
-    integer(shortInt), intent(inout)        :: nLeaves
-    integer(shortInt)                       :: i, j, k, childIdx
-    real(defReal), dimension(3)             :: boundingBoxCentre
-    real(defReal), dimension(6)             :: boundingBoxBounds, childBoundingBoxBounds
+    integer(shortInt), intent(in)    :: firstChildIdx
 
-    ! Allocate 8 children cells for the current cell.
-    allocate(self % children(8))
+    self % firstChildIdx = firstChildIdx
 
-    ! Compute the centre coordinates of the current cell's bounding box.
-    boundingBoxBounds = self % getBoundingBoxBounds()
-    boundingBoxCentre = self % getBoundingBoxCentre()
+  end subroutine setFirstChildIdx
 
-    ! Loop through all children cells and initialise them.
-    childIdx = 0
-    do i = 1, 2
-      do j = 1, 2
-        do k = 1, 2
-          ! Increment childIdx and compute the bounding box of the new cell.
-          childIdx = childIdx + 1
-          if (i == 1) then
-            childBoundingBoxBounds(1) = boundingBoxBounds(1)
-            childBoundingBoxBounds(4) = boundingBoxCentre(1)
+  !!
+  !!
+  !!
+  pure subroutine setIntersectedFaceIdxs(self, intersectedFaceIdxs)
+    class(octreeNode), intent(inout)            :: self
+    integer(shortInt), dimension(:), intent(in) :: intersectedFaceIdxs
 
-          else
-            childBoundingBoxBounds(1) = boundingBoxCentre(1)
-            childBoundingBoxBounds(4) = boundingBoxBounds(4)
+    self % intersectedFaceIdxs = intersectedFaceIdxs
 
-          end if
-
-          if (j == 1) then
-            childBoundingBoxBounds(2) = boundingBoxBounds(2)
-            childBoundingBoxBounds(5) = boundingBoxCentre(2)
-
-          else
-            childBoundingBoxBounds(2) = boundingBoxCentre(2)
-            childBoundingBoxBounds(5) = boundingBoxBounds(5)
-
-          end if
-
-          if (k == 1) then
-            childBoundingBoxBounds(3) = boundingBoxBounds(3)
-            childBoundingBoxBounds(6) = boundingBoxCentre(3)
-
-          else
-            childBoundingBoxBounds(3) = boundingBoxCentre(3)
-            childBoundingBoxBounds(6) = boundingBoxBounds(6)
-
-          end if
-
-          ! Initialise the new cell with the computed bounding box.
-          call self % children(childIdx) % init(childBoundingBoxBounds, tree, vertices, faces, &
-                                                self % level + 1, maxFacesNumber, maxRefinementLevel, nLeaves, self)
-
-        end do
-
-      end do
-
-    end do
-
-  end subroutine split
+  end subroutine setIntersectedFaceIdxs
 
 end module octreeNode_class

@@ -1,23 +1,10 @@
-type eigenPhysicsPackage;
+type octreeOptimisationPackage;
 
-pop      1000;
-active   50;
-inactive 50;
-XSdata ce;
-dataType ce;
+pop 5000000;
 seed 1;
-
-collisionOperator { neutronCE {type neutronCEstd;}
-                    neutronMG {type neutronMGstd;} }
-
-transportOperator { type transportOperatorDT; }
-
-inactiveTally {}
-
-activeTally {
-	display (k_eff);
-        k_eff { type keffAnalogClerk;}
-}
+depths (6);
+nMaxFaces (1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16);
+nRuns 200;
 
 geometry {
 	type geometryStd;
@@ -33,7 +20,11 @@ geometry {
   	}
 
 	meshes { 
-		testMesh {id 1; type OpenFOAMMesh; path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/FinalFuelPinHex72/; accelerationMethod patchMulti;}
+		testMesh {
+			id 1; 
+			type OpenFOAMMesh; 
+			path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/FinalFuelPinHex1944/;
+		}
 	}
 
 	universes {

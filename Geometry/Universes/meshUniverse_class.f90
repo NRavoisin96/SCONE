@@ -254,7 +254,7 @@ contains
     class(cell), pointer                         :: cellPtr
     class(surface), pointer                      :: surfPtr
     integer(shortInt), dimension(:), allocatable :: surfIdxs
-    type(axisAlignedBoundingBox)                 :: boundingBox
+    type(axisAlignedBoundingBox), pointer        :: boundingBoxPtr
     real(defReal), dimension(6)                  :: bounds
     character(*), parameter                      :: Here = 'checkForCropping (meshUniverse_class.f90)'
     
@@ -275,9 +275,9 @@ contains
     
     ! Get pointer to the surface of the CSG cell and check that the surface of the CSG cell does not crop it.
     surfPtr => surfs % getPtr(abs(surfIdxs(1)))
-    boundingBox = self % mesh % ptr % getBoundingBox()
-    if (surfPtr % cropsBoundingBox(boundingBox % getBounds())) then
-      bounds = boundingBox % getBounds()
+    boundingBoxPtr => self % mesh % ptr % getBoundingBoxPtr()
+    if (surfPtr % cropsBoundingBox(boundingBoxPtr % getBounds())) then
+      bounds = boundingBoxPtr % getBounds()
       print *, 'Minimum x-coordinate: '//numToChar(bounds(1))//'.'
       print *, 'Minimum y-coordinate: '//numToChar(bounds(2))//'.'
       print *, 'Minimum z-coordinate: '//numToChar(bounds(3))//'.'

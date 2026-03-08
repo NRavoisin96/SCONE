@@ -1,8 +1,9 @@
 module edgeShelf_class
   
   use edge_class,        only : edge
-  use genericProcedures, only : fatalError, numToChar
+  use genericProcedures, only : numToChar
   use numPrecision
+  use vertexShelf_class, only : vertexShelf
   
   implicit none
   private
@@ -16,6 +17,7 @@ module edgeShelf_class
     procedure                             :: allocateShelf
     procedure                             :: collapseShelf
     procedure                             :: expandShelf
+    procedure                             :: findElementIdxFromEdgeAngularSectorSearch
     procedure                             :: getEdgeElementIdxs
     procedure                             :: getEdgeFaceIdxs
     procedure                             :: getEdgeVertexIdxs
@@ -157,6 +159,20 @@ contains
     end if
 
   end subroutine expandShelf
+
+  !!
+  !!
+  !!
+  pure subroutine findElementIdxFromEdgeAngularSectorSearch(self, idx, r, vertices, elementIdx)
+    class(edgeShelf), intent(in)            :: self
+    integer(shortInt), intent(in)           :: idx
+    real(defReal), dimension(3), intent(in) :: r
+    type(vertexShelf), intent(in)           :: vertices
+    integer(shortInt), intent(inout)        :: elementIdx
+
+    call self % shelf(idx) % findElementIdxFromAngularSectorSearch(r, vertices, elementIdx)
+
+  end subroutine findElementIdxFromEdgeAngularSectorSearch
 
   !! Function 'getEdgeElementIdxs'
   !!

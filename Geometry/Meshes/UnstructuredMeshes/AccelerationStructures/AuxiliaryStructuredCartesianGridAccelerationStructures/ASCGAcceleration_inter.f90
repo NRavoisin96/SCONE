@@ -1,9 +1,8 @@
 module ASCGAcceleration_inter
 
-  use accelerationStructure_inter, only : accelerationStructure
+  use accelerationStructure_inter, only : accelerationStructure, getStorageSize_super => getStorageSize
   use CartesianCell_class,         only : CartesianCell
   use CartesianGrid_class,         only : CartesianGrid
-  use coord_class,                 only : coord
   use dictionary_class,            only : dictionary
   use edgeShelf_class,             only : edgeShelf
   use elementShelf_class,          only : elementShelf
@@ -34,39 +33,20 @@ module ASCGAcceleration_inter
     real(defReal), dimension(:), allocatable       :: spacings
     type(CartesianGrid)                            :: rootGrid
     type(CartesianGrid), dimension(:), allocatable :: subGrids
-    type(faceSATData), dimension(:), allocatable   :: faceCaches
   contains
-    procedure                               :: addSubGrid
-    procedure                               :: computeCosineMaximumDihedralAngle
-    procedure                               :: computeCosineMaximumFaceAngle
-    procedure                               :: computeGeometricParameters
-    procedure                               :: findHostElement
-    procedure(findHostElementIdx), deferred :: findHostElementIdx
-    procedure                               :: getDepth
-    procedure                               :: getWStar
-    procedure                               :: init
-    procedure                               :: kill
-    procedure                               :: refineGrid
-    procedure                               :: searchGrids
-    procedure                               :: setMapCells
+    procedure :: addSubGrid
+    procedure :: computeCosineMaximumDihedralAngle
+    procedure :: computeCosineMaximumFaceAngle
+    procedure :: computeGeometricParameters
+    procedure :: getDepth
+    procedure :: getStorageSize
+    procedure :: getWStar
+    procedure :: init
+    procedure :: kill
+    procedure :: refineGrid
+    procedure :: searchGrids
+    procedure :: setMapCells
   end type ASCGAcceleration
-
-  abstract interface
-    !!
-    !!
-    !!
-    subroutine findHostElementIdx(self, r, edges, elements, faces, vertices, elementIdx)
-      import :: ASCGAcceleration, defReal, edgeShelf, elementShelf, faceShelf, shortInt, vertexShelf
-      class(ASCGAcceleration), intent(in)     :: self
-      real(defReal), dimension(3), intent(in) :: r
-      type(edgeShelf), intent(in)             :: edges
-      type(elementShelf), intent(in)          :: elements
-      type(faceShelf), intent(in)             :: faces
-      type(vertexShelf), intent(in)           :: vertices
-      integer(shortInt), intent(inout)        :: elementIdx
-    end subroutine findHostElementIdx
-
-  end interface
 
 contains
   !!
@@ -177,27 +157,18 @@ contains
   !!
   !!
   !!
-  pure subroutine computeGeometricParameters(self, elements, faces, vertices, edges)
+  pure subroutine computeGeometricParameters(self, edges, elements, faces, vertices)
     class(ASCGAcceleration), intent(inout) :: self
+    type(edgeShelf), intent(in)            :: edges
     type(elementShelf), intent(in)         :: elements
     type(faceShelf), intent(in)            :: faces
     type(vertexShelf), intent(in)          :: vertices
-    type(edgeShelf), intent(inout)         :: edges
     integer(shortInt)                      :: i
-    integer(shortInt), dimension(2)        :: edgeVertexIdxs
-    real(defReal)                          :: edgeLength
-    real(defReal), dimension(3)            :: edgeVector
 
     ! Compute minimum edge length.
     self % minimumEdgeLength = INF
     do i = 1, edges % getSize()
-      edgeVertexIdxs = edges % getEdgeVertexIdxs(i)
-      edgeVector = vertices % getVertexCoordinates(edgeVertexIdxs(2)) - vertices % getVertexCoordinates(edgeVertexIdxs(1))
-      edgeLength = norm2(edgeVector)
-
-      call edges % setEdgeUnitVector(i, edgeVector / edgeLength)
-      call edges % setEdgeLength(i, edgeLength)
-      self % minimumEdgeLength = min(self % minimumEdgeLength, edgeLength)
+      self % minimumEdgeLength = min(self % minimumEdgeLength, edges % getEdgeLength(i))
 
     end do
 
@@ -210,39 +181,6 @@ contains
   !!
   !!
   !!
-  subroutine findHostElement(self, vertices, edges, faces, elements, coords)
-    class(ASCGAcceleration), intent(in) :: self
-    class(vertexShelf), intent(in)      :: vertices
-    class(edgeShelf), intent(in)        :: edges
-    type(faceShelf), intent(in)         :: faces
-    type(elementShelf), intent(in)      :: elements
-    type(coord), intent(inout)          :: coords
-    integer(shortInt)                   :: elementIdx
-    real(defReal), dimension(3)         :: r
-
-    ! retrieve the coordinates of neutron
-    r = coords % getPositionToNudge()
-
-    ! Return immediately if the particle is outside the mesh bounds.
-    if(any(r < self % meshBounds(1:3)) .or. any(self % meshBounds(4:6) < r)) return
-
-    ! Search subgrids or not depending on whether multiple layers have been defined.
-    elementIdx = 0
-    call self % findHostElementIdx(r, edges, elements, faces, vertices, elementIdx)
-
-    ! Update coords if a valid element has been found.
-    if(0 < elementIdx) then
-      call coords % setElementIdx(elementIdx)
-      call coords % setParentElementIdx(elements % getElementParentIdx(elementIdx))
-      call coords % setLocalId(elements % getElementLocalId(elementIdx))
-
-    end if
-
-  end subroutine findHostElement
-
-  !!
-  !!
-  !!
   elemental function getDepth(self) result(depth)
     class(ASCGAcceleration), intent(in) :: self
     integer(shortInt)                   :: depth
@@ -250,6 +188,27 @@ contains
     depth = self % depth
 
   end function getDepth
+
+  !!
+  !!
+  !!
+  elemental function getStorageSize(self) result(storageSize)
+    class(ASCGAcceleration), intent(in) :: self
+    integer(longInt)                    :: storageSize
+    integer(shortInt)                   :: i
+
+    storageSize = getStorageSize_super(self)
+    if(allocated(self % spacings)) storageSize = storageSize + 8 * size(self % spacings)
+    storageSize = storageSize + self % rootGrid % getStorageSize()
+    if(allocated(self % subGrids)) then
+      do i = 1, size(self % subGrids)
+        storageSize = storageSize + self % subGrids(i) % getStorageSize()
+
+      end do
+
+    end if
+
+  end function getStorageSize
 
   !!
   !!
@@ -272,7 +231,7 @@ contains
     type(edgeShelf), intent(inout)                 :: edges
     type(faceShelf), intent(inout)                 :: faces
     type(elementShelf), intent(in)                 :: elements
-    integer(shortInt)                              :: i, nFaces
+    integer(shortInt)                              :: i
     real(defReal)                                  :: alphaGeneral, coarsestLayerSpacing, ratio, sineAlpha, sineHalfAlpha
     real(defReal), dimension(3)                    :: extraDistances
     real(defReal), dimension(6)                    :: gridBounds
@@ -285,14 +244,11 @@ contains
     allocate(self % spacings(self % depth))
 
     ! Compute geometric parameters and angular sectors for edges.
-    call self % computeGeometricParameters(elements, faces, vertices, edges)
+    call self % computeGeometricParameters(edges, elements, faces, vertices)
 
     ! Set face constants and compute caches.
-    nFaces = faces % getSize()
-    allocate(self % faceCaches(nFaces))
-    do i = 1, nFaces
-      call faces % setFaceConst(i, -dot_product(faces % getFaceNormal(i), faces % getFaceCentroid(i)))
-      self % faceCaches(i) = faces % computeFaceSATData(i, edges, vertices)
+    do i = 1, faces % getSize()
+      call faces % computeFaceSATData(i, edges, vertices)
 
     end do
 
@@ -331,7 +287,7 @@ contains
     ! Initialise root grid and map it.
     call self % rootGrid % init(self % spacings(1), gridBounds)
     call self % rootGrid % map([(i, i = 1, elements % getSize())], [(i, i = 1, faces % getSize())], self % depth == 1, &
-                               self % mapCells, self % targetDistance, edges, elements, faces, self % faceCaches, vertices)
+                               self % mapCells, self % targetDistance, edges, elements, faces, vertices)
 
     ! Refine root grid if needed.
     if(1 < self % depth) then
@@ -372,7 +328,6 @@ contains
       deallocate(self % subGrids)
 
     end if
-    if(allocated(self % faceCaches)) deallocate(self % faceCaches)
 
   end subroutine kill
 
@@ -442,7 +397,7 @@ contains
           cellIntersectedFaceIdxs = currentGridPtr % getCellIntersectedFaceIdxs(i, j, k)
           call self % subGrids(self % nSubGrids) % map(faces % getFaceElementIdxs(cellIntersectedFaceIdxs), &
                                                        cellIntersectedFaceIdxs, self % depth == newDepth, self % mapCells, &
-                                                       self % targetDistance, edges, elements, faces, self % faceCaches, vertices)
+                                                       self % targetDistance, edges, elements, faces, vertices)
           call self % refineGrid(newDepth, self % nSubGrids, edges, elements, faces, vertices)
 
           ! Now re-acquire pointer.

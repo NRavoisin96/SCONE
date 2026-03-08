@@ -39,15 +39,6 @@ module faceShelf_class
     procedure                                :: getAllFaceBoundingBoxes
     procedure                                :: getAllFaceCentroids
     procedure                                :: getFaceArea
-    procedure                                :: getFaceConst
-    procedure                                :: setFaceConst
-    procedure                                :: getFaceExtraDistance
-    procedure                                :: setFaceExtraDistance
-    procedure                                :: getFaceExtraDistanceArr
-    procedure                                :: setFaceExtraDistanceArr
-    procedure                                :: deallocateFaceExtraDistanceArr
-    procedure                                :: getFaceNormalSigns
-    procedure                                :: setFaceNormalSigns
     procedure                                :: getFaceBoundingBox
     procedure                                :: getFaceCentroid
     procedure                                :: getFaceEdgeIdxs
@@ -63,12 +54,13 @@ module faceShelf_class
     procedure                                :: getFaceVertexIdxs
     procedure                                :: getSize
     procedure                                :: initFace
-    generic                                  :: intersectsFace => intersectsFace_BoundingBox
+    generic                                  :: intersectsFace => intersectsFace_BoundingBox, intersectsFace_CartesianCell
     procedure, private                       :: intersectsFace_BoundingBox
-    generic                                  :: intersectsFaceBoundingBox => intersectsFaceBoundingBox_BoundingBox
-    procedure, private                       :: intersectsFaceBoundingBox_BoundingBox
+    procedure, private                       :: intersectsFace_CartesianCell
     procedure                                :: kill
+    procedure                                :: killFaceSATData
     procedure                                :: splitFace
+    procedure                                :: testFaceHalfSpace
   end type
 
 contains
@@ -234,16 +226,16 @@ contains
   !!
   !!
   !!
-  elemental function computeFaceSATData(self, idx, edges, vertices) result(cache)
-    class(faceShelf), intent(in)  :: self
-    integer(shortInt), intent(in) :: idx
-    type(edgeShelf), intent(in)   :: edges
-    type(vertexShelf), intent(in) :: vertices
-    type(faceSATData)             :: cache
+  elemental subroutine computeFaceSATData(self, idx, edges, vertices)
+    class(faceShelf), intent(inout) :: self
+    integer(shortInt), intent(in)   :: idx
+    type(edgeShelf), intent(in)     :: edges
+    type(vertexShelf), intent(in)   :: vertices
+    type(faceSATData)               :: cache
 
-    cache = self % shelf(idx) % item % computeSATData(edges, vertices)
+    call self % shelf(idx) % item % computeSATData(edges, vertices)
 
-  end function computeFaceSATData
+  end subroutine computeFaceSATData
 
   !! Function 'distanceSquaredFromFace'
   !!
@@ -376,113 +368,6 @@ contains
     area = self % shelf(idx) % item % getArea()
 
   end function getFaceArea
-
-  !!
-  !!
-  !!
-  elemental function getFaceConst(self, idx) result(const)
-    class(faceShelf), intent(in)  :: self
-    integer(shortInt), intent(in) :: idx
-    real(defReal)                 :: const
-
-    const = self % shelf(abs(idx)) % item % getConst(idx)
-
-  end function getFaceConst
-
-  !!
-  !!
-  !!
-  elemental subroutine setFaceConst(self, idx, const)
-    class(faceShelf), intent(inout) :: self
-    integer(shortInt), intent(in)   :: idx
-    real(defReal), intent(in)       :: const
-
-    call self % shelf(idx) % item % setConst(const)
-
-  end subroutine setFaceConst
-
-  !!
-  !!
-  !!
-  elemental function getFaceExtraDistance(self, idx) result(extraDistance)
-    class(faceShelf), intent(in)  :: self
-    integer(shortInt), intent(in) :: idx
-    real(defReal)                 :: extraDistance
-
-    extraDistance = self % shelf(abs(idx)) % item % getExtraDistance()
-
-  end function getFaceExtraDistance
-
-  !!
-  !!
-  !!
-  elemental subroutine setFaceExtraDistance(self, idx, extraDistance)
-    class(faceShelf), intent(inout) :: self
-    integer(shortInt), intent(in)   :: idx
-    real(defReal), intent(in)       :: extraDistance
-
-    call self % shelf(idx) % item % setExtraDistance(extraDistance)
-
-  end subroutine setFaceExtraDistance
-
-  !!
-  !!
-  !!
-  elemental function getFaceExtraDistanceArr(self, idx, currLayer) result(extraDistanceArr)
-    class(faceShelf), intent(in)              :: self
-    integer(shortInt), intent(in)             :: idx, currLayer
-    real(defReal)                             :: extraDistanceArr
-
-    extraDistanceArr = self % shelf(abs(idx)) % item % getExtraDistanceArr(currLayer)
-
-  end function getFaceExtraDistanceArr
-
-  !!
-  !!
-  !!
-  pure subroutine setFaceExtraDistanceArr(self, idx, extraDistanceArr, n_layers)
-    class(faceShelf), intent(inout)               :: self
-    integer(shortInt), intent(in)                 :: idx, n_layers
-    real(defReal), dimension(:), intent(in)       :: extraDistanceArr
-
-    call self % shelf(idx) % item % setExtraDistanceArr(extraDistanceArr, n_layers)
-
-  end subroutine setFaceExtraDistanceArr
-
-  !!
-  !!
-  !!
-  elemental subroutine deallocateFaceExtraDistanceArr(self, idx)
-    class(faceShelf), intent(inout)               :: self
-    integer(shortInt), intent(in)                 :: idx
-
-    call self % shelf(idx) % item % deallocateExtraDistanceArr()
-
-  end subroutine deallocateFaceExtraDistanceArr
-
-  !!
-  !!
-  !!
-  pure function getFaceNormalSigns(self, idx) result(normalSigns)
-    class(faceShelf), intent(in)    :: self
-    integer(shortInt), intent(in)   :: idx
-    integer(shortInt), dimension(3) :: normalSigns
-
-    normalSigns = self % shelf(abs(idx)) % item % getNormalSigns(idx)
-
-  end function getFaceNormalSigns
-
-  !!
-  !!
-  !!
-  pure subroutine setFaceNormalSigns(self, idx, normalSigns)
-    class(faceShelf), intent(inout)             :: self
-    integer(shortInt), intent(in)               :: idx
-    integer(shortInt), dimension(3), intent(in) :: normalSigns
-
-    call self % shelf(idx) % item % setNormalSigns(normalSigns)
-
-  end subroutine setFaceNormalSigns
 
   !! Function 'getFaceBoundingBox'
   !!
@@ -773,30 +658,29 @@ contains
   !!
   !!
   !!
-  elemental function intersectsFace_BoundingBox(self, idx, vertices, boundingBox) result(doesIt)
+  elemental function intersectsFace_BoundingBox(self, idx, boundingBox) result(doesIt)
     class(faceShelf), intent(in)             :: self
     integer(shortInt), intent(in)            :: idx
-    type(vertexShelf), intent(in)            :: vertices
     type(axisAlignedBoundingBox), intent(in) :: boundingBox
     logical(defBool)                         :: doesIt
 
-    call self % shelf(idx) % item % intersects(vertices, boundingBox, doesIt)
+    call self % shelf(idx) % item % intersects(boundingBox, doesIt)
 
   end function intersectsFace_BoundingBox
 
   !!
   !!
   !!
-  elemental function intersectsFaceBoundingBox_BoundingBox(self, idx, boundingBox) result(doesIt)
-    class(faceShelf), intent(in)             :: self
-    integer(shortInt), intent(in)            :: idx
-    type(axisAlignedBoundingBox), intent(in) :: boundingBox
-    logical(defBool)                         :: doesIt
-    class(face), allocatable                 :: item
+  pure function intersectsFace_CartesianCell(self, idx, spacing, centroid) result(doesIt)
+    class(faceShelf), intent(in)            :: self
+    integer(shortInt), intent(in)           :: idx
+    real(defReal), intent(in)               :: spacing
+    real(defReal), dimension(3), intent(in) :: centroid
+    logical(defBool)                        :: doesIt
 
-    call self % shelf(idx) % item % intersectsBoundingBox(boundingbox, doesIt)
+    call self % shelf(idx) % item % intersects(spacing, centroid, doesIt)
 
-  end function intersectsFaceBoundingBox_BoundingBox
+  end function intersectsFace_CartesianCell
   
   !! Subroutine 'kill'
   !!
@@ -817,6 +701,17 @@ contains
     end if
 
   end subroutine kill
+
+  !!
+  !!
+  !!
+  elemental subroutine killFaceSATData(self, idx)
+    class(faceShelf), intent(inout) :: self
+    integer(shortInt), intent(in)   :: idx
+
+    call self % shelf(idx) % item % killSATData()
+
+  end subroutine killFaceSATData
 
   !! Subroutine 'splitFace'
   !!
@@ -842,5 +737,18 @@ contains
     call self % shelf(idx) % item % split(edges, vertices, lastEdgeIdx, lastTriangleIdx, triangles)
 
   end subroutine splitFace
+
+  !!
+  !!
+  !!
+  pure subroutine testFaceHalfSpace(self, idx, r, elementIdx)
+    class(faceShelf), intent(in)            :: self
+    integer(shortInt), intent(in)           :: idx
+    real(defReal), dimension(3), intent(in) :: r
+    integer(shortInt), intent(inout)        :: elementIdx
+
+    call self % shelf(idx) % item % testHalfSpace(r, elementIdx)
+
+  end subroutine testFaceHalfSpace
   
 end module faceShelf_class

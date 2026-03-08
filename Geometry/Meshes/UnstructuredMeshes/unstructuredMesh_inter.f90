@@ -2,6 +2,7 @@ module unstructuredMesh_inter
 
   use accelerationStructure_inter,       only : accelerationStructure
   use accelerationStructureFactory_func, only : new_accelerationStructure
+  use axisAlignedBoundingBox_class,      only : axisAlignedBoundingBox
   use coord_class,                       only : coord
   use dictionary_class,                  only : dictionary
   use edgeShelf_class,                   only : edgeShelf
@@ -64,8 +65,10 @@ module unstructuredMesh_inter
     procedure                       :: computePrimitives
     procedure(importMesh), deferred :: importMesh
     procedure                       :: init
+    procedure                       :: initAccelerationStructure
     procedure                       :: initElementZones
     procedure                       :: kill
+    procedure                       :: killAccelerationStructure
     procedure, non_overridable      :: printComposition
     procedure                       :: setEdgeShelf
     procedure                       :: setElementLocalId
@@ -79,6 +82,7 @@ module unstructuredMesh_inter
     procedure                       :: distanceToBoundaryFace
     procedure                       :: distanceToNextFace
     procedure                       :: findHostElement
+    procedure                       :: getAccelerationStructureStorageSize
     procedure                       :: getAllVertexCoordinates
   end type unstructuredMesh
 
@@ -341,122 +345,93 @@ contains
   !! See mesh_inter for details.
   !!
   subroutine findHostElement(self, coords)
-    class(unstructuredMesh), intent(in)          :: self 
-    type(coord), intent(inout)                   :: coords
-    integer(shortInt), dimension(:), allocatable :: potentialElementsIdxs, bruteForceElementVertexIdxs, &
-                                                    patchSearchElementVertexIdxs
-    integer(shortInt)                            :: i, nPotentialElements, potentialElementIdx, coordsElementIdx, &
-                                                    coordsCopyElementIdx
-    real(defReal), dimension(3)                  :: r
-    type(coord)                                  :: coordsCopy
-    type(inclusionTestResult)                    :: testResult
-    integer(shortInt)           :: coordPatch, coordBrute, coordOctree !!!
+    class(unstructuredMesh), intent(in)   :: self 
+    type(coord), intent(inout)            :: coords
+    integer(shortInt)                     :: elementIdx, i
+    real(defReal), dimension(3)           :: r, u
+    type(axisAlignedBoundingBox), pointer :: boundingBoxPtr
+    type(inclusionTestResult)             :: testResult
     
     ! Initialise parentIdx = 0. Retrieve the mesh's bounding box. If the particle is outside the bounding box we can return early.
-    call coords % setElementIdx(0)
-    call coords % setParentElementIdx(0)
-    coordsCopy = coords
-    if (allocated(self % acceleration)) then
-      call self % acceleration % findHostElement(self % vertices, self % edges, self % faces, self % elements, coords)
+    elementIdx = 0
+    r = coords % getPositionToNudge()
+    boundingBoxPtr => self % getBoundingBoxPtr()
+    if(boundingBoxPtr % contains(r)) then
+      u = coords % getDirection()
+      if (allocated(self % acceleration)) then
+        call self % acceleration % findHostElementIdx(u, self % edges, self % elements, self % faces, self % vertices, &
+                                                      elementIdx, r)
 
-    else !!!
-      ! Perform brute-force search.
-      searchLoop: do
-        do i = 1, self % nElements
-          testResult = self % elements % isPointInside(i, coords % getPositionToNudge(), self % faces)
-          if (testResult % status == INSIDE_ELEMENT) then
-            call coords % setElementIdx(i)
-            call coords % setParentElementIdx(self % elements % getElementParentIdx(i))
-            call coords % setLocalId(self % elements % getElementLocalId(i))
-
-            !!!
-            ! coordBrute = coords % getElementIdx()
-            ! !coordBrute = coords % getParentElementIdx()
-            ! ! if (coordBrute /= 0) then
-            ! ! print*, coordBrute
-            ! ! end if
-            ! ! print*, "INSIDE"
-            ! ! print*, coordBrute, coordPatch
-            ! if (coordBrute /= coordPatch) then
-            !   print*, "Brute:", coordBrute
-            !   print*, "Patch:", coordPatch
-            !   call fatalError("INSIDE_ELEMENT", "Element indices not matching between the two methods")
-            ! end if
-            !!!
-
-            return
-
-          elseif (testResult % status == ON_BOUNDARY_ELEMENT) then
-            ! If coordinates are on the element boundary (very rare), we need to push them off.
-            do while (testResult % status == ON_BOUNDARY_ELEMENT)
-              call self % elements % pushFromElementBoundary(i, self % faces, coords)
-
-              ! Perform containment test again.
-              testResult = self % elements % isPointInside(i, coords % getPositionToNudge(), self % faces)
-
-            end do
-
-            ! Now the coordinates are not on the boundary of the element anymore.
+      else
+        ! Perform brute-force search.
+        searchLoop: do
+          do i = 1, self % nElements
+            testResult = self % elements % isPointInside(i, r, self % faces)
             if (testResult % status == INSIDE_ELEMENT) then
-              ! If coordinates are now well inside the element, we have found our element.
-              call coords % setElementIdx(i)
-              call coords % setParentElementIdx(self % elements % getElementParentIdx(i))
-              call coords % setLocalId(self % elements % getElementLocalId(i))
-              
-              !!!
-              ! coordBrute = coords % getElementIdx()
-              ! !coordBrute = coords % getParentElementIdx()
-              ! ! if (coordBrute /= 0) then
-              ! ! print*, coordBrute
-              ! ! end if
-              ! ! print*, "INSIDE Element"
-              ! ! print*, coordBrute, coordPatch
-              ! if (coordBrute /= coordPatch) then
-              !   print*, "Brute:", coordBrute
-              !   print*, "Patch:", coordPatch
-              !   call fatalError("ON_BOUNDARY_ELEMENT", "Element indices not matching between the two methods")
-              ! end if
-              !!!
-              
-              
-              
-              
-              return
+              elementIdx = i
+              exit searchLoop
 
-            elseif (testResult % status == OUTSIDE_ELEMENT) then
-              ! If the nudge has resulted in an overshoot, we cycle searchLoop and begin the entire process again.
-              cycle searchLoop
+            elseif (testResult % status == ON_BOUNDARY_ELEMENT) then
+              ! If coordinates are on the element boundary (very rare), we need to push them off.
+              do while (testResult % status == ON_BOUNDARY_ELEMENT)
+                call self % elements % pushFromElementBoundary(i, u, self % faces, r)
+
+                ! Perform containment test again.
+                testResult = self % elements % isPointInside(i, r, self % faces)
+
+              end do
+
+              ! Now the coordinates are not on the boundary of the element anymore.
+              if (testResult % status == INSIDE_ELEMENT) then
+                ! If coordinates are now well inside the element, we have found our element.
+                elementIdx = i
+                exit searchLoop
+
+              elseif (testResult % status == OUTSIDE_ELEMENT) then
+                ! If the nudge has resulted in an overshoot, we cycle searchLoop and begin the entire process again.
+                cycle searchLoop
+
+              end if
 
             end if
 
-          end if
+          end do
 
-        end do
+        end do searchLoop
 
+      end if
+      call coords % setPosition(r)
 
-        !!!
-        ! coordBrute = coords % getElementIdx()
-        ! !coordBrute = coords % getParentElementIdx()
-        ! ! if (coordBrute /= 0) then
-        ! ! print*, coordBrute
-        ! ! end if
-        ! ! print*, "OUTSIDE Element"
-        ! ! print*, coordBrute, coordPatch
-        ! if (coordBrute /= coordPatch) then
-        !   print*, "Brute:", coordBrute
-        !   print*, "Patch:", coordPatch
-        !   call fatalError("OUTSIDE_ELEMENT", "Element indices not matching between the two methods")
-        ! end if
-        !!!
+    end if
+    
+    call coords % setElementIdx(elementIdx)
+    if(elementIdx == 0) then
+      call coords % setParentElementIdx(0)
 
-        return
+    else
+      call coords % setParentElementIdx(self % elements % getElementParentIdx(elementIdx))
+      call coords % setLocalId(self % elements % getElementLocalId(elementIdx))
 
-      end do searchLoop
-
-
-    end if !!!
+    end if
 
   end subroutine findHostElement
+
+  !!
+  !!
+  !!
+  elemental function getAccelerationStructureStorageSize(self) result(accelerationStructureStorageSize)
+    class(unstructuredMesh), intent(in) :: self
+    integer(longInt)                    :: accelerationStructureStorageSize
+
+    if(allocated(self % acceleration)) then
+      accelerationStructureStorageSize = self % acceleration % getStorageSize()
+
+    else
+      accelerationStructureStorageSize = storage_size(self % acceleration)
+
+    end if
+
+  end function getAccelerationStructureStorageSize
 
   !! Function 'getAllVertexCoordinates'
   !!
@@ -523,6 +498,17 @@ contains
   !!
   !!
   !!
+  subroutine initAccelerationStructure(self, dict)
+    class(unstructuredMesh), intent(inout) :: self
+    type(dictionary), intent(in)           :: dict
+
+    call new_accelerationStructure(dict, self % vertices, self % edges, self % faces, self % elements, self % acceleration)
+
+  end subroutine initAccelerationStructure
+
+  !!
+  !!
+  !!
   subroutine initElementZones(self)
     class(unstructuredMesh), intent(inout) :: self
 
@@ -558,6 +544,26 @@ contains
     end if
 
   end subroutine kill
+
+  !!
+  !!
+  !!
+  elemental subroutine killAccelerationStructure(self)
+    class(unstructuredMesh), intent(inout) :: self
+    integer(shortInt)                      :: i
+
+    if(allocated(self % acceleration)) then
+      call self % acceleration % kill()
+      deallocate(self % acceleration)
+
+    end if
+
+    do i = 1, self % faces % getSize()
+      call self % faces % killFaceSATData(i)
+
+    end do
+
+  end subroutine killAccelerationStructure
 
   !! Subroutine 'printComposition'
   !!

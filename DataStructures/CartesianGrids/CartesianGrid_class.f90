@@ -36,6 +36,7 @@ module CartesianGrid_class
     procedure :: getCellVertexIdx
     procedure :: getInverseSpacing
     procedure :: getSpacing
+    procedure :: getStorageSize
     procedure :: init
     procedure :: isCellOutside
     procedure :: isCellSimple
@@ -47,8 +48,6 @@ module CartesianGrid_class
     procedure :: setBounds
     procedure :: setCellsNumber
     procedure :: setCellSubGridIdx
-    procedure :: testCellElementInclusion
-    procedure :: testCellFaceIntersection
   end type CartesianGrid
 
 contains
@@ -213,6 +212,31 @@ contains
   !!
   !!
   !!
+  elemental function getStorageSize(self) result(storageSize)
+    class(CartesianGrid), intent(in) :: self
+    integer(longInt)                 :: storageSize
+    integer(shortInt)                :: i, j, k
+
+    storageSize = storage_size(self) / 8
+    if(allocated(self % cells)) then
+      do k = 1, size(self % cells, 3)
+        do j = 1, size(self % cells, 2)
+          do i = 1, size(self % cells, 1)
+            storageSize = storageSize + self % cells(i, j, k) % getStorageSize()
+
+          end do
+
+        end do
+
+      end do
+
+    end if
+
+  end function getStorageSize
+
+  !!
+  !!
+  !!
   subroutine init(self, spacing, bounds)
     class(CartesianGrid), intent(inout)     :: self
     real(defReal), intent(in)               :: spacing
@@ -310,7 +334,7 @@ contains
   !!
   !!
   !!
-  subroutine map(self, elementIdxs, faceIdxs, isFinestLayer, mapCells, targetDistance, edges, elements, faces, caches, vertices)
+  subroutine map(self, elementIdxs, faceIdxs, isFinestLayer, mapCells, targetDistance, edges, elements, faces, vertices)
     class(CartesianGrid), intent(inout)          :: self
     integer(shortInt), dimension(:), intent(in)  :: elementIdxs, faceIdxs
     logical(defBool), intent(in)                 :: isFinestLayer, mapCells
@@ -318,16 +342,13 @@ contains
     type(edgeShelf), intent(in)                  :: edges
     type(elementShelf), intent(in)               :: elements
     type(faceShelf), intent(in)                  :: faces
-    type(faceSATData), dimension(:), intent(in)  :: caches
     type(vertexShelf), intent(in)                :: vertices
     integer(shortInt)                            :: i, j, k, l
     integer(shortInt), dimension(:), allocatable :: cellIdxs, elementFaceIdxs, elementVertexIdxs, faceVertexIdxs
-    real(defReal)                                :: extraDistance
     real(defReal), dimension(3)                  :: centroid
 
     ! Loop over all faces.
     do i = 1, size(faceIdxs)
-      extraDistance = HALF * sum(abs(caches(faceIdxs(i)) % faceNormal)) * self % spacing
 
       ! Generate the indices of the cells contained in the current face's AABB.
       faceVertexIdxs = faces % getFaceVertexIdxs(faceIdxs(i))
@@ -341,8 +362,10 @@ contains
           do j = max(1, cellIdxs(1)), min(self % nCells(1), cellIdxs(4))
             centroid(1) = self % bounds(1) + self % spacing * (j - HALF)
             ! Now test current cell for intersection with the current face.
-            call self % cells(j, k, l) % testFaceIntersection(faceIdxs(i), extraDistance, self % spacing, centroid, &
-                                                              caches(faceIdxs(i)))
+            if(faces % intersectsFace(faceIdxs(i), self % spacing, centroid)) &
+            call self % cells(j, k, l) % addIntersectedFaceIdx(faceIdxs(i)) 
+            !call self % cells(j, k, l) % testFaceIntersection(faceIdxs(i), extraDistance, self % spacing, centroid, &
+            !                                                  caches(faceIdxs(i)))
 
             ! If we are at the finest layer, map the cell.
             if(mapCells .and. isFinestLayer) call self % cells(j, k, l) % map(targetDistance, centroid, edges, faces, vertices)
@@ -370,7 +393,8 @@ contains
           do j = max(1, cellIdxs(1)), min(self % nCells(1), cellIdxs(4))
             if(self % cells(j, k, l) % isUnprocessed()) then
               centroid(1) = self % bounds(1) + self % spacing * (j - HALF)
-              call self % cells(j, k, l) % testElementInclusion(elementIdxs(i), elementFaceIdxs, centroid, elements, faces)
+              if(elements % isPointInsideElementNoBoundaryCheck(elementIdxs(i), centroid, faces)) &
+              call self % cells(j, k, l) % setElementIdx(elementIdxs(i))
 
             end if
 
@@ -432,34 +456,5 @@ contains
     self % bounds = bounds
 
   end subroutine setBounds
-
-  !!
-  !!
-  !!
-  pure subroutine testCellElementInclusion(self, elementIdx, xIdx, yIdx, zIdx, elementFaceIdxs, centroid, elements, faces)
-    class(CartesianGrid), intent(inout)         :: self
-    integer(shortInt), intent(in)               :: elementIdx, xIdx, yIdx, zIdx
-    integer(shortInt), dimension(:), intent(in) :: elementFaceIdxs
-    real(defReal), dimension(3), intent(in)     :: centroid
-    type(elementShelf), intent(in)              :: elements
-    type(faceShelf), intent(in)                 :: faces
-
-    call self % cells(xIdx, yIdx, zIdx) % testElementInclusion(elementIdx, elementFaceIdxs, centroid, elements, faces)
-
-  end subroutine testCellElementInclusion
-
-  !!
-  !!
-  !!
-  pure subroutine testCellFaceIntersection(self, faceIdx, xIdx, yIdx, zIdx, extraDistance, centroid, cache)
-    class(CartesianGrid), intent(inout)     :: self
-    integer(shortInt), intent(in)           :: faceIdx, xIdx, yIdx, zIdx
-    real(defReal), intent(in)               :: extraDistance
-    real(defReal), dimension(3), intent(in) :: centroid
-    type(faceSATData), intent(in)           :: cache
-
-    call self % cells(xIdx, yIdx, zIdx) % testFaceIntersection(faceIdx, extraDistance, self % spacing, centroid, cache)
-
-  end subroutine testCellFaceIntersection
 
 end module CartesianGrid_class

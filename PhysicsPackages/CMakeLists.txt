@@ -7,5 +7,6 @@ add_sources( ./physicsPackage_inter.f90
              ./vizPhysicsPackage_class.f90
              ./rayVolPhysicsPackage_class.f90
              ./hostElementDeterminationPackage_class.f90
+             ./octreeOptimisationPackage_class.f90
              )
              #./dynamPhysicsPackage_class.f90)

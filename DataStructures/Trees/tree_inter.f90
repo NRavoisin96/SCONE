@@ -23,7 +23,6 @@ module tree_inter
     ! Runtime procedures.
     procedure :: getLeavesNumber
     procedure :: getNodesNumber
-    procedure :: getRootBoundingBox
   end type tree
 
 contains
@@ -48,17 +47,6 @@ contains
     nNodes = self % nNodes
 
   end function getNodesNumber
-
-  !!
-  !!
-  !!
-  elemental function getRootBoundingBox(self) result(boundingBox)
-    class(tree), intent(in)      :: self
-    type(axisAlignedBoundingBox) :: boundingBox
-
-    boundingBox = self % root % getBoundingBox()
-
-  end function getRootBoundingBox
 
   !!
   !!

@@ -1,7 +1,8 @@
 module edge_class
   
   use numPrecision
-  use genericProcedures, only : append
+  use genericProcedures, only : append, computePseudoAngle
+  use vertexShelf_class, only : vertexShelf
   
   implicit none
   private
@@ -30,35 +31,36 @@ module edge_class
   contains
 
     ! Build procedures.
-    procedure                                    :: addElementIdx
-    procedure                                    :: addFaceIdx
-    procedure                                    :: kill
-    procedure                                    :: setIdx
-    procedure                                    :: setVertexIdxs
-    procedure                                    :: setUnitVector
-    procedure                                    :: setVector
-    procedure                                    :: setLocalBasis1
-    procedure                                    :: setLocalBasis2
-    procedure                                    :: setLength
-    procedure                                    :: setDotProductOfVector
-    procedure                                    :: setAnglesArray
-    procedure                                    :: setElementIdxsArray
-    procedure                                    :: isAllocatedAnglesArray
-    procedure                                    :: setIsBoundary
+    procedure :: addElementIdx
+    procedure :: addFaceIdx
+    procedure :: kill
+    procedure :: setIdx
+    procedure :: setVertexIdxs
+    procedure :: setUnitVector
+    procedure :: setVector
+    procedure :: setLocalBasis1
+    procedure :: setLocalBasis2
+    procedure :: setLength
+    procedure :: setDotProductOfVector
+    procedure :: setAnglesArray
+    procedure :: setElementIdxsArray
+    procedure :: isAllocatedAnglesArray
+    procedure :: setIsBoundary
     ! Runtime procedures.
-    procedure                                    :: getElementIdxs
-    procedure                                    :: getFaceIdxs
-    procedure                                    :: getIdx
-    procedure                                    :: getVertexIdxs
-    procedure                                    :: getUnitVector
-    procedure                                    :: getVector
-    procedure                                    :: getLocalBasis1
-    procedure                                    :: getLocalBasis2
-    procedure                                    :: getLength
-    procedure                                    :: getDotProductOfVector
-    procedure                                    :: getAnglesArray
-    procedure                                    :: getElementIdxsArray
-    procedure                                    :: getIsBoundary
+    procedure :: findElementIdxFromAngularSectorSearch
+    procedure :: getElementIdxs
+    procedure :: getFaceIdxs
+    procedure :: getIdx
+    procedure :: getVertexIdxs
+    procedure :: getUnitVector
+    procedure :: getVector
+    procedure :: getLocalBasis1
+    procedure :: getLocalBasis2
+    procedure :: getLength
+    procedure :: getDotProductOfVector
+    procedure :: getAnglesArray
+    procedure :: getElementIdxsArray
+    procedure :: getIsBoundary
   end type edge
 
 contains
@@ -94,6 +96,33 @@ contains
     call append(self % faceIdxs, idx)
 
   end subroutine addFaceIdx
+
+  !!
+  !!
+  !!
+  pure subroutine findElementIdxFromAngularSectorSearch(self, r, vertices, elementIdx)
+    class(edge), intent(in)                 :: self
+    real(defReal), dimension(3), intent(in) :: r
+    type(vertexShelf), intent(in)           :: vertices
+    integer(shortInt), intent(inout)        :: elementIdx
+    integer(shortInt)                       :: i
+    real(defReal)                           :: pseudoAngle
+
+    ! Compute pseudo-angle.
+    pseudoAngle = computePseudoAngle(r - vertices % getVertexCoordinates(self % vertexIdxs(2)), self % localBasis1, &
+                                     self % localBasis2)
+
+    ! Search and return.
+    do i = 1, size(self % anglesArray, 1)
+      if(self % anglesArray(i, 1) <= pseudoAngle .and. pseudoAngle <= self % anglesArray(i, 2)) then
+        elementIdx = self % elementIdxsArray(i)
+        return
+
+      end if
+
+    end do
+
+  end subroutine findElementIdxFromAngularSectorSearch
 
   !! Function 'getElementIdxs'
   !!

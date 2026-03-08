@@ -35,10 +35,7 @@ contains
     type(elementShelf), intent(in)                         :: elements
     class(accelerationStructure), allocatable, intent(out) :: new
     character(nameLen)                                     :: type
-    real(defReal)                                          :: t1, t2
     character(*), parameter :: HERE = 'new_accelerationStructure (accelerationStructureFactory_func.f90)'
-
-    call cpu_time(t1)
 
     ! Get type from dictionary, allocate then initialise.
     call dict % get(type, 'type')
@@ -58,13 +55,6 @@ contains
 
     end select
     call new % init(dict, vertices, edges, faces, elements)
-
-    ! end timer for initialisation and print
-    call cpu_time(t2)          ! CPU-time
-    print*, "-------------------------------------------------------------"
-    print*, "/\/\ Initialisation procedure time /\/\"
-    print*, "CPU time: ", t2 - t1, " seconds"
-    print*, "-------------------------------------------------------------"
 
   end subroutine new_accelerationStructure
 

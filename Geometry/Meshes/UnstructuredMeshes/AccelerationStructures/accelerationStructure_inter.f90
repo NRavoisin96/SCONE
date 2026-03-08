@@ -1,14 +1,17 @@
 module accelerationStructure_inter
 
-  use coord_class,        only : coord
   use dictionary_class,   only : dictionary
+  use edgeShelf_class,    only : edgeShelf
   use elementShelf_class, only : elementShelf
   use faceShelf_class,    only : faceShelf
+  use numPrecision
   use vertexShelf_class,  only : vertexShelf
-  use edgeShelf_class,    only : edgeShelf
 
   implicit none
   private
+
+  ! Public procedures.
+  public :: getStorageSize
 
   !!
   !!
@@ -16,9 +19,10 @@ module accelerationStructure_inter
   type, public, abstract :: accelerationStructure
     private
   contains
-    procedure(findHostElement), deferred :: findHostElement
-    procedure(init), deferred            :: init
-    procedure(kill), deferred            :: kill
+    procedure(findHostElementIdx), deferred :: findHostElementIdx
+    procedure                               :: getStorageSize
+    procedure(init), deferred               :: init
+    procedure(kill), deferred               :: kill
   end type accelerationStructure
 
   !!
@@ -28,15 +32,17 @@ module accelerationStructure_inter
     !!
     !!
     !!
-    subroutine findHostElement(self, vertices, edges, faces, elements, coords)
-      import :: accelerationStructure, coord, faceShelf, elementShelf, vertexShelf, edgeShelf
-      class(accelerationStructure), intent(in) :: self
-      class(vertexShelf), intent(in)           :: vertices
-      class(edgeShelf), intent(in)             :: edges
-      type(faceShelf), intent(in)              :: faces
-      type(elementShelf), intent(in)           :: elements
-      type(coord), intent(inout)               :: coords
-    end subroutine findHostElement
+    subroutine findHostElementIdx(self, u, edges, elements, faces, vertices, elementIdx, r)
+      import :: accelerationStructure, defReal, edgeShelf, elementShelf, faceShelf, shortInt, vertexShelf
+      class(accelerationStructure), intent(in)   :: self
+      real(defReal), dimension(3), intent(in)    :: u
+      type(edgeShelf), intent(in)                :: edges
+      type(elementShelf), intent(in)             :: elements
+      type(faceShelf), intent(in)                :: faces
+      type(vertexShelf), intent(in)              :: vertices
+      integer(shortInt), intent(inout)           :: elementIdx
+      real(defReal), dimension(3), intent(inout) :: r
+    end subroutine findHostElementIdx
 
     !!
     !!
@@ -60,5 +66,17 @@ module accelerationStructure_inter
     end subroutine kill
 
   end interface
+
+contains
+  !!
+  !!
+  !!
+  elemental function getStorageSize(self) result(storageSize)
+    class(accelerationStructure), intent(in) :: self
+    integer(longInt)                         :: storageSize
+
+    storageSize = storage_size(self) / 8
+
+  end function getStorageSize
 
 end module accelerationStructure_inter

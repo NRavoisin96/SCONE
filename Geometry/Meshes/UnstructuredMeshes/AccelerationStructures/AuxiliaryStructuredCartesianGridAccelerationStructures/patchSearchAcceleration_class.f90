@@ -4,7 +4,6 @@ module patchSearchAcceleration_class
   use ASCGAcceleration_inter,      only : ASCGAcceleration, init_super => init
   use CartesianCell_class,         only : CartesianCell
   use CartesianGrid_class,         only : CartesianGrid
-  use coord_class,                 only : coord
   use dictionary_class,            only : dictionary
   use edgeShelf_class,             only : edgeShelf
   use elementShelf_class,          only : elementShelf
@@ -150,23 +149,19 @@ contains
   !!
   !!
   !!
-  recursive subroutine findHostElementIdx(self, r, edges, elements, faces, vertices, elementIdx)
+  recursive subroutine findHostElementIdx(self, u, edges, elements, faces, vertices, elementIdx, r)
     class(patchSearchAcceleration), intent(in)   :: self
-    real(defReal), dimension(3), intent(in)      :: r
+    real(defReal), dimension(3), intent(in)      :: u
     type(edgeShelf), intent(in)                  :: edges
     type(elementShelf), intent(in)               :: elements
     type(faceShelf), intent(in)                  :: faces
     type(vertexShelf), intent(in)                :: vertices
     integer(shortInt), intent(inout)             :: elementIdx
-    integer(shortInt)                            :: edgeIdx, i
-    integer(shortInt), dimension(2)              :: edgeVertexIdxs
-    integer(shortInt), dimension(:), allocatable :: elementIdxsArray, intersectedFaceIdxs, potentialElementIdxs
-    real(defReal)                                :: thetaHat
-    real(defReal), dimension(3)                  :: displacementVector, vertexCoords
-    real(defReal), dimension(:, :), allocatable  :: angularSectorsArray
+    real(defReal), dimension(3), intent(inout)   :: r
+    integer(shortInt)                            :: edgeIdx
+    real(defReal), dimension(3)                  :: displacementVector, rPrime, vertexCoords
     type(CartesianCell), pointer                 :: terminalCellPtr
 
-    ! Start at the root grid then search until we hit a terminal cell.
     terminalCellPtr => self % searchGrids(r)
 
     ! Check if terminal cell is fully inside an element and return immediately if so.
@@ -175,19 +170,9 @@ contains
 
     ! For multi-layered Patch-Search, check if terminal cell only intersects with a single face. In this case, perform an 
     ! element inclusion test on the elements sharing this face and return.
-    if(1 < self % getDepth()) then
-      if(size(intersectedFaceIdxs) == 1) then
-        if(ZERO < dot_product(faces % getFaceCentroid(intersectedFaceIdxs(1)) - r, &
-           faces % getFaceNormal(intersectedFaceIdxs(1)))) then
-          elementIdx = minval(potentialElementIdxs)
-
-        elseif(.not. faces % getFaceIsBoundary(intersectedFaceIdxs(1))) then
-          elementIdx = maxval(potentialElementIdxs)
-
-        end if
-        return
-
-      end if
+    if(1 < self % getDepth() .and. terminalCellPtr % intersectsOnlyOneFace()) then
+      call faces % testFaceHalfSpace(terminalCellPtr % getFirstIntersectedFaceIdx(), r, elementIdx)
+      return
 
     end if
 
@@ -196,26 +181,11 @@ contains
     if(edgeIdx == 0) then
       vertexCoords = vertices % getVertexCoordinates(terminalCellPtr % getVertexIdx())
       displacementVector = r - vertexCoords
-      call self % findHostElementIdx(vertexCoords + self % getWStar() * displacementVector / norm2(displacementVector), edges, &
-                                     elements, faces, vertices, elementIdx)
+      rPrime = vertexCoords + self % getWStar() * displacementVector / norm2(displacementVector)
+      call self % findHostElementIdx(u, edges, elements, faces, vertices, elementIdx, rPrime)
 
     else
-      ! Compute pseudo-angle.
-      edgeVertexIdxs = edges % getEdgeVertexIdxs(edgeIdx)
-      thetaHat = computePseudoAngle(r - vertices % getVertexCoordinates(edgeVertexIdxs(2)), edges % getEdgeLocalBasis1(edgeIdx), &
-                                    edges % getEdgeLocalBasis2(edgeIdx))
-
-      ! Search and return.
-      elementIdxsArray = edges % getEdgeElementIdxsArray(edgeIdx)
-      angularSectorsArray = edges % getEdgeAnglesArray(edgeIdx)
-      do i = 1, size(angularSectorsArray, 1)
-        if(angularSectorsArray(i, 1) <= thetaHat .and. thetaHat <= angularSectorsArray(i, 2)) then
-          elementIdx = elementIdxsArray(i)
-          return
-
-        end if
-
-      end do
+      call edges % findElementIdxFromEdgeAngularSectorSearch(edgeIdx, r, vertices, elementIdx)
 
     end if
 

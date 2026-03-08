@@ -59,7 +59,6 @@ contains
 
     ! If node has been identified as a leaf, compute its bounding box here.
     if (self % getIsLeaf()) then
-      boundingBox = self % getBoundingBox()
       call boundingBox % computeBounds(data(:, idxs(self % getLowerBound():self % getUpperBound())))
       call self % setBoundingBox(boundingBox)
       return
@@ -82,8 +81,7 @@ contains
     call self % right % init(data, idxs, cutIdx + 1, upperBound, nNodes, nLeaves, self % getIdx())
 
     ! Update bounding box from children bounding boxes.
-    boundingBox = self % getBoundingBox()
-    call boundingBox % computeBounds([self % left % getBoundingBox(), self % right % getBoundingBox()])
+    call boundingBox % computeBounds([self % left % getBoundingBoxPtr(), self % right % getBoundingBoxPtr()])
     call self % setBoundingBox(boundingBox)
 
   end subroutine init
@@ -181,7 +179,7 @@ contains
     real(defReal), dimension(3), intent(in)    :: r
     real(defReal), intent(inout)               :: radiusSquared
     integer(shortInt), intent(inout)           :: idx
-    type(axisAlignedBoundingBox)               :: boundingBox
+    type(axisAlignedBoundingBox), pointer      :: boundingBoxPtr
     class(vertexNode), pointer                 :: nearNode, farNode
     
     ! If the current node is a leaf simply process it.
@@ -203,13 +201,13 @@ contains
     end if
 
     ! Always search the nearer node first.
-    if (associated(nearNode)) call nearNode % search(data, r, radiusSquared, idx)
+    if(associated(nearNode)) call nearNode % search(data, r, radiusSquared, idx)
 
     ! Search the further node only if the distance to its bounding box is less than the current
     ! best distance.
-    if (associated(farNode)) then
-      boundingBox = farNode % getBoundingBox()
-      if (boundingBox % distanceSquared(r) < radiusSquared) call farNode % search(data, r, radiusSquared, idx)
+    if(associated(farNode)) then
+      boundingBoxPtr => farNode % getBoundingBoxPtr()
+      if(boundingBoxPtr % distanceSquared(r) < radiusSquared) call farNode % search(data, r, radiusSquared, idx)
 
     end if
 

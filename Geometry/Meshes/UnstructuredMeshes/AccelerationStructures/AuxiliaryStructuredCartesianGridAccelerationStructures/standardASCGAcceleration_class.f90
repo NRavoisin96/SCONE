@@ -27,14 +27,15 @@ contains
   !!
   !!
   !!
-  subroutine findHostElementIdx(self, r, edges, elements, faces, vertices, elementIdx)
+  subroutine findHostElementIdx(self, u, edges, elements, faces, vertices, elementIdx, r)
     class(standardASCGAcceleration), intent(in)  :: self
-    real(defReal), dimension(3), intent(in)      :: r
+    real(defReal), dimension(3), intent(in)      :: u
     type(edgeShelf), intent(in)                  :: edges
     type(elementShelf), intent(in)               :: elements
     type(faceShelf), intent(in)                  :: faces
     type(vertexShelf), intent(in)                :: vertices
     integer(shortInt), intent(inout)             :: elementIdx
+    real(defReal), dimension(3), intent(inout)   :: r
     integer(shortInt)                            :: i
     integer(shortInt), dimension(:), allocatable :: intersectedFaceIdxs, potentialElementIdxs
     type(CartesianCell), pointer                 :: terminalCellPtr
@@ -48,20 +49,9 @@ contains
     if(0 < elementIdx .or. terminalCellPtr % isOutside()) return
 
     intersectedFaceIdxs = terminalCellPtr % getIntersectedFaceIdxs()
-    potentialElementIdxs = faces % getFaceElementIdxs(intersectedFaceIdxs)
-
-    ! For multi-layered Patch-Search, check if terminal cell only intersects with a single face. In this case, perform an 
-    ! element inclusion test on the elements sharing this face and return.
     if(1 < self % getDepth()) then
       if(size(intersectedFaceIdxs) == 1) then
-        if(ZERO < dot_product(faces % getFaceCentroid(intersectedFaceIdxs(1)) - r, &
-           faces % getFaceNormal(intersectedFaceIdxs(1)))) then
-          elementIdx = minval(potentialElementIdxs)
-
-        elseif(.not. faces % getFaceIsBoundary(intersectedFaceIdxs(1))) then
-          elementIdx = maxval(potentialElementIdxs)
-
-        end if
+        call faces % testFaceHalfSpace(intersectedFaceIdxs(1), r, elementIdx)
         return
 
       end if
@@ -69,6 +59,7 @@ contains
     end if
 
     ! Else, search all potential elements.
+    potentialElementIdxs = faces % getFaceElementIdxs(intersectedFaceIdxs)
     do i = 1, size(potentialElementIdxs)
       elementInclusionResults = elements % isPointInside(potentialElementIdxs(i), r, faces)
       if(elementInclusionResults % status == INSIDE_ELEMENT) then

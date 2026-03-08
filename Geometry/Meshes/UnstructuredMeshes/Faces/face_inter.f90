@@ -13,6 +13,16 @@ module face_inter
 
   ! Extendable procedures.
   public :: kill
+
+  !!
+  !!
+  !!
+  type, public :: faceSATData
+    real(defReal)                                  :: constant = ZERO, halfNormalL1Norm = ZERO
+    real(defReal), dimension(3)                    :: absNormal = ZERO
+    real(defReal), dimension(:, :), allocatable    :: absEdgeVectors, edgeVectors
+    real(defReal), dimension(:, :, :), allocatable :: edgeAxesIntervals
+  end type faceSATData
   
   !! Face of an unstructured mesh. Consists of a list of vertices indices making the face up and 
   !! face-to-element connectivity information.
@@ -29,15 +39,15 @@ module face_inter
   !!
   type, public, abstract                         :: face
     private
+    character(:), allocatable                    :: type
     integer(shortInt)                            :: idx = 0, parentIdx = 0
     integer(shortInt), dimension(:), allocatable :: edgeIdxs, elementIdxs, triangleIdxs, vertexIdxs, &
                                                     normalSigns
     logical(defBool)                             :: isBoundary = .false.
-    real(defReal)                                :: area = ZERO, const = ZERO, extraDistance = ZERO
+    real(defReal)                                :: area = ZERO, extraDistance = ZERO
     real(defReal), dimension(3)                  :: centroid = ZERO, normal = ZERO, AB = ZERO, AC = ZERO
     type(axisAlignedBoundingBox)                 :: boundingBox
-    character(:), allocatable                    :: type
-    real(defReal), dimension(:), allocatable     :: extraDistanceArr
+    type(faceSATData)                            :: SATCache
   contains
     procedure, non_overridable                   :: addEdgeIdx
     procedure, non_overridable                   :: addElementIdx
@@ -54,10 +64,6 @@ module face_inter
     procedure, non_overridable                   :: getAB
     procedure, non_overridable                   :: getAC
     procedure, non_overridable                   :: getArea
-    procedure, non_overridable                   :: getConst
-    procedure, non_overridable                   :: getExtraDistance
-    procedure, non_overridable                   :: getExtraDistanceArr
-    procedure, non_overridable                   :: getNormalSigns
     procedure, non_overridable                   :: getBoundingBox
     procedure, non_overridable                   :: getCentroid
     procedure, non_overridable                   :: getEdgeIdxs
@@ -71,24 +77,20 @@ module face_inter
     procedure, non_overridable                   :: getType
     procedure, non_overridable                   :: getVertexIdxs
     procedure, non_overridable                   :: init
-    generic                                      :: intersects => intersects_BoundingBox
+    generic                                      :: intersects => intersects_BoundingBox, intersects_CartesianCell
     procedure, private, non_overridable          :: intersects_BoundingBox
-    generic                                      :: intersectsBoundingBox => intersectsBoundingBox_BoundingBox
-    procedure, private, non_overridable          :: intersectsBoundingBox_BoundingBox
+    procedure, private, non_overridable          :: intersects_CartesianCell
     procedure, non_overridable                   :: isPointInside
     procedure                                    :: kill
+    procedure                                    :: killSATData
     procedure, non_overridable                   :: setArea
-    procedure, non_overridable                   :: setConst
-    procedure, non_overridable                   :: setExtraDistance
-    procedure, non_overridable                   :: setExtraDistanceArr
-    procedure, non_overridable                   :: deallocateExtraDistanceArr
-    procedure, non_overridable                   :: setNormalSigns
     procedure, non_overridable                   :: setCentroid
     procedure, non_overridable                   :: setIsBoundary
     procedure, non_overridable                   :: setIdx
     procedure, non_overridable                   :: setNormal
     procedure, non_overridable                   :: setVertexIdxs
     procedure                                    :: split
+    procedure, non_overridable                   :: testHalfSpace
   end type face
 
   !!
@@ -101,16 +103,6 @@ module face_inter
   type, public               :: faceBox
     class(face), allocatable :: item
   end type
-
-  !!
-  !!
-  !!
-  type, public :: faceSATData
-    real(defReal)                                  :: faceConstant = ZERO
-    real(defReal), dimension(3)                    :: faceNormal = ZERO
-    real(defReal), dimension(:, :), allocatable    :: edgeVectors
-    real(defReal), dimension(:, :, :), allocatable :: edgeAxesIntervals
-  end type faceSATData
 
   abstract interface
 
@@ -349,60 +341,66 @@ contains
   !!
   !!
   !!
-  elemental function computeSATData(self, edges, vertices) result(cache)
-    class(face), intent(in)                     :: self
+  elemental subroutine computeSATData(self, edges, vertices)
+    class(face), intent(inout)                  :: self
     type(edgeShelf), intent(in)                 :: edges
     type(vertexShelf), intent(in)               :: vertices
-    integer(shortInt)                           :: i, j, k, nEdges, nVertices
-    real(defReal), dimension(3)                 :: projections, vertexCoords
+    integer(shortInt)                           :: i, j, nEdges, nVertices
+    real(defReal), dimension(3)                 :: projections
     real(defReal), dimension(:, :), allocatable :: verticesCoords
-    type(faceSATData)                           :: cache
 
-    ! Store face data.
-    cache % faceNormal = self % normal
-    cache % faceConstant = self % const
+    associate(cache => self % SATCache)
+      ! Store face data.
+      cache % constant = -dot_product(self % normal, self % centroid)
+      cache % halfNormalL1Norm = HALF * sum(abs(self % normal))
+      cache % absNormal = abs(self % normal)
 
-    ! Compute nEdges then allocate memory.
-    nEdges = 0
-    if(allocated(self % edgeIdxs)) nEdges = size(self % edgeIdxs)
-    allocate(cache % edgeVectors(3, nEdges), cache % edgeAxesIntervals(3, nEdges, 2))
+      ! Compute nEdges then allocate memory.
+      nEdges = 0
+      if(allocated(self % edgeIdxs)) nEdges = size(self % edgeIdxs)
+      allocate(cache % edgeVectors(3, nEdges), cache % edgeAxesIntervals(3, nEdges, 2))
 
-    ! Compute nVertices, allocate memory then pre-fetch the coordinates of all vertices in the face.
-    nVertices = 0
-    if(allocated(self % vertexIdxs)) nVertices = size(self % vertexIdxs)
-    allocate(verticesCoords(3, nVertices))
-    do i = 1, nVertices
-      verticesCoords(:, i) = vertices % getVertexCoordinates(self % vertexIdxs(i))
-
-    end do
-
-    ! Loop through all the edges in the face and compute the projection intervals.
-    do i = 1, nEdges
-      cache % edgeVectors(:, i) = edges % getEdgeUnitVector(self % edgeIdxs(i))
-
-      ! Initialise projections and cache.
-      projections(1) = cache % edgeVectors(3, i) * verticesCoords(2, 1) - cache % edgeVectors(2, i) * verticesCoords(3, 1) ! X-axis
-      projections(2) = -cache % edgeVectors(3, i) * verticesCoords(1, 1) + cache % edgeVectors(1, i) * verticesCoords(3, 1) ! Y-axis
-      projections(3) = cache % edgeVectors(2, i) * verticesCoords(1, 1) - cache % edgeVectors(1, i) * verticesCoords(2, 1) ! Z-axis
-      cache % edgeAxesIntervals(:, i, 1) = projections
-      cache % edgeAxesIntervals(:, i, 2) = projections
-
-      ! Loop through the remaining vertices.
-      do j = 2, nVertices
-        ! Project vertex onto axes.
-        projections(1) = cache % edgeVectors(3, i) * verticesCoords(2, j) - cache % edgeVectors(2, i) * verticesCoords(3, j) ! X-axis
-        projections(2) = -cache % edgeVectors(3, i) * verticesCoords(1, j) + cache % edgeVectors(1, i) * verticesCoords(3, j) ! Y-axis
-        projections(3) = cache % edgeVectors(2, i) * verticesCoords(1, j) - cache % edgeVectors(1, i) * verticesCoords(2, j) ! Z-axis
-        
-        ! Update cache.
-        cache % edgeAxesIntervals(:, i, 1) = min(cache % edgeAxesIntervals(:, i, 1), projections)
-        cache % edgeAxesIntervals(:, i, 2) = max(cache % edgeAxesIntervals(:, i, 2), projections)
+      ! Compute nVertices, allocate memory then pre-fetch the coordinates of all vertices in the face.
+      nVertices = 0
+      if(allocated(self % vertexIdxs)) nVertices = size(self % vertexIdxs)
+      allocate(verticesCoords(3, nVertices))
+      do i = 1, nVertices
+        verticesCoords(:, i) = vertices % getVertexCoordinates(self % vertexIdxs(i))
 
       end do
 
-    end do
+      ! Loop through all the edges in the face and compute the projection intervals.
+      do i = 1, nEdges
+        cache % edgeVectors(:, i) = edges % getEdgeUnitVector(self % edgeIdxs(i))
 
-  end function computeSATData
+        ! Initialise projections and cache.
+        projections(1) = cache % edgeVectors(3, i) * verticesCoords(2, 1) - cache % edgeVectors(2, i) * verticesCoords(3, 1) ! X-axis
+        projections(2) = -cache % edgeVectors(3, i) * verticesCoords(1, 1) + cache % edgeVectors(1, i) * verticesCoords(3, 1) ! Y-axis
+        projections(3) = cache % edgeVectors(2, i) * verticesCoords(1, 1) - cache % edgeVectors(1, i) * verticesCoords(2, 1) ! Z-axis
+        cache % edgeAxesIntervals(:, i, 1) = projections
+        cache % edgeAxesIntervals(:, i, 2) = projections
+
+        ! Loop through the remaining vertices.
+        do j = 2, nVertices
+          ! Project vertex onto axes.
+          projections(1) = cache % edgeVectors(3, i) * verticesCoords(2, j) - cache % edgeVectors(2, i) * verticesCoords(3, j) ! X-axis
+          projections(2) = -cache % edgeVectors(3, i) * verticesCoords(1, j) + cache % edgeVectors(1, i) * verticesCoords(3, j) ! Y-axis
+          projections(3) = cache % edgeVectors(2, i) * verticesCoords(1, j) - cache % edgeVectors(1, i) * verticesCoords(2, j) ! Z-axis
+          
+          ! Update cache.
+          cache % edgeAxesIntervals(:, i, 1) = min(cache % edgeAxesIntervals(:, i, 1), projections)
+          cache % edgeAxesIntervals(:, i, 2) = max(cache % edgeAxesIntervals(:, i, 2), projections)
+
+        end do
+
+      end do
+
+      ! Pre-compute absolute edge vectors.
+      cache % absEdgeVectors = abs(cache % edgeVectors)
+
+    end associate
+
+  end subroutine computeSATData
 
   !!
   !!
@@ -516,59 +514,6 @@ contains
     area = self % area
 
   end function getArea
-
-  !!
-  !!
-  !!
-  elemental function getConst(self, idx) result(const)
-    class(face), intent(in)                 :: self
-    integer(shortInt), intent(in), optional :: idx
-    real(defReal)                           :: const
-    
-    const = self % const
-
-    if (.not. present(idx)) return
-    if (idx < 0) const = -const
-
-  end function getConst
-
-  !!
-  !!
-  !!
-  elemental function getExtraDistance(self) result(extraDistance)
-    class(face), intent(in) :: self
-    real(defReal)           :: extraDistance
-    
-    extraDistance = self % extraDistance
-
-  end function getExtraDistance
-
-  !!
-  !!
-  !!
-  elemental function getExtraDistanceArr(self, currLayer) result(extraDistanceArr)
-    class(face), intent(in)         :: self
-    integer(shortInt), intent(in)   :: currLayer
-    real(defReal)                   :: extraDistanceArr
-    
-    extraDistanceArr = self % extraDistanceArr(currLayer)
-
-  end function getExtraDistanceArr
-
-  !!
-  !!
-  !!
-  pure function getNormalSigns(self, idx) result(normalSigns)
-    class(face), intent(in)                 :: self
-    integer(shortInt), intent(in), optional :: idx
-    integer(shortInt), dimension(3)         :: normalSigns
-    
-    normalSigns = self % normalSigns
-
-    if (.not. present(idx)) return
-    if (idx < 0) normalSigns = -normalSigns
-
-  end function getNormalSigns
 
   !! Function 'getBoundingBox'
   !!
@@ -799,97 +744,85 @@ contains
   !!
   !!
   !!
-  elemental subroutine intersects_BoundingBox(self, vertices, boundingBox, doesIt)
+  elemental subroutine intersects_BoundingBox(self, boundingBox, doesIt)
     class(face), intent(in)                              :: self
-    type(vertexShelf), intent(in)                        :: vertices
     type(axisAlignedBoundingBox), intent(in)             :: boundingBox
+    integer(shortInt)                                    :: i
     logical(defBool), intent(out)                        :: doesIt
-    real(defReal), dimension(3)                          :: boundingBoxCentre, halfwidths, axis, edge, boxAxis
-    real(defReal), dimension(3, size(self % vertexIdxs)) :: centredVertexCoords
-    integer(shortInt)                                    :: i, j, nextIdx, nVertices
+    real(defReal), dimension(3)                          :: boundingBoxCentre, halfwidths, projections, radii
+    real(defReal), dimension(6)                          :: boundingBoxBounds, faceBoundingBoxBounds
 
     ! Initialise doesIt = .false., retrieve the centre and halfwidths of the boundingBox.
     doesIt = .false.
+    boundingBoxBounds = boundingBox % getBounds()
+    faceBoundingBoxBounds = self % boundingBox % getBounds()
+    if(any(boundingBoxBounds(4:6) < faceBoundingBoxBounds(1:3) .or. faceBoundingBoxBounds(4:6) < boundingBoxBounds(1:3))) return
+
     boundingBoxCentre = boundingBox % getCentre()
     halfwidths = boundingBox % getHalfwidths()
+    associate(cache => self % SATCache)
+      ! Test face normal first.
+      if(dot_product(halfwidths, cache % absNormal) < abs(dot_product(boundingBoxCentre, self % normal) + &
+                                                          cache % constant)) return
 
-    ! Offset the coordinates of the face vertices with respect to the box centre.
-    nVertices = size(self % vertexIdxs)
-    centredVertexCoords = vertices % getVertexCoordinates(self % vertexIdxs) - spread(boundingBoxCentre, 2, nVertices)
-
-    ! First test for intersection along the three bounding box's axes.
-    do i = 1, 3
-      axis = ZERO
-      axis(i) = ONE
-      if (.not. overlaps(halfwidths, centredVertexCoords, axis, nVertices)) return
-
-    end do
-
-    ! Now test the face's normal vector.
-    if (.not. overlaps(halfwidths, centredVertexCoords, self % normal, nVertices)) return
-
-    ! Finally, test cross products between the face's edges and the bounding box's edges.
-    do i = 1, nVertices
-      nextIdx = merge(1, i + 1, i == nVertices)
-      edge = centredVertexCoords(:, nextIdx) - centredVertexCoords(:, i)
-      do j = 1, 3
-        boxAxis = ZERO
-        boxAxis(j) = ONE
-        axis = crossProduct(edge, boxAxis)
-        if (.not. overlaps(halfwidths, centredVertexCoords, axis, nVertices)) return
+      ! Now test edge cross products.
+      do i = 1, size(cache % edgeVectors, 2)
+        projections(1) = cache % edgeVectors(3, i) * boundingBoxCentre(2) - cache % edgeVectors(2, i) * boundingBoxCentre(3)
+        projections(2) = cache % edgeVectors(1, i) * boundingBoxCentre(3) - cache % edgeVectors(3, i) * boundingBoxCentre(1)
+        projections(3) = cache % edgeVectors(2, i) * boundingBoxCentre(1) - cache % edgeVectors(1, i) * boundingBoxCentre(2)
+        radii(1) = halfwidths(2) * cache % absEdgeVectors(3, i) + halfwidths(3) * cache % absEdgeVectors(2, i)
+        radii(2) = halfwidths(1) * cache % absEdgeVectors(3, i) + halfwidths(3) * cache % absEdgeVectors(1, i)
+        radii(3) = halfwidths(1) * cache % absEdgeVectors(2, i) + halfwidths(2) * cache % absEdgeVectors(1, i)
+        if(any(cache % edgeAxesIntervals(:, i, 2) < projections - radii .or. &
+               projections + radii < cache % edgeAxesIntervals(:, i, 1))) return
 
       end do
 
-    end do
+    end associate
 
     ! If reached here, the face and the bounding box intersect so update doesIt = .true.
     doesIt = .true.
-
-  contains
-    !!
-    !!
-    !!
-    pure function overlaps(h, coords, ax, n) result(isOverlapping)
-      real(defReal), dimension(3), intent(in)                          :: h, ax
-      real(defReal), dimension(3, size(self % vertexIdxs)), intent(in) :: coords
-      integer(shortInt), intent(in)                                    :: n
-      logical(defBool)                                                 :: isOverlapping
-      real(defReal)                                                    :: radius, minProjection, maxProjection, d
-      integer(shortInt)                                                :: k
-
-      ! Compute the box radius.
-      radius = dot_product(h, abs(ax))
-
-      ! Compute d and initialise minProjection and maxProjections.
-      d = dot_product(coords(:, 1), ax)
-      minProjection = d
-      maxProjection = d
-
-      do k = 2, n
-        d = dot_product(coords(:, k), ax)
-        minProjection = min(minProjection, d)
-        maxProjection = max(maxProjection, d)
-
-      end do
-
-      ! Check if overlap between projections.
-      isOverlapping = minProjection <= radius .and. maxProjection >= -radius
-
-    end function overlaps
 
   end subroutine intersects_BoundingBox
 
   !!
   !!
   !!
-  elemental subroutine intersectsBoundingBox_BoundingBox(self, boundingBox, doesIt)
-    class(face), intent(in)                  :: self
-    type(axisAlignedBoundingBox), intent(in) :: boundingBox
-    logical(defBool), intent(out)            :: doesIt
+  pure subroutine intersects_CartesianCell(self, spacing, centroid, doesIt)
+    class(face), intent(in)                 :: self
+    real(defReal), intent(in)               :: spacing
+    real(defReal), dimension(3), intent(in) :: centroid
+    logical(defBool), intent(out)           :: doesIt
+    integer(shortInt)                       :: i
+    real(defReal), dimension(3)             :: projections, radii
 
-    doesIt = self % boundingBox % intersects(boundingbox)
+    ! Initialise doesIt = .false.
+    doesIt = .false.
+    associate(cache => self % SATCache)
+      ! Test along face normal.
+      if(cache % halfNormalL1Norm * spacing < abs(dot_product(centroid, self % normal) + cache % constant)) return
 
-  end subroutine intersectsBoundingBox_BoundingBox
+      ! Now test along edge axes using cached intervals.
+      do i = 1, size(cache % edgeVectors, 2)
+        ! Compute centroid projections and radii along each axis.
+        projections(1) = cache % edgeVectors(3, i) * centroid(2) - cache % edgeVectors(2, i) * centroid(3)
+        projections(2) = cache % edgeVectors(1, i) * centroid(3) - cache % edgeVectors(3, i) * centroid(1)
+        projections(3) = cache % edgeVectors(2, i) * centroid(1) - cache % edgeVectors(1, i) * centroid(2)
+        radii(1) = HALF * (cache % absEdgeVectors(2, i) + cache % absEdgeVectors(3, i)) * spacing
+        radii(2) = HALF * (cache % absEdgeVectors(1, i) + cache % absEdgeVectors(3, i)) * spacing
+        radii(3) = HALF * (cache % absEdgeVectors(1, i) + cache % absEdgeVectors(2, i)) * spacing
+
+        if(any(cache % edgeAxesIntervals(:, i, 2) < projections - radii .or. &
+               projections + radii < cache % edgeAxesIntervals(:, i, 1))) return
+
+      end do
+
+    end associate
+
+    ! If reached here, the cell intersects the face.
+    doesIt = .true.
+
+  end subroutine intersects_CartesianCell
 
   !!
   !!
@@ -935,6 +868,9 @@ contains
     
     self % idx = 0
     self % parentIdx = 0
+    if (allocated(self % edgeIdxs)) deallocate(self % edgeIdxs)
+    if (allocated(self % elementIdxs)) deallocate(self % elementIdxs)
+    if (allocated(self % vertexIdxs)) deallocate(self % vertexIdxs)
     self % isBoundary = .false.
     self % area = ZERO
     self % centroid = ZERO
@@ -942,11 +878,35 @@ contains
     self % AB = ZERO
     self % AC = ZERO
     call self % boundingBox % kill()
-    if (allocated(self % edgeIdxs)) deallocate(self % edgeIdxs)
-    if (allocated(self % elementIdxs)) deallocate(self % elementIdxs)
-    if (allocated(self % vertexIdxs)) deallocate(self % vertexIdxs)
+    associate(cache => self % SATCache)
+      cache % constant = ZERO
+      cache % halfNormalL1Norm = ZERO
+      cache % absNormal = ZERO
+      if(allocated(cache % absEdgeVectors)) deallocate(cache % absEdgeVectors)
+      if(allocated(cache % edgeVectors)) deallocate(cache % edgeVectors)
+      if(allocated(cache % edgeAxesIntervals)) deallocate(cache % edgeAxesIntervals)
+
+    end associate
 
   end subroutine kill
+
+  !!
+  !!
+  !!
+  elemental subroutine killSATData(self)
+    class(face), intent(inout) :: self
+
+    associate(cache => self % SATCache)
+      cache % constant = ZERO
+      cache % halfNormalL1Norm = ZERO
+      cache % absNormal = ZERO
+      if(allocated(cache % absEdgeVectors)) deallocate(cache % absEdgeVectors)
+      if(allocated(cache % edgeVectors)) deallocate(cache % edgeVectors)
+      if(allocated(cache % edgeAxesIntervals)) deallocate(cache % edgeAxesIntervals)
+
+    end associate
+
+  end subroutine killSATData
 
   !! Subroutine 'setArea'
   !!
@@ -963,62 +923,6 @@ contains
     self % area = area
 
   end subroutine setArea
-
-  !!
-  !!
-  !!
-  elemental subroutine setExtraDistance(self, extraDistance)
-    class(face), intent(inout) :: self
-    real(defReal), intent(in)  :: extraDistance
-
-    self % extraDistance = extraDistance
-
-  end subroutine setExtraDistance
-
-  !!
-  !!
-  !!
-  pure subroutine setExtraDistanceArr(self, extraDistanceArr, n_layers)
-    class(face), intent(inout)              :: self
-    real(defReal), dimension(:), intent(in) :: extraDistanceArr
-    integer(shortInt), intent(in)           :: n_layers
-
-    allocate(self % extraDistanceArr(n_layers))
-    self % extraDistanceArr = extraDistanceArr
-
-  end subroutine setExtraDistanceArr
-
-  !!
-  !!
-  !!
-  elemental subroutine deallocateExtraDistanceArr(self)
-    class(face), intent(inout)      :: self
-
-    deallocate(self % extraDistanceArr)
-
-  end subroutine deallocateExtraDistanceArr
-
-  !!
-  !!
-  !!
-  pure subroutine setNormalSigns(self, normalSigns)
-    class(face), intent(inout)                  :: self
-    integer(shortInt), dimension(3), intent(in) :: normalSigns
-
-    if (.NOT. allocated(self % normalSigns)) allocate(self % normalSigns(3))
-    self % normalSigns = normalSigns
-
-  end subroutine setNormalSigns
-  !!
-  !!
-  !!
-  elemental subroutine setConst(self, const)
-    class(face), intent(inout) :: self
-    real(defReal), intent(in)  :: const
-
-    self % const = const
-
-  end subroutine setConst
   
   !! Subroutine 'setBoundaryFace'
   !!
@@ -1112,7 +1016,7 @@ contains
     type(vertexShelf), intent(inout)           :: newVertices
     integer(shortInt), intent(inout)           :: lastNewEdgeIdx, lastNewFaceIdx
     type(faceBox), dimension(:), intent(inout) :: triangles
-    integer(shortInt)                          :: i, j, k, minVertexLoc, nTriangles, nVertices
+    integer(shortInt)                          :: i, j, minVertexLoc, nTriangles, nVertices
     integer(shortInt), dimension(3)            :: edgeIdxs, vertexIdxs
     real(defReal), dimension(3, 3)             :: vertexCoords
     type(axisAlignedBoundingBox)               :: boundingBox
@@ -1171,5 +1075,23 @@ contains
     end do
 
   end subroutine split
+
+  !!
+  !!
+  !!
+  pure subroutine testHalfSpace(self, r, elementIdx)
+    class(face), intent(in)                 :: self
+    real(defReal), dimension(3), intent(in) :: r
+    integer(shortInt), intent(inout)        :: elementIdx
+
+    if(ZERO < dot_product(self % centroid - r, self % normal)) then
+      elementIdx = minval(self % elementIdxs)
+
+    elseif(.not. self % isBoundary) then
+      elementIdx = maxval(self % elementIdxs)
+
+    end if
+
+  end subroutine testHalfSpace
   
 end module face_inter

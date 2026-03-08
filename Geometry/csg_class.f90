@@ -80,18 +80,12 @@ contains
     logical(defBool), optional, intent(in)       :: silent
     logical(defBool)                             :: loud
     type(uniFills)                               :: fills
-    integer(shortInt)                            :: rootId, nesting, timerIdx
+    integer(shortInt)                            :: rootId, nesting
     type(dictionary), pointer                    :: tempDict
     class(universe), pointer                     :: uni_ptr
     class(surface), pointer                      :: surf_ptr
     integer(shortInt), dimension(:), allocatable :: BC
     character(100), parameter                    :: Here = 'init (csg_class.f90)'
-    real(defReal)                                :: t1, t2
-
-    ! start timer for initialisation
-    timerIdx = registerTimer('Initialisation') ! register timer for initialisation
-    call timerStart(timerIdx)                  ! Wall-time
-    call cpu_time(t1)                          ! CPU-time
 
     ! Choose whether to display messages
     loud = .true.

@@ -1,7 +1,6 @@
 module elementShelf_class
   
   use axisAlignedBoundingBox_class, only : axisAlignedBoundingBox
-  use coord_class,                  only : coord
   use edgeShelf_class,              only : edgeShelf
   use element_inter,                only : element, elementBox, inclusionTestResult
   use face_inter,                   only : faceBox
@@ -52,6 +51,7 @@ module elementShelf_class
     procedure                                   :: setElementLocalId
     procedure                                   :: splitElement
     procedure                                   :: isPointInside
+    procedure                                   :: isPointInsideElementNoBoundaryCheck
   end type elementShelf
 
 contains
@@ -513,13 +513,14 @@ contains
   !!
   !!
   !!
-  elemental subroutine pushFromElementBoundary(self, idx, faces, coords)
-    class(elementShelf), intent(in) :: self
-    integer(shortInt), intent(in)   :: idx
-    type(faceShelf), intent(in)     :: faces
-    type(coord), intent(inout)      :: coords
+  pure subroutine pushFromElementBoundary(self, idx, u, faces, r)
+    class(elementShelf), intent(in)            :: self
+    integer(shortInt), intent(in)              :: idx
+    real(defReal), dimension(3), intent(in)    :: u
+    type(faceShelf), intent(in)                :: faces
+    real(defReal), dimension(3), intent(inout) :: r
 
-    call self % shelf(idx) % item % pushFromBoundary(faces, coords)
+    call self % shelf(idx) % item % pushFromBoundary(faces, u, r)
 
   end subroutine pushFromElementBoundary
 
@@ -589,5 +590,19 @@ contains
     result = self % shelf(idx) % item % isPointInside(faces, r)
 
   end function isPointInside
+
+  !!
+  !!
+  !!
+  pure function isPointInsideElementNoBoundaryCheck(self, idx, r, faces) result(isIt)
+    class(elementShelf), intent(in)         :: self
+    integer(shortInt), intent(in)           :: idx
+    real(defReal), dimension(3), intent(in) :: r
+    type(faceShelf), intent(in)             :: faces
+    logical(defBool)                        :: isIt
+
+    isIt = self % shelf(idx) % item % isPointInsideNoBoundaryCheck(r, faces)
+
+  end function isPointInsideElementNoBoundaryCheck
   
 end module elementShelf_class

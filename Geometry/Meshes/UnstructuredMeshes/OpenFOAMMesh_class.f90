@@ -57,9 +57,11 @@ contains
     type(vertexShelf), intent(inout)             :: vertices
     integer(shortInt)                            :: i, j, k, lastIdx, nVertices, vertexIdx, nextVertexIdx, &
                                                     elementIdx, edgeIdx
-    integer(shortInt), dimension(:), allocatable :: vertexIdxs, elementIdxs
     integer(shortInt), dimension(2)              :: edgeVertexIdxs
+    integer(shortInt), dimension(:), allocatable :: vertexIdxs, elementIdxs
     logical(defBool)                             :: createNew
+    real(defReal)                                :: edgeLength
+    real(defReal), dimension(3)                  :: edgeVector
 
     ! Do a first pass over all elements and allocate memory. This will overshoot the actual number of
     ! edges to be created.
@@ -92,6 +94,11 @@ contains
           ! the new edge and add the new edge to the pair of vertices.
           lastIdx = lastIdx + 1
           call edges % initEdge(lastIdx, edgeVertexIdxs)
+          edgeVector = vertices % getVertexCoordinates(edgeVertexIdxs(2)) - vertices % getVertexCoordinates(edgeVertexIdxs(1))
+          edgeLength = norm2(edgeVector)
+          call edges % setEdgeUnitVector(lastIdx, edgeVector / edgeLength)
+          call edges % setEdgeLength(lastIdx, edgeLength)
+
           call vertices % addEdgeIdxToVertex(vertexIdx, lastIdx)
           call vertices % addEdgeIdxToVertex(nextVertexIdx, lastIdx)
           
