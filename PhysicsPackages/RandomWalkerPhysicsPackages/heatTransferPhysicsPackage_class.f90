@@ -2,8 +2,8 @@ module heatTransferPhysicsPackage_class
 
   use coordList_class,            only : coordList
   use dictionary_class,           only : dictionary
-  use element_class,              only : element, elementBox, elementIntersectionTestPayload, elementIntersectionTestResult, &
-                                         inclusionTestResult, newElementIntersectionTestPayload
+  use element_class,              only : castElementPtr, element, elementBox, elementIntersectionTestPayload, &
+                                         elementIntersectionTestResult, inclusionTestResult, newElementIntersectionTestPayload
   use errors_mod,                 only : fatalError
   use face_class,                 only : face, orientatedFaceBox
   use genericProcedures,          only : append, areEqual, numToChar, rotateVector
@@ -211,6 +211,7 @@ contains
     self % parentSumOfScores = ZERO
     self % parentSumOfScoresSquared = ZERO
     self % nWalks = 0
+    self % isConverged = .false.
     self % nRuns = self % nRuns + 1
     nWalksBatchStart = 0
     !$omp end master
@@ -301,7 +302,6 @@ contains
               batchMean = sum / nWalks
               batchVariance = (sumOfSquares - sum * batchMean) / (nWalks - 1)
 
-
               ! Update global statistics.
               previousMean = self % means(testIdxs(i))
               self % means(testIdxs(i)) = self % means(testIdxs(i)) + (batchMean - self % means(testIdxs(i))) / self % nRuns
@@ -337,7 +337,7 @@ contains
           ! Display progress.
           if(self % isConverged(testIdxs(i))) then
             print *, 'Temperature of element '//numToChar(testIdxs(i))//': ', self % means(testIdxs(i)), '+/-', &
-                      sqrt(self % variances(testIdxs(i)))
+                      self % parentErrors(testIdxs(i)) * abs(self % means(testIdxs(i)))
             print *, 'Number of walks: ', self % nWalks(elementIdx)
 
           end if
@@ -371,7 +371,7 @@ contains
     real(defReal), dimension(3)                           :: outwardNormal, r, u
     type(coordList), pointer                              :: coordsPtr
     type(face), pointer                                   :: internalFacePtr
-    type(element), pointer                                :: chosenElementPtr, elementPtr, neighbourElementPtr
+    type(element), pointer                                :: chosenElementPtr, elementPtr, neighbourElementPtr, sharingElementPtr
     type(elementBox)                                      :: box
     type(elementIntersectionTestResult)                   :: faceIntersectionResults
     type(orientatedFaceBox), dimension(:), allocatable    :: faceBoxes
@@ -379,12 +379,12 @@ contains
     type(topologicalObjectBox), dimension(:), allocatable :: sharingElements
     character(*), parameter                               :: here = 'walk (heatTransferPhysicsPackage_class.f90)'
 
-    ! Initialise isDead = .false.
+    ! Get pointers to coordinates and RNG.
     coordsPtr => walker % getCoordsPtr()
+    RNGPtr => walker % getRNGPtr()
 
     walkLoop: do
       ! Sample initial direction on the unit sphere and set it.
-      RNGPtr => walker % getRNGPtr()
       call RNGPtr % generateMu(mu)
       call RNGPtr % generatePhi(phi)
       u = rotateVector([ONE, ZERO, ZERO], mu, phi)
@@ -439,14 +439,8 @@ contains
         nSharingElements = size(sharingElements)
         if (nSharingElements /= 2) call fatalError(here, 'Internal face is not associated with two elements.')
         do j = 1, 2
-          select type(ptr => sharingElements(j) % ptr)
-            type is(element)
-              if (.not. associated(elementPtr, ptr)) neighbourElementPtr => ptr
-            
-            class default
-              call fatalError(here, 'Element with index: '//numToChar(ptr % getIdx())//' is not an element.')
-
-          end select
+          sharingElementPtr => castElementPtr(sharingElements(j) % ptr)
+          if(.not. associated(elementPtr, sharingElementPtr)) neighbourElementPtr => sharingElementPtr
 
         end do
 
@@ -478,13 +472,6 @@ contains
         call coordsPtr % setDirection(u, 1)
         call coordsPtr % setElementIdx(chosenElementPtr % getIdx(), 1)
 
-        ! Test: if chosen element is already converged, accumulate its values and return immediately.
-        if(self % isConverged(chosenElementPtr % getIdx())) then
-          call walker % accumulateValue(self % means(chosenElementPtr % getIdx()))
-          return
-
-        end if
-
         minDistance = INF
         faceBoxes = elementPtr % getOrientatedFaces()
         do i = 1, size(faceBoxes)
@@ -503,6 +490,27 @@ contains
           minDistance = min(minDistance, dist)
 
         end do
+
+        ! Compute value to accumulate.
+        valueToAccumulate = ZERO
+        call coordsPtr % setElementIdx(elementPtr % getIdx(), 1)
+        valueToAccumulate = valueToAccumulate + &
+        getScalarFieldValue(nameHeatSource, ZERO, coordsPtr, HALF * SIXTH * minDistance * minDistance / conductivity)
+
+        call coordsPtr % setElementIdx(chosenElementPtr % getIdx(), 1)
+        valueToAccumulate = valueToAccumulate + &
+        getScalarFieldValue(nameHeatSource, ZERO, coordsPtr, HALF * SIXTH * minDistance * minDistance / conductivity)
+
+        ! Test: if chosen element is already converged, accumulate its values and return immediately.
+        if(self % isConverged(chosenElementPtr % getIdx())) then
+          valueToAccumulate = valueToAccumulate + self % means(chosenElementPtr % getIdx())
+          call walker % accumulateValue(valueToAccumulate)
+          return
+
+        end if
+
+      else
+        valueToAccumulate = getScalarFieldValue(nameHeatSource, ZERO, coordsPtr, SIXTH * minDistance * minDistance / conductivity)
 
       end if
 
@@ -539,8 +547,7 @@ contains
 
       end do transportLoop
 
-      ! Accumulate heat source. Set valueToAccumulate = ZERO in case the heat source field does not exist.
-      valueToAccumulate = getScalarFieldValue(nameHeatSource, ZERO, coordsPtr, SIXTH * minDistance * minDistance / conductivity)
+      ! Accumulate heat source.
       call walker % accumulateValue(valueToAccumulate)
 
     end do walkLoop

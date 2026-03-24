@@ -53,6 +53,7 @@ module eigenPhysicsPackage_class
     procedure :: displayCycleProgress
     procedure :: generateInitialState
     procedure :: getCurrentCycleNumber
+    procedure :: getCyclesActive
     procedure :: getCycleParticlesNumber
     procedure :: getInactiveCyclesNumber
     procedure :: getTallyAdminPtr
@@ -154,6 +155,17 @@ contains
     currentCycleNumber = cycleNumber + merge(0, self % N_inactive, self % inactiveCycles)
 
   end function getCurrentCycleNumber
+
+  !!
+  !!
+  !!
+  elemental function getCyclesActive(self) result(cyclesActive)
+    class(eigenPhysicsPackage), intent(in) :: self
+    logical(defBool)                       :: cyclesActive
+
+    cyclesActive = .not. self % inactiveCycles
+
+  end function getCyclesActive
 
   !!
   !!

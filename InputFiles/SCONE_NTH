@@ -5,7 +5,6 @@ packages {
         type eigenPhysicsPackage;
         XSdata ce;
         dataType ce;
-        seed 1;
         
         pop 200000;
         inactive 50;
@@ -65,7 +64,7 @@ packages {
         type heatTransferPackage;
         convergenceCriterion 1.0e-2;
         surfaceTolerance 1.0e-4;
-        seed 3;
+        walksPerBatch 50;
     }
 }
 
@@ -99,6 +98,18 @@ geometry {
 	                type OpenFOAMScalarField;
 	                meshId 1;
 	                path ./IntegrationTestFiles/Fields/ScalarFields/T;
+	            }
+	        }
+	    }
+	    
+	    rho
+	    {
+	    	type mixedScalarField;
+	        meshFields {
+	            testMesh {
+	                type OpenFOAMScalarField;
+	                meshId 1;
+	                path ./IntegrationTestFiles/Fields/ScalarFields/rho;
 	            }
 	        }
 	    }
@@ -155,6 +166,21 @@ nuclearData {
       				8016.03    0.333;
       			}
 		    }
+      	}
+      	
+      	nitrogen {
+      		tms 1;
+      		temp 300;
+      		densityLaw {
+      			type constantPropertyLaw;
+      			value 1.0;
+      		}
+      		composition {
+      			type massFraction;
+      			nuclides {
+      				7014.03 1.0;
+      			}
+      		}
       	}
 
     	fuel {

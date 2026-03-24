@@ -5,6 +5,7 @@ module NTHPackage_class
   use eigenPhysicsPackage_class,        only : eigenPhysicsPackage
   use errors_mod,                       only : fatalError
   use fixedSourcePhysicsPackage_class,  only : fixedSourcePhysicsPackage
+  use genericProcedures,                only : numToChar, printFishLineR
   use geometryReg_mod,                  only : fieldPtrByName
   use heatTransferPhysicsPackage_class, only : heatTransferPhysicsPackage
   use numPrecision
@@ -17,9 +18,9 @@ module NTHPackage_class
   use scalarField_inter,                only : castScalarFieldPtr, scalarField
   use tallyAdmin_class,                 only : tallyAdmin
   use tallyResult_class,                only : castTallyResultArraysPtr, tallyResult, tallyResultArrays
-  use timer_mod,                        only : timerReset, timerStart
+  use timer_mod,                        only : secToChar, timerReset, timerStart, timerStop, timerTime
   use transportOperator_inter,          only : transportOperator
-  use universalVariables,               only : nameHeatSource, nameTemperature
+  use universalVariables,               only : nameDensity, nameHeatSource, nameTemperature
 
   implicit none
   private
@@ -30,9 +31,11 @@ module NTHPackage_class
   type, public, extends(physicsPackage) :: NTHPackage
     private
     class(particlePhysicsPackage), allocatable :: neutronicsPackage
+    real(defReal), dimension(:), allocatable   :: densityMeans, densityVariances
     type(heatTransferPhysicsPackage)           :: heatTransferPackage
   contains
     procedure          :: collectSpecificResults
+    procedure          :: displayCycleProgress
     procedure          :: init
     procedure          :: kill
     procedure          :: run
@@ -48,6 +51,31 @@ contains
     type(outputFile), intent(inout) :: out
 
   end subroutine collectSpecificResults
+
+  !!
+  !!
+  !!
+  subroutine displayCycleProgress(self, cycleNumber, nInitialParticles, nFinalParticles, elapsedTime, endTime, timeToEnd)
+    class(NTHPackage), intent(in) :: self
+    integer(shortInt), intent(in) :: cycleNumber, nInitialParticles, nFinalParticles
+    real(defReal), intent(in)     :: elapsedTime, endTime, timeToEnd
+
+    ! Display progress
+    call printFishLineR(cycleNumber)
+    print *
+    if(.not. self % neutronicsPackage % getCyclesActive()) then
+      print *, 'Cycle: ', numToChar(cycleNumber), ' of ', numToChar(0)
+
+    else
+      print *, 'Cycle: ', numToChar(cycleNumber), ' of ', numToChar(self % neutronicsPackage % getCyclesNumber())
+
+    end if
+    print *, 'Pop: ', numToChar(nInitialParticles) , ' -> ', numToChar(nFinalParticles)
+    print *, 'Elapsed time: ', trim(secToChar(elapsedTime))
+    print *, 'End time:     ', trim(secToChar(endTime))
+    print *, 'Time to end:  ', trim(secToChar(timeToEnd))
+
+  end subroutine displayCycleProgress
 
   !!
   !!
@@ -130,6 +158,9 @@ contains
     heatTransgerPackagePayload % dict => packagesDict % getDictPtr('heatTransfer')
     call self % heatTransferPackage % init(heatTransgerPackagePayload)
 
+    ! Allocate memory (hardcode here.)
+    allocate(self % densityMeans(10), self % densityVariances(10))
+
   end subroutine init
 
   !!
@@ -143,6 +174,8 @@ contains
       deallocate(self % neutronicsPackage)
 
     end if
+    if(allocated(self % densityMeans)) deallocate(self % densityMeans)
+    if(allocated(self % densityVariances)) deallocate(self % densityVariances)
     call self % heatTransferPackage % kill()
 
   end subroutine kill
@@ -151,17 +184,22 @@ contains
   !!
   !!
   subroutine run(self)
-    class(NTHPackage), intent(inout)      :: self
-    class(scalarField), pointer           :: heatSourceFieldPtr, temperatureFieldPtr
-    integer(shortInt)                     :: nInactiveCycles, timerMain
-    type(tallyAdmin), pointer             :: tallyAdminPtr
-    character(*), parameter               :: HERE = 'run (NTHPackage_class.f90)'
+    class(NTHPackage), intent(inout) :: self
+    class(scalarField), pointer      :: densityFieldPtr, heatSourceFieldPtr, temperatureFieldPtr
+    integer(shortInt)                :: nInactiveCycles, timerMain
+    logical(defBool)                 :: hasTimerStarted     
+    type(tallyAdmin), pointer        :: tallyAdminPtr
+    character(*), parameter          :: HERE = 'run (NTHPackage_class.f90)'
+
+    ! Initialise hasTimerStarted
+    hasTimerStarted = .false.
 
     ! Generate initial state for neutronics package.
     if (.not. allocated(self % neutronicsPackage)) call fatalError(HERE, 'Neutronics physics package is not allocated.')
     call self % neutronicsPackage % generateInitialState()
 
     ! Get pointers to heat source and temperature fields.
+    densityFieldPtr => castScalarFieldPtr(fieldPtrByName(nameDensity))
     heatSourceFieldPtr => castScalarFieldPtr(fieldPtrByName(nameHeatSource))
     temperatureFieldPtr => castScalarFieldPtr(fieldPtrByName(nameTemperature))
 
@@ -173,36 +211,44 @@ contains
       ! Reset and start timer.
       call timerReset(timerMain)
       call timerStart(timerMain)
+      hasTimerStarted = .true.
       
       ! Get pointer to tallyAdmin.
       tallyAdminPtr => self % neutronicsPackage % getTallyAdminPtr()
-      call self % runCycles(nInactiveCycles, heatSourceFieldPtr, temperatureFieldPtr, tallyAdminPtr, .true.)
+      call self % runCycles(nInactiveCycles, densityFieldPtr, heatSourceFieldPtr, temperatureFieldPtr, tallyAdminPtr, .true.)
       call self % neutronicsPackage % setCyclesActive()
 
     end if
 
     ! Run active cycles.
-    call timerReset(timerMain)
-    call timerStart(timerMain)
+    if(.not. hasTimerStarted) then
+      call timerReset(timerMain)
+      call timerStart(timerMain)
+
+    end if
     tallyAdminPtr => self % neutronicsPackage % getTallyAdminPtr()
-    call self % runCycles(self % neutronicsPackage % getCyclesNumber(), heatSourceFieldPtr, temperatureFieldPtr, tallyAdminPtr)
+    call self % runCycles(self % neutronicsPackage % getCyclesNumber(), densityFieldPtr, heatSourceFieldPtr, &
+                          temperatureFieldPtr, tallyAdminPtr)
 
   end subroutine run
 
   !!
   !!
   !!
-  subroutine runCycles(self, nCycles, heatSourceFieldPtr, temperatureFieldPtr, tallyAdminPtr, flush)
+  subroutine runCycles(self, nCycles, densityFieldPtr, heatSourceFieldPtr, temperatureFieldPtr, tallyAdminPtr, flush)
     class(NTHPackage), intent(inout)           :: self
     integer(shortInt), intent(in)              :: nCycles
-    class(scalarField), pointer, intent(inout) :: heatSourceFieldPtr, temperatureFieldPtr
+    class(scalarField), pointer, intent(inout) :: densityFieldPtr, heatSourceFieldPtr, temperatureFieldPtr
     type(tallyAdmin), pointer, intent(inout)   :: tallyAdminPtr
     logical(defBool), intent(in), optional     :: flush
     class(physicalParticle), allocatable       :: p
     class(tallyResult), allocatable            :: tallyResults
     class(transportOperator), allocatable      :: transOp
-    integer(shortInt)                          :: i, j, geometryIdx, nInitialParticles
+    integer(shortInt)                          :: i, j, k, geometryIdx, nInitialParticles, timerMain
     logical(defBool)                           :: flushResults
+    real(defReal)                              :: endTime, elapsedTime
+    real(defReal), dimension(10)               :: densities, sum, sumOfSquares
+    real(defReal), dimension(:), allocatable   :: meanTemperatures
     type(collisionOperator)                    :: collOp
     type(particleDungeon)                      :: buffer
     type(RNG)                                  :: pRNG
@@ -215,6 +261,8 @@ contains
     ! Initialise shared variables.
     geometryIdx = 0
     nInitialParticles = 0
+    sum = ZERO
+    sumOfSquares = ZERO
 
     ! Create parallel region here.
     !$omp parallel default(shared) private(buffer, collOp, i, j, p, pRNG, tallyResultArraysPtr, transOp)
@@ -229,7 +277,7 @@ contains
     do i = 1, nCycles
       ! Run neutronics simulation and get fission power results from tallyAdminPtr.
       call self % neutronicsPackage % runCycle(i, nCycles, p, transOp, geometryIdx, nInitialParticles, collOp, buffer, &
-                                               pRNG, tallyAdminPtr)
+                                               pRNG, tallyAdminPtr, .false.)
       !$omp barrier
       
       !$omp master
@@ -242,6 +290,12 @@ contains
         if (tallyResultArraysPtr % results(j) % clerkName == 'fissionPower') then
           call heatSourceFieldPtr % setValues(tallyResultArraysPtr % results(j) % values)
 
+          do k = 1, 10
+            print *, 'Fission power in element '//numToChar(k)//': ', tallyResultArraysPtr % results(j) % values(k), '+/-', &
+            tallyResultArraysPtr % results(j) % standardDeviations(k)
+
+          end do
+
         end if
 
       end do
@@ -253,7 +307,10 @@ contains
       !$omp barrier
       
       !$omp master
-      call temperatureFieldPtr % setValues(self % heatTransferPackage % getMeans())
+      meanTemperatures = self % heatTransferPackage % getMeans()
+      call temperatureFieldPtr % setValues(meanTemperatures)
+      densities = 1.933346e4_defReal - 7.9647e-1_defReal * meanTemperatures
+      call densityFieldPtr % setValues(densities)
 
       ! Update neutronics package nuclear data using the new temperature field and flush tallies.
       call self % neutronicsPackage % updateNuclearData()
@@ -261,13 +318,45 @@ contains
         call self % heatTransferPackage % flushResults()
         call tallyAdminPtr % flush('fissionPower')
 
+      else
+        sum = sum + densities
+        sumOfSquares = sumOfSquares + densities * densities
+
       end if
+
+      ! Display progress so far.
+      timerMain = self % getTimerMain()
+      call timerStop(timerMain)
+      elapsedTime = timerTime(timerMain)
+      endTime = self % neutronicsPackage % getTotalCyclesNumber() * elapsedTime / &
+                self % neutronicsPackage % getCurrentCycleNumber(i)
+      call self % displayCycleProgress(i, nInitialParticles, 0, elapsedTime, endTime, &
+                                       max(ZERO, endTime - elapsedTime))
+      call tallyAdminPtr % display()
       !$omp end master
       !$omp barrier
 
     end do
 
     !$omp end parallel
+
+    if (.not. flushResults) then
+      ! Normalise densities.
+      do i = 1, 10
+        if(nCycles == 1) then
+          self % densityMeans(i) = sum(i)
+          self % densityVariances(i) = ZERO
+
+        else
+          self % densityMeans(i) = sum(i) / nCycles
+          self % densityVariances(i) = (sumOfSquares(i) - sum(i) * sum(i) / nCycles) / (nCycles - 1)
+
+        end if
+        print *, 'Density of element '//numToChar(i)//': ', self % densityMeans(i), '+/-', sqrt(self % densityVariances(i))
+
+      end do
+
+    end if
 
   end subroutine runCycles
 

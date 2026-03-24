@@ -4,13 +4,15 @@ module element_class
   use extentTopologicalObject_inter, only : buildExtentTopologicalObjectPayload, extentTopologicalObject, &
                                             intersects_Ray_super => intersects_Ray
   use edge_class,                    only : edgeBox
+  use errors_mod,                    only : fatalError
   use face_class,                    only : faceBox, orientatedFaceBox
-  use genericProcedures,             only : append, areEqual, crossProduct, findCommon, fatalError, numToChar
+  use genericProcedures,             only : append, areEqual, crossProduct, findCommon, numToChar
   use numPrecision
   use publicObjects,                 only : basicElementInfo, intersectionTestPayload, intersectionTestResult, &
                                             resetIntersectionTestResult
   use RNG_class,                     only : RNG
-  use topologicalObject_inter,       only : buildTopologicalObjectPayload, kill_super => kill, topologicalObjectBox
+  use topologicalObject_inter,       only : buildTopologicalObjectPayload, kill_super => kill, topologicalObject, &
+                                            topologicalObjectBox
   use universalVariables,            only : FOURTH, INSIDE_ELEMENT, INF, NUDGE, ON_BOUNDARY_ELEMENT, ONE, OUTSIDE_ELEMENT, &
                                             SIXTH, ZERO
   use vertex_class,                  only : vertexBox
@@ -19,7 +21,7 @@ module element_class
   private
 
   ! Public procedures.
-  public :: newElementIntersectionTestPayload, resetElementIntersectionTestResult
+  public :: castElementPtr, newElementIntersectionTestPayload, resetElementIntersectionTestResult
 
   !!
   !!
@@ -335,6 +337,33 @@ contains
     end if
 
   end subroutine buildComponents
+
+  !!
+  !!
+  !!
+  function castElementPtr(source, fatal) result(ptr)
+    class(topologicalObject), intent(in)   :: source
+    logical(defBool), intent(in), optional :: fatal
+    logical(defBool)                       :: throwError
+    type(element), pointer                 :: ptr
+    character(*), parameter                :: HERE = 'castElementPtr (element_class.f90)'
+
+    ! Downcast.
+    select type(temp => source)
+      type is(element)
+        ptr => temp
+
+      class default
+        ptr => null()
+
+    end select
+
+    ! Throw error if requested.
+    throwError = .true.
+    if(present(fatal)) throwError = fatal
+    if(throwError .and. .not. associated(ptr)) call fatalError(HERE, "Topological object is not of type 'element'.")
+
+  end function castElementPtr
 
   !! Function 'isConvex'
   !!

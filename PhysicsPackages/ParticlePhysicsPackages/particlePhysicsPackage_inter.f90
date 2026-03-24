@@ -49,6 +49,7 @@ module particlePhysicsPackage_inter
     procedure                                    :: getBufferSize
     procedure                                    :: getCollisionOperator
     procedure                                    :: getCurrentCyclePtr
+    procedure                                    :: getCyclesActive
     procedure(getCycleParticlesNumber), deferred :: getCycleParticlesNumber
     procedure                                    :: getInactiveCyclesNumber
     procedure                                    :: getParticleType
@@ -195,6 +196,17 @@ contains
     currentCyclePtr => self % currentCycle
 
   end function getCurrentCyclePtr
+
+  !!
+  !!
+  !!
+  elemental function getCyclesActive(self) result(cyclesActive)
+    class(particlePhysicsPackage), intent(in) :: self
+    logical(defBool)                          :: cyclesActive
+
+    cyclesActive = .true.
+
+  end function getCyclesActive
 
   !!
   !!
@@ -385,7 +397,8 @@ contains
   !!
   !!
   !!
-  subroutine runCycle(self, cycleNumber, nCycles, p, transOp, geometryIdx, nInitialParticles, collOp, buffer, pRNG, tally)
+  subroutine runCycle(self, cycleNumber, nCycles, p, transOp, geometryIdx, nInitialParticles, collOp, buffer, pRNG, tally, &
+                      displayProgress)
     class(particlePhysicsPackage), intent(inout)        :: self
     integer(shortInt), intent(in)                       :: cycleNumber, nCycles
     class(physicalParticle), allocatable, intent(inout) :: p
@@ -395,8 +408,13 @@ contains
     type(particleDungeon), intent(inout)                :: buffer
     type(RNG), intent(inout)                            :: pRNG
     type(tallyAdmin), pointer, intent(inout)            :: tally
+    logical(defBool), intent(in), optional              :: displayProgress
     integer(shortInt)                                   :: i, nFinalParticles, timerMain
+    logical(defBool)                                    :: display
     real(defReal)                                       :: elapsedTime, endTime
+
+    display = .true.
+    if(displayProgress) display = displayProgress
 
     !$omp master
     ! Prepare current cycle.
@@ -432,14 +450,17 @@ contains
     call self % processEndOfCycle(nFinalParticles)
     
     ! Stop timer and display progress so far.
-    timerMain = self % getTimerMain()
-    call timerStop(timerMain)
-    elapsedTime = timerTime(timerMain)
-    self % time_transport = elapsedTime
-    endTime = self % getTotalCyclesNumber() * elapsedTime / self % getCurrentCycleNumber(cycleNumber)
-    call self % displayCycleProgress(cycleNumber, nInitialParticles, nFinalParticles, elapsedTime, endTime, &
-                                     max(ZERO, endTime - elapsedTime))
-    call tally % display()
+    if(display) then
+      timerMain = self % getTimerMain()
+      call timerStop(timerMain)
+      elapsedTime = timerTime(timerMain)
+      self % time_transport = elapsedTime
+      endTime = self % getTotalCyclesNumber() * elapsedTime / self % getCurrentCycleNumber(cycleNumber)
+      call self % displayCycleProgress(cycleNumber, nInitialParticles, nFinalParticles, elapsedTime, endTime, &
+                                       max(ZERO, endTime - elapsedTime))
+      call tally % display()
+
+    end if
     !$omp end master
 
   end subroutine runCycle
