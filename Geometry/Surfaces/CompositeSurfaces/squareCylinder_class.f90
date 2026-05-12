@@ -19,7 +19,7 @@ module squareCylinder_class
   !! Where: a -> 2D halfwidth vector, o-> 2D origin position
   !!        maxval -> maximum element (L_inf norm)
   !!
-  !! Three diffrent types are avaliable
+  !! Three different types are avaliable
   !!   xSquareCylinder -> aligned with X-axis
   !!   ySquareCylinder -> aligned with Y-axis
   !!   zSquareCylinder -> aligned with Z-axis
@@ -35,7 +35,7 @@ module squareCylinder_class
   !! Boundary Conditions:
   !!   BC order: x_min, x_max, y_min, y_max, z_min, z_max
   !!
-  !!   Each face can have diffrent BC. Any combination is supported with co-ordinate transform.
+  !!   Each face can have different BC. Any combination is supported with co-ordinate transform.
   !!   BCs on all faces (even the infinate ones) must be provided. Of course BC for planes normal
   !!   to the cylinder axis does not matter.
   !!

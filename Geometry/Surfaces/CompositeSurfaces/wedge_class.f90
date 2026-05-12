@@ -1,10 +1,11 @@
 module wedge_class
 
-  use numPrecision
-  use universalVariables
-  use genericProcedures,  only : fatalError, numToChar, swap
   use dictionary_class,   only : dictionary
-  use surface_inter,      only : surface, kill_super => kill
+  use errors_mod,         only : fatalError
+  use genericProcedures,  only : areWithinTolerance, numToChar
+  use numPrecision
+  use surface_inter,      only : kill_super => kill, surface
+  use universalVariables, only : INF, PERIODIC_BC, REFLECTIVE_BC, SURF_TOL, VACUUM_BC, X_AXIS, Y_AXIS, Z_AXIS
 
   implicit none
   private
@@ -44,7 +45,7 @@ module wedge_class
   !!
   !! Boundary Conditions:
   !!   BC order: face1, face2, face3, -base, base
-  !!   Each face can have diffrent BC. Any combination is supported with co-ordinate transform.
+  !!   Each face can have different BC. Any combination is supported with co-ordinate transform.
   !!
   !! Private Members:
   !!   origin -> Position of the middle of the wedge edge (or axis)

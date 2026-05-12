@@ -1,11 +1,12 @@
 module evaporationSpectrum_class
 
-  use numPrecision
-  use genericProcedures,   only : fatalError, isSorted
   use aceCard_class,       only : aceCard
-  use RNG_class,           only : RNG
   use endfTable_class,     only : endfTable
   use energyLawENDF_inter, only : energyLawENDF
+  use errors_mod,          only : fatalError
+  use genericProcedures,   only : isSortedAscending
+  use numPrecision
+  use RNG_class,           only : RNG
 
   implicit none
   private
@@ -120,8 +121,8 @@ contains
     character(100),parameter              :: Here='init (evaporationSpectrum_class.f90)'
 
     ! Perform sanity checks
-    if(size(eGrid) /= size(T))      call fatalError(Here,'eGrid and T have diffrent size')
-    if(.not.(isSorted(eGrid)))      call fatalError(Here,'eGrid is not sorted ascending')
+    if(size(eGrid) /= size(T))      call fatalError(Here,'eGrid and T have different size')
+    if(.not.(isSortedAscending(eGrid)))      call fatalError(Here,'eGrid is not sorted ascending')
     if ( any( eGrid < 0.0 )  )      call fatalError(Here,'eGrid contains -ve values')
 
     if ( any( T < 0.0 ) )           call fatalError(Here,'Neutron temperature T has -ve values')

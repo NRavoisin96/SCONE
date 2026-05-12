@@ -116,7 +116,7 @@ contains
 
       end do
       call mem % reduceBins()
-      ! Close a single bin with diffrent normalisation
+      ! Close a single bin with different normalisation
       call mem % closeBin(1.2_defReal, 3_longInt)
 
       ! Close Cycle

@@ -186,7 +186,7 @@ contains
     real(defReal), dimension(3)      :: r, u, r_ref, u_ref
     real(defReal), parameter :: TOL = 1.0E-6
 
-    ! Get axis and diffrent planar directions
+    ! Get axis and different planar directions
     ax = this % axis
     p1 = this % plane(1)
     p2 = this % plane(2)
@@ -279,7 +279,7 @@ contains
     real(defReal), dimension(3)               :: r, u, u2
     real(defReal)                             :: eps
 
-    ! Get axis and diffrent planar directions
+    ! Get axis and different planar directions
     ax = this % axis
     p1 = this % plane(1)
     p2 = this % plane(2)
@@ -299,7 +299,7 @@ contains
     r([p1, p2]) = [-1.5_defReal, 2.0_defReal]
     @assertTrue(this % surf % halfspace(r, u))
 
-    ! Diffrent Quadrant
+    ! Different Quadrant
     r([p1, p2]) = [0.5_defReal, 5.2_defReal]
     @assertTrue(this % surf % halfspace(r, u))
 
@@ -339,7 +339,7 @@ contains
     real(defReal)                       :: ref
     real(defReal), parameter :: TOL = 1.0E-7
 
-    ! Get axis and diffrent planar directions
+    ! Get axis and different planar directions
     ax = this % axis
     p1 = this % plane(1)
     p2 = this % plane(2)

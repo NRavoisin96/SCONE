@@ -107,7 +107,7 @@ module cell_inter
     !!   u [in]        -> ormalised direction (norm2(u) = 1.0)
     !!
     !! Note: If cell has some internally defined surfaces it should return -ve values of the
-    !!   surfIdx, with the meaning for diffrent -ve numbers beeing dependant on particular
+    !!   surfIdx, with the meaning for different -ve numbers beeing dependant on particular
     !!   subclass of the cell
     !!
     pure subroutine distance(self, d, surfIdx, r, u)

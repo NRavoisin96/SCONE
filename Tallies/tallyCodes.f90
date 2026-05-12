@@ -1,5 +1,5 @@
 !!
-!! This module contains codes used in tallies to indentify diffrent events
+!! This module contains codes used in tallies to identify different events
 !!
 module tallyCodes
 
@@ -8,8 +8,7 @@ module tallyCodes
   implicit none
   private
 
-
-  ! List of codes for diffrent reports
+  ! List of codes for different reports
   integer(shortInt),parameter,public :: inColl_CODE     = 1000 ,&
                                         outColl_CODE    = 1001 ,&
                                         path_CODE       = 1002 ,&
@@ -20,7 +19,7 @@ module tallyCodes
                                         cycleEnd_CODE   = 1007 ,&
                                         closeCycle_CODE = 1008
 
-  ! List of codes for diffrent particle fates
+  ! List of codes for different particle fates
   integer(shortInt),parameter,public :: no_FATE   = 5000 ,&
                                         abs_FATE  = 5001 ,&
                                         leak_FATE = 5002 ,&

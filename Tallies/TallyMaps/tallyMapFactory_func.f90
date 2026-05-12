@@ -8,19 +8,15 @@
 !!
 module tallyMapFactory_func
 
+  use cylindricalMap_class,   only : cylindricalMap
+  use dictionary_class,       only : dictionary
+  use errors_mod,             only : fatalError
+  use genericProcedures,      only : linearFind
+  use multiMap_class,         only : multiMap
   use numPrecision
-  use universalVariables
-  use genericProcedures, only : fatalError, linFind
-  use dictionary_class,  only : dictionary
-
-  ! TallyMap interface and sub-interface Factories
   use tallyMap_inter,         only : tallyMap
   use tallyMap1DFactory_func, only : new_tallyMap1D => new_tallyMap, AVALIBLE_tallyMaps1D
-
-
-  ! TallyMap implementations
-  use multiMap_class,         only : multiMap
-  use cylindricalMap_class,   only : cylindricalMap
+  use universalVariables,     only : targetNotFound
 
   implicit none
   private
@@ -62,7 +58,7 @@ contains
     call dict % get(type,'type')
 
     ! Check if the requested type is tallyMap1D
-    if (linFind(AVALIBLE_tallyMaps1D, type) /= targetNotFound) then
+    if (linearFind(AVALIBLE_tallyMaps1D, type) /= targetNotFound) then
       call new_tallyMap1D(new, dict)
 
     else ! Check aginst multidimensional tallyMaps

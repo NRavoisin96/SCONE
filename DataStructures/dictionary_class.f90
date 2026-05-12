@@ -1,8 +1,9 @@
 module dictionary_class
 
+  use errors_mod,         only : fatalError
+  use genericProcedures,  only : linearFind
   use numPrecision
   use universalVariables, only : targetNotFound
-  use genericProcedures,  only : linFind, searchError, fatalError
 
   implicit none
   private
@@ -250,7 +251,7 @@ contains
     end if
 
     ! Find if keyword is alrady present
-    i = linFind(self % keywords(1:self % dictLen), keyword)
+    i = linearFind(self % keywords(1:self % dictLen), keyword)
     if (i > 0 ) call fatalError(Here, 'Keyword: ' // keyword // ' is already present in dictionary')
 
     ! Increase counter and return avalible index
@@ -429,7 +430,7 @@ contains
     logical(defBool)              :: isIt
     integer(shortInt)             :: idx
 
-    idx  = linFind(self % keywords, keyword)
+    idx  = linearFind(self % keywords, keyword)
     isIt = .not.(idx == targetNotFound)
 
   end function isPresent
@@ -445,7 +446,7 @@ contains
     integer(shortInt)             :: idx
     character(100), parameter :: Here = 'getSize (dictionary_class.f90)'
 
-    idx = linFind(self % keywords, keyword)
+    idx = linearFind(self % keywords, keyword)
     if (idx == targetNotFound) then
       call fatalError(Here, self % errorMsgPrefix() // &
                             "Target: "//trim(keyword)//" is not present")
@@ -1510,7 +1511,7 @@ contains
 
     ! Search for bin index
     ! NOTE: Returns targetNotFound for a failed search
-    idx = linFind(self % keywords, keyword)
+    idx = linearFind(self % keywords, keyword)
 
     if(idx == targetNotFound .and. fatal_loc) then
       call fatalError(Where, self % errorMsgPrefix() // &

@@ -6,10 +6,10 @@ module materialHandle_inter
   private
 
   !!
-  !! Material Handle allows to interact with diffrent types of materials
+  !! Material Handle allows to interact with different types of materials
   !!
   !! This is top abstract class for all materials.
-  !! Diffrent types of materials like MG Neutron, CE Neutron etc. are its subclasses
+  !! Different types of materials like MG Neutron, CE Neutron etc. are its subclasses
   !!
   !! Interface:
   !!   kill -> returns to uninitialised state

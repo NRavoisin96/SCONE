@@ -1,8 +1,9 @@
 module grid_class
 
+  use errors_mod,         only : fatalError
+  use genericProcedures,  only : binarySearch, isSortedAscending
   use numPrecision
-  use universalVariables
-  use genericProcedures, only : fatalError, isSorted, binarySearch
+  use universalVariables, only : valueOutsideArray
 
   implicit none
   private
@@ -103,7 +104,7 @@ contains
     character(100), parameter              :: Here = 'init_unstruct ( grid_class.f90)'
 
     ! Check that grid is sorted
-    if( .not.isSorted(bins)) call fatalError(Here,'Provided grid is not sorted')
+    if( .not.isSortedAscending(bins)) call fatalError(Here,'Provided grid is not sorted')
     if( size(bins) < 2) call fatalError(Here,'Empty array or array of size 1 was provided')
 
     ! Initialise

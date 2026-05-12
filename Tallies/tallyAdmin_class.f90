@@ -1,27 +1,24 @@
 module tallyAdmin_class
 
+  use charMap_class,         only : charMap
+  use dictionary_class,      only : dictionary
+  use dynArray_class,        only : dynIntArray
+  use errors_mod,            only : fatalError
+  use mpi_func,              only : isMPIMaster
+  use nuclearDatabase_inter, only : nuclearDatabase
+  use nuclearDataReg_mod,    only : ndReg_get => get
   use numPrecision
+  use particle_class,        only : particle, particleState
+  use particleDungeon_class, only : particleDungeon
+  use outputFile_class,      only : outputFile
+  use scoreMemory_class,     only : scoreMemory
+  use tallyClerk_inter,      only : tallyClerk
+  use tallyClerkSlot_class,  only : tallyClerkSlot
   use tallyCodes
-  use mpi_func,               only : isMPIMaster
-  use genericProcedures,      only : fatalError, charCmp
-  use dictionary_class,       only : dictionary
-  use dynArray_class,         only : dynIntArray
-  use charMap_class,          only : charMap
-  use particle_class,         only : particle, particleState
-  use particleDungeon_class,  only : particleDungeon
-  use tallyClerk_inter,       only : tallyClerk
-  use tallyClerkSlot_class,   only : tallyClerkSlot
-  use tallyResult_class,      only : tallyResult, tallyResultEmpty
-  use scoreMemory_class,      only : scoreMemory
-  use outputFile_class,       only : outputFile
-
-  ! Nuclear Data Interface
-  use nuclearDataReg_mod,     only : ndReg_get => get
-  use nuclearDatabase_inter,  only : nuclearDatabase
+  use tallyResult_class,     only : tallyResult, tallyResultEmpty
 
   implicit none
   private
-
 
   !! Parameters
   integer(longInt), parameter :: NO_NORM = -17_longInt

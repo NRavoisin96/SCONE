@@ -1,19 +1,18 @@
 module particleDungeon_test
-  use numPrecision
+  
   use errors_mod,            only : fatalError
-  use RNG_class,             only : RNG
+  use funit
+#ifdef MPI
+  use mpi_func,              only : isMPIInitialised, MPI_COMM_WORLD, mpiInitTypes
+#endif
+  use numPrecision
   use particle_class,        only : particle, particleState
   use particleDungeon_class, only : particleDungeon
-#ifdef MPI
-  use mpi_func,              only : mpiInitTypes, MPI_COMM_WORLD
-#endif
-  use funit
+  use RNG_class,             only : RNG
 
   implicit none
 
-
 contains
-
   !!
   !! Test stack like access. Test is a dummy use case
   !!
@@ -208,24 +207,27 @@ contains
   !!
 @Test
   subroutine testNormPopDown()
-    type(particleDungeon)    :: dungeon
-    type(particle)           :: p
-    type(RNG)                :: pRNG
     integer(shortInt)        :: i, worldSize, ierr
-    real(defReal), parameter :: TOL = 1.0E-9
-    character(100),parameter :: Here = 'testNormPopDown (particleDungeon_test.f90)'
+    type(particle)           :: p
+    type(particleDungeon)    :: dungeon
+    type(RNG)                :: pRNG
+    character(*), parameter  :: HERE = 'testNormPopDown (particleDungeon_test.f90)'
+    real(defReal), parameter :: TOL = 1.0E-9_defReal
 
 #ifdef MPI
-    call mpi_comm_size(MPI_COMM_WORLD, worldSize, ierr)
+    if(isMPIInitialised()) then
+      call mpi_comm_size(MPI_COMM_WORLD, worldSize, ierr)
 
-    if (worldSize > 1) &
-      call fatalError(Here, 'This test cannot be run with multiple MPI processes')
+      if (worldSize > 1) &
+        call fatalError(HERE, 'This test cannot be run with multiple MPI processes')
 
-    ! Initialise MPI types needed for this procedure
-    ! NOTE: This is necessary because the normalisation uses some mpi procedure
-    ! with data types manually defined inside mpiInitTypes. During the tests,
-    ! mpiInit and mpiInitTypes aren't called, so this is done manually here
-    call mpiInitTypes()
+      ! Initialise MPI types needed for this procedure
+      ! NOTE: This is necessary because the normalisation uses some mpi procedure
+      ! with data types manually defined inside mpiInitTypes. During the tests,
+      ! mpiInit and mpiInitTypes aren't called, so this is done manually here
+      call mpiInitTypes()
+
+    end if
 #endif
 
     ! Initialise
@@ -259,22 +261,25 @@ contains
   !!
 @Test
   subroutine testNormPopUp()
-    type(particleDungeon)    :: dungeon
-    type(particle)           :: p
-    type(RNG)                :: pRNG
     integer(shortInt)        :: i, worldSize, ierr
+    logical(defBool)         :: isInitialised
+    type(particle)           :: p
+    type(particleDungeon)    :: dungeon
+    type(RNG)                :: pRNG
     real(defReal), parameter :: TOL = 1.0E-9
-    character(100),parameter :: Here = 'testNormPopUp (particleDungeon_test.f90)'
+    character(*), parameter  :: HERE = 'testNormPopUp (particleDungeon_test.f90)'
 
     ! Initialise to avoid warnings
     worldSize = 1
     ierr = 0
 
 #ifdef MPI
-    call mpi_comm_size(MPI_COMM_WORLD, worldSize, ierr)
+    if(isMPIInitialised()) then
+      call mpi_comm_size(MPI_COMM_WORLD, worldSize, ierr)
+      if (worldSize > 1) &
+        call fatalError(HERE, 'This test cannot be run with multiple MPI processes.')
 
-    if (worldSize > 1) &
-      call fatalError(Here, 'This test cannot be run with multiple MPI processes')
+    end if
 #endif
 
     ! Initialise

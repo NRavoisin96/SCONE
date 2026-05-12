@@ -1,7 +1,7 @@
 """ Atomic Relaxation Data.
 
 This module contains classes and procedures related to storing and exporting
-atomic realaxation data to diffrent output formats.
+atomic relaxation data to different output formats.
 
 Attributes:
     ATOMIC_SUBSHELL (dict): Maps subshell index to subshell type

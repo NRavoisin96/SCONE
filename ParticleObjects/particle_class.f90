@@ -1,12 +1,12 @@
 module particle_class
 
+  use coord_class,        only : coordList
+  use errors_mod,         only : fatalError
+  use genericProcedures,  only : numToChar
   use numPrecision
-  use universalVariables
-  use genericProcedures
-  use coord_class,       only : coordList
-  use RNG_class,         only : RNG
-  use errors_mod,        only : fatalError
-  use tallyCodes
+  use RNG_class,          only : RNG
+  use tallyCodes,         only : no_FATE
+  use universalVariables, only : INF, lightSpeed, neutronMass, NO_DENSITY, NO_TEMPERATURE, P_NEUTRON_CE, P_NEUTRON_MG
 
   implicit none
   private
@@ -104,6 +104,7 @@ module particle_class
   !! collision probabilities.
   !!
   type, public :: particle
+    
     ! Particle phase space data
     type(coordList)            :: coords
     real(defReal)              :: E         ! Particle Energy

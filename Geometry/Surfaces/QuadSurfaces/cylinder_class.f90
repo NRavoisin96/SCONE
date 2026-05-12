@@ -16,7 +16,7 @@ module cylinder_class
   !!
   !! Where i,j (i /= j) can be any of x,y & z axis
   !!
-  !! Three diffrent types are avaliable
+  !! Three different types are avaliable
   !!   xCylinder -> aligned with X-axis
   !!   yCylinder -> aligned with Y-axis
   !!   zCylinder -> aligned with Z-axis

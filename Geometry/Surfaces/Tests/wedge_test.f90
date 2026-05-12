@@ -1,9 +1,10 @@
 module wedge_test
+  
+  use dictionary_class,  only : dictionary
+  use funit
   use numPrecision
   use universalVariables
-  use dictionary_class,  only : dictionary
   use wedge_class,       only : wedge
-  use funit
 
   implicit none
 
@@ -346,7 +347,7 @@ contains
     u(p2) = -HALF * sqrt(3.0_defReal)
     u   = u/norm2(u)
     ref = TWO
-    @assertEqual(ref, this % surf % distance(r, u))
+    @assertEqual(ref, this % surf % distance(r, u), TOL * ref)
 
     ! **Exactly at the surface
     r(p1) = ONE

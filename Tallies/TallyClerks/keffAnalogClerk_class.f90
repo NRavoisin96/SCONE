@@ -17,7 +17,7 @@ module keffAnalogClerk_class
   implicit none
   private
 
-  !! Locations of diffrent bins wrt memory address of the clerk
+  !! Locations of different bins wrt memory address of the clerk
   integer(shortInt), parameter :: MEM_SIZE = 3
   integer(longInt), parameter  :: START_POP = 0 ,&  ! Population tally at the start of the cycle
                                   END_POP   = 1 ,&  ! Population tally at the end of the cycle
@@ -99,7 +99,7 @@ contains
   end subroutine kill
 
   !!
-  !! Returns array of codes that represent diffrent reports
+  !! Returns array of codes that represent different reports
   !!
   !! See tallyClerk_inter for details
   !!

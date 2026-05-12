@@ -90,7 +90,7 @@ contains
   end subroutine init
 
   !!
-  !! Returns array of codes that represent diffrent reports
+  !! Returns array of codes that represent different reports
   !!
   function validReports(self) result(validCodes)
     class(shannonEntropyClerk),intent(in)      :: self

@@ -13,13 +13,14 @@
 !!
 module aceLibrary_mod
 
-  use numPrecision
-  use iso_fortran_env,   only : IOSTAT_END
-  use genericProcedures, only : fatalError, replaceChar, charToInt
-  use charLib_func,      only : splitChar
-  use charMap_class,     only : charMap
   use aceCard_class,     only : aceCard
   use aceSabCard_class,  only : aceSabCard
+  use charLib_func,      only : splitChar
+  use charMap_class,     only : charMap
+  use errors_mod,        only : fatalError
+  use genericProcedures, only : charToInt
+  use iso_fortran_env,   only : IOSTAT_END
+  use numPrecision
 
   implicit none
   private

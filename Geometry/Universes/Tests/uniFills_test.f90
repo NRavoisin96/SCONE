@@ -1,7 +1,7 @@
 module uniFills_test
 
   use numPrecision
-  use genericProcedures,  only : linFind
+  use genericProcedures,  only : linearFind
   use universalVariables, only : OUTSIDE_MAT, targetNotFound
   use intMap_class,       only : intMap
   use uniFills_class,     only : uniFills
@@ -166,10 +166,10 @@ contains
     unused = geom % unusedUniverses()
 
     ! Search
-    pos = linFind(unused, 200)
+    pos = linearFind(unused, 200)
     @assertTrue(pos /= targetNotFound, 'Missing ID in unused universes')
 
-    pos = linFind(unused, 201)
+    pos = linearFind(unused, 201)
     @assertTrue(pos /= targetNotFound, 'Missing ID in unused universes')
 
   end subroutine test_unused_universes

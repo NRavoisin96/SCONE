@@ -1,11 +1,11 @@
 module plane_test
 
-  use numPrecision
-  use universalVariables, only : SURF_TOL, VACUUM_BC, REFLECTIVE_BC, INF
   use dictionary_class,   only : dictionary
   use dictParser_func,    only : charToDict
-  use plane_class,        only : plane
   use funit
+  use numPrecision
+  use plane_class,        only : plane
+  use universalVariables, only : INF, REFLECTIVE_BC, SURF_TOL, VACUUM_BC
 
   implicit none
 
@@ -98,7 +98,6 @@ contains
     real(defReal), dimension(3) :: r, u, u2
     real(defReal)               :: eps
 
-
     r = [ONE, ONE, ONE]
     u = [ONE, ONE, ONE]
     u = u /norm2(u)
@@ -124,11 +123,11 @@ contains
 
     ! Tangent particle should use position
     u2 = [-ONE, ZERO, ONE]
-    u2 = u2/norm2(u2)
+    u2 = u2 / norm2(u2)
     eps = HALF * SURF_TOL
 
-    @assertTrue( surf % halfspace(r + eps*u, u2))
-    @assertFalse( surf % halfspace(r - eps*u, u2))
+    @assertTrue(surf % halfspace(r + eps * u, u2))
+    @assertFalse(surf % halfspace(r - eps * u, u2))
 
   end subroutine testHalfspace
 

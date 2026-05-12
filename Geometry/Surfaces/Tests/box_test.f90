@@ -165,7 +165,7 @@ contains
     r = [-0.5_defReal, 0.0_defReal, 3.6_defReal]
     @assertTrue(surf % halfspace(r, u))
 
-    ! Diffrent octant
+    ! Different octant
     r = [2.0_defReal, 5.0_defReal, 0.5_defReal]
     @assertTrue(surf % halfspace(r, u))
 

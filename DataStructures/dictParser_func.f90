@@ -1,9 +1,10 @@
 module dictParser_func
 
+  use charTape_class,    only : charTape
+  use dictionary_class,  only : dictionary
+  use errors_mod,        only : fatalError
+  use genericProcedures, only : numToChar, replaceChar
   use numPrecision
-  use genericProcedures,  only : fatalError, numToChar, replaceChar
-  use charTape_class,     only : charTape
-  use dictionary_class,   only : dictionary
 
   implicit none
   private
@@ -214,8 +215,8 @@ contains
 
     ! Remove Blank characters that can cause confusion
     loc_data = data
-    call replaceChar(loc_data,char(9),' ')        ! Change tabs to single space
-    call replaceChar(loc_data,new_line(' '), ' ') ! Replace New Line with space
+    call replaceChar(char(9), ' ', loc_data)        ! Change tabs to single space
+    call replaceChar(new_line(' '), ' ', loc_data) ! Replace New Line with space
 
     ! Create document charTape
     call file % append(loc_data)

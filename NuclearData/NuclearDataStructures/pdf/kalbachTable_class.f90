@@ -1,10 +1,10 @@
 module kalbachTable_class
 
-  use numPrecision
-  use errors_mod,        only : fatalError
-  use genericProcedures, only : searchError, linearSearchFloor, interpolate, &
-                                isSorted, numToChar
   use endfConstants
+  use errors_mod,         only : fatalError
+  use genericProcedures,  only : isSortedAscending, linearLinearInterpolate, linearSearchFloor, numToChar
+  use numPrecision
+  use universalVariables, only : valueOutsideArray
 
   implicit none
   private
@@ -51,10 +51,10 @@ contains
     real(defReal),intent(out)        :: A
     integer(shortInt)                :: idx
     real(defReal)                    :: f, delta, ci, pi, ONEmf
-    character(100),parameter         :: Here='sample (kalbachTable_class.f90)'
+    character(*), parameter          :: HERE = 'sample (kalbachTable_class.f90)'
 
     idx = linearSearchFloor(self % cdf, rand)
-    call searchError(idx, Here)
+    if(idx == valueOutsideArray) call fatalError(HERE, 'Requested value is outside array bounds.')
 
     select case (self % flag)
       case (histogram)
@@ -89,7 +89,7 @@ contains
         A    =  self % A(idx)*ONEmf + self % A(idx+1) * f
 
       case default
-        call fatalError(Here,'Unknown interpolation flag')
+        call fatalError(HERE,'Unknown interpolation flag')
 
     end select
 
@@ -119,10 +119,10 @@ contains
     real(defReal), intent(out)      :: R
     real(defReal), intent(out)      :: A
     integer(shortInt)               :: idx
-    character(100),parameter        :: Here='init (kalbachTable_class.f90)'
+    character(*), parameter         :: HERE = 'init (kalbachTable_class.f90)'
 
     idx = linearSearchFloor(self % x, x)
-    call searchError(idx,Here)
+    if(idx == valueOutsideArray) call fatalError(HERE, 'Requested value is outside array bounds.')
 
     select case (self % flag)
       case (histogram)
@@ -131,12 +131,12 @@ contains
         A    = self % A(idx)
 
       case (linLin)
-        prob = interpolate(self % x(idx), self % x(idx+1), self % pdf(idx), self % pdf(idx+1), x)
-        R    = interpolate(self % x(idx), self % x(idx+1), self % R(idx), self % R(idx+1), x)
-        A    = interpolate(self % x(idx), self % x(idx+1), self % A(idx), self % A(idx+1), x)
+        prob = linearLinearInterpolate(self % x(idx), self % x(idx+1), self % pdf(idx), self % pdf(idx+1), x)
+        R    = linearLinearInterpolate(self % x(idx), self % x(idx+1), self % R(idx), self % R(idx+1), x)
+        A    = linearLinearInterpolate(self % x(idx), self % x(idx+1), self % A(idx), self % A(idx+1), x)
 
       case default
-        call fatalError(Here,'Unknown interpolation flag')
+        call fatalError(HERE,'Unknown interpolation flag')
 
     end select
 
@@ -175,11 +175,11 @@ contains
     character(100),parameter               :: Here='init (kalbachTable_class.f90)'
 
     ! Check Input
-    if( size(x) /= size(pdf)) call fatalError(Here,'PDF and x have diffrent size')
-    if( size(x) /= size(R))   call fatalError(Here,'R and x have diffrent size')
-    if( size(x) /= size(A))   call fatalError(Here,'A and x have diffrent size')
+    if( size(x) /= size(pdf)) call fatalError(Here,'PDF and x have different size')
+    if( size(x) /= size(R))   call fatalError(Here,'R and x have different size')
+    if( size(x) /= size(A))   call fatalError(Here,'A and x have different size')
 
-    if( .not.(isSorted(x)))   call fatalError(Here,'Provided x grid is not sorted not descending')
+    if( .not.(isSortedAscending(x)))   call fatalError(Here,'Provided x grid is not sorted not descending')
     if ( any( pdf < 0.0 ))    call fatalError(Here,'Provided PDF contains -ve values')
 
     ! Initialise Data
@@ -246,13 +246,13 @@ contains
     character(100),parameter               :: Here='init (tabularPdf_class.f90)'
 
     ! Check Input
-    if( size(x) /= size(pdf)) call fatalError(Here,'PDF and x have diffrent size')
-    if( size(x) /= size(cdf)) call fatalError(Here,'CDF and x have diffrent size')
-    if( size(x) /= size(R))   call fatalError(Here,'R and x have diffrent size')
-    if( size(x) /= size(A))   call fatalError(Here,'A and x have diffrent size')
+    if( size(x) /= size(pdf)) call fatalError(Here,'PDF and x have different size')
+    if( size(x) /= size(cdf)) call fatalError(Here,'CDF and x have different size')
+    if( size(x) /= size(R))   call fatalError(Here,'R and x have different size')
+    if( size(x) /= size(A))   call fatalError(Here,'A and x have different size')
 
-    if( .not.(isSorted(x)))   call fatalError(Here,'Provided x grid is not sorted not decending')
-    if( .not.(isSorted(cdf))) call fatalError(Here,'Provided CDF is not sorted not descending')
+    if( .not.(isSortedAscending(x)))   call fatalError(Here,'Provided x grid is not sorted not decending')
+    if( .not.(isSortedAscending(cdf))) call fatalError(Here,'Provided CDF is not sorted not descending')
 
     if ( any( pdf < 0.0 ))    call fatalError(Here,'Provided PDF contains -ve values')
     if ( any( cdf < 0.0 ))    call fatalError(Here,'Provided CDF contains -ve values')

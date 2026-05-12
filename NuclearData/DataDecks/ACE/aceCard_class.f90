@@ -1,10 +1,11 @@
 module aceCard_class
 
-  use numPrecision
+  use dataDeck_inter,     only : dataDeck
   use endfConstants
-  use dataDeck_inter,    only : dataDeck
-  use genericProcedures, only : fatalError, openToRead, isInteger, linFind,&
-                                targetNotFound, searchError, numToChar
+  use errors_mod,         only : fatalError
+  use genericProcedures,  only : isInteger, linearFind, numToChar, openToRead
+  use numPrecision
+  use universalVariables, only : targetNotFound
 
   implicit none
   private
@@ -163,7 +164,7 @@ module aceCard_class
     procedure :: setToAnglePdf       ! Sets head to single energy mu pdf. Adress relative to JXS(9)
     procedure :: setToEnergyLaw      ! Sets head to single energy law. Adress relative to JXS(11)
 
-    procedure :: getRootAddress      ! Get Root adress do diffrent blocks
+    procedure :: getRootAddress      ! Get Root adress do different blocks
     procedure :: setRelativeTo       ! Sets to position given by root and offset (root + offset -1)
 
     ! Procedures related to probability tables
@@ -1375,7 +1376,7 @@ contains
           ! Do nothing
 
         case default ! Should never happen
-          call fatalError(Here,'For some reason LOCB is -ve and diffrent from unINIT. WTF?')
+          call fatalError(Here,'For some reason LOCB is -ve and different from unINIT. WTF?')
 
       end select
     end do
@@ -1570,11 +1571,10 @@ contains
     class(aceCard),intent(in)     :: self
     integer(shortInt), intent(in) :: MT
     integer(shortInt)             :: idx
-    character(100),parameter :: Here = 'getMTidx ( aceCard_class.f90)'
+    character(*),parameter        :: HERE = 'getMTidx ( aceCard_class.f90)'
 
-    idx = linFind(self % MTdata(:) % MT, MT)
-    if (idx == targetNotFound) call fatalError(Here,'Given MT is not present in ACE card')
-    call searchError(idx,Here)
+    idx = linearFind(self % MTdata(:) % MT, MT)
+    if(idx == targetNotFound) call fatalError(HERE, 'MT: '//numToChar(MT)//' is not present in ACE card.')
 
   end function getMTidx
 

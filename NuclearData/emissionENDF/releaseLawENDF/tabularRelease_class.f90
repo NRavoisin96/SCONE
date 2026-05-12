@@ -1,15 +1,13 @@
 module tabularRelease_class
 
-  use numPrecision
-  use genericProcedures,    only : fatalError, isSorted
   use aceCard_class,        only : aceCard
   use endfTable_class,      only : endfTable
+  use errors_mod,           only : fatalError
+  use numPrecision
   use releaseLawENDF_inter, only : releaseLawENDF
-
 
   implicit none
   private
-
 
   interface tabularRelease
     module procedure new_tabularRelease_simple

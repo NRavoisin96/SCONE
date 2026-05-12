@@ -31,7 +31,7 @@ module dancoffBellClerk_class
                                   MODERATOR = -3, &
                                   OUTSIDE   = 0
 
-  !! Offsets for diffrent bins
+  !! Offsets for different bins
   integer(longInt), parameter :: ESC_PROB_TOTXS = 0, &
                                  STAY_PROB      = 1, &
                                  D_EFF          = 2
@@ -150,7 +150,7 @@ contains
   end subroutine init
 
   !!
-  !! Returns array of codes that represent diffrent reports
+  !! Returns array of codes that represent different reports
   !!
   !! See tallyClerk_inter for details
   !!

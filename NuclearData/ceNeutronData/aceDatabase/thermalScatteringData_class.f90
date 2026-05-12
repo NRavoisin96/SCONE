@@ -1,25 +1,22 @@
 module thermalScatteringData_class
 
-  use numPrecision
+  use aceSabCard_class,              only : aceSabCard
+  use dataDeck_inter,                only : dataDeck
   use endfConstants
-  use universalVariables,           only : MINIMUM_ENERGY
-  use genericProcedures,            only : fatalError, numToChar, binarySearch, &
-                                           endfInterpolate, isSorted
-  use dataDeck_inter,               only : dataDeck
-  use RNG_class,                    only : RNG
-  use aceSabCard_class,             only : aceSabCard
-
-  use uncorrelatedReactionCE_inter,  only : uncorrelatedReactionCE
-  use thermalScatterInelastic_class, only : thInelasticScatter
+  use errors_mod,                    only : fatalError
+  use genericProcedures,             only : binarySearch
+  use numPrecision
   use thermalScatterElastic_class,   only : thElasticScatter
+  use thermalScatterInelastic_class, only : thInelasticScatter
+  use uncorrelatedReactionCE_inter,  only : uncorrelatedReactionCE
+  use universalVariables,            only : MINIMUM_ENERGY
 
   implicit none
   private
 
   !! Private type to store thermal scattering cross sections
   type, private :: scatteringTable
-    real(defReal), dimension(:), allocatable :: eGrid
-    real(defReal), dimension(:), allocatable :: xs
+    real(defReal), dimension(:), allocatable :: eGrid, xs
   end type scatteringTable
 
   !!

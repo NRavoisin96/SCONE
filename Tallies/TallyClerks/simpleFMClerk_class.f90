@@ -133,7 +133,7 @@ contains
   end subroutine init
 
   !!
-  !! Returns array of codes that represent diffrent reports
+  !! Returns array of codes that represent different reports
   !!
   !! See tallyClerk_inter for details
   !!

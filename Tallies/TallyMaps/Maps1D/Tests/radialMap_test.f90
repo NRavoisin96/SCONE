@@ -75,7 +75,7 @@ contains
     call this % map_sph_from_zero % init(tempDict)
     call tempDict % kill()
 
-    ! Build spherical map with diffrent origin & minimum radius
+    ! Build spherical map with different origin & minimum radius
     call tempDict % init(5)
     call tempDict % store('origin', [ONE, ONE, ONE])
     call tempDict % store('grid', 'lin')

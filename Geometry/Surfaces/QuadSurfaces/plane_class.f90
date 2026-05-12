@@ -1,10 +1,12 @@
 module plane_class
 
-  use numPrecision
-  use universalVariables, only : X_AXIS, Y_AXIS, Z_AXIS, INF
-  use genericProcedures,  only : fatalError, numToChar
   use dictionary_class,   only : dictionary
-  use surface_inter,      only : surface, kill_super => kill
+  use errors_mod,         only : fatalError
+  use genericProcedures,  only : areWithinTolerance, numToChar
+  use numPrecision
+  use surface_inter,      only : kill_super => kill, surface
+  use universalVariables, only : INF, X_AXIS, Y_AXIS, Z_AXIS
+
   implicit none
   private
 
@@ -151,12 +153,12 @@ contains
     k = dot_product(u, self % norm)
     c = self % evaluate(r)
 
-    if ( k == ZERO .or. abs(c) < self % surfTol()) then ! Parallel or at the surface
+    if(areWithinTolerance(ZERO, k) .or. areWithinTolerance(ZERO, c, tolerance = self % surfTol())) then ! Parallel or at the surface
       d = INF
 
     else
-      d = -c/k
-      if (d <= ZERO .or. d > INF) d = INF
+      d = -c / k
+      if(d <= ZERO .or. INF < d) d = INF
 
     end if
 
@@ -178,12 +180,13 @@ contains
     real(defReal)                           :: proj
 
     proj = dot_product(u, self % norm)
-    halfspace = proj > ZERO
+    if(areWithinTolerance(ZERO, proj)) then
+      ! Special case: parallel direction. Particle stays in its current halfspace.
+      halfspace = ZERO <= self % evaluate(r)
 
-    ! Special case of parallel direction
-    ! Partilce stays in its current halfspace
-    if (proj == ZERO) then
-      halfspace = self % evaluate(r) >= ZERO
+    else
+      halfspace = ZERO < proj
+
     end if
 
   end function going

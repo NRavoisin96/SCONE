@@ -1,17 +1,17 @@
 module cylindricalMap_class
 
-  use numPrecision
-  use universalVariables, only : valueOutsideArray, X_AXIS, Y_AXIS, Z_AXIS
-  use genericProcedures,  only : fatalError, dotProduct, numToChar
   use dictionary_class,   only : dictionary
+  use errors_mod,         only : fatalError
+  use genericProcedures,  only : numToChar
   use grid_class,         only : grid
-  use particle_class,     only : particleState
+  use numPrecision
   use outputFile_class,   only : outputFile
-  use tallyMap_inter,     only : tallyMap, kill_super => kill
+  use particle_class,     only : particleState
+  use tallyMap_inter,     only : kill_super => kill, tallyMap
+  use universalVariables, only : valueOutsideArray, X_AXIS, Y_AXIS, Z_AXIS
 
   implicit none
   private
-
 
   !!
   !! Divides space into a mesh in cylindrical co-ordinates

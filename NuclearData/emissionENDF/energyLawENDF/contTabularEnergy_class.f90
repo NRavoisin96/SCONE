@@ -1,14 +1,13 @@
 module contTabularEnergy_class
 
-  use numPrecision
-  use endfConstants
-  use genericProcedures,   only : binarySearch, fatalError, interpolate, searchError, isSorted,&
-                                  ceilingSearch => linearCeilingIdxOpen_shortInt, numToChar
   use aceCard_class,       only : aceCard
-  use tabularEnergy_class, only : tabularEnergy
-  use RNG_class,           only : RNG
+  use endfConstants
   use energyLawENDF_inter, only : energyLawENDF
-
+  use errors_mod,          only : fatalError
+  use genericProcedures,   only : binarySearch, isSortedAscending, linearSearchCeil, numToChar
+  use numPrecision
+  use RNG_class,           only : RNG
+  use tabularEnergy_class, only : tabularEnergy
 
   implicit none
   private
@@ -72,11 +71,10 @@ contains
     character(100),parameter             :: Here = 'sample (contTabularEnergy_class.f90)'
 
     idx = binarySearch(self % eGrid,E_in)
-    call searchError(idx,Here)
 
     ! Get interpolation flag
     if (allocated(self % inter)) then
-      inter_idx = ceilingSearch(self % inter(:,INT_BOUNDS), idx)
+      inter_idx = linearSearchCeil(self % inter(:,INT_BOUNDS), idx)
       if (inter_idx <= 0) then
         call fatalError(Here, 'Failed interpolation region search: '//numToChar(inter_idx))
       end if
@@ -186,7 +184,7 @@ contains
   !! Args:
   !!   eGrid [in]     -> Energy grid [MeV]
   !!   ePdfs [in]     -> Array of initialised outgoing energy probability distributions
-  !!   bounds [in]    -> Optional. Array of tops of diffrent interpolation regions
+  !!   bounds [in]    -> Optional. Array of tops of different interpolation regions
   !!   interENDF [in] -> Optional. Corresponding interpolation flags
   !!
   !! Errors:
@@ -206,8 +204,8 @@ contains
 
     ! Check if the provided eGrid and ePdfs match in size and if eGrid is sorted and all its
     ! elements are +ve.
-    if(size(eGrid) /= size(ePdfs))  call fatalError(Here,'eGrid and ePdfs have diffrent size')
-    if(.not.(isSorted(eGrid)))      call fatalError(Here,'eGrid is not sorted ascending')
+    if(size(eGrid) /= size(ePdfs))  call fatalError(Here,'eGrid and ePdfs have different size')
+    if(.not.(isSortedAscending(eGrid)))      call fatalError(Here,'eGrid is not sorted ascending')
     if ( count( eGrid < 0.0 ) > 0 ) call fatalError(Here,'eGrid contains -ve values')
 
 
@@ -225,7 +223,7 @@ contains
       if (size(bounds) /= size(interENDF)) then
         call fatalError(Here, 'Size of bounds and  interENDF does not match')
 
-      else if (.not.isSorted(bounds)) then
+      else if (.not.isSortedAscending(bounds)) then
         call fatalError(Here, 'Array with interpolation region bounds is not sorted ascending')
 
       else if (any(bounds < 0)) then

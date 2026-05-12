@@ -35,11 +35,11 @@ module collisionOperator_class
 
   !!
   !! Scalar collision operator
-  !!  -> Maps particles of diffrent types to approperiate implementation
+  !!  -> Maps particles of different types to approperiate implementation
   !!     of collision physics (collisionProcessor).
-  !!  -> Uses lookup table for to quickly map diffrent combination of physical(neutron, photon ...)
+  !!  -> Uses lookup table for to quickly map different combination of physical(neutron, photon ...)
   !!     and processing type (CE, MG) to approperiate physics.
-  !!  -> Can store up to 3 diffrent physics types
+  !!  -> Can store up to 3 different physics types
   !!  -> Gives fatal error if particle type is not recognised or not-supported
   !!
   !! Sample dictionary input( provisional will change):

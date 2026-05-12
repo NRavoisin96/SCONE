@@ -1,10 +1,10 @@
 module aceSabCard_class
 
-  use numPrecision
+  use dataDeck_inter,     only : dataDeck
   use endfConstants
-  use dataDeck_inter,    only : dataDeck
-  use genericProcedures, only : fatalError, openToRead, isInteger, linFind,&
-                                targetNotFound, searchError, numToChar
+  use errors_mod,         only : fatalError
+  use genericProcedures,  only : isInteger, numToChar, openToRead
+  use numPrecision
 
   implicit none
   private

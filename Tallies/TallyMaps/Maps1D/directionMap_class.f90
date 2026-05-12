@@ -1,13 +1,13 @@
 module directionMap_class
 
-  use numPrecision
-  use universalVariables, only : valueOutsideArray, X_AXIS, Y_AXIS, Z_AXIS
-  use genericProcedures,  only : fatalError, dotProduct, numToChar
   use dictionary_class,   only : dictionary
+  use errors_mod,         only : fatalError
   use grid_class,         only : grid
-  use particle_class,     only : particleState
+  use numPrecision
   use outputFile_class,   only : outputFile
-  use tallyMap1D_inter,   only : tallyMap1D, kill_super => kill
+  use particle_class,     only : particleState
+  use tallyMap1D_inter,   only : kill_super => kill, tallyMap1D
+  use universalVariables, only : valueOutsideArray, X_AXIS, Y_AXIS, Z_AXIS
 
   implicit none
   private

@@ -71,8 +71,8 @@ contains
   !! See reactionHandle for details.
   !!
   !! Errors:
-  !!   Returns a fatalError if any data deck diffrent from SCONE dictionary is given
-  !!   Returns fatalError if MT is diffrent from macroFission
+  !!   Returns a fatalError if any data deck different from SCONE dictionary is given
+  !!   Returns fatalError if MT is different from macroFission
   !!
   subroutine init(self, data, MT)
     class(fissionMG), intent(inout) :: self

@@ -1,13 +1,10 @@
 module endfTable_class
 
-  use numPrecision
   use endfConstants
-  use genericProcedures, only : endfInterpolate, interpolate,&
-                                fatalError, isSorted, numToChar, &
-                                ceilingSearch => linearCeilingIdxOpen_shortInt, &
-                                floorSearch   =>  linearFloorIdxClosed_Real, &
-                                binarySearch
-
+  use errors_mod,        only : fatalError
+  use genericProcedures, only : ENDFInterpolate, isSortedAscending, linearLinearInterpolate, linearSearchCeil, linearSearchFloor, &
+                                numToChar
+  use numPrecision
 
   implicit none
   private
@@ -29,8 +26,8 @@ module endfTable_class
   !! Private Members:
   !!   x         -> x-grid of the table
   !!   y         -> y-grid of the table
-  !!   nRegions  -> number of diffrent interpolation regions
-  !!   bounds    -> Index of boundaries between diffrent interpolation regions
+  !!   nRegions  -> number of different interpolation regions
+  !!   bounds    -> Index of boundaries between different interpolation regions
   !!   interENDF -> ENDF interpolation flag in each region
   !!
   !! Interface:
@@ -85,8 +82,8 @@ contains
     call self % kill()
 
     ! Check if x and y match and if x is sorted acending array.
-    if (size(x) /= size(y))  call fatalError(Here,'x and y have diffrent size!')
-    if ( .not.(isSorted(x))) call fatalError(Here,'x is not sorted increasing')
+    if (size(x) /= size(y))  call fatalError(Here,'x and y have different size!')
+    if ( .not.(isSortedAscending(x))) call fatalError(Here,'x is not sorted increasing')
 
     ! Assign data
     self % x = x
@@ -121,13 +118,13 @@ contains
 
     ! Perform Checks
     ! X and Y grid Error Cheks
-    if (size(x) /= size(y))  call fatalError(Here,'x and y have diffrent size!')
-    if ( .not.(isSorted(x))) call fatalError(Here,'x is not sorted increasing')
+    if (size(x) /= size(y))  call fatalError(Here,'x and y have different size!')
+    if ( .not.(isSortedAscending(x))) call fatalError(Here,'x is not sorted increasing')
 
     ! Bounds and interENDF Error Checks
     if (size(bounds) /= size(interENDF)) call fatalError(Here, 'bounds and interENDF have different size')
     if ( any(bounds < 1) ) call fatalError(Here,'bounds has -ve values')
-    if (.not.isSorted(bounds)) call fatalError(Here,'bounds is not sorted')
+    if (.not.isSortedAscending(bounds)) call fatalError(Here,'bounds is not sorted')
     if ( maxval(bounds) > size(x)) call fatalError(Here,'bounds contains values larger then size(x)')
     if (bounds(size(bounds)) /= size(x)) call fatalError(Here, 'Incomplete interpolation scheme.')
 
@@ -169,7 +166,7 @@ contains
     character(100),parameter    :: Here='at (endfTable_class.f90)'
 
     ! Find index
-    x_idx = floorSearch(self % x, x)
+    x_idx = linearSearchFloor(self % x, x)
     if( x_idx < 0) then
       call fatalError(Here,'Search of grid failed with error code:' // numToChar(x_idx))
     end if
@@ -184,14 +181,14 @@ contains
     ! Interpolate
     select case (self % nRegions)
       case (0) ! Simple int-int interpolation
-        y = interpolate(x_0, x_1, y_0, y_1, x)
+        y = linearLinearInterpolate(x_0, x_1, y_0, y_1, x)
 
       case (1) ! Case for one interpolation region
-        y = endfInterpolate(x_0, x_1, y_0, y_1, x, self % interENDF(1))
+        y = ENDFInterpolate(x_0, x_1, y_0, y_1, x, self % interENDF(1))
 
       case default ! Multiple interpolation regions
-        bounds_idx = ceilingSearch(self % bounds, x_idx + 1)
-        y = endfInterpolate(x_0, x_1, y_0, y_1, x, self % interENDF(bounds_idx))
+        bounds_idx = linearSearchCeil(self % bounds, x_idx + 1)
+        y = ENDFInterpolate(x_0, x_1, y_0, y_1, x, self % interENDF(bounds_idx))
 
     end select
 
@@ -208,7 +205,7 @@ contains
     logical(defBool)             :: has
     integer(shortInt)            :: x_idx
   
-    x_idx = floorSearch(self % x, x)
+    x_idx = linearSearchFloor(self % x, x)
     if (x_idx < 0) then
       has = .false.
     else
@@ -239,7 +236,7 @@ contains
       call fatalError(Here, 'Cannot reload y-values on uninitialised table.')
 
     else if (size(y) /= size(self % y)) then
-      call fatalError(Here, 'Given y-values have size: '//numToChar(size(y))//' which is diffrent &
+      call fatalError(Here, 'Given y-values have size: '//numToChar(size(y))//' which is different &
                             &from current size of the table '//numToChar(size(self % y)))
     end if
 
@@ -276,7 +273,7 @@ contains
     character(100), parameter :: Here = 'integral (endfTable_class.f90)'
 
     ! Preconditions
-    if (.not.isSorted(x)) then
+    if (.not.isSortedAscending(x)) then
       call fatalError(Here, 'Upper bounds of integration must be given as a sorted array!')
 
     else if (x(size(x)) > self % x(size(self % x))) then

@@ -43,7 +43,7 @@ module baseMgNeutronMaterial_class
   !! Fission is treated as a seperate reaction
   !! All other scattering reactions are lumped into single multiplicative scattering,
   !! which is stored as INELASTIC scatering in macroXSs package! After all it is inelastic in
-  !! the sense that outgoing group can change. Diffrent types of multiplicative scattering can be
+  !! the sense that outgoing group can change. Different types of multiplicative scattering can be
   !! build. See doc of "init" procedure for details.
   !!
   !! Public members:

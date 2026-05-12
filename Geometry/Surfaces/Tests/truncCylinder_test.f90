@@ -148,7 +148,7 @@ contains
     integer(shortInt)                :: ax, p1, p2
     real(defReal), parameter    :: TOL = 1.0E-6_defReal
 
-    ! Get axis and diffrent planar directions
+    ! Get axis and different planar directions
     ax = this % axis
     p1 = this % plane(1)
     p2 = this % plane(2)
@@ -190,7 +190,7 @@ contains
     real(defReal), dimension(3)      :: r, u, r_ref, u_ref
     real(defReal), parameter :: TOL = 1.0E-6
 
-    ! Get axis and diffrent planar directions
+    ! Get axis and different planar directions
     ax = this % axis
     p1 = this % plane(1)
     p2 = this % plane(2)
@@ -263,7 +263,7 @@ contains
     real(defReal), dimension(3)               :: r, u
     real(defReal)                             :: eps
 
-    ! Get axis and diffrent planar directions
+    ! Get axis and different planar directions
     ax = this % axis
     p1 = this % plane(1)
     p2 = this % plane(2)
@@ -274,7 +274,7 @@ contains
     u(pe) = [ZERO, ONE, ZERO]
     @assertTrue(this % surf % halfspace(r, u))
 
-    ! Diffrent position
+    ! Different position
     r(pe) = [1.3_defReal, 1.0_defReal, 5.0_defReal]
     @assertTrue(this % surf % halfspace(r, u))
 
@@ -369,7 +369,7 @@ contains
     real(defReal)                       :: ref, eps
     real(defReal), parameter :: TOL = 1.0E-7
 
-    ! Get axis and diffrent planar directions
+    ! Get axis and different planar directions
     ax = this % axis
     p1 = this % plane(1)
     p2 = this % plane(2)
@@ -496,7 +496,7 @@ contains
     real(defReal), dimension(3)         :: r, u, n
     real(defReal), parameter            :: TOL = 1.0E-7
     
-    ! Get axis and diffrent planar directions
+    ! Get axis and different planar directions
     ax = this % axis
     p1 = this % plane(1)
     p2 = this % plane(2)
@@ -573,7 +573,7 @@ contains
      real(defReal)                  :: eps, d
      logical(defBool)               :: hs
 
-     ! Get axis and diffrent planar directions
+     ! Get axis and different planar directions
      ax = this % axis
      p1 = this % plane(1)
      p2 = this % plane(2)

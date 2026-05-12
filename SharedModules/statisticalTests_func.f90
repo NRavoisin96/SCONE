@@ -31,7 +31,7 @@ contains
 
     ! Check size of sample2 and wgts
     if(size(sample2) /= size(wgts)) then
-      call fatalError(Here,'Size of 2nd sample vector and vector of weights is diffrent')
+      call fatalError(Here,'Size of 2nd sample vector and vector of weights is different')
     end if
 
     ! Catch input with an empty array of samples

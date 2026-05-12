@@ -1,8 +1,9 @@
 module energyGrid_class
 
+  use errors_mod,         only : fatalError
+  use genericProcedures,  only : binarySearch, isSortedDescending
   use numPrecision
-  use universalVariables
-  use genericProcedures, only : fatalError, isDescending, binarySearch
+  use universalVariables, only : valueOutsideArray
 
   implicit none
   private
@@ -111,7 +112,7 @@ contains
     character(100), parameter              :: Here = 'init_unstruct ( energyGrid_class.f90)'
 
     ! Verify input
-    if( .not.isDescending(bins)) call fatalError(Here,'Provided energyGrid is not sorted descending')
+    if( .not.isSortedDescending(bins)) call fatalError(Here,'Provided energyGrid is not sorted descending')
     if( size(bins) < 2) call fatalError(Here,'Empty array or array of size 1 was provided')
     if(any(bins < ZERO)) call fatalError(Here,'Energy grid requested contains -ve energies')
 

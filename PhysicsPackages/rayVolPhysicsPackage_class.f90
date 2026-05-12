@@ -35,7 +35,7 @@ module rayVolPhysicsPackage_class
   !!
   !! Physics package to perform ray-tracking based volume calculation
   !!
-  !! Calculates relative volume of diffrent materials in the problem by performing
+  !! Calculates relative volume of different materials in the problem by performing
   !! random ray tracing in the geometry. The volume is normalised that the total domain
   !! volume is 1.0.
   !!
@@ -215,7 +215,7 @@ contains
   !!
   !! NOTE:
   !!   RNG needs to be given as an argument `class(RNG)` to prevent inlining. Compiler (gcc 8.3)
-  !!   produced erroneous code withou it. Same random number would be produced for diffrent calls
+  !!   produced erroneous code withou it. Same random number would be produced for different calls
   !!   of `get` function.
   !!
   subroutine cycles(self, rand)

@@ -1,16 +1,14 @@
 module tabularAngle_class
 
-  use numPrecision
-  use genericProcedures,   only : binarySearch, searchError, interpolate, fatalError, isSorted
   use aceCard_class,       only : aceCard
-  use RNG_class,           only : RNG
   use angleLawENDF_inter,  only : angleLawENDF
-
-  ! Diffrent mu pdfs
-  use muEndfPdf_inter,     only : muEndfPdf
-  use muEndfPdfSlot_class, only : muEndfPdfSlot
-  use isotropicMu_class,   only : isotropicMu
   use equiBin32Mu_class,   only : equiBin32Mu
+  use errors_mod,          only : fatalError
+  use genericProcedures,   only : binarySearch, isSortedAscending, linearLinearInterpolate
+  use isotropicMu_class,   only : isotropicMu
+  use muEndfPdfSlot_class, only : muEndfPdfSlot
+  use numPrecision
+  use RNG_class,           only : RNG
   use tabularMu_class,     only : tabularMu
 
   implicit none
@@ -93,10 +91,8 @@ contains
     real(defReal)                     :: mu
     integer(shortInt)                 :: idx
     real(defReal)                     :: r, eps
-    character(100),parameter          :: Here='sample (tabularAngle_class.f90)'
 
     idx = binarySearch(self % eGrid, E)
-    call searchError(idx,Here)
 
     eps = (E - self % eGrid(idx)) / (self % eGrid(idx+1) - self % eGrid(idx))
     r = rand % get()
@@ -119,10 +115,8 @@ contains
     real(defReal)                     :: prob
     integer(shortInt)                 :: idx
     real(defReal)                     :: prob_1, prob_0, E_1, E_0
-    character(100),parameter          :: Here='probabilityOf (tabularAngle_class.f90)'
 
     idx = binarySearch(self % eGrid,E)
-    call searchError(idx,Here)
 
     prob_0 = self % muEndfPdfs(idx)   % probabilityOf(mu)
     prob_1 = self % muEndfPdfs(idx+1) % probabilityOf(mu)
@@ -130,8 +124,7 @@ contains
     E_0 = self % eGrid(idx)
     E_1 = self % eGrid(idx+1)
 
-    prob = interpolate(E_0, E_1, prob_0, prob_1, E)
-
+    prob = linearLinearInterpolate(E_0, E_1, prob_0, prob_1, E)
 
   end function probabilityOf
 
@@ -147,9 +140,9 @@ contains
     character(100),parameter                    :: Here='init (tabularAngle_class.f90)'
 
     ! Perform checks
-    if(size(eGrid) /= size(muEndfPdfs)) call fatalError(Here,'eGrid and muEndfPdfs have diffrent size')
+    if(size(eGrid) /= size(muEndfPdfs)) call fatalError(Here,'eGrid and muEndfPdfs have different size')
 
-    if(.not.(isSorted(eGrid)))    call fatalError(Here,'eGrid is not sorted ascending')
+    if(.not.(isSortedAscending(eGrid)))    call fatalError(Here,'eGrid is not sorted ascending')
     if(any( eGrid < 0.0 ))        call fatalError(Here,'eGrid contains -ve values')
 
     if(allocated(self % eGrid))      deallocate(self % eGrid)

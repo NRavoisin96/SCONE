@@ -42,7 +42,7 @@ module geometryStd_class
   !!
   !! Supports super-imposed temperature and density fields.
   !!
-  !! Boundary conditions in diffrent movement models are handeled:
+  !! Boundary conditions in different movement models are handeled:
   !!   move       -> explicitBC
   !!   moveGlobal -> explicitBC
   !!   teleport   -> Co-ordinate transfrom

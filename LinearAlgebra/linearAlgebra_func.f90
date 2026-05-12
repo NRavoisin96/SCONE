@@ -510,7 +510,7 @@ contains
     mem = N * N + 4 * N
     call getMem(mem)
 
-    ! Associate workspace memory with diffrent wariables
+    ! Associate workspace memory with different wariables
     A_t(1:N,1:N) => workspace(1        : N*N)
     x_t(1:N)     => workspace(N*N+1    : N*N + N)
     w_t(1:N)     => workspace(N*N+N+1  : N*N + 2*N)

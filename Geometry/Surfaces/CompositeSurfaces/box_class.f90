@@ -26,7 +26,7 @@ module box_class
   !!
   !! Boundary Conditions:
   !!   BC order: x_min, x_max, y_min, y_max, z_min, z_max
-  !!   Each face can have diffrent BC. Any combination is supported with co-ordinate transform.
+  !!   Each face can have different BC. Any combination is supported with co-ordinate transform.
   !!
   !! Private Members:
   !!   origin -> poosition of the middle of the box

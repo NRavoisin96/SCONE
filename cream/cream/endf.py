@@ -114,7 +114,7 @@ class ENDFTape:
     numer are UNIQUE. There is no check if this is the case at the moment.
 
     For more information about ENDF-6 format. In particular documentation
-    of diffrent data records (HEAD, TAB1, ...) refer to [1].
+    of different data records (HEAD, TAB1, ...) refer to [1].
 
     Example:
         You can us this class like this::
@@ -399,7 +399,7 @@ class ENDFTape:
 
                 * C1, C2 (float):
                 * L1, L2 (int):
-                * NR (int): Number of diffrent interpolation regions
+                * NR (int): Number of different interpolation regions
                 * NP (int): Number of points in the table
                 * NBT (list of int): Interpolation region boundaries
                 * INT (list of int): Interpolation flags

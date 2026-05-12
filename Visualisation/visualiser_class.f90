@@ -1,15 +1,16 @@
 module visualiser_class
 
-  use numPrecision
-  use universalVariables
-  use genericProcedures,  only : fatalError, numToChar, crossProduct
-  use hashFunctions_func, only : knuthHash, FNV_1
-  use imgBmp_func,        only : imgBmp_toFile
   use commandLineUI,      only : getInputFile
   use dictionary_class,   only : dictionary
+  use errors_mod,         only : fatalError
+  use genericProcedures,  only : crossProduct, numToChar
   use geometry_inter,     only : geometry
+  use hashFunctions_func, only : FNV_1, knuthHash
+  use imgBmp_func,        only : imgBmp_toFile
   use materialMenu_mod,   only : mm_colourMap => colourMap, mm_nameMap => nameMap
-  use outputVTK_class
+  use numPrecision
+  use outputVTK_class,    only : outputVTK
+  use universalVariables, only : OUTSIDE_MAT, VOID_MAT
 
   implicit none
   private
@@ -450,10 +451,10 @@ contains
     ! Ensure that up is not colinear with the view direction
     if (all(abs(crossProduct(up, d)) < 1E-6)) call fatalError(Here,"View direction is co-linear with 'up'.")
     
-    cv = crossProduct(d, up)
+    cv = crossProduct(up, d)
     cv = cv / norm2(cv)
     
-    ch = crossProduct(cv, d)
+    ch = crossProduct(d, cv)
     ch = ch / norm2(ch)
 
     ! Create coordinate matrix

@@ -2,7 +2,7 @@ module uniFills_class
 
   use numPrecision
   use universalVariables, only : targetNotFound, OUTSIDE_MAT
-  use genericProcedures,  only : fatalError, numToChar, linFind
+  use genericProcedures,  only : fatalError, numToChar, linearFind
   use intMap_class,       only : intMap
 
   implicit none
@@ -425,7 +425,7 @@ contains
 
       if ( fill < 0) then
         ! Check if fill is the in path including current node
-        pos = linFind(path, abs(fill))
+        pos = linearFind(path, abs(fill))
         isIt = pos /= targetNotFound .or. abs(fill) == idx
 
         ! If repetition was not found search lower levels

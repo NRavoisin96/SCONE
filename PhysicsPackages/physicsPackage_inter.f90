@@ -9,7 +9,7 @@ module physicsPackage_inter
   !!
   !! Abstract interface of physics Package
   !! Physics package is controles a calculation flow
-  !! Each type of calculation has diffrent physics package
+  !! Each type of calculation has different physics package
   !!
   type, public,abstract :: physicsPackage
     private

@@ -1,10 +1,10 @@
 module mpi_func
-  use numPrecision
+  
 #ifdef MPI
   use mpi_f08
 #endif
-  use errors_mod,        only : fatalError
-  use particle_class,    only : particleStateData
+  use numPrecision
+  use particle_class, only : particleStateData
 
   implicit none
 
@@ -43,6 +43,27 @@ contains
 #endif
 
   end subroutine mpiInit
+
+  !!
+  !!
+  !!
+  function isMPIInitialised() result(isIt)
+    logical(defBool)  :: isIt
+#ifdef MPI
+    integer(shortInt) :: ierr
+    logical           :: initialisationFlag
+
+    call mpi_initialized(initialisationFlag, ierr)
+    if(initialisationFlag .eqv. .true.) then
+      isIt = .true.
+
+    else
+      isIt = .false.
+
+    end if
+#endif
+
+  end function isMPIInitialised
 
   !!
   !! Finalise MPI environment

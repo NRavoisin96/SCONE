@@ -143,7 +143,7 @@ module endfConstants
 
 
 
-  ! List of diffrent ENDF energy Laws. See ENDF manual for more details:
+  ! List of different ENDF energy Laws. See ENDF manual for more details:
   !
   ! Trkov, A., M. Herman, and D. A. Brown. “ENDF-6 Formats Manual.”
   ! Data Formats and Procedures for the Evaluated Nuclear Data Files ENDF/B-VI and ENDF/B-VII,

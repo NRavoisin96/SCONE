@@ -88,7 +88,7 @@ contains
   !!
   !! Errors:
   !!   Returns fatalError if by evil magic allocation status of "timers" and "timerNames" is
-  !!   diffrent. This should never happen.
+  !!   different. This should never happen.
   !!
   !! Notes:
   !!   Uses "idx" to determine if reallocation is needed.
@@ -120,7 +120,7 @@ contains
       if (idx >= size(timers)) newSize = int(newSize * GROWTH_RATIO)
 
     else if( nameAlloc .neqv. timersAlloc) then ! Strange error has happend!
-      call fatalError(Here,'Timers and timers names array have diffrent allocation status. WTF?')
+      call fatalError(Here,'Timers and timers names array have different allocation status. WTF?')
       newSize = 0
 
     else ! Unallocated case. Allocate to minimum size.

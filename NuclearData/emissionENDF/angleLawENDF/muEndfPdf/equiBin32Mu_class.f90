@@ -1,10 +1,12 @@
 module equiBin32Mu_class
 
-  use numPrecision
-  use genericProcedures , only : linearFloorIdxClosed_Real, searchError, fatalError
   use aceCard_class,      only : aceCard
-  use RNG_class ,         only : RNG
+  use errors_mod,         only : fatalError
+  use genericProcedures,  only : linearSearchFloor
   use muEndfPdf_inter,    only : muEndfPdf
+  use numPrecision
+  use RNG_class,          only : RNG
+  use universalVariables, only : valueOutsideArray
 
   implicit none
   private
@@ -15,10 +17,6 @@ module equiBin32Mu_class
   interface equiBin32Mu
     module procedure new_equiBin32Mu
     module procedure new_equiBin32Mu_fromACE
-  end interface
-
- interface linSearch
-    module procedure linearFloorIdxClosed_Real
   end interface
 
   !!
@@ -63,22 +61,22 @@ contains
   !! Returns probability density of mu
   !!
   function probabilityOf(self,mu) result(prob)
-    class(equiBin32Mu), intent(in)  :: self
-    real(defReal), intent(in)       :: mu
-    real(defReal)                   :: prob
-    integer(shortInt)               :: idx
-    real(defReal)                   :: binWidth
-    character(100),parameter        :: Here='probabilityOf (equiBin32Mu_class.f90)'
+    class(equiBin32Mu), intent(in) :: self
+    real(defReal), intent(in)      :: mu
+    real(defReal)                  :: prob
+    integer(shortInt)              :: idx
+    real(defReal)                  :: binWidth
+    character(*),parameter         :: HERE = 'probabilityOf (equiBin32Mu_class.f90)'
 
     ! Find bin location
-    idx = linSearch(self % boundaries, mu)
-    call searchError(idx,Here)
+    idx = linearSearchFloor(self % boundaries, mu)
+    if(idx == valueOutsideArray) call fatalError(HERE, 'Requested value is outside array bounds.')
 
     ! Calculate bin width
-    binWidth = (self % boundaries(idx+1) - self % boundaries(idx) )
+    binWidth = self % boundaries(idx + 1) - self % boundaries(idx)
 
     ! Calculate probability density
-    prob = ONE / 32.0 / binWidth
+    prob = ONE / 32.0_defReal / binWidth
 
   end function probabilityOf
 

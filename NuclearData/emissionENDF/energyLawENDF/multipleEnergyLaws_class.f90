@@ -195,7 +195,7 @@ contains
   !!   law [inout] -> allocated polymorphic energy law. Will be deallocated on exit
   !!   eGrid [in]  -> energy grid for probability table
   !!   pdf [in]    -> array of probability values associated with eGeid
-  !!   bounds [in] -> optional integer array of bounds of diffrent ENDF
+  !!   bounds [in] -> optional integer array of bounds of different ENDF
   !!       interpolation regions
   !!   interENDF [in] -> optional integer array of ENDF interpolation flags
   !!

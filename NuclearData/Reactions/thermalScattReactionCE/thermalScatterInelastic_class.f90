@@ -1,13 +1,14 @@
 module thermalScatterInelastic_class
 
-  use numPrecision
-  use endfConstants
-  use genericProcedures,            only : binarySearch, fatalError, numToChar, endfInterpolate, searchError
-  use RNG_class,                    only : RNG
-  use dataDeck_inter,               only : dataDeck
   use aceSabCard_class,             only : aceSabCard
-  use tabularEnergy_class,          only : tabularEnergy
+  use dataDeck_inter,               only : dataDeck
+  use endfConstants
+  use errors_mod,                   only : fatalError
+  use genericProcedures,            only : binarySearch, numToChar
+  use numPrecision
   use reactionHandle_inter,         only : reactionHandle
+  use RNG_class,                    only : RNG
+  use tabularEnergy_class,          only : tabularEnergy
   use uncorrelatedReactionCE_inter, only : uncorrelatedReactionCE
 
   implicit none

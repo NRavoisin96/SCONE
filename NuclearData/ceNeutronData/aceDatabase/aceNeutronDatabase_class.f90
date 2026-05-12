@@ -1,45 +1,33 @@
 module aceNeutronDatabase_class
 
-  use numPrecision
+  use aceCard_class,           only : aceCard
+  use aceLibrary_mod,          only : aceLib_kill => kill, aceLib_load => load, new_moderACE, new_neutronAce
+  use ceNeutronCache_mod,      only : cache_init => init, &
+                                      cache_majorantCache => majorantCache, &
+                                      cache_materialCache => materialCache, &
+                                      cache_nuclideCache => nuclideCache, &
+                                      cache_zaidCache => zaidCache
+  use aceNeutronNuclide_class, only : aceNeutronNuclide
+  use aceSabCard_class,        only : aceSabCard
+  use ceNeutronDatabase_inter, only : ceNeutronDatabase, ceNeutronDatabase_CptrCast
+  use ceNeutronMaterial_class, only : ceNeutronMaterial
+  use charMap_class,           only : charMap
+  use dictionary_class,        only : dictionary
+  use display_func,            only : statusMsg
   use endfConstants
-  use universalVariables
-  use errors_mod,         only : fatalError
-  use genericProcedures,  only : numToChar, removeDuplicatesSorted, binarySearch
-  use display_func,       only : statusMsg
-  use dictionary_class,   only : dictionary
-  use RNG_class,          only : RNG
-  use charMap_class,      only : charMap
-  use intMap_class,       only : intMap
-
-  ! Nuclear Data Interfaces
-  use nuclearDatabase_inter,        only : nuclearDatabase
-  use materialHandle_inter,         only : materialHandle
-  use nuclideHandle_inter,          only : nuclideHandle
-  use reactionHandle_inter,         only : reactionHandle
-  use ceNeutronDatabase_inter,      only : ceNeutronDatabase, ceNeutronDatabase_CptrCast
-  use neutronXSPackages_class,      only : neutronMicroXSs
-  use ceNeutronMaterial_class,      only : ceNeutronMaterial
-
-  ! Material Menu
-  use materialMenu_mod,             only : materialItem, nuclideInfo, mm_nMat => nMat, &
-                                           mm_getMatPtr => getMatPtr, mm_nameMap => nameMap
-
-  ! ACE CE Nuclear Data Objects
-  use aceLibrary_mod,               only : new_neutronAce, new_moderACE, aceLib_load => load, aceLib_kill => kill
-  use aceCard_class,                only : aceCard
-  use aceSabCard_class,             only : aceSabCard
-  use aceNeutronNuclide_class,      only : aceNeutronNuclide
-
-
-  ! CE NEUTRON CACHE
-  use ceNeutronCache_mod,           only : cache_nuclideCache => nuclideCache, &
-                                           cache_materialCache => materialCache, &
-                                           cache_majorantCache => majorantCache, &
-                                           cache_zaidCache => zaidCache, &
-                                           cache_init => init
-
-  ! Scattering procedures
+  use errors_mod,              only : fatalError
+  use genericProcedures,       only : binarySearch, numToChar, removeDuplicates
+  use intMap_class,            only : intMap
+  use materialHandle_inter,    only : materialHandle
+  use materialMenu_mod,        only : materialItem, mm_getMatPtr => getMatPtr, mm_nMat => nMat, mm_nameMap => nameMap, &
+                                      nuclideInfo
+  use nuclearDatabase_inter,   only : nuclearDatabase
+  use nuclideHandle_inter,     only : nuclideHandle
+  use numPrecision
+  use reactionHandle_inter,    only : reactionHandle
+  use RNG_class,               only : RNG
   use scatteringKernels_func,  only : relativeEnergy_constXS, dopplerCorrectionFactor
+  use universalVariables,      only : kBoltzmannMeV
 
   implicit none
   private
@@ -1532,7 +1520,7 @@ contains
     end do
 
     ! Save final grid and remove duplicates
-    self % eGridUnion = removeDuplicatesSorted(tmpGrid)
+    self % eGridUnion = removeDuplicates(tmpGrid, isArraySorted = .true.)
 
     if (loud) then
       call statusMsg("CE unionised energy grid has size: "//numToChar(size(self % eGridUnion)))

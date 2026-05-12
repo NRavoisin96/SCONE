@@ -1,24 +1,22 @@
 module aceNeutronDatabase_iTest
 
-  use numPrecision
-  use endfConstants
-  use universalVariables
-  use genericProcedures,        only : linFind
-  use dictionary_class,         only : dictionary
-  use dictParser_func,          only : charToDict
-  use charMap_class,            only : charMap
-  use particle_class,           only : particle
   use aceNeutronDatabase_class, only : aceNeutronDatabase
-  use nuclearDatabase_inter,    only : nuclearDatabase
-  use materialHandle_inter,     only : materialHandle
-  use nuclideHandle_inter,      only : nuclideHandle
-  use reactionHandle_inter,     only : reactionHandle
+  use aceNeutronNuclide_class,  only : aceNeutronNuclide, aceNeutronNuclide_TptrCast
   use ceNeutronMaterial_class,  only : ceNeutronMaterial, ceNeutronMaterial_TptrCast
   use ceNeutronNuclide_inter,   only : ceNeutronNuclide, ceNeutronNuclide_CptrCast
-  use aceNeutronNuclide_class,  only : aceNeutronNuclide, aceNeutronNuclide_TptrCast
-  use neutronXSPackages_class,  only : neutronMicroXSs, neutronMacroXSs
-  use materialMenu_mod,         only : mm_init => init, mm_kill => kill
+  use charMap_class,            only : charMap
+  use dictionary_class,         only : dictionary
+  use dictParser_func,          only : charToDict
+  use endfConstants
   use funit
+  use genericProcedures,        only : linearFind
+  use materialMenu_mod,         only : mm_init => init, mm_kill => kill
+  use neutronXSPackages_class,  only : neutronMicroXSs, neutronMacroXSs
+  use nuclearDatabase_inter,    only : nuclearDatabase
+  use numPrecision
+  use particle_class,           only : particle
+  use reactionHandle_inter,     only : reactionHandle
+  use universalVariables,       only : MAJORANT_XS, MATERIAL_XS, targetNotFound
 
   implicit none
 
@@ -95,8 +93,8 @@ contains
     @assertAssociated(mat)
 
     ! Make sure densities are present
-    @assertTrue(targetNotFound /= linFind(mat % dens, 5.028E-02_defReal, TOL), "H-1 dens is absent")
-    @assertTrue(targetNotFound /= linFind(mat % dens, 2.505E-02_defReal, TOL), "O-16 dens is absent")
+    @assertTrue(targetNotFound /= linearFind(mat % dens, 5.028E-02_defReal, TOL), "H-1 dens is absent")
+    @assertTrue(targetNotFound /= linearFind(mat % dens, 2.505E-02_defReal, TOL), "O-16 dens is absent")
 
     @assertEqual(1, mat % matIdx)
     @assertFalse( mat % isFissile())
@@ -106,8 +104,8 @@ contains
     mat => ceNeutronMaterial_TptrCast( data % getMaterial(2))
     @assertAssociated(mat)
 
-    @assertTrue(targetNotFound /= linFind(mat % dens, 2.286E-02_defReal, TOL), "U-233 dens is absent")
-    @assertTrue(targetNotFound /= linFind(mat % dens, 4.572E-02_defReal, TOL), "O-16 dens is absent")
+    @assertTrue(targetNotFound /= linearFind(mat % dens, 2.286E-02_defReal, TOL), "U-233 dens is absent")
+    @assertTrue(targetNotFound /= linearFind(mat % dens, 4.572E-02_defReal, TOL), "O-16 dens is absent")
 
     @assertEqual(2, mat % matIdx)
     @assertTrue( mat % isFissile())
@@ -132,7 +130,7 @@ contains
     reac => null()
 
 
-    ! Nuclides can have diffrent indexes if Hashes do not work correctly
+    ! Nuclides can have different indexes if Hashes do not work correctly
     ! Need to explicitly find which index correcponds to which nuclide
     ! Usually will be the following
     ! Nuclides 1 -> O-16

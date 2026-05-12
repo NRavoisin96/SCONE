@@ -1,20 +1,17 @@
 module particleDungeon_class
 
-  use numPrecision
-  use errors_mod,            only : fatalError
-  use genericProcedures,     only : numToChar, swap
-  use particle_class,        only : particle, particleStateData, particleState
-  use RNG_class,             only : RNG
-  use heapQueue_class,       only : heapQueue
-
-  use mpi_func,              only : isMPIMaster, getMPIWorldSize, getMPIRank, getOffset
+  use errors_mod,        only : fatalError
+  use genericProcedures, only : numToChar, swap
+  use heapQueue_class,   only : heapQueue
+  use mpi_func,          only : getMPIRank, getMPIWorldSize, getOffset, isMPIInitialised, isMPIMaster
 #ifdef MPI
-  use mpi_func,              only : mpi_gather, mpi_allgather, mpi_send, mpi_recv, &
-                                    mpi_bcast, MPI_COMM_WORLD, MPI_STATUS_IGNORE,  &
-                                    MASTER_RANK, MPI_PARTICLE_STATE, MPI_DEFREAL,  &
-                                    MPI_SHORTINT, MPI_LONGINT
+  use mpi_func,          only : MASTER_RANK, mpi_allgather, mpi_bcast, MPI_COMM_WORLD, MPI_DEFREAL, mpi_gather, &
+                                MPI_LONGINT, MPI_PARTICLE_STATE, mpi_recv, mpi_send, MPI_SHORTINT, MPI_STATUS_IGNORE
 
 #endif
+  use numPrecision
+  use particle_class,    only : particle, particleState, particleStateData
+  use RNG_class,         only : RNG
 
   implicit none
   private
@@ -429,26 +426,30 @@ contains
   !! Does not take weight of a particle into account!
   !!
   subroutine normSize_Repr(self, totPop, rand)
-    class(particleDungeon), intent(inout) :: self
-    integer(shortInt), intent(in)         :: totPop
-    class(RNG), intent(inout)             :: rand
-    type(RNG)                             :: rankRand, masterRand
-    type(heapQueue)                       :: heap
-    real(defReal)                         :: threshold, rn
-    integer(longInt)                      :: seedTemp
-    integer(shortInt)                     :: maxbroodID, totSites, excess, heapSize, &
-                                             n_duplicates, n_copies, count, nRanks,  &
-                                             rank, i, j
+    class(particleDungeon), intent(inout)        :: self
+    integer(shortInt), intent(in)                :: totPop
+    class(RNG), intent(inout)                    :: rand
+    integer(longInt)                             :: seedTemp
     integer(longInt), dimension(:), allocatable  :: seeds
-    integer(shortInt), dimension(:), allocatable :: keepers, popSizes
+    integer(shortInt)                            :: maxbroodID, totSites, excess, heapSize, &
+                                                    n_duplicates, n_copies, count, nRanks,  &
+                                                    rank, i, j
 #ifdef MPI
     integer(shortInt)                            :: error
 #endif
-    character(100), parameter :: Here = 'normSize (particleDungeon_class.f90)'
+    integer(shortInt), dimension(:), allocatable :: keepers, popSizes
+    logical(defBool)                             :: isInitialised
+    real(defReal)                                :: threshold, rn
+    type(heapQueue)                              :: heap
+    type(RNG)                                    :: rankRand, masterRand
+    character(*), parameter                      :: HERE = 'normSize (particleDungeon_class.f90)'
 
     ! Determine the maximum brood ID and sort the dungeon for OMP reproducibility
     maxBroodID = maxval(self % prisoners(1:self % pop) % broodID)
     call self % sortByBroodID(maxbroodID)
+
+    ! Determine if MPI was initialised.
+    isInitialised = isMPIInitialised()
 
     ! Get MPI world size and allocate rng seed vector, needed by all processes
     nRanks = getMPIWorldSize()
@@ -460,8 +461,9 @@ contains
     threshold = ONE
 
 #ifdef MPI
-    ! Get the population sizes of all ranks into the array popSizes in master branch
-    call mpi_gather(self % pop, 1, MPI_SHORTINT, popSizes, 1, MPI_SHORTINT, MASTER_RANK, MPI_COMM_WORLD, error)
+    ! Get the population sizes of all ranks into the array popSizes in master branch.
+    if(isInitialised) &
+      call mpi_gather(self % pop, 1, MPI_SHORTINT, popSizes, 1, MPI_SHORTINT, MASTER_RANK, MPI_COMM_WORLD, error)
 #endif
 
     ! In the master process, calculate sampling threshold for the whole population
@@ -513,9 +515,12 @@ contains
 
     ! Broadcast threshold, excess and random number seeds to all processes
 #ifdef MPI
-    call mpi_bcast(threshold, 1, MPI_DEFREAL, MASTER_RANK, MPI_COMM_WORLD)
-    call mpi_bcast(excess, 1, MPI_SHORTINT, MASTER_RANK, MPI_COMM_WORLD)
-    call mpi_bcast(seeds, nRanks, MPI_LONGINT, MASTER_RANK, MPI_COMM_WORLD)
+    if(isInitialised) then
+      call mpi_bcast(threshold, 1, MPI_DEFREAL, MASTER_RANK, MPI_COMM_WORLD)
+      call mpi_bcast(excess, 1, MPI_SHORTINT, MASTER_RANK, MPI_COMM_WORLD)
+      call mpi_bcast(seeds, nRanks, MPI_LONGINT, MASTER_RANK, MPI_COMM_WORLD)
+
+    end if
 #endif
 
     ! Get local process rank and initialise local rng with the correct seed
@@ -589,12 +594,13 @@ contains
     popSizes = self % pop
 
 #ifdef MPI
-    ! Get the updated population numbers from all processes
-    call mpi_allgather(self % pop, 1, MPI_SHORTINT, popSizes, 1, MPI_SHORTINT, MPI_COMM_WORLD, error)
+    ! Get the updated population numbers from all processes.
+    if(isInitialised) &
+      call mpi_allgather(self % pop, 1, MPI_SHORTINT, popSizes, 1, MPI_SHORTINT, MPI_COMM_WORLD, error)
 #endif
 
     ! Check that normalisation worked
-    if (sum(popSizes) /= totPop) call fatalError(Here, 'Normalisation failed!')
+    if (sum(popSizes) /= totPop) call fatalError(HERE, 'Normalisation failed!')
 
     ! Perform load balancing by redistributing particles across processes
     if (nRanks > 1) call self % loadBalancing(totPop, nRanks, rank, popSizes)

@@ -5,7 +5,7 @@ module angleLawENDFfactory_func
   use genericProcedures, only : fatalError
   use aceCard_class,     only : aceCard
 
-  ! Diffrent angle laws
+  ! Different angle laws
   use angleLawENDF_inter,     only : angleLawENDF
   use isotropicAngle_class,   only : isotropicAngle
   use noAngle_class,          only : noAngle

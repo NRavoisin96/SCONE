@@ -1,12 +1,11 @@
 module urrProbabilityTables_class
 
-  use numPrecision
+  use aceCard_class,     only : aceCard
+  use dataDeck_inter,    only : dataDeck
   use endfConstants
-  use genericProcedures,            only : fatalError, numToChar, binarySearch, &
-                                           endfInterpolate, isSorted
-  use RNG_class,                    only : RNG
-  use dataDeck_inter,               only : dataDeck
-  use aceCard_class,                only : aceCard
+  use errors_mod,        only : fatalError
+  use genericProcedures, only : binarySearch, ENDFInterpolate, isSortedAscending
+  use numPrecision
 
   implicit none
   private
@@ -162,17 +161,17 @@ contains
     ! Interpolate to get elastic cross section
     res1 = self % table(enIdx1) % el(idx1)
     res2 = self % table(enIdx2) % el(idx2)
-    val(1) = endfInterpolate(E1,E2,res1,res2,E,self % INT)
+    val(1) = ENDFInterpolate(E1,E2,res1,res2,E,self % INT)
 
     ! Interpolate to get capture (n,gamma) cross section
     res1 = self % table(enIdx1) % capt(idx1)
     res2 = self % table(enIdx2) % capt(idx2)
-    val(2) = endfInterpolate(E1,E2,res1,res2,E,self % INT)
+    val(2) = ENDFInterpolate(E1,E2,res1,res2,E,self % INT)
 
     ! Interpolate to get fission cross section
     res1 = self % table(enIdx1) % fiss(idx1)
     res2 = self % table(enIdx2) % fiss(idx2)
-    val(3) = endfInterpolate(E1,E2,res1,res2,E,self % INT)
+    val(3) = ENDFInterpolate(E1,E2,res1,res2,E,self % INT)
 
   end subroutine sampleXSs
 
@@ -217,7 +216,7 @@ contains
 
     ! Discard this table if values don't make sense
     do i = 1,self % nGrid
-      if (.not.isSorted(self % table(i) % CDF)) then
+      if (.not.isSortedAscending(self % table(i) % CDF)) then
         print '(A)', "Probability table discarded because CDF is not sorted"
         call self % kill()
         return

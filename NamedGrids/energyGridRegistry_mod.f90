@@ -1,6 +1,6 @@
 !!
-!! This module works as an object(class) with a single instance [Singelton]
-!!  It purpose is to store diffrent definition of the energy grids including
+!!  This module works as an object(class) with a single instance [Singleton]
+!!  Its purpose is to store different definitions of energy grids including
 !!  a number of predefined energy grids.
 !!
 !! Sample energyGrid definition dictionaries:
@@ -31,12 +31,13 @@
 !!
 module energyGridRegistry_mod
 
-  use numPrecision
-  use preDefEnergyGrids
-  use genericProcedures, only : fatalError, charCmp, isDescending
+  use charMap_class,     only : charMap
   use dictionary_class,  only : dictionary
   use energyGrid_class,  only : energyGrid
-  use charMap_class,     only : charMap
+  use errors_mod,        only : fatalError
+  use genericProcedures, only : charCmp, isSortedDescending
+  use numPrecision
+  use preDefEnergyGrids
 
   implicit none
   private
@@ -234,7 +235,7 @@ contains
 
         ! Verify data
         if(any(bins < ZERO)) call fatalError(Here,' Energy grid '//name//' contains -ve energies')
-        if(.not.isDescending(bins)) call fatalError(Here,'Bins boundaries for grid '//name//' are not descending')
+        if(.not.isSortedDescending(bins)) call fatalError(Here,'Bins boundaries for grid '//name//' are not descending')
 
         ! Build grid
         call eGrid % init(bins)

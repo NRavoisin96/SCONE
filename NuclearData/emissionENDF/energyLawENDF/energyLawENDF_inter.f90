@@ -7,7 +7,7 @@ module energyLawEndf_inter
   private
 
   !!
-  !! Abstract interface for diffrent energy distributions
+  !! Abstract interface for different energy distributions
   !!
   !! Interface:
   !!   sample        -> Sample outgoing energy

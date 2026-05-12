@@ -1,11 +1,12 @@
 module kalbach87_class
 
-  use numPrecision
-  use genericProcedures,       only : fatalError, binarySearch, searchError, interpolate, isSorted
   use aceCard_class,           only : aceCard
-  use RNG_class,               only : RNG
-  use kalbachPdf_class,        only : kalbachPdf
   use correlatedLawENDF_inter, only : correlatedLawENDF
+  use errors_mod,              only : fatalError
+  use genericProcedures,       only : binarySearch, isSortedAscending, linearLinearInterpolate
+  use kalbachPdf_class,        only : kalbachPdf
+  use numPrecision
+  use RNG_class,               only : RNG
 
   implicit none
   private
@@ -52,11 +53,9 @@ contains
     real(defReal)                 :: E_min, E_max
     real(defReal)                 :: factor
     real(defReal)                 :: r, eps
-    character(100),parameter      :: Here='sample (kalbach87_class.f90)'
 
     ! Find Interval index
     idx = binarySearch(self % eGrid,E_in)
-    call searchError(idx,Here)
 
     ! Calculate threshold and sample random number
     eps = (E_in - self % eGrid(idx)) / (self % eGrid(idx+1) - self % eGrid(idx))
@@ -104,11 +103,9 @@ contains
     real(defReal)                :: prob
     integer(shortInt)            :: idx
     real(defReal)                :: prob_1, prob_0, E_1, E_0
-    character(100),parameter     :: Here='probabilityOf (kalbach87_class.f90)'
 
     ! Find interval index
     idx = binarySearch(self % eGrid,E_in)
-    call searchError(idx,Here)
 
     ! Obtain probabilities & energies at boundaries of the interval
     prob_0 = self % pdfs(idx)   % probabilityOf(mu,E_out)
@@ -118,7 +115,7 @@ contains
     E_1 = self % eGrid(idx+1)
 
     ! Interpolate
-    prob = interpolate(E_0, E_1, prob_0, prob_1, E_in)
+    prob = linearLinearInterpolate(E_0, E_1, prob_0, prob_1, E_in)
 
   end function probabilityOf
 
@@ -149,8 +146,8 @@ contains
 
     ! Check if the provided eGrid and pdfs match in size and if eGrid is sorted and all its
     ! elements are +ve.
-    if(size(eGrid) /= size(pdfs))   call fatalError(Here,'eGrid and ePdfs have diffrent size')
-    if(.not.(isSorted(eGrid)))      call fatalError(Here,'eGrid is not sorted ascending')
+    if(size(eGrid) /= size(pdfs))   call fatalError(Here,'eGrid and ePdfs have different size')
+    if(.not.(isSortedAscending(eGrid)))      call fatalError(Here,'eGrid is not sorted ascending')
     if(any( eGrid < 0.0 ))          call fatalError(Here,'eGrid contains -ve values')
 
     ! Deallocate current contents if allocated

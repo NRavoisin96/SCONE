@@ -1,9 +1,10 @@
 module surface_inter
 
+  use dictionary_class,   only : dictionary
+  use errors_mod,         only : fatalError
+  use genericProcedures,  only : areWithinTolerance, numToChar
   use numPrecision
   use universalVariables, only : SURF_TOL, VACUUM_BC
-  use genericProcedures,  only : fatalError, numToChar
-  use dictionary_class,   only : dictionary
 
   implicit none
   private
@@ -368,11 +369,12 @@ contains
     real(defReal)                           :: c
 
     c = self % evaluate(r)
-    hs = c > ZERO
-
-    ! Apply surface tolarance
-    if (abs(c) < self % surfTol()) then
+    if(areWithinTolerance(ZERO, c, tolerance = self % surfTol())) then
       hs = self % going(r, u)
+
+    else
+      hs = ZERO < c
+
     end if
 
   end function halfspace

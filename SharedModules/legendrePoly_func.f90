@@ -19,8 +19,8 @@ module legendrePoly_func
   ! Generic Interfaces
 
   !!
-  !! Samples diffrent Legendre PDFs given number of coefficients and RNG
-  !!   Diffrent Orders can use diffrent methods and have some limits on supported coefficients
+  !! Samples different Legendre PDFs given number of coefficients and RNG
+  !!   Different Orders can use different methods and have some limits on supported coefficients
   !!   Consult particular implementations for details
   !!
   interface sampleLegendre

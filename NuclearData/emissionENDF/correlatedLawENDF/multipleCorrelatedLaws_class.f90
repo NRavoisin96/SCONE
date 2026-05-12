@@ -195,14 +195,14 @@ contains
   !!     DEALLOCATED on exit.
   !!   eGrid [in]     -> Energy grid for p(E) table
   !!   pdf [in]       -> Values of p(E) on the eGrid
-  !!   bounds [in]    -> Optional. Array of bounds of diffrent ENDF interpolation regions.
+  !!   bounds [in]    -> Optional. Array of bounds of different ENDF interpolation regions.
   !!   interENDF [in] -> Optional. Interpolation flags assoctaed with the bounds
   !!
   !! Errors:
   !!   FatalError if:
-  !!     * pdf or eGrid contain -ve entries or have diffrent length
+  !!     * pdf or eGrid contain -ve entries or have different length
   !!     * law is not allocated
-  !!     * bounds & interENDF have diffrent length or one is missing
+  !!     * bounds & interENDF have different length or one is missing
   !!     * Maximum number of laws was already loaded
   !!
   subroutine addLaw(self, law, eGrid, pdf, bounds, interENDF)

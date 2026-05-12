@@ -1,18 +1,16 @@
 module tabularPdf_class
 
-  use numPrecision
-  use universalVariables
-  use errors_mod,        only : fatalError
-  use genericProcedures, only : searchError, linearSearchFloor, interpolate, &
-                                isSorted, numToChar
   use endfConstants
+  use errors_mod,         only : fatalError
+  use numPrecision
+  use genericProcedures,  only : isSortedAscending, linearLinearInterpolate, linearSearchFloor, numToChar
+  use universalVariables, only : valueOutsideArray
 
   implicit none
   private
 
-  integer(shortInt),parameter  :: histogram  = tabPdfHistogram, &
-                                  linLin     = tabPdfLinLin
-  real(defReal),parameter      :: TOL = 1.0e-6
+  integer(shortInt), parameter :: histogram = tabPdfHistogram, linLin = tabPdfLinLin
+  real(defReal), parameter     :: TOL = 1.0e-6_defReal
 
   !!
   !! Simple probability table for one quantity x
@@ -54,13 +52,12 @@ contains
     real(defReal)                            :: x
     integer(shortInt)                        :: idx
     real(defReal)                            :: f, delta, ci, pi
-    character(100),parameter :: Here='sample (tabularPdf_class.f90)'
+    character(*), parameter                  :: HERE = 'sample (tabularPdf_class.f90)'
 
-    idx = linearSearchFloor(self % cdf,r)
-    call searchError(idx,Here)
+    idx = linearSearchFloor(self % cdf, r)
+    if(idx == valueOutsideArray) call fatalError(HERE, 'Requested value is outside array bounds.')
 
     idx = min(idx, size(self % x) - 1)
-
     ci = self % cdf(idx)
     pi = self % pdf(idx)
 
@@ -81,7 +78,7 @@ contains
         end if
 
       case default
-        call fatalError(Here,'Unknown interpolation flag')
+        call fatalError(HERE,'Unknown interpolation flag')
         x = -ONE
     end select
 
@@ -140,7 +137,7 @@ contains
         prob = self % pdf(idx)
 
       case (linLin)
-        prob = interpolate( self % x(idx)  ,  &
+        prob = linearLinearInterpolate( self % x(idx)  ,  &
                             self % x(idx+1),  &
                             self % pdf(idx),  &
                             self % pdf(idx+1),&
@@ -210,9 +207,9 @@ contains
     character(100),parameter               :: Here='init (tabularPdf_class.f90)'
 
     ! Check Input
-    if( size(x) /= size(pdf)) call fatalError(Here,'PDF and x have diffrent size')
+    if( size(x) /= size(pdf)) call fatalError(Here,'PDF and x have different size')
 
-    if( .not.(isSorted(x)))   call fatalError(Here,'Provided x grid is not sorted not descending')
+    if( .not.(isSortedAscending(x)))   call fatalError(Here,'Provided x grid is not sorted not descending')
     if ( any( pdf < 0.0 ))    call fatalError(Here,'Provided PDF contains -ve values')
 
     ! Initialise Data
@@ -273,11 +270,11 @@ contains
     character(100),parameter               :: Here='init (tabularPdf_class.f90)'
 
     ! Check Input
-    if( size(x) /= size(pdf)) call fatalError(Here,'PDF and x have diffrent size')
-    if( size(x) /= size(cdf)) call fatalError(Here,'CDF and x have diffrent size')
+    if( size(x) /= size(pdf)) call fatalError(Here,'PDF and x have different size')
+    if( size(x) /= size(cdf)) call fatalError(Here,'CDF and x have different size')
 
-    if( .not.(isSorted(x)))   call fatalError(Here,'Provided x grid is not sorted not decending')
-    if( .not.(isSorted(cdf))) call fatalError(Here,'Provided CDF is not sorted not descending')
+    if( .not.(isSortedAscending(x)))   call fatalError(Here,'Provided x grid is not sorted not decending')
+    if( .not.(isSortedAscending(cdf))) call fatalError(Here,'Provided CDF is not sorted not descending')
 
     if ( any( pdf < 0.0 ))    call fatalError(Here,'Provided PDF contains -ve values')
     if ( any( cdf < 0.0 ))    call fatalError(Here,'Provided CDF contains -ve values')
