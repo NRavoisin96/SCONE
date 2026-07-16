@@ -548,6 +548,7 @@ contains
 
     ! If there is no cellZones file, just create a single element zone and assign every element to it.
     if(.not. elementZonesFileExists) then
+      call self % setLocalIdsNumber(1)
       do i = 1, self % nElements
         call self % setElementLocalId(i, 1)
 

@@ -409,9 +409,9 @@ contains
     class(face), intent(in)                 :: self
     real(defReal), dimension(3), intent(in) :: r
     type(vertexShelf), intent(in)           :: vertices
-    real(defReal)                           :: d, dSquared, inverseNormalSquared, temp
+    real(defReal)                           :: d, dSquared, inverseNormalSquared
     real(defReal), dimension(3)             :: diff, proj
-    integer(shortInt)                       :: i, nextIdx, nVertices
+    integer(shortInt)                       :: i, nVertices
 
     ! First compute the distance between the point and the plane of the face.
     diff = r - self % centroid
@@ -422,7 +422,7 @@ contains
     proj = r - self % normal * d * inverseNormalSquared
 
     ! If projection is inside the face, compute dSquared and return.
-    if (self % isPointInside(proj, vertices)) then
+    if(self % isPointInside(proj, vertices)) then
       dSquared = d * d * inverseNormalSquared
       return
 
@@ -433,9 +433,8 @@ contains
     dSquared = INF
     nVertices = size(self % vertexIdxs)
     do i = 1, nVertices
-      nextIdx = merge(1, i + 1, i == nVertices)
-      temp = self % distanceSquaredToEdge(r, vertices, i, nextIdx)
-      dSquared = min(dSquared, temp)
+      dSquared = min(dSquared, self % distanceSquaredToEdge(r, vertices, self % vertexIdxs(i), &
+                                                            self % vertexIdxs(merge(1, i + 1, i == nVertices))))
 
     end do
 
