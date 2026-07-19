@@ -50,7 +50,7 @@ contains
 
     intersectedFaceIdxs = terminalCellPtr % getIntersectedFaceIdxs()
     if(1 < self % getDepth()) then
-      if(size(intersectedFaceIdxs) == 1) then
+      if(self % getSingleFaceShortcut() .and. size(intersectedFaceIdxs) == 1) then
         call faces % testFaceHalfSpace(intersectedFaceIdxs(1), r, elementIdx)
         return
 

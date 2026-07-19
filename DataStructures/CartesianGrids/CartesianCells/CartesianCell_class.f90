@@ -181,11 +181,13 @@ contains
   !!
   !!
   !!
-  elemental function isSimple(self) result(isIt)
+  elemental function isSimple(self, singleFaceShortcut) result(isIt)
     class(CartesianCell), intent(in) :: self
+    logical(defBool), intent(in)     :: singleFaceShortcut
     logical(defBool)                 :: isIt
 
-    isIt = (0 < self % elementIdx) .or. (self % isOutside()) .or. (size(self % intersectedFaceIdxs) < 2)
+    isIt = (0 < self % elementIdx) .or. (self % isOutside()) .or. &
+           (self % getIntersectedFacesNumber() < 2 .and. singleFaceShortcut)
 
   end function isSimple
 

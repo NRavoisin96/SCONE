@@ -170,7 +170,7 @@ contains
 
     ! For multi-layered Patch-Search, check if terminal cell only intersects with a single face. In this case, perform an 
     ! element inclusion test on the elements sharing this face and return.
-    if(1 < self % getDepth() .and. terminalCellPtr % intersectsOnlyOneFace()) then
+    if(1 < self % getDepth() .and. self % getSingleFaceShortcut() .and. terminalCellPtr % intersectsOnlyOneFace()) then
       call faces % testFaceHalfSpace(terminalCellPtr % getFirstIntersectedFaceIdx(), r, elementIdx)
       return
 

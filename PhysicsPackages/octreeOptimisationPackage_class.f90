@@ -2,6 +2,7 @@ module octreeOptimisationPackage_class
 
   use coord_class,            only : coord
   use dictionary_class,       only : dictionary
+  use genericProcedures,      only : numToChar
   use geometry_inter,         only : geometry
   use geometryFactory_func,   only : new_geometry
   use geometryReg_mod,        only : geomIdx, geomPtr
@@ -29,9 +30,8 @@ module octreeOptimisationPackage_class
     integer(longInt)                               :: seed = 0_longInt
     integer(shortInt)                              :: nRuns = 0, population = 0
     integer(shortInt), dimension(:), allocatable   :: depths, nMaxFaces
-    real(defReal), dimension(:, :), allocatable    :: averageHostTimes, averageInitialisationTimes, averageTotalTimes, &
-                                                      stdHostTimes, stdInitialisationTimes, stdTotalTimes
-    real(defReal), dimension(:, :, :), allocatable :: hostTimes, initialisationTimes, totalTimes
+    real(defReal), dimension(:, :), allocatable    :: storageSizes
+    real(defReal), dimension(:, :, :), allocatable :: hostTimes, initialisationTimes
   contains
     procedure :: collectResults
     procedure :: init
@@ -45,9 +45,8 @@ contains
   !!
   subroutine collectResults(self)
     class(octreeOptimisationPackage), intent(in) :: self
-    character(nameLen)                           :: name
-    integer(shortInt)                            :: i, j
-    integer(shortInt), dimension(:), allocatable :: arrayShape
+    character(nameLen)                           :: name, suffix
+    integer(shortInt)                            :: i, j, k
     type(outputFile)                             :: out
 
     call out % init(self % outputFormat, filename = self % outputFile)
@@ -58,91 +57,64 @@ contains
     name = 'pop'
     call out % printValue(self % population, name)
 
+    name = 'nRuns'
+    call out % printValue(self % nRuns, name)
+
     ! Print values.
-    arrayShape = [size(self % depths), size(self % nMaxFaces)]
-    name = 'averageInitialisationTimes'
+    name = 'depths'
     call out % startBlock(name)
     name = 'Res'
-    call out % startArray(name, arrayShape)
-    do j = 1, size(self % nMaxFaces)
-      do i = 1, size(self % depths)
-        call out % addValue(self % averageInitialisationTimes(i, j))
-
-      end do
+    call out % startArray(name, [size(self % depths)])
+    do i = 1, size(self % depths)
+      call out % addValue(self % depths(i))
 
     end do
     call out % endArray()
     call out % endBlock()
 
-    name = 'stdInitialisationTimes'
+    name = 'nMaxFaces'
     call out % startBlock(name)
     name = 'Res'
-    call out % startArray(name, arrayShape)
-    do j = 1, size(self % nMaxFaces)
-      do i = 1, size(self % depths)
-        call out % addValue(self % stdInitialisationTimes(i, j))
-
-      end do
+    call out % startArray(name, [size(self % nMaxFaces)])
+    do i = 1, size(self % nMaxFaces)
+      call out % addValue(self % nMaxFaces(i))
 
     end do
     call out % endArray()
     call out % endBlock()
 
-    name = 'averageHostTimes'
-    call out % startBlock(name)
-    name = 'Res'
-    call out % startArray(name, arrayShape)
-    do j = 1, size(self % nMaxFaces)
-      do i = 1, size(self % depths)
-        call out % addValue(self % averageHostTimes(i, j))
+    do i = 1, size(self % depths)
+      do j = 1, size(self % nMaxFaces)
+        suffix = '_D'//numToChar(self % depths(i))//'_N'//numToChar(self % nMaxFaces(j))
+
+        name = 'storageSize'//trim(suffix)
+        call out % printValue(self % storageSizes(i, j), name)
+
+        name = 'rawInitTimes'//trim(suffix)
+        call out % startBlock(name)
+        name = 'Res'
+        call out % startArray(name, [self % nRuns])
+        do k = 1, self % nRuns
+          call out % addValue(self % initialisationTimes(i, j, k))
+
+        end do
+        call out % endArray()
+        call out % endBlock()
+
+        name = 'rawHostTimes'//trim(suffix)
+        call out % startBlock(name)
+        name = 'Res'
+        call out % startArray(name, [self % nRuns])
+        do k = 1, self % nRuns
+          call out % addValue(self % hostTimes(i, j, k))
+
+        end do
+        call out % endArray()
+        call out % endBlock()
 
       end do
 
     end do
-    call out % endArray()
-    call out % endBlock()
-
-    name = 'stdHostTimes'
-    call out % startBlock(name)
-    name = 'Res'
-    call out % startArray(name, arrayShape)
-    do j = 1, size(self % nMaxFaces)
-      do i = 1, size(self % depths)
-        call out % addValue(self % stdHostTimes(i, j))
-
-      end do
-
-    end do
-    call out % endArray()
-    call out % endBlock()
-
-    name = 'averageTotalTimes'
-    call out % startBlock(name)
-    name = 'Res'
-    call out % startArray(name, arrayShape)
-    do j = 1, size(self % nMaxFaces)
-      do i = 1, size(self % depths)
-        call out % addValue(self % averageTotalTimes(i, j))
-
-      end do
-
-    end do
-    call out % endArray()
-    call out % endBlock()
-
-    name = 'stdTotalTimes'
-    call out % startBlock(name)
-    name = 'Res'
-    call out % startArray(name, arrayShape)
-    do j = 1, size(self % nMaxFaces)
-      do i = 1, size(self % depths)
-        call out % addValue(self % stdTotalTimes(i, j))
-
-      end do
-
-    end do
-    call out % endArray()
-    call out % endBlock()
 
   end subroutine collectResults
 
@@ -175,11 +147,9 @@ contains
     ! Allocate memory.
     sizeDepths = size(self % depths)
     sizeNMaxFaces = size(self % nMaxFaces)
-    allocate(self % averageHostTimes(sizeDepths, sizeNMaxFaces), self % averageInitialisationTimes(sizeDepths, sizeNMaxFaces), &
-             self % averageTotalTimes(sizeDepths, sizeNMaxFaces), self % hostTimes(sizeDepths, sizeNMaxFaces, self % nRuns), &
-             self % stdHostTimes(sizeDepths, sizeNMaxFaces), self % stdInitialisationTimes(sizeDepths, sizeNMaxFaces), &
-             self % stdTotalTimes(sizeDepths, sizeNMaxFaces), self % initialisationTimes(sizeDepths, sizeNMaxFaces, self % nRuns), &
-             self % totalTimes(sizeDepths, sizeNMaxFaces, self % nRuns))
+    allocate(self % storageSizes(sizeDepths, sizeNMaxFaces), &
+             self % hostTimes(sizeDepths, sizeNMaxFaces, self % nRuns), &
+             self % initialisationTimes(sizeDepths, sizeNMaxFaces, self % nRuns))
 
     ! Read calculation settings
     call dict % get(self % population, 'pop')
@@ -216,8 +186,6 @@ contains
     class(universe), pointer                        :: universePtr
     class(unstructuredMesh), pointer                :: unstructuredMeshPtr
     integer(shortInt)                               :: i, j, k
-    real(defReal)                                   :: sumInit, sumHost, sumTot, sumofSquaresInit, sumOfSquaresHost, &
-                                                       sumOfSquaresTot, t_init, t_host, t_tot
     real(defReal), dimension(3)                     :: u
     real(defReal), dimension(6)                     :: bounds
     type(coord)                                     :: coords
@@ -261,43 +229,7 @@ contains
       end do
 
     end do
-    self % totalTimes = self % initialisationTimes + self % hostTimes
 
-    ! Compute means and variances.
-    do i = 1, size(self % depths)
-      do j = 1, size(self % nMaxFaces)
-        sumInit = ZERO
-        sumHost = ZERO
-        sumTot = ZERO
-        sumOfSquaresInit = ZERO
-        sumOfSquaresHost = ZERO
-        sumOfSquaresTot = ZERO
-        do k = 1, self % nRuns
-          t_init = self % initialisationTimes(i, j, k)
-          sumInit = sumInit + t_init
-          sumofSquaresInit = sumofSquaresInit + t_init * t_init
-
-          t_host = self % hostTimes(i, j, k)
-          sumHost = sumHost + t_host
-          sumOfSquaresHost = sumOfSquaresHost + t_host * t_host
-
-          t_tot = self % totalTimes(i, j, k)
-          sumTot = sumTot + t_tot
-          sumOfSquaresTot = sumOfSquaresTot + t_tot * t_tot
-
-        end do
-        self % averageInitialisationTimes(i, j) = sumInit / self % nRuns
-        self % stdInitialisationTimes(i, j) = sqrt((sumofSquaresInit - sumInit * sumInit / self % nRuns) / (self % nRuns - 1))
-
-        self % averageHostTimes(i, j) = sumHost / self % nRuns
-        self % stdHostTimes(i, j) = sqrt((sumofSquaresHost - sumHost * sumHost / self % nRuns) / (self % nRuns - 1))
-
-        self % averageTotalTimes(i, j) = sumTot / self % nRuns
-        self % stdTotalTimes(i, j) = sqrt((sumofSquaresTot - sumTot * sumTot / self % nRuns) / (self % nRuns - 1))
-
-      end do
-
-    end do
     call self % collectResults()
 
   end subroutine run
@@ -317,10 +249,6 @@ contains
     type(dictionary)                                :: dict
     type(RNG)                                       :: pRNG
 
-    print *, 'Depth: ', self % depths(depthNumber)
-    print *, 'nMaxFaces: ', self % nMaxFaces(nMaxFacesNumber)
-    print *, 'Run: ', runNumber
-
     ! Initialise dictionary then fill it.
     call dict % init(3)
     call dict % store('type', 'octreeAcceleration')
@@ -332,10 +260,9 @@ contains
     call uMesh % initAccelerationStructure(dict)
     call cpu_time(t2)
     self % initialisationTimes(depthNumber, nMaxFacesNumber, runNumber) = t2 - t1
-    print*, "-------------------------------------------------------------"
-    print*, "/\/\ Initialisation procedure time /\/\"
-    print*, "CPU time: ", self % initialisationTimes(depthNumber, nMaxFacesNumber, runNumber), " seconds"
-    print*, "-------------------------------------------------------------"
+
+    ! Get storage size.
+    self % storageSizes(depthNumber, nMaxFacesNumber) = uMesh % getAccelerationStructureStorageSize() / 1.0e6_defReal
 
     boundsDifference = bounds(4:6) - bounds(1:3)
     call pRNG % init(self % seed)
@@ -351,10 +278,6 @@ contains
     end do
     call cpu_time(t2)
     self % hostTimes(depthNumber, nMaxFacesNumber, runNumber) = t2 - t1
-    print*, "-------------------------------------------------------------"
-    print*, "/\/\ Host element determination time /\/\"
-    print*, "CPU time: ", self % hostTimes(depthNumber, nMaxFacesNumber, runNumber), " seconds"
-    print*, "-------------------------------------------------------------"
 
     call uMesh % killAccelerationStructure()
 

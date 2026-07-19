@@ -26,7 +26,7 @@ module ASCGAcceleration_inter
   type, abstract, public, extends(accelerationStructure) :: ASCGAcceleration
     private
     integer(shortInt)                              :: depth = 0, nSubGrids = 0
-    logical(defBool)                               :: mapCells = .false.
+    logical(defBool)                               :: mapCells = .false., singleFaceShortcut = .true.
     real(defReal)                                  :: minimumAngle = ZERO, minimumEdgeLength = ZERO, targetDistance = ZERO, &
                                                       wStar = ZERO
     real(defReal), dimension(6)                    :: meshBounds = ZERO
@@ -39,6 +39,7 @@ module ASCGAcceleration_inter
     procedure :: computeCosineMaximumFaceAngle
     procedure :: computeGeometricParameters
     procedure :: getDepth
+    procedure :: getSingleFaceShortcut
     procedure :: getStorageSize
     procedure :: getWStar
     procedure :: init
@@ -192,6 +193,17 @@ contains
   !!
   !!
   !!
+  elemental function getSingleFaceShortcut(self) result(singleFaceShortcut)
+    class(ASCGAcceleration), intent(in) :: self
+    logical(defBool)                    :: singleFaceShortcut
+
+    singleFaceShortcut = self % singleFaceShortcut
+
+  end function getSingleFaceShortcut
+
+  !!
+  !!
+  !!
   elemental function getStorageSize(self) result(storageSize)
     class(ASCGAcceleration), intent(in) :: self
     integer(longInt)                    :: storageSize
@@ -237,6 +249,9 @@ contains
     real(defReal), dimension(6)                    :: gridBounds
     type(CartesianGrid), dimension(:), allocatable :: temp
     character(*), parameter                        :: HERE = 'init (ASCGAcceleration_inter.f90)'
+
+    ! Retrieve whether to use shortcut for single face intersections. Default to .true.
+    call dict % getOrDefault(self % singleFaceShortcut, 'singleFaceShortcut', .true.)
 
     ! Retrieve number of layers from dictionary and allocate memory.
     call dict % getOrDefault(self % depth, 'depth', 1)
@@ -371,7 +386,7 @@ contains
         cellBounds(2) = cellBounds(5) - gridSpacing
         do i = 1, nCells(1)
           ! Check if the current cell needs to be refined and request index for next available subgrid.
-          if(currentGridPtr % isCellSimple(i, j, k)) cycle
+          if(currentGridPtr % isCellSimple(i, j, k, self % singleFaceShortcut)) cycle
           call self % addSubGrid()
 
           ! Re-acquire pointer since memory reallocation may have corrupted pointers.

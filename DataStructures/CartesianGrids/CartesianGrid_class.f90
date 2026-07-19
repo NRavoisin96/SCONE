@@ -268,12 +268,13 @@ contains
   !!
   !!
   !!
-  elemental function isCellSimple(self, xIdx, yIdx, zIdx) result(isIt)
+  elemental function isCellSimple(self, xIdx, yIdx, zIdx, singleFaceShortcut) result(isIt)
     class(CartesianGrid), intent(in) :: self
     integer(shortInt), intent(in)    :: xIdx, yIdx, zIdx
+    logical(defBool), intent(in)     :: singleFaceShortcut
     logical(defBool)                 :: isIt
 
-    isIt = self % cells(xIdx, yIdx, zIdx) % isSimple()
+    isIt = self % cells(xIdx, yIdx, zIdx) % isSimple(singleFaceShortcut)
 
   end function isCellSimple
 
