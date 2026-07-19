@@ -2,9 +2,9 @@ type octreeOptimisationPackage;
 
 pop 5000000;
 seed 1;
-depths (6);
+depths (4 5 6 7 8);
 nMaxFaces (1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16);
-nRuns 200;
+nRuns 50;
 
 geometry {
 	type geometryStd;

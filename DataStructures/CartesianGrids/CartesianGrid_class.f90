@@ -335,22 +335,26 @@ contains
   !!
   !!
   !!
-  subroutine map(self, elementIdxs, faceIdxs, isFinestLayer, mapCells, targetDistance, edges, elements, faces, vertices)
+  subroutine map(self, elementIdxs, faceIdxs, isFinestLayer, mapCells, naiveInitialisation, targetDistance, edges, &
+                 elements, faces, vertices)
     class(CartesianGrid), intent(inout)          :: self
     integer(shortInt), dimension(:), intent(in)  :: elementIdxs, faceIdxs
-    logical(defBool), intent(in)                 :: isFinestLayer, mapCells
+    logical(defBool), intent(in)                 :: isFinestLayer, mapCells, naiveInitialisation
     real(defReal), intent(in)                    :: targetDistance
     type(edgeShelf), intent(in)                  :: edges
     type(elementShelf), intent(in)               :: elements
-    type(faceShelf), intent(in)                  :: faces
+    type(faceShelf), intent(inout)               :: faces
     type(vertexShelf), intent(in)                :: vertices
-    integer(shortInt)                            :: i, j, k, l
+    integer(shortInt)                            :: c, i, j, k, l
     integer(shortInt), dimension(:), allocatable :: cellIdxs, elementFaceIdxs, elementVertexIdxs, faceVertexIdxs
-    real(defReal), dimension(3)                  :: centroid
+    logical(defBool)                             :: isInside
+    real(defReal), dimension(3)                  :: centroid, corner
+    real(defReal), dimension(3, 8)               :: CORNERS = reshape([-ONE,-ONE,-ONE, ONE,-ONE,-ONE, -ONE, ONE,-ONE, &
+                                                                       ONE, ONE,-ONE, -ONE,-ONE, ONE, ONE,-ONE, ONE, &
+                                                                       -ONE, ONE, ONE, ONE, ONE, ONE], [3, 8])
 
     ! Loop over all faces.
     do i = 1, size(faceIdxs)
-
       ! Generate the indices of the cells contained in the current face's AABB.
       faceVertexIdxs = faces % getFaceVertexIdxs(faceIdxs(i))
       cellIdxs = self % constructCellIdxs(faceVertexIdxs, vertices)
@@ -362,11 +366,12 @@ contains
           centroid(2) = self % bounds(2) + self % spacing * (k - HALF)
           do j = max(1, cellIdxs(1)), min(self % nCells(1), cellIdxs(4))
             centroid(1) = self % bounds(1) + self % spacing * (j - HALF)
-            ! Now test current cell for intersection with the current face.
+            ! If initialising without any optimisations, re-compute the SAT cache of the face before testing for an intersection.
+            if(naiveInitialisation) call faces % computeFaceSATData(faceIdxs(i), edges, vertices)
+
+            ! Test current cell for intersection with the current face.
             if(faces % intersectsFace(faceIdxs(i), self % spacing, centroid)) &
             call self % cells(j, k, l) % addIntersectedFaceIdx(faceIdxs(i)) 
-            !call self % cells(j, k, l) % testFaceIntersection(faceIdxs(i), extraDistance, self % spacing, centroid, &
-            !                                                  caches(faceIdxs(i)))
 
             ! If we are at the finest layer, map the cell.
             if(mapCells .and. isFinestLayer) call self % cells(j, k, l) % map(targetDistance, centroid, edges, faces, vertices)
@@ -392,7 +397,26 @@ contains
         do k = max(1, cellIdxs(2)), min(self % nCells(2), cellIdxs(5))
           centroid(2) = self % bounds(2) + self % spacing * (k - HALF)
           do j = max(1, cellIdxs(1)), min(self % nCells(1), cellIdxs(4))
-            if(self % cells(j, k, l) % isUnprocessed()) then
+            if(naiveInitialisation) then
+              ! Compute centroid unconditionally and initialise isInside = .true.
+              centroid(1) = self % bounds(1) + self % spacing * (j - HALF)
+              isInside = .true.
+
+              ! Check if each corner is inside and abort check if not.
+              do c = 1, 8
+                corner = centroid + HALF * self % spacing * CORNERS(:, c)
+                if(.not. elements % isPointInsideElementNoBoundaryCheck(elementIdxs(i), corner, faces)) then
+                  isInside = .false.
+                  exit
+
+                end if
+
+                ! If still inside then the cell is contained within the element.
+                if(isInside) call self % cells(j, k, l) % setElementIdx(elementIdxs(i))
+
+              end do
+
+            elseif(self % cells(j, k, l) % isUnprocessed()) then
               centroid(1) = self % bounds(1) + self % spacing * (j - HALF)
               if(elements % isPointInsideElementNoBoundaryCheck(elementIdxs(i), centroid, faces)) &
               call self % cells(j, k, l) % setElementIdx(elementIdxs(i))

@@ -5,7 +5,7 @@ module OpenFOAMMesh_class
   use edgeShelf_class,              only : edgeShelf
   use elementShelf_class,           only : elementShelf
   use faceShelf_class,              only : faceShelf
-  use genericProcedures,            only : append, fatalError, numToChar, openToRead, quickSort
+  use genericProcedures,            only : append, areEqual, fatalError, numToChar, openToRead, quickSort
   use numPrecision
   use universalVariables,           only : INF
   use unstructuredMesh_inter,       only : unstructuredMesh, &
@@ -807,6 +807,12 @@ contains
         read(unit, "(a)") string
 
       end if
+
+      ! Sanitise bad inputs.
+      do j = 1, 3
+        if(areEqual(ZERO, coordinates(j))) coordinates(j) = ZERO
+
+      end do
 
       ! Set the index and coordinates of the current vertex. Apply offset in the process.
       call vertices % initVertex(i, coordinates + offset)
