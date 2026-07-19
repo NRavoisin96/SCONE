@@ -12,7 +12,6 @@ module hostElementDeterminationPackage_class
   use nuclearDataReg_mod,     only : ndReg_init => init
   use numPrecision
   use outputFile_class,       only : outputFile
-  use patchSearchStatistics_mod
   use physicsPackage_inter,   only : physicsPackage
   use rng_class,              only : rng
   use timer_mod,              only : registerTimer
@@ -32,14 +31,10 @@ module hostElementDeterminationPackage_class
     class(geometry), pointer                     :: geom => null()
     integer(shortInt)                            :: octreeDepth = 0, octreeNMaxFaces = 0, pop = 0
     integer(shortInt), dimension(:), allocatable :: depths, seeds
-    integer(longInt), dimension(:, :), allocatable :: nQueries_patch, nOutside_patch, nDirectElement_patch, &
-                                                      nSingleFace_patch, nAngularSearch_patch, nVertexDisplacement_patch
-    logical(defBool)                             :: singleFaceShortcut = .true.
+    logical(defBool)                             :: naiveInitialisation = .false., singleFaceShortcut = .true.
     real(defReal)                                :: octreeStorageSize = ZERO
     real(defReal), dimension(:), allocatable     :: averageHostTimes_patch, averageInitialisationTimes_patch, hostTimes_other, &
-                                                    initialisationTimes_other, patchSearchStorageSizes, edgeMappingVolumes, &
-                                                    elementMappingVolumes, outsideVolumes, singleFaceVolumes, &
-                                                    vertexMappingVolumes, totalVolumes
+                                                    initialisationTimes_other, patchSearchStorageSizes
     real(defReal), dimension(:, :), allocatable  :: hostTimes_patch, initialisationTimes_patch
   contains
     procedure :: collectResults
@@ -118,25 +113,6 @@ contains
       name = 'patchStorageSize_D'//numToChar(self % depths(i))
       call out % printValue(self % patchSearchStorageSizes(i), name)
 
-      ! Print cell volumes.
-      name = 'patchEdgeMappingVolume_D'//numToChar(self % depths(i))
-      call out % printValue(self % edgeMappingVolumes(i), name)
-
-      name = 'patchElementMappingVolume_D'//numToChar(self % depths(i))
-      call out % printValue(self % elementMappingVolumes(i), name)
-
-      name = 'patchOutsideVolume_D'//numToChar(self % depths(i))
-      call out % printValue(self % outsideVolumes(i), name)
-
-      name = 'patchSingleFaceVolume_D'//numToChar(self % depths(i))
-      call out % printValue(self % singleFaceVolumes(i), name)
-
-      name = 'patchVertexMappingVolume_D'//numToChar(self % depths(i))
-      call out % printValue(self % vertexMappingVolumes(i), name)
-
-      name = 'patchTotalVolume_D'//numToChar(self % depths(i))
-      call out % printValue(self % totalVolumes(i), name)
-
       name = 'rawPatchInitTimes_D'//numToChar(self % depths(i))
       call out % startBlock(name)
       name = 'Res'
@@ -154,73 +130,6 @@ contains
       call out % startArray(name, [size(self % seeds)])
       do j = 1, size(self % seeds)
         call out % addValue(self % hostTimes_patch(i, j))
-
-      end do
-      call out % endArray()
-      call out % endBlock()
-
-      ! Print dynamic triggers.
-      name = 'rawPatchNQueries_D'//numToChar(self % depths(i))
-      call out % startBlock(name)
-      name = 'Res'
-      call out % startArray(name, [size(self % seeds)])
-      do j = 1, size(self % seeds)
-        call out % addValue(self % nQueries_patch(i, j))
-
-      end do
-      call out % endArray()
-      call out % endBlock()
-
-      name = 'rawPatchNOutside_D'//numToChar(self % depths(i))
-      call out % startBlock(name)
-      name = 'Res'
-      call out % startArray(name, [size(self % seeds)])
-      do j = 1, size(self % seeds)
-        call out % addValue(self % nOutside_patch(i, j))
-
-      end do
-      call out % endArray()
-      call out % endBlock()
-
-      name = 'rawPatchNDirectElement_D'//numToChar(self % depths(i))
-      call out % startBlock(name)
-      name = 'Res'
-      call out % startArray(name, [size(self % seeds)])
-      do j = 1, size(self % seeds)
-        call out % addValue(self % nDirectElement_patch(i, j))
-
-      end do
-      call out % endArray()
-      call out % endBlock()
-
-      name = 'rawPatchNSingleFace_D'//numToChar(self % depths(i))
-      call out % startBlock(name)
-      name = 'Res'
-      call out % startArray(name, [size(self % seeds)])
-      do j = 1, size(self % seeds)
-        call out % addValue(self % nSingleFace_patch(i, j))
-
-      end do
-      call out % endArray()
-      call out % endBlock()
-
-      name = 'rawPatchNAngularSearch_D'//numToChar(self % depths(i))
-      call out % startBlock(name)
-      name = 'Res'
-      call out % startArray(name, [size(self % seeds)])
-      do j = 1, size(self % seeds)
-        call out % addValue(self % nAngularSearch_patch(i, j))
-
-      end do
-      call out % endArray()
-      call out % endBlock()
-
-      name = 'rawPatchNVertexDisplacement_D'//numToChar(self % depths(i))
-      call out % startBlock(name)
-      name = 'Res'
-      call out % startArray(name, [size(self % seeds)])
-      do j = 1, size(self % seeds)
-        call out % addValue(self % nVertexDisplacement_patch(i, j))
 
       end do
       call out % endArray()
@@ -245,6 +154,7 @@ contains
     call dict % getOrDefault(self % patchType, 'patchType', 'patchSearchAcceleration')
 
     ! Retrieve singleFaceShortcut from dictionary.
+    call dict % getOrDefault(self % naiveInitialisation, 'naiveInitialisation', .false.)
     call dict % getOrDefault(self % singleFaceShortcut, 'singleFaceShortcut', .true.)
 
     ! Read outputfile path
@@ -265,14 +175,9 @@ contains
     ! Allocate memory.
     nDepths = size(self % depths)
     nRuns = size(self % seeds)
-    allocate(self % nQueries_patch(nDepths, nRuns), self % nOutside_patch(nDepths, nRuns), &
-             self % nDirectElement_patch(nDepths, nRuns), self % nSingleFace_patch(nDepths, nRuns), &
-             self % nAngularSearch_patch(nDepths, nRuns), self % nVertexDisplacement_patch(nDepths, nRuns), &
-             self % hostTimes_patch(nDepths, nRuns), self % hostTimes_other(nRuns), &
+    allocate(self % hostTimes_patch(nDepths, nRuns), self % hostTimes_other(nRuns), &
              self % initialisationTimes_patch(nDepths, nRuns), self % initialisationTimes_other(nRuns), &
-             self % patchSearchStorageSizes(nDepths), self % edgeMappingVolumes(nDepths), &
-             self % elementMappingVolumes(nDepths), self % outsideVolumes(nDepths), &
-             self % singleFaceVolumes(nDepths), self % vertexMappingVolumes(nDepths), self % totalVolumes(nDepths))
+             self % patchSearchStorageSizes(nDepths))
 
     ! Build Nuclear Data
     call ndReg_init(dict % getDictPtr("nuclearData"))
@@ -409,13 +314,11 @@ contains
     type(RNG)                                             :: pRNG
 
     ! Initialise dictionary then fill it.
-    call dict % init(3)
+    call dict % init(4)
     call dict % store('type', self % patchType)
     call dict % store('depth', self % depths(depthNumber))
-
+    call dict % store('naiveInitialisation', merge(1, 0, self % naiveInitialisation))
     call dict % store('singleFaceShortcut', merge(1, 0, self % singleFaceShortcut))
-
-    call resetPatchSearchStats()
 
     ! Now initialise acceleration structure in the mesh.
     call cpu_time(t1)
@@ -440,20 +343,6 @@ contains
     call cpu_time(t2)
     self % hostTimes_patch(depthNumber, runNumber) = t2 - t1
     call uMesh % killAccelerationStructure()
-
-    self % nQueries_patch(depthNumber, runNumber) = nQueries
-    self % nOutside_patch(depthNumber, runNumber) = nOutside
-    self % nDirectElement_patch(depthNumber, runNumber) = nDirectElement
-    self % nSingleFace_patch(depthNumber, runNumber) = nSingleFace
-    self % nAngularSearch_patch(depthNumber, runNumber) = nAngularSearch
-    self % nVertexDisplacement_patch(depthNumber, runNumber) = nVertexDisplacement
-
-    self % edgeMappingVolumes(depthNumber) = edgeMappingVolume
-    self % elementMappingVolumes(depthNumber) = elementMappingVolume
-    self % outsideVolumes(depthNumber) = outsideVolume
-    self % singleFaceVolumes(depthNumber) = singleFaceVolume
-    self % vertexMappingVolumes(depthNumber) = vertexMappingVolume
-    self % totalVolumes(depthNumber) = totalVolume
 
   end subroutine runSingle_patch
 

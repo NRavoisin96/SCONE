@@ -57,6 +57,7 @@ module faceShelf_class
     generic                                  :: intersectsFace => intersectsFace_BoundingBox, intersectsFace_CartesianCell
     procedure, private                       :: intersectsFace_BoundingBox
     procedure, private                       :: intersectsFace_CartesianCell
+    procedure                                :: intersectsFace_naive
     procedure                                :: kill
     procedure                                :: killFaceSATData
     procedure                                :: splitFace
@@ -231,7 +232,6 @@ contains
     integer(shortInt), intent(in)   :: idx
     type(edgeShelf), intent(in)     :: edges
     type(vertexShelf), intent(in)   :: vertices
-    type(faceSATData)               :: cache
 
     call self % shelf(idx) % item % computeSATData(edges, vertices)
 
@@ -681,6 +681,22 @@ contains
     call self % shelf(idx) % item % intersects(spacing, centroid, doesIt)
 
   end function intersectsFace_CartesianCell
+
+  !!
+  !!
+  !!
+  pure function intersectsFace_naive(self, idx, spacing, centroid, edges, vertices) result(doesIt)
+    class(faceShelf), intent(in)            :: self
+    integer(shortInt), intent(in)           :: idx
+    real(defReal), intent(in)               :: spacing
+    real(defReal), dimension(3), intent(in) :: centroid
+    type(edgeShelf), intent(in)             :: edges
+    type(vertexShelf), intent(in)           :: vertices
+    logical(defBool)                        :: doesIt
+
+    call self % shelf(idx) % item % intersects_naive(spacing, centroid, edges, vertices, doesIt)
+
+  end function intersectsFace_naive
   
   !! Subroutine 'kill'
   !!

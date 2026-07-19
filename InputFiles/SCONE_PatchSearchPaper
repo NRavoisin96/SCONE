@@ -4,9 +4,10 @@ pop 1;
 octreeDepth 6;
 octreeNMaxFaces 1;
 
-singleFaceShortcut 0;
+naiveInitialisation 1;
+singleFaceShortcut 1;
 depths (3);
-seeds (1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20);
+seeds (1);
 
 geometry {
 	type geometryStd;

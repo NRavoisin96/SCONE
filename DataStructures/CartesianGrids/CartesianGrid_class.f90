@@ -343,13 +343,13 @@ contains
     real(defReal), intent(in)                    :: targetDistance
     type(edgeShelf), intent(in)                  :: edges
     type(elementShelf), intent(in)               :: elements
-    type(faceShelf), intent(inout)               :: faces
+    type(faceShelf), intent(in)                  :: faces
     type(vertexShelf), intent(in)                :: vertices
     integer(shortInt)                            :: c, i, j, k, l
     integer(shortInt), dimension(:), allocatable :: cellIdxs, elementFaceIdxs, elementVertexIdxs, faceVertexIdxs
     logical(defBool)                             :: isInside
     real(defReal), dimension(3)                  :: centroid, corner
-    real(defReal), dimension(3, 8)               :: CORNERS = reshape([-ONE,-ONE,-ONE, ONE,-ONE,-ONE, -ONE, ONE,-ONE, &
+    real(defReal), dimension(3, 8), parameter    :: CORNERS = reshape([-ONE,-ONE,-ONE, ONE,-ONE,-ONE, -ONE, ONE,-ONE, &
                                                                        ONE, ONE,-ONE, -ONE,-ONE, ONE, ONE,-ONE, ONE, &
                                                                        -ONE, ONE, ONE, ONE, ONE, ONE], [3, 8])
 
@@ -367,11 +367,17 @@ contains
           do j = max(1, cellIdxs(1)), min(self % nCells(1), cellIdxs(4))
             centroid(1) = self % bounds(1) + self % spacing * (j - HALF)
             ! If initialising without any optimisations, re-compute the SAT cache of the face before testing for an intersection.
-            if(naiveInitialisation) call faces % computeFaceSATData(faceIdxs(i), edges, vertices)
+            if(naiveInitialisation) then
+              ! Test current cell for intersection with the current face.
+              if(faces % intersectsFace_naive(faceIdxs(i), self % spacing, centroid, edges, vertices)) &
+                call self % cells(j, k, l) % addIntersectedFaceIdx(faceIdxs(i)) 
 
-            ! Test current cell for intersection with the current face.
-            if(faces % intersectsFace(faceIdxs(i), self % spacing, centroid)) &
-            call self % cells(j, k, l) % addIntersectedFaceIdx(faceIdxs(i)) 
+            else
+              ! Test current cell for intersection with the current face.
+              if(faces % intersectsFace(faceIdxs(i), self % spacing, centroid)) &
+                call self % cells(j, k, l) % addIntersectedFaceIdx(faceIdxs(i)) 
+
+            end if
 
             ! If we are at the finest layer, map the cell.
             if(mapCells .and. isFinestLayer) call self % cells(j, k, l) % map(targetDistance, centroid, edges, faces, vertices)
@@ -411,10 +417,9 @@ contains
 
                 end if
 
-                ! If still inside then the cell is contained within the element.
-                if(isInside) call self % cells(j, k, l) % setElementIdx(elementIdxs(i))
-
               end do
+              ! If still inside then the cell is contained within the element.
+              if(isInside) call self % cells(j, k, l) % setElementIdx(elementIdxs(i))
 
             elseif(self % cells(j, k, l) % isUnprocessed()) then
               centroid(1) = self % bounds(1) + self % spacing * (j - HALF)

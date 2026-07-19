@@ -55,6 +55,7 @@ module face_inter
     procedure, non_overridable                   :: addTriangleIdx
     procedure, non_overridable                   :: addVertexIdx
     procedure, non_overridable                   :: build
+    procedure, private                           :: buildSATData
     procedure(computeComponents), deferred       :: computeComponents
     procedure, non_overridable                   :: computeIntersection
     procedure                                    :: computeSATData
@@ -80,6 +81,7 @@ module face_inter
     generic                                      :: intersects => intersects_BoundingBox, intersects_CartesianCell
     procedure, private, non_overridable          :: intersects_BoundingBox
     procedure, private, non_overridable          :: intersects_CartesianCell
+    procedure                                    :: intersects_naive
     procedure, non_overridable                   :: isPointInside
     procedure                                    :: kill
     procedure                                    :: killSATData
@@ -91,6 +93,7 @@ module face_inter
     procedure, non_overridable                   :: setVertexIdxs
     procedure                                    :: split
     procedure, non_overridable                   :: testHalfSpace
+    procedure, private                           :: testSATAgainstCache
   end type face
 
   !!
@@ -283,6 +286,68 @@ contains
 
   end subroutine build
 
+  !!
+  !!
+  !!
+  elemental function buildSATData(self, edges, vertices) result(cache)
+    class(face), intent(in)                     :: self
+    type(edgeShelf), intent(in)                 :: edges
+    type(vertexShelf), intent(in)               :: vertices
+    integer(shortInt)                           :: i, j, nEdges, nVertices
+    real(defReal), dimension(3)                 :: projections
+    real(defReal), dimension(:, :), allocatable :: verticesCoords
+    type(faceSATData)                           :: cache
+
+    ! Store face data.
+    cache % constant = -dot_product(self % normal, self % centroid)
+    cache % halfNormalL1Norm = HALF * sum(abs(self % normal))
+    cache % absNormal = abs(self % normal)
+
+    ! Compute nEdges then allocate memory.
+    nEdges = 0
+    if(allocated(self % edgeIdxs)) nEdges = size(self % edgeIdxs)
+    allocate(cache % edgeVectors(3, nEdges), cache % edgeAxesIntervals(3, nEdges, 2))
+
+    ! Compute nVertices, allocate memory then pre-fetch the coordinates of all vertices in the face.
+    nVertices = 0
+    if(allocated(self % vertexIdxs)) nVertices = size(self % vertexIdxs)
+    allocate(verticesCoords(3, nVertices))
+    do i = 1, nVertices
+      verticesCoords(:, i) = vertices % getVertexCoordinates(self % vertexIdxs(i))
+
+    end do
+
+    ! Loop through all the edges in the face and compute the projection intervals.
+    do i = 1, nEdges
+      cache % edgeVectors(:, i) = edges % getEdgeUnitVector(self % edgeIdxs(i))
+
+      ! Initialise projections and cache.
+      projections(1) = cache % edgeVectors(3, i) * verticesCoords(2, 1) - cache % edgeVectors(2, i) * verticesCoords(3, 1) ! X-axis
+      projections(2) = -cache % edgeVectors(3, i) * verticesCoords(1, 1) + cache % edgeVectors(1, i) * verticesCoords(3, 1) ! Y-axis
+      projections(3) = cache % edgeVectors(2, i) * verticesCoords(1, 1) - cache % edgeVectors(1, i) * verticesCoords(2, 1) ! Z-axis
+      cache % edgeAxesIntervals(:, i, 1) = projections
+      cache % edgeAxesIntervals(:, i, 2) = projections
+
+      ! Loop through the remaining vertices.
+      do j = 2, nVertices
+        ! Project vertex onto axes.
+        projections(1) = cache % edgeVectors(3, i) * verticesCoords(2, j) - cache % edgeVectors(2, i) * verticesCoords(3, j) ! X-axis
+        projections(2) = -cache % edgeVectors(3, i) * verticesCoords(1, j) + cache % edgeVectors(1, i) * verticesCoords(3, j) ! Y-axis
+        projections(3) = cache % edgeVectors(2, i) * verticesCoords(1, j) - cache % edgeVectors(1, i) * verticesCoords(2, j) ! Z-axis
+        
+        ! Update cache.
+        cache % edgeAxesIntervals(:, i, 1) = min(cache % edgeAxesIntervals(:, i, 1), projections)
+        cache % edgeAxesIntervals(:, i, 2) = max(cache % edgeAxesIntervals(:, i, 2), projections)
+
+      end do
+
+    end do
+
+    ! Pre-compute absolute edge vectors.
+    cache % absEdgeVectors = abs(cache % edgeVectors)
+
+  end function buildSATData
+
   !! Subroutine 'computeIntersection'
   !!
   !! Basic description:
@@ -342,63 +407,11 @@ contains
   !!
   !!
   elemental subroutine computeSATData(self, edges, vertices)
-    class(face), intent(inout)                  :: self
-    type(edgeShelf), intent(in)                 :: edges
-    type(vertexShelf), intent(in)               :: vertices
-    integer(shortInt)                           :: i, j, nEdges, nVertices
-    real(defReal), dimension(3)                 :: projections
-    real(defReal), dimension(:, :), allocatable :: verticesCoords
-
-    associate(cache => self % SATCache)
-      ! Store face data.
-      cache % constant = -dot_product(self % normal, self % centroid)
-      cache % halfNormalL1Norm = HALF * sum(abs(self % normal))
-      cache % absNormal = abs(self % normal)
-
-      ! Compute nEdges then allocate memory.
-      nEdges = 0
-      if(allocated(self % edgeIdxs)) nEdges = size(self % edgeIdxs)
-      allocate(cache % edgeVectors(3, nEdges), cache % edgeAxesIntervals(3, nEdges, 2))
-
-      ! Compute nVertices, allocate memory then pre-fetch the coordinates of all vertices in the face.
-      nVertices = 0
-      if(allocated(self % vertexIdxs)) nVertices = size(self % vertexIdxs)
-      allocate(verticesCoords(3, nVertices))
-      do i = 1, nVertices
-        verticesCoords(:, i) = vertices % getVertexCoordinates(self % vertexIdxs(i))
-
-      end do
-
-      ! Loop through all the edges in the face and compute the projection intervals.
-      do i = 1, nEdges
-        cache % edgeVectors(:, i) = edges % getEdgeUnitVector(self % edgeIdxs(i))
-
-        ! Initialise projections and cache.
-        projections(1) = cache % edgeVectors(3, i) * verticesCoords(2, 1) - cache % edgeVectors(2, i) * verticesCoords(3, 1) ! X-axis
-        projections(2) = -cache % edgeVectors(3, i) * verticesCoords(1, 1) + cache % edgeVectors(1, i) * verticesCoords(3, 1) ! Y-axis
-        projections(3) = cache % edgeVectors(2, i) * verticesCoords(1, 1) - cache % edgeVectors(1, i) * verticesCoords(2, 1) ! Z-axis
-        cache % edgeAxesIntervals(:, i, 1) = projections
-        cache % edgeAxesIntervals(:, i, 2) = projections
-
-        ! Loop through the remaining vertices.
-        do j = 2, nVertices
-          ! Project vertex onto axes.
-          projections(1) = cache % edgeVectors(3, i) * verticesCoords(2, j) - cache % edgeVectors(2, i) * verticesCoords(3, j) ! X-axis
-          projections(2) = -cache % edgeVectors(3, i) * verticesCoords(1, j) + cache % edgeVectors(1, i) * verticesCoords(3, j) ! Y-axis
-          projections(3) = cache % edgeVectors(2, i) * verticesCoords(1, j) - cache % edgeVectors(1, i) * verticesCoords(2, j) ! Z-axis
-          
-          ! Update cache.
-          cache % edgeAxesIntervals(:, i, 1) = min(cache % edgeAxesIntervals(:, i, 1), projections)
-          cache % edgeAxesIntervals(:, i, 2) = max(cache % edgeAxesIntervals(:, i, 2), projections)
-
-        end do
-
-      end do
-
-      ! Pre-compute absolute edge vectors.
-      cache % absEdgeVectors = abs(cache % edgeVectors)
-
-    end associate
+    class(face), intent(inout)    :: self
+    type(edgeShelf), intent(in)   :: edges
+    type(vertexShelf), intent(in) :: vertices
+    
+    self % SATCache = self % buildSATData(edges, vertices)
 
   end subroutine computeSATData
 
@@ -792,36 +805,26 @@ contains
     real(defReal), intent(in)               :: spacing
     real(defReal), dimension(3), intent(in) :: centroid
     logical(defBool), intent(out)           :: doesIt
-    integer(shortInt)                       :: i
-    real(defReal), dimension(3)             :: projections, radii
 
-    ! Initialise doesIt = .false.
-    doesIt = .false.
-    associate(cache => self % SATCache)
-      ! Test along face normal.
-      if(cache % halfNormalL1Norm * spacing < abs(dot_product(centroid, self % normal) + cache % constant)) return
-
-      ! Now test along edge axes using cached intervals.
-      do i = 1, size(cache % edgeVectors, 2)
-        ! Compute centroid projections and radii along each axis.
-        projections(1) = cache % edgeVectors(3, i) * centroid(2) - cache % edgeVectors(2, i) * centroid(3)
-        projections(2) = cache % edgeVectors(1, i) * centroid(3) - cache % edgeVectors(3, i) * centroid(1)
-        projections(3) = cache % edgeVectors(2, i) * centroid(1) - cache % edgeVectors(1, i) * centroid(2)
-        radii(1) = HALF * (cache % absEdgeVectors(2, i) + cache % absEdgeVectors(3, i)) * spacing
-        radii(2) = HALF * (cache % absEdgeVectors(1, i) + cache % absEdgeVectors(3, i)) * spacing
-        radii(3) = HALF * (cache % absEdgeVectors(1, i) + cache % absEdgeVectors(2, i)) * spacing
-
-        if(any(cache % edgeAxesIntervals(:, i, 2) < projections - radii .or. &
-               projections + radii < cache % edgeAxesIntervals(:, i, 1))) return
-
-      end do
-
-    end associate
-
-    ! If reached here, the cell intersects the face.
-    doesIt = .true.
+    call self % testSATAgainstCache(spacing, centroid, self % SATCache, doesIt)
 
   end subroutine intersects_CartesianCell
+
+  !!
+  !!
+  !!
+  pure subroutine intersects_naive(self, spacing, centroid, edges, vertices, doesIt)
+    class(face), intent(in)                 :: self
+    real(defReal), intent(in)               :: spacing
+    real(defReal), dimension(3), intent(in) :: centroid
+    type(edgeShelf), intent(in)             :: edges
+    type(vertexShelf), intent(in)           :: vertices
+    logical(defBool), intent(out)           :: doesIt
+
+    ! Compute a local cache then perform SAT test.
+    call self % testSATAgainstCache(spacing, centroid, self % buildSATData(edges, vertices), doesIt)
+
+  end subroutine intersects_naive
 
   !!
   !!
@@ -1092,5 +1095,43 @@ contains
     end if
 
   end subroutine testHalfSpace
+
+  !!
+  !!
+  !!
+  pure subroutine testSATAgainstCache(self, spacing, centroid, cache, doesIt)
+    class(face), intent(in)                 :: self
+    real(defReal), intent(in)               :: spacing
+    real(defReal), dimension(3), intent(in) :: centroid
+    type(faceSATData), intent(in)           :: cache
+    logical(defBool), intent(out)           :: doesIt
+    integer(shortInt)                       :: i
+    real(defReal), dimension(3)             :: projections, radii
+
+    ! Initialise doesIt = .false.
+    doesIt = .false.
+
+    ! Test along face normal.
+    if(cache % halfNormalL1Norm * spacing < abs(dot_product(centroid, self % normal) + cache % constant)) return
+
+    ! Now test along edge axes using cached intervals.
+    do i = 1, size(cache % edgeVectors, 2)
+      ! Compute centroid projections and radii along each axis.
+      projections(1) = cache % edgeVectors(3, i) * centroid(2) - cache % edgeVectors(2, i) * centroid(3)
+      projections(2) = cache % edgeVectors(1, i) * centroid(3) - cache % edgeVectors(3, i) * centroid(1)
+      projections(3) = cache % edgeVectors(2, i) * centroid(1) - cache % edgeVectors(1, i) * centroid(2)
+      radii(1) = HALF * (cache % absEdgeVectors(2, i) + cache % absEdgeVectors(3, i)) * spacing
+      radii(2) = HALF * (cache % absEdgeVectors(1, i) + cache % absEdgeVectors(3, i)) * spacing
+      radii(3) = HALF * (cache % absEdgeVectors(1, i) + cache % absEdgeVectors(2, i)) * spacing
+
+      if(any(cache % edgeAxesIntervals(:, i, 2) < projections - radii .or. &
+              projections + radii < cache % edgeAxesIntervals(:, i, 1))) return
+
+    end do
+
+    ! If reached here, the cell intersects the face.
+    doesIt = .true.
+
+  end subroutine testSATAgainstCache
   
 end module face_inter
