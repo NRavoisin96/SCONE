@@ -9,15 +9,18 @@ add_sources(
             ./dictionary_class.f90
             ./dictParser_func.f90
             ./dynArray_class.f90
+            ./limb_class.f90
             ./stack_class.f90
+
            )
 
 # Add Unit Tests to a global List
-add_unit_tests( 
+add_unit_tests(
                ./Tests/charMap_test.f90
                ./Tests/dictionary_test.f90
                ./Tests/dictParser_test.f90
                ./Tests/dynArray_test.f90
+               ./Tests/limb1_test.f90
               )
 
 add_integration_tests( 
