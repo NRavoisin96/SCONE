@@ -40,9 +40,26 @@ module ratint
     end interface assignment (=)
 
 
+    interface operator (==)
+        module procedure equality
+    end interface operator (==)
+
+    interface operator (>)
+        module procedure gneq
+    end interface operator (>)
+
+    interface operator (>=)
+        module procedure geq
+    end interface operator (>=)
+
+
+    
+
+
+
     contains 
 
-        function def_ratint(n, d, s) result(r)
+        pure function def_ratint(n, d, s) result(r)
             integer(8), intent(in) :: n, d, s
             type(ratint_t) :: r 
 
@@ -63,7 +80,7 @@ module ratint
 
         end function convert_int
 
-        function convert_ieee64(n) result(r)
+        pure function convert_ieee64(n) result(r)
             real(real64), intent(in) :: n 
             type(ratint_t) :: r 
             real(real64) :: n1
@@ -110,12 +127,8 @@ module ratint
             end if
 
 
-
-
             fracratint%p = initlimb(int(frac, 8)*1_8) 
             fracratint%q = initlimb(2**shift)
-
-       
 
             
 
@@ -152,6 +165,29 @@ module ratint
 
         end function convert_ieee64
 
+        pure function checkInvalidRatint(r) result(x)
+            type(ratint_t), intent(in) :: r 
+            logical :: x 
+
+            x = .false.
+
+            if (checkInvalid(r%p) .or. checkInvalid(r%q)) then 
+                x = .true. 
+                return
+            end if 
+
+        end function checkInvalidRatint
+
+
+        pure subroutine setInvalidRatint(r)
+            type(ratint_t), intent(inout) :: r 
+
+            call setInvalid(r%p)
+
+            call setINvalid(r%q)
+
+        end subroutine setInvalidRatint
+
 
         pure function get_numerator(r) result(n)
             type(ratint_t), intent(in) :: r 
@@ -159,6 +195,7 @@ module ratint
 
             n = r%p 
         end function get_numerator
+
 
 
         pure function get_denominator(r) result(d)
@@ -171,7 +208,7 @@ module ratint
 
    
         
-        function evaluate(r) result(v)
+        pure function evaluate(r) result(v)
             type(ratint_t), intent(in) :: r 
             real(8) :: v 
 
@@ -180,12 +217,18 @@ module ratint
         end function evaluate
 
 
-        type(ratint_t) function addpure(r1, r2)
+        elemental type(ratint_t) function addpure(r1, r2)
             type(ratint_t), intent(in) :: r1, r2
             type(ratint_t) :: r1t, r2t
             type(ratint_t) :: r3
             type(limb_t) :: gcdVal
             type(limb_t) :: lcm
+
+            if (checkInvalidRatint(r1) .or. checkInvalidRatint(r2)) then 
+                call setInvalidRatint(r3)
+                addpure = r3 
+                return
+            end if
   
             ! Get the greatest common divisor and least common multiple
             !gcdVal = gcd(r1%q, r2%q)
@@ -193,24 +236,14 @@ module ratint
             !lcm = initlimb(1_8)
             ! NOTE: the result of this division should be an exact value, so its safe to round down
             !lcm = floor(r1%q/gcdVal)*1_8 * r2%q
-            ! print *, 'lcm'
-            ! call printlimb(lcm)
 
 
             ! Modify numerators so that denominators are the same
             ! NOTE: Because of lcm calculation this is guaranteed to be a whole number
             !r1t%p = r1%p * initlimb(int(lcm/r1%q , 8))
             r1t%p = r1%p * r2%q
-            ! print *, '----'
-            ! call printRatInt(r1)
-            ! call printRatInt(r2)
-            ! call printlimb(r1t%p)
-            ! call printlimb(r2t%p)
-            !print *, 'lkfdkf'
-            !call printlimb(r1t%p)
             !r2t%p = r2%p * initlimb(int(lcm/r2%q , 8))
             r2t%p = r2%p * r1%q
-            ! call printlimb(r2t%p)
 
 
             r3%p = r1t%p + r2t%p
@@ -227,7 +260,7 @@ module ratint
         end function addpure
 
         ! Allows addition between : int + ratint
-        type(ratint_t) function addmixedL(n, r1)
+        elemental type(ratint_t) function addmixedL(n, r1)
             integer(8), intent(in) :: n
             type(ratint_t), intent(in) :: r1
             type(ratint_t) :: rn 
@@ -240,7 +273,7 @@ module ratint
 
 
         ! Allows addition between : ratint + int
-        type(ratint_t) function addmixedR(r1, n)
+        elemental type(ratint_t) function addmixedR(r1, n)
             integer(8), intent(in) :: n
             type(ratint_t), intent(in) :: r1
             type(ratint_t) :: rn 
@@ -253,7 +286,7 @@ module ratint
 
 
         ! negates the second value and adds the results
-        type(ratint_t) function subtractpure(r1, r2)
+        elemental type(ratint_t) function subtractpure(r1, r2)
             type(ratint_t), intent(in) :: r1, r2 
             type(ratint_t) :: r2t
 
@@ -267,7 +300,7 @@ module ratint
 
 
         ! Allows subtraction between : int - ratint
-        type(ratint_t) function subtractmixedL(n, r1)
+        elemental type(ratint_t) function subtractmixedL(n, r1)
             integer(8), intent(in) :: n
             type(ratint_t), intent(in) :: r1
             type(ratint_t) :: rn 
@@ -280,7 +313,7 @@ module ratint
 
         
         ! Allows subtraction between : ratint - int
-        type(ratint_t) function subtractmixedR(r1, n)
+        elemental type(ratint_t) function subtractmixedR(r1, n)
             integer(8), intent(in) :: n
             type(ratint_t), intent(in) :: r1
             type(ratint_t) :: rn 
@@ -292,9 +325,15 @@ module ratint
 
         
         !! multiplies numerator and denominator then simplifies the fraction
-        type(ratint_t) function multiplypure(r1, r2)
+        elemental type(ratint_t) function multiplypure(r1, r2)
             type(ratint_t), intent(in) :: r1, r2 
             type(ratint_t) :: r3 
+
+            if (checkInvalidRatint(r1) .or. checkInvalidRatint(r2)) then 
+                call setInvalidRatint(r3)
+                multiplypure = r3
+                return 
+            end if 
 
             r3%p = r1%p * r2%p 
             r3%q = r1%q * r2%q
@@ -307,7 +346,7 @@ module ratint
 
 
         ! Allows multiplication between : int * ratint
-        type(ratint_t) function multiplymixedL(n, r1)
+        elemental type(ratint_t) function multiplymixedL(n, r1)
             integer(8), intent(in) :: n
             type(ratint_t), intent(in) :: r1
             type(ratint_t) :: rn 
@@ -321,7 +360,7 @@ module ratint
         
 
         ! Allows multiplication between : ratint * int
-        type(ratint_t) function multiplymixedR(r1, n)
+        elemental type(ratint_t) function multiplymixedR(r1, n)
             integer(8), intent(in) :: n
             type(ratint_t), intent(in) :: r1
             type(ratint_t) :: rn 
@@ -337,7 +376,7 @@ module ratint
         ! Follows keep, change, flip rule, then applies multiplication
         ! NOTE: division by 0 causes NaN via modulo() call in gcd
 
-        type(ratint_t) function dividepure(r1,r2)
+        elemental type(ratint_t) function dividepure(r1,r2)
             type(ratint_t), intent(in) :: r1,r2 
             type(ratint_t) :: r3
             type(limb_t) :: temp 
@@ -352,7 +391,7 @@ module ratint
 
 
         ! Allows division between : int / ratint
-        type(ratint_t) function dividemixedL(n, r1)
+        elemental type(ratint_t) function dividemixedL(n, r1)
             integer(8), intent(in) :: n
             type(ratint_t), intent(in) :: r1
             type(ratint_t) :: rn 
@@ -365,7 +404,7 @@ module ratint
 
         
         ! Allows division between : ratint / int
-        type(ratint_t) function dividemixedR(r1, n)
+        elemental type(ratint_t) function dividemixedR(r1, n)
             integer(8), intent(in) :: n
             type(ratint_t), intent(in) :: r1
             type(ratint_t) :: rn 
@@ -377,9 +416,14 @@ module ratint
 
 
         ! Copies over the values from rin (r input) into rout (r output)
-        subroutine assignpure(rout, rin)
+        pure subroutine assignpure(rout, rin)
             type(ratint_t), intent(out) :: rout 
             type(ratint_t), intent(in) :: rin
+
+            if (checkInvalidRatint(rin)) then 
+                call setInvalidRatint(rout)
+                return 
+            end if
 
             rout%p = rin%p 
             rout%q = rin%q
@@ -388,7 +432,7 @@ module ratint
 
         
         ! Simplifies the input via the gcd method
-        function simplify(r) result(rs)
+        pure function simplify(r) result(rs)
             type(ratint_t), intent(in) ::  r 
             type(ratint_t) :: rs 
             type(limb_t) :: rp 
@@ -423,7 +467,7 @@ module ratint
 
 
         ! gcd via modulus version as all numerator/denominator are positive
-        function gcd (a,b) result(v)
+        pure function gcd (a,b) result(v)
             type(limb_t), intent(in) :: a,b
             type(limb_t) :: at, bt
             integer :: temp
@@ -451,6 +495,93 @@ module ratint
         end function gcd
 
 
+        pure function equality(a, b) result(r)
+            type(ratint_t), intent(in) :: a,b 
+            type(limb_t) :: prod1, prod2
+            logical :: r 
+
+            r = .false.
+
+            if (checkInvalidRatint(a) .or. checkInvalidRatint(b)) then 
+                return 
+            end if
+
+            if (a%q == b%q) then 
+                if (a%p == b%p) then 
+                    r = .true. 
+                    return 
+                end if 
+            else 
+                prod1 = a%p * b%q 
+                prod2 = b%p * a%q 
+                if (prod1 == prod2) then 
+                    r = .true.
+                    return 
+                end if 
+            end if
+
+        
+        end function equality
+
+
+        pure function gneq(a, b) result(r)
+            type(ratint_t), intent(in) :: a,b 
+            type(limb_t) :: prod1, prod2
+            logical :: r 
+
+            r = .false.
+
+            if (checkInvalidRatint(a) .or. checkInvalidRatint(b)) then 
+                return 
+            end if
+
+
+            if (a%q == b%q) then 
+                if (a%p > b%p) then 
+                    r = .true. 
+                    return 
+                end if 
+            else 
+                prod1 = a%p * b%q 
+                prod2 = b%p * a%q 
+                if (prod1 > prod2) then 
+                    r = .true.
+                    return 
+                end if 
+            end if
+        end function gneq 
+
+
+        pure function geq(a,b) result(r)
+            type(ratint_t), intent(in) :: a,b 
+            type(limb_t) :: prod1, prod2
+            logical :: r 
+
+            r = .false.
+
+            if (checkInvalidRatint(a) .or. checkInvalidRatint(b)) then 
+                return 
+            end if
+
+
+            if (a%q == b%q) then 
+                if (a%p >= b%p) then 
+                    r = .true. 
+                    return 
+                end if 
+            else 
+                prod1 = a%p * b%q 
+                prod2 = b%p * a%q 
+                if (prod1 >= prod2) then 
+                    r = .true.
+                    return 
+                end if 
+            end if
+
+        end function geq
+
+
+
         subroutine printRatInt(a)
             type(ratint_t), intent(in) :: a 
             print *, 'Numerator'
@@ -469,6 +600,8 @@ module ratint
 
         
         !end function binarygcd
+
+        
 
 
 end module
