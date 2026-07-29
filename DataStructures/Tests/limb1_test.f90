@@ -2,7 +2,7 @@ module limb1_test
     use numPrecision
     use funit
     use limb_class
-    !use ratint
+    use ratint
     use, intrinsic :: iso_fortran_env
     use, intrinsic :: ieee_arithmetic
 
@@ -25,7 +25,7 @@ contains
       v2 = initlimb(69872592_8)
       scalc = v1 + v2
       sactual = initlimb(n)
-      result = (scalc == sactual)
+      result = (scalc == sactual) .and. .not.(checkInvalid(scalc))
       @assertTrue(result, message = 'add1')
 
 
@@ -34,7 +34,7 @@ contains
       v2 = initlimb(-4581671_8)
       scalc = v1 + v2
       sactual = initlimb(n)
-      result = (scalc == sactual)
+      result = (scalc == sactual) .and. .not.(checkInvalid(scalc))
       @assertTrue(result, message = 'add2')
 
 
@@ -44,7 +44,7 @@ contains
       v2 = initlimb(-92233720368775807_8)
       scalc = v1 + v2
       sactual = initlimb(n)
-      result = (scalc == sactual)
+      result = (scalc == sactual) .and. .not.(checkInvalid(scalc))
       @assertTrue(result, message = 'add3')
 
 
@@ -53,8 +53,9 @@ contains
       v2 = initlimb(9223372036854775_8)
       scalc = v1 + v2
       sactual = initlimb(n)
-      result = (scalc == sactual)
+      result = (scalc == sactual) .and. .not.(checkInvalid(scalc))
       @assertTrue(result, message = 'add4')
+
 
     end subroutine testAddition
 
@@ -80,8 +81,50 @@ contains
       d5 = ((v1 + v2) + ((v3 + v4) + v5))
       d6 = (((v1 + v2) + v3) + (v4 + v5))
       result = (d1 == d2) .and. (d2 == d3) .and. (d3 == d4) .and. (d5 == d6)
+      result = result .and. .not. (checkInvalid(d1) .or. checkInvalid(d2) .or. checkInvalid(d3) & 
+                      .or. checkInvalid(d4) .or. checkInvalid(d5) .or. checkInvalid(d6))
 
       @assertTrue(result, message='AdditionAssociativity1')
+
+
+      v1 = initlimb(5468751218_8)
+      v1 = v1 *v1 *v1 *v1 *v1 *v1 
+      v1 = v1 * v1 *v1 *v1 *v1 *v1 
+      v1 = v1 * v1 *v1 *v1 *v1 *v1
+      v1 = v1* v1 * v1 * v1 *v1 
+      v2 = initlimb(1159874_8)
+      v2 = v2 * v2 * v2 * v2 *v2 *v2 
+      v2 = v2* v2* v2* v2* v2* v2* v2 
+      v2 = v2 *v2 *v2 *v2 *v2 *v2 *v2 
+      v3 = initlimb(5587985_8)
+      v3 = v3 * v3* v3* v3* v3* v3 *v3 
+      v3=v3 *v3 * v3 *v3*v3*v3*v3 
+      v3 =v3*v3*v3*v3*v3*v3*v3*v3 
+      v4 = initlimb(22247_8)
+      v4 = v4*v4*v4*v4*v4*v4*v4*v4
+      v4 = v4* v4* v4* v4* v4* v4*v4 
+      v4 = v4* v4* v4* v4* v4*v4 
+      v5 = initlimb(5546448787512_8)
+      v5 = v5* v5* v5* v5* v5* v5* v5 
+      v5 = v5* v5* v5* v5* v5* v5* v5
+      v5 = v5* v5* v5* v5* v5* v5* v5
+
+      d1 = ((((v1 + v2) + v3) + v4) + v5)
+      d2 = (((v1 + (v2 + v3)) + v4) + v5)
+      d3 = ((v1 + (v2 + (v3 + v4))) + v5)
+      d4 = (v1 + (v2 + (v3 + (v4 + v5))))
+      d5 = ((v1 + v2) + ((v3 + v4) + v5))
+      d6 = (((v1 + v2) + v3) + (v4 + v5))
+      result = (d1 == d2) .and. (d2 == d3) .and. (d3 == d4) .and. (d5 == d6)
+      result = result .and. .not. (checkInvalid(d1) .or. checkInvalid(d2) .or. checkInvalid(d3) & 
+                      .or. checkInvalid(d4) .or. checkInvalid(d5) .or. checkInvalid(d6))
+
+      @assertTrue(result, message='AdditionAssociativity2')
+
+
+
+
+      
 
     end subroutine testAdditionAssociativity
 
@@ -89,7 +132,7 @@ contains
     @Test 
     subroutine testAdditionIdentity() 
 
-      type(limb_t) :: v1, v2, vres, vcalc
+      type(limb_t) :: v1, v2, v3, v4, v5, vres, vcalc
       integer(8) ::n 
       type(limb_t) :: d1, d2, d3, d4, d5, d6
       logical :: result
@@ -99,7 +142,7 @@ contains
       v2 = initlimb(0_8)
       vres = v1 + v2 
       vcalc = initlimb(n)
-      result = vres == vcalc
+      result = (vres == vcalc) .and. .not. (checkInvalid(vres))
       @assertTrue(result, message='additionIdentity1')
 
       n = 0_8 + 545198733455454_8
@@ -107,7 +150,7 @@ contains
       v2 = initlimb(545198733455454_8)
       vres = v1 + v2 
       vcalc = initlimb(n)
-      result = vres == vcalc
+      result = (vres == vcalc) .and. .not. (checkInvalid(vres))
       @assertTrue(result, message='additionIdentity2')
 
 
@@ -116,7 +159,7 @@ contains
       v2 = initlimb(-545198733455454_8)
       vres = v1 + v2 
       vcalc = initlimb(n)
-      result = vres == vcalc
+      result = (vres == vcalc) .and. .not. (checkInvalid(vres))
       @assertTrue(result, message='additionIdentity2')
 
 
@@ -125,8 +168,154 @@ contains
       v2 = initlimb(0_8)
       vres = v1 + v2 
       vcalc = initlimb(n)
-      result = vres == vcalc
-      @assertTrue(result, message='additionIdentity1')
+      result = (vres == vcalc) .and. .not. (checkInvalid(vres))
+      @assertTrue(result, message='additionIdentity3')
+
+
+      v1 = initlimb(0_8)
+      v1 = v1 *v1 *v1 *v1 *v1 *v1 
+      v1 = v1 * v1 *v1 *v1 *v1 *v1 
+      v1 = v1 * v1 *v1 *v1 *v1 *v1
+      v1 = v1* v1 * v1 * v1 *v1 
+      v2 = initlimb(1159874_8)
+      v2 = v2 * v2 * v2 * v2 *v2 *v2 
+      v2 = v2* v2* v2* v2* v2* v2* v2 
+      v2 = v2 *v2 *v2 *v2 *v2 *v2 *v2 
+      v3 = initlimb(5587985_8)
+      v3 = v3 * v3* v3* v3* v3* v3 *v3 
+      v3=v3 *v3 * v3 *v3*v3*v3*v3 
+      v3 =v3*v3*v3*v3*v3*v3*v3*v3 
+      v4 = initlimb(22247_8)
+      v4 = v4*v4*v4*v4*v4*v4*v4*v4
+      v4 = v4* v4* v4* v4* v4* v4*v4 
+      v4 = v4* v4* v4* v4* v4*v4 
+      v5 = initlimb(5546448787512_8)
+      v5 = v5* v5* v5* v5* v5* v5* v5 
+      v5 = v5* v5* v5* v5* v5* v5* v5
+      v5 = v5* v5* v5* v5* v5* v5* v5
+
+      d1 = ((((v1 + v2) + v3) + v4) + v5)
+      d2 = (((v1 + (v2 + v3)) + v4) + v5)
+      d3 = ((v1 + (v2 + (v3 + v4))) + v5)
+      d4 = (v1 + (v2 + (v3 + (v4 + v5))))
+      d5 = ((v1 + v2) + ((v3 + v4) + v5))
+      d6 = (((v1 + v2) + v3) + (v4 + v5))
+      result = (d1 == d2) .and. (d2 == d3) .and. (d3 == d4) .and. (d5 == d6)
+      result = result .and. .not. (checkInvalid(d1) .or. checkInvalid(d2) .or. checkInvalid(d3) & 
+                      .or. checkInvalid(d4) .or. checkInvalid(d5) .or. checkInvalid(d6))
+
+      @assertTrue(result, message='additionIdentity4')
+
+
+
+      v1 = initlimb(0_8)
+      v1 = v1 *v1 *v1 *v1 *v1 *v1 
+      v1 = v1 * v1 *v1 *v1 *v1 *v1 
+      v1 = v1 * v1 *v1 *v1 *v1 *v1
+      v1 = v1* v1 * v1 * v1 *v1 
+      v2 = initlimb(0_8)
+      v2 = v2 * v2 * v2 * v2 *v2 *v2 
+      v2 = v2* v2* v2* v2* v2* v2* v2 
+      v2 = v2 *v2 *v2 *v2 *v2 *v2 *v2 
+      v3 = initlimb(0_8)
+      v3 = v3 * v3* v3* v3* v3* v3 *v3 
+      v3=v3 *v3 * v3 *v3*v3*v3*v3 
+      v3 =v3*v3*v3*v3*v3*v3*v3*v3 
+      v4 = initlimb(22247_8)
+      v4 = v4*v4*v4*v4*v4*v4*v4*v4
+      v4 = v4* v4* v4* v4* v4* v4*v4 
+      v4 = v4* v4* v4* v4* v4*v4 
+      v5 = initlimb(5546448787512_8)
+      v5 = v5* v5* v5* v5* v5* v5* v5 
+      v5 = v5* v5* v5* v5* v5* v5* v5
+      v5 = v5* v5* v5* v5* v5* v5* v5
+
+      d1 = ((((v1 + v2) + v3) + v4) + v5)
+      d2 = (((v1 + (v2 + v3)) + v4) + v5)
+      d3 = ((v1 + (v2 + (v3 + v4))) + v5)
+      d4 = (v1 + (v2 + (v3 + (v4 + v5))))
+      d5 = ((v1 + v2) + ((v3 + v4) + v5))
+      d6 = (((v1 + v2) + v3) + (v4 + v5))
+      result = (d1 == d2) .and. (d2 == d3) .and. (d3 == d4) .and. (d5 == d6)
+      result = result .and. .not. (checkInvalid(d1) .or. checkInvalid(d2) .or. checkInvalid(d3) & 
+                      .or. checkInvalid(d4) .or. checkInvalid(d5) .or. checkInvalid(d6))
+
+      @assertTrue(result, message='additionIdentity4')
+
+
+
+      v1 = initlimb(0_8)
+      v1 = v1 *v1 *v1 *v1 *v1 *v1 
+      v1 = v1 * v1 *v1 *v1 *v1 *v1 
+      v1 = v1 * v1 *v1 *v1 *v1 *v1
+      v1 = v1* v1 * v1 * v1 *v1 
+      v2 = initlimb(0_8)
+      v2 = v2 * v2 * v2 * v2 *v2 *v2 
+      v2 = v2* v2* v2* v2* v2* v2* v2 
+      v2 = v2 *v2 *v2 *v2 *v2 *v2 *v2 
+      v3 = initlimb(0_8)
+      v3 = v3 * v3* v3* v3* v3* v3 *v3 
+      v3=v3 *v3 * v3 *v3*v3*v3*v3 
+      v3 =v3*v3*v3*v3*v3*v3*v3*v3 
+      v4 = initlimb(0_8)
+      v4 = v4*v4*v4*v4*v4*v4*v4*v4
+      v4 = v4* v4* v4* v4* v4* v4*v4 
+      v4 = v4* v4* v4* v4* v4*v4 
+      v5 = initlimb(5546448787512_8)
+      v5 = v5* v5* v5* v5* v5* v5* v5 
+      v5 = v5* v5* v5* v5* v5* v5* v5
+      v5 = v5* v5* v5* v5* v5* v5* v5
+
+      d1 = ((((v1 + v2) + v3) + v4) + v5)
+      d2 = (((v1 + (v2 + v3)) + v4) + v5)
+      d3 = ((v1 + (v2 + (v3 + v4))) + v5)
+      d4 = (v1 + (v2 + (v3 + (v4 + v5))))
+      d5 = ((v1 + v2) + ((v3 + v4) + v5))
+      d6 = (((v1 + v2) + v3) + (v4 + v5))
+      result = (d1 == d2) .and. (d2 == d3) .and. (d3 == d4) .and. (d5 == d6)
+      result = result .and. .not. (checkInvalid(d1) .or. checkInvalid(d2) .or. checkInvalid(d3) & 
+                      .or. checkInvalid(d4) .or. checkInvalid(d5) .or. checkInvalid(d6))
+
+      @assertTrue(result, message='additionIdentity5')
+
+
+      v1 = initlimb(0_8)
+      v1 = v1 *v1 *v1 *v1 *v1 *v1 
+      v1 = v1 * v1 *v1 *v1 *v1 *v1 
+      v1 = v1 * v1 *v1 *v1 *v1 *v1
+      v1 = v1* v1 * v1 * v1 *v1 
+      v2 = initlimb(0_8)
+      v2 = v2 * v2 * v2 * v2 *v2 *v2 
+      v2 = v2* v2* v2* v2* v2* v2* v2 
+      v2 = v2 *v2 *v2 *v2 *v2 *v2 *v2 
+      v3 = initlimb(0_8)
+      v3 = v3 * v3* v3* v3* v3* v3 *v3 
+      v3=v3 *v3 * v3 *v3*v3*v3*v3 
+      v3 =v3*v3*v3*v3*v3*v3*v3*v3 
+      v4 = initlimb(0_8)
+      v4 = v4*v4*v4*v4*v4*v4*v4*v4
+      v4 = v4* v4* v4* v4* v4* v4*v4 
+      v4 = v4* v4* v4* v4* v4*v4 
+      v5 = initlimb(0_8)
+      v5 = v5* v5* v5* v5* v5* v5* v5 
+      v5 = v5* v5* v5* v5* v5* v5* v5
+      v5 = v5* v5* v5* v5* v5* v5* v5
+
+      d1 = ((((v1 + v2) + v3) + v4) + v5)
+      d2 = (((v1 + (v2 + v3)) + v4) + v5)
+      d3 = ((v1 + (v2 + (v3 + v4))) + v5)
+      d4 = (v1 + (v2 + (v3 + (v4 + v5))))
+      d5 = ((v1 + v2) + ((v3 + v4) + v5))
+      d6 = (((v1 + v2) + v3) + (v4 + v5))
+      result = (d1 == d2) .and. (d2 == d3) .and. (d3 == d4) .and. (d5 == d6)
+      result = result .and. .not. (checkInvalid(d1) .or. checkInvalid(d2) .or. checkInvalid(d3) & 
+                      .or. checkInvalid(d4) .or. checkInvalid(d5) .or. checkInvalid(d6))
+
+      @assertTrue(result, message='additionIdentity6')
+
+
+
+      
 
       
     end subroutine testAdditionIdentity
@@ -142,10 +331,12 @@ contains
       n = 0_8 + 0_8
       v1 = initlimb(0_8)
       v2 = initlimb(0_8)
-      vres = v1 - v2 
+      vres = v1 + v2 
       vcalc = initlimb(n)
-      result = vres == vcalc
+      result = (vres == vcalc) .and. .not. (checkInvalid(vres))
       @assertTrue(result, message='additionIdempotence1')
+
+
 
     end subroutine testAdditionIdempotence
 
@@ -166,7 +357,7 @@ contains
       v2 = initlimb(545128872415_8)
       scalc = v1 - v2
       sactual = initlimb(n)
-      result = (scalc == sactual)
+      result = (scalc == sactual) .and. .not. (checkInvalid(scalc))
       @assertTrue(result, message = 'sub1')
 
 
@@ -175,7 +366,7 @@ contains
       v2 = initlimb(-4581671_8)
       scalc = v1 - v2
       sactual = initlimb(n)
-      result = (scalc == sactual)
+      result = (scalc == sactual) .and. .not. (checkInvalid(scalc))
       @assertTrue(result, message = 'sub2')
 
 
@@ -184,7 +375,7 @@ contains
       v2 = initlimb(-0_8)
       scalc = v1 - v2
       sactual = initlimb(n)
-      result = (scalc == sactual)
+      result = (scalc == sactual).and. .not. (checkInvalid(scalc))
       @assertTrue(result, message = 'sub3')
 
       n = 0_8 - (-2554815_8)
@@ -192,7 +383,7 @@ contains
       v2 = initlimb(-2554815_8)
       scalc = v1 - v2
       sactual = initlimb(n)
-      result = (scalc == sactual)
+      result = (scalc == sactual).and. .not. (checkInvalid(scalc))
       @assertTrue(result, message = 'sub4')
 
 
@@ -201,7 +392,7 @@ contains
       v2 = initlimb(2554815_8)
       scalc = v1 - v2
       sactual = initlimb(n)
-      result = (scalc == sactual)
+      result = (scalc == sactual).and. .not. (checkInvalid(scalc))
       @assertTrue(result, message = 'sub5')
 
 
@@ -210,7 +401,7 @@ contains
       v2 = initlimb(-92233720368775807_8)
       scalc = v1 - v2
       sactual = initlimb(n)
-      result = (scalc == sactual)
+      result = (scalc == sactual).and. .not. (checkInvalid(scalc))
       @assertTrue(result, message = 'sub6')
 
 
@@ -219,7 +410,7 @@ contains
       v2 = initlimb(9223372036854775807_8)
       scalc = v1 - v2
       sactual = initlimb(n)
-      result = (scalc == sactual)
+      result = (scalc == sactual).and. .not. (checkInvalid(scalc))
       @assertTrue(result, message = 'sub7')
 
     end subroutine testSubtraction
@@ -238,7 +429,7 @@ contains
       v2 = initlimb(0_8)
       vres = v1 - v2 
       vcalc = initlimb(n)
-      result = vres == vcalc
+      result = (vres == vcalc) .and. .not. (checkInvalid(vres))
       @assertTrue(result, message='subtractionIdentity1')
 
       n = 0_8 - 0_8
@@ -246,7 +437,7 @@ contains
       v2 = initlimb(0_8)
       vres = v1 - v2 
       vcalc = initlimb(n)
-      result = vres == vcalc
+      result = (vres == vcalc) .and. .not. (checkInvalid(vres))
       @assertTrue(result, message='subtractionIdentity2')
       
     end subroutine testSubtractionIdentity
@@ -265,7 +456,7 @@ contains
       v2 = initlimb(0_8)
       vres = v1 - v2 
       vcalc = initlimb(n)
-      result = vres == vcalc
+      result = (vres == vcalc) .and. .not. (checkInvalid(vres))
       @assertTrue(result, message='subtractionIdempotence1')
 
 
@@ -274,7 +465,7 @@ contains
       v2 = initlimb(-0_8)
       vres = v1 - v2 
       vcalc = initlimb(n)
-      result = vres == vcalc
+      result = (vres == vcalc) .and. .not. (checkInvalid(vres))
       @assertTrue(result, message='subtractionIdempotence1')
 
     end subroutine testSubtractionIdempotence
@@ -292,16 +483,12 @@ contains
 
       t8 = 1
 
-    !NOTE  This test does not pass, because the newton version is more accurate by 1 bit (very end) when comparing against full precision
-      ! v1 = initlimb(int(585297,8))
-      ! v2 = initlimb(int(692, 8))
-      ! scalc1 = (v1 / v2)
-      ! sactual = (585297.0_real64)/692
-      ! print *, '!!!'
-      ! print *, scalc1 
-      ! print *, sactual
-      ! result = (scalc1 == sactual)
-      ! @assertTrue(result, message = 'div1')
+      v1 = initlimb(int(585297,8))
+      v2 = initlimb(int(692, 8))
+      scalc1 = (v1 / v2)
+      sactual = (585297.0_real64)/692
+      result = (scalc1 == sactual)
+      @assertTrue(result, message = 'div1')
 
    
 
@@ -368,8 +555,6 @@ contains
       !print *, n
       scalc = v1 / v2 
       !print *, scalc
-      print *, n 
-      print *, scalc
       result = scalc == sactual
       @assertTrue(result, message='div9')
 
@@ -428,6 +613,8 @@ contains
       vcalc = n
       result = vres == vcalc
       @assertTrue(result, message='divisionIdentity1')
+
+
 
     end subroutine testDivisionIdentity
 
@@ -565,6 +752,8 @@ contains
       d5 = ((v1 * v2) * ((v3 * v4) * v5))
       d6 = (((v1 * v2) * v3) * (v4 * v5))
       result = (d1 == d2) .and. (d2 == d3) .and. (d3 == d4) .and. (d5 == d6)
+      result = result .and. .not. (checkInvalid(d1) .or. checkInvalid(d2) .or. checkInvalid(d3) & 
+                      .or. checkInvalid(d4) .or. checkInvalid(d5) .or. checkInvalid(d6))
       @assertTrue(result, message='MultAssociativity1')
 
 
@@ -582,6 +771,8 @@ contains
       d5 = ((v1 * v2) * ((v3 * v4) * v5))
       d6 = (((v1 * v2) * v3) * (v4 * v5))
       result = (d1 == d2) .and. (d2 == d3) .and. (d3 == d4) .and. (d5 == d6) 
+      result = result .and. .not. (checkInvalid(d1) .or. checkInvalid(d2) .or. checkInvalid(d3) & 
+                      .or. checkInvalid(d4) .or. checkInvalid(d5) .or. checkInvalid(d6))
 
 
       @assertTrue(result, message='MultAssociativity2')
@@ -601,6 +792,8 @@ contains
       d5 = ((v1 * v2) * ((v3 * v4) * v5))
       d6 = (((v1 * v2) * v3) * (v4 * v5))
       result = (d1 == d2) .and. (d2 == d3) .and. (d3 == d4) .and. (d5 == d6) 
+      result = result .and. .not. (checkInvalid(d1) .or. checkInvalid(d2) .or. checkInvalid(d3) & 
+                      .or. checkInvalid(d4) .or. checkInvalid(d5) .or. checkInvalid(d6))
 
 
       @assertTrue(result, message='MultAssociativity3')
@@ -619,6 +812,8 @@ contains
       d5 = ((v1 * v2) * ((v3 * v4) * v5))
       d6 = (((v1 * v2) * v3) * (v4 * v5))
       result = (d1 == d2) .and. (d2 == d3) .and. (d3 == d4) .and. (d5 == d6) 
+      result = result .and. .not. (checkInvalid(d1) .or. checkInvalid(d2) .or. checkInvalid(d3) & 
+                      .or. checkInvalid(d4) .or. checkInvalid(d5) .or. checkInvalid(d6))
 
 
       @assertTrue(result, message='MultAssociativity4')
@@ -639,6 +834,8 @@ contains
       d5 = ((v1 * v2) * ((v3 * v4) * v5))
       d6 = (((v1 * v2) * v3) * (v4 * v5))
       result = (d1 == d2) .and. (d2 == d3) .and. (d3 == d4) .and. (d5 == d6) 
+      result = result .and. .not. (checkInvalid(d1) .or. checkInvalid(d2) .or. checkInvalid(d3) & 
+                      .or. checkInvalid(d4) .or. checkInvalid(d5) .or. checkInvalid(d6))
 
 
       @assertTrue(result, message='MultAssociativity5')
@@ -657,6 +854,8 @@ contains
       d5 = ((v1 * v2) * ((v3 * v4) * v5))
       d6 = (((v1 * v2) * v3) * (v4 * v5))
       result = (d1 == d2) .and. (d2 == d3) .and. (d3 == d4) .and. (d5 == d6) 
+      result = result .and. .not. (checkInvalid(d1) .or. checkInvalid(d2) .or. checkInvalid(d3) & 
+                      .or. checkInvalid(d4) .or. checkInvalid(d5) .or. checkInvalid(d6))
 
 
       @assertTrue(result, message='MultAssociativity6')
@@ -675,6 +874,8 @@ contains
       d5 = ((v1 * v2) * ((v3 * v4) * v5))
       d6 = (((v1 * v2) * v3) * (v4 * v5))
       result = (d1 == d2) .and. (d2 == d3) .and. (d3 == d4) .and. (d5 == d6) 
+      result = result .and. .not. (checkInvalid(d1) .or. checkInvalid(d2) .or. checkInvalid(d3) & 
+                      .or. checkInvalid(d4) .or. checkInvalid(d5) .or. checkInvalid(d6))
 
 
       @assertTrue(result, message='MultAssociativity7')
@@ -693,6 +894,8 @@ contains
       d5 = ((v1 * v2) * ((v3 * v4) * v5))
       d6 = (((v1 * v2) * v3) * (v4 * v5))
       result = (d1 == d2) .and. (d2 == d3) .and. (d3 == d4) .and. (d5 == d6) 
+      result = result .and. .not. (checkInvalid(d1) .or. checkInvalid(d2) .or. checkInvalid(d3) & 
+                      .or. checkInvalid(d4) .or. checkInvalid(d5) .or. checkInvalid(d6))
 
 
       @assertTrue(result, message='MultAssociativity8')
@@ -711,6 +914,8 @@ contains
       d5 = ((v1 * v1) * ((v1 * v1) * v1))
       d6 = (((v1 * v1) * v1) * (v1 * v1))
       result = (d1 == d2) .and. (d2 == d3) .and. (d3 == d4) .and. (d5 == d6) 
+      result = result .and. .not. (checkInvalid(d1) .or. checkInvalid(d2) .or. checkInvalid(d3) & 
+                      .or. checkInvalid(d4) .or. checkInvalid(d5) .or. checkInvalid(d6))
 
       @assertTrue(result, message='MultAssociativity9')
 
@@ -732,6 +937,8 @@ contains
       d5 = ((v1 * v1) * ((v1 * v1) * v1))
       d6 = (((v1 * v1) * v1) * (v1 * v1))
       result = (d1 == d2) .and. (d2 == d3) .and. (d3 == d4) .and. (d5 == d6) 
+      result = result .and. .not. (checkInvalid(d1) .or. checkInvalid(d2) .or. checkInvalid(d3) & 
+                      .or. checkInvalid(d4) .or. checkInvalid(d5) .or. checkInvalid(d6))
 
       @assertTrue(result, message='MultAssociativity9')
 
@@ -763,6 +970,8 @@ contains
       d5 = ((v1 * v2) * ((v3 * v4) * v5))
       d6 = (((v1 * v2) * v3) * (v4 * v5))
       result = (d1 == d2) .and. (d2 == d3) .and. (d3 == d4) .and. (d5 == d6) 
+      result = result .and. .not. (checkInvalid(d1) .or. checkInvalid(d2) .or. checkInvalid(d3) & 
+                      .or. checkInvalid(d4) .or. checkInvalid(d5) .or. checkInvalid(d6))
 
 
       @assertTrue(result, message='MultAssociativity10')
@@ -791,7 +1000,7 @@ contains
       d1 = v3 * (v1 + v2)
       d2 = (v3 * v1) + (v3 * v2)
 
-      result = (d1 == d2)
+      result = (d1 == d2) .and. .not. (checkInvalid(d1) .or. checkInvalid(d2))
       @assertTrue(result, message = 'distmultadd1')
 
 
@@ -802,7 +1011,7 @@ contains
       d1 = v3 * (v1 + v2)
       d2 = (v3 * v1) + (v3 * v2)
 
-      result = (d1 == d2)
+      result = (d1 == d2) .and. .not. (checkInvalid(d1) .or. checkInvalid(d2))
       @assertTrue(result, message = 'distmultadd2')
 
 
@@ -814,7 +1023,7 @@ contains
       d1 = v3 * (v1 + v2)
       d2 = (v3 * v1) + (v3 * v2)
 
-      result = (d1 == d2)
+      result = (d1 == d2) .and. .not. (checkInvalid(d1) .or. checkInvalid(d2))
       @assertTrue(result, message = 'distmultadd3')
 
 
@@ -825,7 +1034,7 @@ contains
       d1 = v3 * (v1 + v2)
       d2 = (v3 * v1) + (v3 * v2)
 
-      result = (d1 == d2)
+      result = (d1 == d2) .and. .not. (checkInvalid(d1) .or. checkInvalid(d2))
       @assertTrue(result, message = 'distmultadd4')
 
 
@@ -836,7 +1045,7 @@ contains
       d1 = v3 * (v1 + v2)
       d2 = (v3 * v1) + (v3 * v2)
 
-      result = (d1 == d2)
+      result = (d1 == d2) .and. .not. (checkInvalid(d1) .or. checkInvalid(d2))
       @assertTrue(result, message = 'distmultadd5')
 
 
@@ -848,7 +1057,7 @@ contains
       d1 = v3 * (v1 + v2)
       d2 = (v3 * v1) + (v3 * v2)
 
-      result = (d1 == d2)
+      result = (d1 == d2) .and. .not. (checkInvalid(d1) .or. checkInvalid(d2))
       @assertTrue(result, message = 'distmultadd6')
 
 
@@ -859,7 +1068,7 @@ contains
       d1 = v3 * (v1 + v2)
       d2 = (v3 * v1) + (v3 * v2)
 
-      result = (d1 == d2)
+      result = (d1 == d2) .and. .not. (checkInvalid(d1) .or. checkInvalid(d2))
       @assertTrue(result, message = 'distmultadd7')
       
 
@@ -870,22 +1079,18 @@ contains
       d1 = v3 * (v1 + v2)
       d2 = (v3 * v1) + (v3 * v2)
 
-      result = (d1 == d2)
+      result = (d1 == d2) .and. .not. (checkInvalid(d1) .or. checkInvalid(d2))
       @assertTrue(result, message = 'distmultadd8')
 
       v1 = initlimb(45645487875125_8)
       v1 = v1* v1 *v1 *v1 *v1 
       v1 = v1* v1* v1* v1* v1 
       v1 = v1* v1* v1* v1* v1 
-      ! print *, 'front'
-      ! print *, v1%front
-      !v1 = v1 *v1 *v1 *v1 *v1 
-     
 
       d1 = v1 * (v1 + v1)
       d2 = (v1 * v1) + (v1 * v1)
 
-      result = (d1 == d2)
+      result = (d1 == d2) .and. .not. (checkInvalid(d1) .or. checkInvalid(d2))
       @assertTrue(result, message = 'distmultadd9')
 
 
@@ -909,7 +1114,7 @@ contains
       d1 = v3 * (v1 - v2)
       d2 = (v3 * v1) - (v3 * v2)
 
-      result = (d1 == d2)
+      result = (d1 == d2) .and. .not. (checkInvalid(d1) .or. checkInvalid(d2))
       @assertTrue(result, message = 'distmultsub1')
 
 
@@ -921,7 +1126,7 @@ contains
       d1 = v3 * (v1 - v2)
       d2 = (v3 * v1) - (v3 * v2)
 
-      result = (d1 == d2)
+      result = (d1 == d2) .and. .not. (checkInvalid(d1) .or. checkInvalid(d2))
       @assertTrue(result, message = 'distmultsub2')
 
 
@@ -933,7 +1138,7 @@ contains
       d1 = v3 * (v1 - v2)
       d2 = (v3 * v1) - (v3 * v2)
 
-      result = (d1 == d2)
+      result = (d1 == d2) .and. .not. (checkInvalid(d1) .or. checkInvalid(d2))
       @assertTrue(result, message = 'distmultsub3')
 
 
@@ -944,7 +1149,7 @@ contains
       d1 = v3 * (v1 - v2)
       d2 = (v3 * v1) - (v3 * v2)
 
-      result = (d1 == d2)
+      result = (d1 == d2) .and. .not. (checkInvalid(d1) .or. checkInvalid(d2))
       @assertTrue(result, message = 'distmultsub3')
 
 
@@ -955,7 +1160,7 @@ contains
       d1 = v3 * (v1 - v2)
       d2 = (v3 * v1) - (v3 * v2)
 
-      result = (d1 == d2)
+      result = (d1 == d2) .and. .not. (checkInvalid(d1) .or. checkInvalid(d2))
       @assertTrue(result, message = 'distmultsub3')
 
 
@@ -967,7 +1172,7 @@ contains
       d1 = v3 * (v1 - v2)
       d2 = (v3 * v1) - (v3 * v2)
 
-      result = (d1 == d2)
+      result = (d1 == d2) .and. .not. (checkInvalid(d1) .or. checkInvalid(d2))
       @assertTrue(result, message = 'distmultsub3')
 
 
@@ -978,7 +1183,7 @@ contains
       d1 = v3 * (v1 - v2)
       d2 = (v3 * v1) - (v3 * v2)
 
-      result = (d1 == d2)
+      result = (d1 == d2) .and. .not. (checkInvalid(d1) .or. checkInvalid(d2))
       @assertTrue(result, message = 'distmultsub3')
       
 
@@ -989,7 +1194,50 @@ contains
       d1 = v3 * (v1 - v2)
       d2 = (v3 * v1) - (v3 * v2)
 
-      result = (d1 == d2)
+      result = (d1 == d2) .and. .not. (checkInvalid(d1) .or. checkInvalid(d2))
+      @assertTrue(result, message = 'distmultsub3')
+
+
+
+      v1 = initlimb(233726854775807_8)
+      v1 = v1 * v1 *v1 *v1 *v1 *v1 *v1 
+      v1 = v1* v1 * v1* v1 *v1 *v1 *v1 
+      v1 = v1 * v1 *v1 *v1 *v1 *v1 *v1 
+      v2 = initlimb(7203654775807_8)
+      v2 = v2 * v2 *v2 *v2 *v2 *v2 *v2 
+      v2 = v2 * v2 *v2 *v2 *v2 *v2 * v2 
+      v2 = v2 * v2 *v2 *v2 *v2 *v2 *v2 
+      v3 = initlimb(3720368587_8)
+      v3 = v3 * v3 * v3 * v3 *v3 *v3 *v3 
+      v3 = v3 * v3 * v3 * v3 *v3 * v3 
+      v3 = v3 * v3 * v3 * v3 * v3 * v3
+
+      d1 = v3 * (v1 - v2)
+      d2 = (v3 * v1) - (v3 * v2)
+
+      result = (d1 == d2) .and. .not. (checkInvalid(d1) .or. checkInvalid(d2))
+      @assertTrue(result, message = 'distmultsub3')
+
+
+
+
+      v1 = initlimb(1_8)
+      v1 = v1 * v1 *v1 *v1 *v1 *v1 *v1 
+      v1 = v1* v1 * v1* v1 *v1 *v1 *v1 
+      v1 = v1 * v1 *v1 *v1 *v1 *v1 *v1 
+      v2 = initlimb(7203654775807_8)
+      v2 = v2 * v2 *v2 *v2 *v2 *v2 *v2 
+      v2 = v2 * v2 *v2 *v2 *v2 *v2 * v2 
+      v2 = v2 * v2 *v2 *v2 *v2 *v2 *v2 
+      v3 = initlimb(3720368587_8)
+      v3 = v3 * v3 * v3 * v3 *v3 *v3 *v3 
+      v3 = v3 * v3 * v3 * v3 *v3 * v3 
+      v3 = v3 * v3 * v3 * v3 * v3 * v3
+
+      d1 = v3 * (v1 - v2)
+      d2 = (v3 * v1) - (v3 * v2)
+
+      result = (d1 == d2) .and. .not. (checkInvalid(d1) .or. checkInvalid(d2))
       @assertTrue(result, message = 'distmultsub3')
       
 
@@ -1008,8 +1256,49 @@ contains
       v2 = initlimb(1_8)
       vres = v1 * v2 
       vcalc = initlimb(n)
-      result = vres == vcalc
+      result = (vres == vcalc) .and. .not. (checkInvalid(vres))
       @assertTrue(result, message='testMultiplicationIdentity1')
+
+
+      n = 545198733455454_8 * 1_8
+      v1 = initlimb(1_8)
+      v2 = initlimb(545198733455454_8)
+      vres = v1 * v2 
+      vcalc = initlimb(n)
+      result = (vres == vcalc) .and. .not. (checkInvalid(vres))
+      @assertTrue(result, message='testMultiplicationIdentity1')
+
+
+      n = 1_8 * 9223372036854775807_8
+      v1 = initlimb(1_8)
+      v1 = v1 * v1 * v1 * v1 
+      v1 = v1 * v1 * v1 * v1 
+      v1 = v1 * v1 * v1 * v1 
+      v2 = initlimb(9223372036854775807_8)
+
+      vres = v1 * v2 
+      vcalc = initlimb(n)
+      result = (vres == vcalc) .and. .not. (checkInvalid(vres))
+      @assertTrue(result, message='testMultiplicationIdentity2')
+
+
+      n = 9223372036854775807_8 * 1_8
+      v1 = initlimb(9223372036854775807_8)
+
+      v2 = initlimb(1_8)
+      v2 = v2 * v2 * v2 * v2 
+      v2 = v2 * v2 * v2 * v2 
+      v2 = v2 * v2 * v2 * v2 
+
+      vres = v1 * v2 
+      vcalc = initlimb(n)
+      result = (vres == vcalc) .and. .not. (checkInvalid(vres))
+      @assertTrue(result, message='testMultiplicationIdentity3')
+
+
+
+
+      
 
 
     
@@ -1019,7 +1308,7 @@ contains
     @Test 
     subroutine testMultiplicationAnnihilation() 
 
-      type(limb_t) :: v1, v2, vres, vcalc
+      type(limb_t) :: v1, v2, v3, v4, v5, vres, vcalc
       integer(8) ::n 
       type(limb_t) :: d1, d2, d3, d4, d5, d6
       logical :: result
@@ -1029,7 +1318,7 @@ contains
       v2 = initlimb(0_8)
       vres = v1 * v2 
       vcalc = initlimb(n)
-      result = vres == vcalc
+      result = (vres == vcalc) .and. .not. (checkInvalid(vres))
       @assertTrue(result, message='multiplicationAnnihilation1')
 
 
@@ -1038,7 +1327,7 @@ contains
       v2 = initlimb(5451987355454_8)
       vres = v1 * v2 
       vcalc = initlimb(n)
-      result = vres == vcalc
+      result = (vres == vcalc) .and. .not. (checkInvalid(vres))
       @assertTrue(result, message='multiplicationAnnihilation2')
 
 
@@ -1047,7 +1336,7 @@ contains
       v2 = initlimb(1_8)
       vres = v1 * v2 
       vcalc = initlimb(n)
-      result = vres == vcalc
+      result = (vres == vcalc) .and. .not. (checkInvalid(vres))
       @assertTrue(result, message='multiplicationAnnihilation3')
 
 
@@ -1056,7 +1345,7 @@ contains
       v2 = initlimb(0_8)
       vres = v1 * v2 
       vcalc = initlimb(n)
-      result = vres == vcalc
+      result = (vres == vcalc) .and. .not. (checkInvalid(vres))
       @assertTrue(result, message='multiplicationAnnihilation4')
 
 
@@ -1065,7 +1354,7 @@ contains
       v2 = initlimb(-1_8)
       vres = v1 * v2 
       vcalc = initlimb(n)
-      result = vres == vcalc
+      result = (vres == vcalc) .and. .not. (checkInvalid(vres))
       @assertTrue(result, message='multiplicationAnnihilation5')
 
 
@@ -1074,8 +1363,185 @@ contains
       v2 = initlimb(0_8)
       vres = v1 * v2 
       vcalc = initlimb(n)
-      result = vres == vcalc
+      result = (vres == vcalc) .and. .not. (checkInvalid(vres))
       @assertTrue(result, message='multiplicationAnnihilation5')
+
+
+      v1 = initlimb(0_8)
+      v1 = v1 * v1 * v1 * v1 
+      v1 = v1 * v1 * v1 * v1 
+      v1 = v1 * v1 * v1 * v1 
+      v2 = initlimb(9223372036854775807_8)
+      v2 = v2 * v2 * v2 * v2 
+      v2 = v2 * v2 * v2 * v2 
+      v2 = v2 * v2 * v2 * v2 
+      v3 = initlimb(9223372036854775807_8)
+      v3 = v3 * v3 * v3 * v3 
+      v3 = v3 * v3 * v3 * v3 
+      v3 = v3 * v3 * v3 * v3 
+      v4 = initlimb(9223372036854775807_8)
+      v4 = v4 * v4 * v4 * v4 
+      v4 = v4 * v4 * v4 * v4 
+      v4 = v4 * v4 * v4 * v4
+      v5 = initlimb(9223372036854775807_8)
+      v5 = v5 * v5 * v5 * v5 
+      v5 = v5 * v5 * v5 * v5 
+      v5 = v5 * v5 * v5 * v5 
+
+      d1 = ((((v1 * v2) * v3) * v4) * v5)
+      d2 = (((v1 * (v2 * v3)) * v4) * v5)
+      d3 = ((v1 * (v2 * (v3 * v4))) * v5)
+      d4 = (v1 * (v2 * (v3 * (v4 * v5))))
+      d5 = ((v1 * v2) * ((v3 * v4) * v5))
+      d6 = (((v1 * v2) * v3) * (v4 * v5))
+      result = (d1 == d2) .and. (d2 == d3) .and. (d3 == d4) .and. (d5 == d6) 
+      result = result .and. .not. (checkInvalid(d1) .or. checkInvalid(d2) .or. checkInvalid(d3) & 
+                      .or. checkInvalid(d4) .or. checkInvalid(d5) .or. checkInvalid(d6))
+
+      @assertTrue(result, message='multiplicationAnnihilation6')
+
+
+
+
+    v1 = initlimb(0_8)
+    v1 = v1 * v1 * v1 * v1 
+    v1 = v1 * v1 * v1 * v1 
+    v1 = v1 * v1 * v1 * v1 
+    v2 = initlimb(0_8)
+    v2 = v2 * v2 * v2 * v2 
+    v2 = v2 * v2 * v2 * v2 
+    v2 = v2 * v2 * v2 * v2 
+    v3 = initlimb(9223372036854775807_8)
+    v3 = v3 * v3 * v3 * v3 
+    v3 = v3 * v3 * v3 * v3 
+    v3 = v3 * v3 * v3 * v3 
+    v4 = initlimb(9223372036854775807_8)
+    v4 = v4 * v4 * v4 * v4 
+    v4 = v4 * v4 * v4 * v4 
+    v4 = v4 * v4 * v4 * v4
+    v5 = initlimb(9223372036854775807_8)
+    v5 = v5 * v5 * v5 * v5 
+    v5 = v5 * v5 * v5 * v5 
+    v5 = v5 * v5 * v5 * v5 
+
+    d1 = ((((v1 * v2) * v3) * v4) * v5)
+    d2 = (((v1 * (v2 * v3)) * v4) * v5)
+    d3 = ((v1 * (v2 * (v3 * v4))) * v5)
+    d4 = (v1 * (v2 * (v3 * (v4 * v5))))
+    d5 = ((v1 * v2) * ((v3 * v4) * v5))
+    d6 = (((v1 * v2) * v3) * (v4 * v5))
+    result = (d1 == d2) .and. (d2 == d3) .and. (d3 == d4) .and. (d5 == d6) 
+    result = result .and. .not. (checkInvalid(d1) .or. checkInvalid(d2) .or. checkInvalid(d3) & 
+                    .or. checkInvalid(d4) .or. checkInvalid(d5) .or. checkInvalid(d6))
+
+    @assertTrue(result, message='multiplicationAnnihilation7')
+
+
+
+
+    v1 = initlimb(0_8)
+    v1 = v1 * v1 * v1 * v1 
+    v1 = v1 * v1 * v1 * v1 
+    v1 = v1 * v1 * v1 * v1 
+    v2 = initlimb(0_8)
+    v2 = v2 * v2 * v2 * v2 
+    v2 = v2 * v2 * v2 * v2 
+    v2 = v2 * v2 * v2 * v2 
+    v3 = initlimb(0_8)
+    v3 = v3 * v3 * v3 * v3 
+    v3 = v3 * v3 * v3 * v3 
+    v3 = v3 * v3 * v3 * v3 
+    v4 = initlimb(9223372036854775807_8)
+    v4 = v4 * v4 * v4 * v4 
+    v4 = v4 * v4 * v4 * v4 
+    v4 = v4 * v4 * v4 * v4
+    v5 = initlimb(9223372036854775807_8)
+    v5 = v5 * v5 * v5 * v5 
+    v5 = v5 * v5 * v5 * v5 
+    v5 = v5 * v5 * v5 * v5 
+
+    d1 = ((((v1 * v2) * v3) * v4) * v5)
+    d2 = (((v1 * (v2 * v3)) * v4) * v5)
+    d3 = ((v1 * (v2 * (v3 * v4))) * v5)
+    d4 = (v1 * (v2 * (v3 * (v4 * v5))))
+    d5 = ((v1 * v2) * ((v3 * v4) * v5))
+    d6 = (((v1 * v2) * v3) * (v4 * v5))
+    result = (d1 == d2) .and. (d2 == d3) .and. (d3 == d4) .and. (d5 == d6) 
+    result = result .and. .not. (checkInvalid(d1) .or. checkInvalid(d2) .or. checkInvalid(d3) & 
+                    .or. checkInvalid(d4) .or. checkInvalid(d5) .or. checkInvalid(d6))
+
+    @assertTrue(result, message='multiplicationAnnihilation8')
+
+
+
+    v1 = initlimb(0_8)
+    v1 = v1 * v1 * v1 * v1 
+    v1 = v1 * v1 * v1 * v1 
+    v1 = v1 * v1 * v1 * v1 
+    v2 = initlimb(0_8)
+    v2 = v2 * v2 * v2 * v2 
+    v2 = v2 * v2 * v2 * v2 
+    v2 = v2 * v2 * v2 * v2 
+    v3 = initlimb(0_8)
+    v3 = v3 * v3 * v3 * v3 
+    v3 = v3 * v3 * v3 * v3 
+    v3 = v3 * v3 * v3 * v3 
+    v4 = initlimb(0_8)
+    v4 = v4 * v4 * v4 * v4 
+    v4 = v4 * v4 * v4 * v4 
+    v4 = v4 * v4 * v4 * v4
+    v5 = initlimb(9223372036854775807_8)
+    v5 = v5 * v5 * v5 * v5 
+    v5 = v5 * v5 * v5 * v5 
+    v5 = v5 * v5 * v5 * v5 
+
+    d1 = ((((v1 * v2) * v3) * v4) * v5)
+    d2 = (((v1 * (v2 * v3)) * v4) * v5)
+    d3 = ((v1 * (v2 * (v3 * v4))) * v5)
+    d4 = (v1 * (v2 * (v3 * (v4 * v5))))
+    d5 = ((v1 * v2) * ((v3 * v4) * v5))
+    d6 = (((v1 * v2) * v3) * (v4 * v5))
+    result = (d1 == d2) .and. (d2 == d3) .and. (d3 == d4) .and. (d5 == d6) 
+    result = result .and. .not. (checkInvalid(d1) .or. checkInvalid(d2) .or. checkInvalid(d3) & 
+                    .or. checkInvalid(d4) .or. checkInvalid(d5) .or. checkInvalid(d6))
+
+    @assertTrue(result, message='multiplicationAnnihilation9')
+
+
+    
+    v1 = initlimb(0_8)
+    v1 = v1 * v1 * v1 * v1 
+    v1 = v1 * v1 * v1 * v1 
+    v1 = v1 * v1 * v1 * v1 
+    v2 = initlimb(0_8)
+    v2 = v2 * v2 * v2 * v2 
+    v2 = v2 * v2 * v2 * v2 
+    v2 = v2 * v2 * v2 * v2 
+    v3 = initlimb(0_8)
+    v3 = v3 * v3 * v3 * v3 
+    v3 = v3 * v3 * v3 * v3 
+    v3 = v3 * v3 * v3 * v3 
+    v4 = initlimb(0_8)
+    v4 = v4 * v4 * v4 * v4 
+    v4 = v4 * v4 * v4 * v4 
+    v4 = v4 * v4 * v4 * v4
+    v5 = initlimb(0_8)
+    v5 = v5 * v5 * v5 * v5 
+    v5 = v5 * v5 * v5 * v5 
+    v5 = v5 * v5 * v5 * v5 
+
+    d1 = ((((v1 * v2) * v3) * v4) * v5)
+    d2 = (((v1 * (v2 * v3)) * v4) * v5)
+    d3 = ((v1 * (v2 * (v3 * v4))) * v5)
+    d4 = (v1 * (v2 * (v3 * (v4 * v5))))
+    d5 = ((v1 * v2) * ((v3 * v4) * v5))
+    d6 = (((v1 * v2) * v3) * (v4 * v5))
+    result = (d1 == d2) .and. (d2 == d3) .and. (d3 == d4) .and. (d5 == d6) 
+    result = result .and. .not. (checkInvalid(d1) .or. checkInvalid(d2) .or. checkInvalid(d3) & 
+                    .or. checkInvalid(d4) .or. checkInvalid(d5) .or. checkInvalid(d6))
+
+    @assertTrue(result, message='multiplicationAnnihilation10')
+    
 
 
 
@@ -1096,7 +1562,7 @@ contains
       n = 123456_8 * 987654_8
       sactual = initlimb(n)
       scalc = v1 * v2 
-      result = scalc == sactual
+      result = (scalc == sactual) .and. .not. (checkInvalid(scalc))
       @assertTrue(result, message = 'mixmultr1')
 
       n =  -123456_8 * (-987654_8)
@@ -1104,7 +1570,7 @@ contains
       v2 = -987654_8
       sactual = initlimb(n)
       scalc = v1 * v2 
-      result = scalc == sactual
+      result = (scalc == sactual) .and. .not. (checkInvalid(scalc))
       @assertTrue(result, message = 'mixmultr2')
 
 
@@ -1113,7 +1579,7 @@ contains
       v2 = 987654_8
       sactual = initlimb(n)
       scalc = v1 * v2 
-      result = scalc == sactual
+      result = (scalc == sactual) .and. .not. (checkInvalid(scalc))
       @assertTrue(result, message = 'mixmultr3')
 
       n = (-987654) * 123456_8
@@ -1121,7 +1587,7 @@ contains
       v2 = -987654_8
       sactual = initlimb(n)
       scalc = v1 * v2 
-      result = scalc == sactual
+      result = (scalc == sactual) .and. .not. (checkInvalid(scalc))
       @assertTrue(result, message = 'mixmultr4')
 
 
@@ -1130,7 +1596,7 @@ contains
       v2 = 1_8
       sactual = initlimb(n)
       scalc = v1 * v2 
-      result = scalc == sactual
+      result = (scalc == sactual) .and. .not. (checkInvalid(scalc))
       @assertTrue(result, message = 'mixmultr5')
 
 
@@ -1139,7 +1605,7 @@ contains
       v2 = 0_8
       sactual = initlimb(n)
       scalc = v1 * v2 
-      result = scalc == sactual
+      result = (scalc == sactual) .and. .not. (checkInvalid(scalc))
       @assertTrue(result, message='mixmultr6')
 
       ! 64-bit integer limit
@@ -1151,7 +1617,7 @@ contains
 
       scalc = v1 * v2 
 
-      result = scalc == sactual
+      result = (scalc == sactual) .and. .not. (checkInvalid(scalc))
       @assertTrue(result, message='mixmultr7')
 
       n = (-922337_8) * 0_8
@@ -1159,7 +1625,7 @@ contains
       v2 = 0_8
       sactual = initlimb(n)
       scalc = v1 * v2 
-      result = scalc == sactual
+      result = (scalc == sactual) .and. .not. (checkInvalid(scalc))
       @assertTrue(result, message='mixmultr8')
 
  
@@ -1182,7 +1648,7 @@ contains
       n = 123456_8 * 987654_8
       sactual = initlimb(n)
       scalc = v2 * v1
-      result = scalc == sactual
+      result = (scalc == sactual) .and. .not. (checkInvalid(scalc))
       @assertTrue(result, message = 'mixmultl1')
 
       n =  -123456_8 * (-987654_8)
@@ -1190,7 +1656,7 @@ contains
       v2 = -987654_8
       sactual = initlimb(n)
       scalc = v2 * v1
-      result = scalc == sactual
+      result = (scalc == sactual) .and. .not. (checkInvalid(scalc))
       @assertTrue(result, message = 'mixmultl2')
 
 
@@ -1199,7 +1665,7 @@ contains
       v2 = 987654_8
       sactual = initlimb(n)
       scalc = v2 * v1 
-      result = scalc == sactual
+      result = (scalc == sactual) .and. .not. (checkInvalid(scalc))
       @assertTrue(result, message = 'mixmultl3')
 
       n = (-987654) * 123456_8
@@ -1207,7 +1673,7 @@ contains
       v2 = -987654_8
       sactual = initlimb(n)
       scalc = v2 * v1 
-      result = scalc == sactual
+      result = (scalc == sactual) .and. .not. (checkInvalid(scalc))
       @assertTrue(result, message = 'mixmultl4')
 
 
@@ -1216,7 +1682,7 @@ contains
       v2 = 1_8
       sactual = initlimb(n)
       scalc = v2 * v1
-      result = scalc == sactual
+      result = (scalc == sactual) .and. .not. (checkInvalid(scalc))
       @assertTrue(result, message = 'mixmultl5')
 
 
@@ -1225,7 +1691,7 @@ contains
       v2 = 0_8
       sactual = initlimb(n)
       scalc = v2 * v1
-      result = scalc == sactual
+      result = (scalc == sactual) .and. .not. (checkInvalid(scalc))
       @assertTrue(result, message='mixmultl6')
 
       ! 64-bit integer limit
@@ -1237,7 +1703,7 @@ contains
 
       scalc = v2 * v1 
 
-      result = scalc == sactual
+      result = (scalc == sactual) .and. .not. (checkInvalid(scalc))
       @assertTrue(result, message='mixmultl7')
 
       n = (-922337_8) * 0_8
@@ -1245,7 +1711,7 @@ contains
       v2 = 0_8
       sactual = initlimb(n)
       scalc = v2 * v1
-      result = scalc == sactual
+      result = (scalc == sactual) .and. .not. (checkInvalid(scalc))
       @assertTrue(result, message='mixmultl8')
 
  
@@ -1341,104 +1807,416 @@ contains
 
     @Test 
     subroutine testRatIntConversion() 
-      ! real(real64) :: v1, v2, vres, l3
-      ! type(ratint_t) :: ratint1, ratint2
-      ! real(real64) :: eval
-      ! logical :: result
-      ! type(limb_t) :: l1, l2, t1, t2, rs 
+      real(real64) :: v1, v2, vres, l3
+      type(ratint_t) :: ratint1, ratint2
+      real(real64) :: eval
+      logical :: result
+      type(limb_t) :: l1, l2, t1, t2, rs 
+      type(limb_t) :: p1, q1
 
-      ! v1 = 564653.0_real64 / 75.0_real64
-      ! l1 = initlimb(564653_8)
-      ! l2 = initlimb(75_8)
-      ! l3 = l1 / l2 
-      ! print *, '..'
-      ! print *, l3
-      ! t1 = initlimb() 
-      ! t1%front = 2 
-      ! t1%limbs(1) = 1947051841
-      ! t1%limbs(2) = 1927348
-      ! t2 = initlimb()
-      ! t2%front = 2 
-      ! t2%limbs(1) = 0
-      ! t2%limbs(2) = 256
-      ! print *, '???'
-      ! l3 = t1 / t2 
-      ! print *, l3
+      v1 = 564653.0_real64 / 75.0_real64
+      l1 = initlimb(564653_8)
+      l2 = initlimb(75_8)
+      l3 = l1 / l2 
+
+      t1 = initlimb() 
+      t1%front = 2 
+      t1%limbs(1) = 1947051841
+      t1%limbs(2) = 1927348
+      t2 = initlimb()
+      t2%front = 2 
+      t2%limbs(1) = 0
+      t2%limbs(2) = 256
+
+      l3 = t1 / t2 
+
       
 
-      ! ratint1 = convert_ieee64(v1)
-      ! eval = evaluate(ratint1)
-      ! print *, eval 
-      ! print *, v1
-      ! result = v1 == eval
-      ! @assertTrue(result, message='ratintconv1')
+      ratint1 = convert_ieee64(v1)
+      eval = evaluate(ratint1)
+
+      result = v1 == eval
+      @assertTrue(result, message='ratintconv1')
 
 
-      ! v1 = 5599874562114.0_real64 / 1.0_real64
-      ! ratint1 = convert_ieee64(v1)
-      ! eval = evaluate(ratint1)
-      ! result = v1 == eval
-      ! @assertTrue(result, message='ratintconv2')
-
-
-
-      ! v1 = 9999887744.0_real64 / 75.0_real64
-      ! ratint1 = convert_ieee64(v1)
-      ! eval = evaluate(ratint1)
-      ! result = v1 == eval
-      ! @assertTrue(result, message='ratintconv3')
-
-
-! !!NOTE: the tests below are commented out, because subzero values are hard to compare this way
-
-!       v1 = 1.0_real64 / 75.0_real64
-!       ratint1 = convert_ieee64(v1)
-!       eval = evaluate(ratint1)
-
-
-!       result = v1 == eval
-!       @assertTrue(result, message='ratintconv4')
+      v1 = 5599874562114.0_real64 / 1.0_real64
+      ratint1 = convert_ieee64(v1)
+      eval = evaluate(ratint1)
+      result = v1 == eval
+      @assertTrue(result, message='ratintconv2')
 
 
 
+      v1 = 9999887744.0_real64 / 75.0_real64
+      ratint1 = convert_ieee64(v1)
+      eval = evaluate(ratint1)
+      result = v1 == eval
+      @assertTrue(result, message='ratintconv3')
 
 
-!       v1 = 1.0_real64 / 1.0_real64
-!       ratint1 = convert_ieee64(v1)
-!       eval = evaluate(ratint1)
-!       result = v1 == eval
-!       @assertTrue(result, message='ratintconv5')
-
-
-
-!       v1 = 955841.0_real64 / 2.0_real64
-!       ratint1 = convert_ieee64(v1)
-!       eval = evaluate(ratint1)
-!       result = v1 == eval
-!       @assertTrue(result, message='ratintconv6')
+      v1 = 1.0_real64 / 75.0_real64
+      ratint1 = convert_ieee64(v1)
+      eval = evaluate(ratint1)
+      result = v1 == eval
+      @assertTrue(result, message='ratintconv4')
 
 
 
-      ! v1 = 2654.0_real64 / 9988445522.0_real64
-      ! ratint1 = convert_ieee64(v1)
-      ! eval = evaluate(ratint1)
-      ! result = v1 == eval
-      ! call printRatInt(ratint1)
-      ! print *, '----'
-      ! print *, eval 
-      ! print *, v1
-      ! @assertTrue(result, message='ratintconv7')
+      v1 = 1.0_real64 / 1.0_real64
+      ratint1 = convert_ieee64(v1)
+      eval = evaluate(ratint1)
+      result = v1 == eval
+      @assertTrue(result, message='ratintconv5')
 
 
 
-      ! v1 = 0.0_real64 / 75.0_real64
-      ! ratint1 = convert_ieee64(v1)
-      ! eval = evaluate(ratint1)
-      ! result = v1 == eval
-      ! @assertTrue(result, message='ratintconv8')
+      v1 = 955841.0_real64 / 2.0_real64
+      ratint1 = convert_ieee64(v1)
+      eval = evaluate(ratint1)
+      result = v1 == eval
+      @assertTrue(result, message='ratintconv6')
+
+
+
+      v1 = 2654.0_real64 / 9988445522.0_real64
+      ratint1 = convert_ieee64(v1)
+      eval = evaluate(ratint1)
+      result = v1 == eval
+      p1 = ratint1%p
+      q1 = ratint1%q
+      eval = p1 / q1
+      @assertTrue(result, message='ratintconv7')
+
+
+
+      v1 = 0.0_real64 / 75.0_real64
+      ratint1 = convert_ieee64(v1)
+      eval = evaluate(ratint1)
+      result = v1 == eval
+      @assertTrue(result, message='ratintconv8')
 
 
     end subroutine testRatIntConversion
+
+
+
+
+    @Test 
+    subroutine testRatIntDivision() 
+      real(real64) :: v1, v2, vres, l3
+      type(ratint_t) :: ratint1, ratint2, v3
+      real(real64) :: eval
+      logical :: result
+      type(limb_t) :: l1, l2, t1, t2, rs 
+      type(limb_t) :: p1, q1
+
+      v1 = 564653.0_real64 / 75.0_real64
+      v2 = 77985426.0_real64 / 99745.0_real64
+      ratint1 = convert_ieee64(v1)
+      ratint2 = convert_ieee64(v2)
+      v3 = ratint1 / ratint2
+      eval = evaluate(v3)
+      vres = v1 / v2
+      result = eval == vres
+      @assertTrue(result, message='ratintdiv1')
+
+
+      v1 = 5599874562114.0_real64 / 1.0_real64
+      v2 = 126.0_real64 / 1115.0_real64
+      ratint1 = convert_ieee64(v1)
+      ratint2 = convert_ieee64(v2)
+      v3 = ratint1 / ratint2
+      eval = evaluate(v3)
+      vres = v1 / v2
+      result = eval == vres
+      @assertTrue(result, message='ratintdiv2')
+
+
+
+      v1 = 9999887744.0_real64 / 75.0_real64
+      v2 = 1.0_real64 / 111558899999745.0_real64
+      ratint1 = convert_ieee64(v1)
+      ratint2 = convert_ieee64(v2)
+      v3 = ratint1 / ratint2
+      eval = evaluate(v3)
+      vres = v1 / v2
+      result = eval == vres
+      @assertTrue(result, message='ratintdiv3')
+
+
+      v1 = 1.0_real64 / 75.0_real64
+      v2 = 998577985426.0_real64 / 15.0_real64
+      ratint1 = convert_ieee64(v1)
+      ratint2 = convert_ieee64(v2)
+      v3 = ratint1 / ratint2
+      eval = evaluate(v3)
+      vres = v1 / v2
+      result = eval == vres
+      @assertTrue(result, message='ratintdiv4')
+
+
+
+      v1 = 1.0_real64 / 1.0_real64
+      v2 = 879.0_real64 / 1.0_real64
+      ratint1 = convert_ieee64(v1)
+      ratint2 = convert_ieee64(v2)
+      v3 = ratint1 / ratint2
+      eval = evaluate(v3)
+      vres = v1 / v2
+      result = eval == vres
+      @assertTrue(result, message='ratintdiv5')
+
+
+
+      v1 = 955841.0_real64 / 2.0_real64
+      v2 = 0.0_real64 / 9998758899669745.0_real64
+      ratint1 = convert_ieee64(v1)
+      ratint2 = convert_ieee64(v2)
+      v3 = ratint1 / ratint2
+      eval = evaluate(v3)
+      vres = v1 / v2
+      result = eval == vres
+      @assertTrue(result, message='ratintdiv6')
+
+
+
+      v1 = 2654.0_real64 / 9988445522.0_real64
+      v2 = 85426.0_real64 / 95.0_real64
+      ratint1 = convert_ieee64(v1)
+      ratint2 = convert_ieee64(v2)
+      v3 = ratint1 / ratint2
+      eval = evaluate(v3)
+      vres = v1 / v2
+      result = eval == vres
+      @assertTrue(result, message='ratintdiv7')
+
+
+
+      v1 = 0.0_real64 / 75.0_real64
+      v2 = 1.0_real64 / 125878.0_real64
+      ratint1 = convert_ieee64(v1)
+      ratint2 = convert_ieee64(v2)
+      v3 = ratint1 / ratint2
+      eval = evaluate(v3)
+      vres = v1 / v2
+      result = eval == vres
+      @assertTrue(result, message='ratintdiv8')
+
+
+    end subroutine testRatIntDivision
+
+
+
+    @Test 
+    subroutine testRatIntAddition() 
+      real(real64) :: v1, v2, vres, l3
+      type(ratint_t) :: ratint1, ratint2, v3
+      real(real64) :: eval
+      logical :: result
+      type(limb_t) :: l1, l2, t1, t2, rs 
+      type(limb_t) :: p1, q1
+
+      v1 = 564653.0_real64 + 75.0_real64
+      v2 = 77985426.0_real64 + 99745.0_real64
+      ratint1 = convert_ieee64(v1)
+      ratint2 = convert_ieee64(v2)
+      v3 = ratint1 + ratint2
+      eval = evaluate(v3)
+      vres = v1 + v2
+      result = eval == vres
+      @assertTrue(result, message='ratintadd1')
+
+
+      v1 = 5599874562114.0_real64 + 1.0_real64
+      v2 = 126.0_real64 + 1115.0_real64
+      ratint1 = convert_ieee64(v1)
+      ratint2 = convert_ieee64(v2)
+      v3 = ratint1 + ratint2
+      eval = evaluate(v3)
+      vres = v1 + v2
+      result = eval == vres
+      @assertTrue(result, message='ratintadd2')
+
+
+
+      v1 = 9999887744.0_real64 + 75.0_real64
+      v2 = 1.0_real64 + 111558899999745.0_real64
+      ratint1 = convert_ieee64(v1)
+      ratint2 = convert_ieee64(v2)
+      v3 = ratint1 + ratint2
+      eval = evaluate(v3)
+      vres = v1 + v2
+      result = eval == vres
+      @assertTrue(result, message='ratintadd3')
+
+
+      v1 = 1.0_real64 + 75.0_real64
+      v2 = 998577985426.0_real64 + 15.0_real64
+      ratint1 = convert_ieee64(v1)
+      ratint2 = convert_ieee64(v2)
+      v3 = ratint1 + ratint2
+      eval = evaluate(v3)
+      vres = v1 + v2
+      result = eval == vres
+      @assertTrue(result, message='ratintadd4')
+
+
+
+      v1 = 1.0_real64 + 1.0_real64
+      v2 = 879.0_real64 + 1.0_real64
+      ratint1 = convert_ieee64(v1)
+      ratint2 = convert_ieee64(v2)
+      v3 = ratint1 + ratint2
+      eval = evaluate(v3)
+      vres = v1 + v2
+      result = eval == vres
+      @assertTrue(result, message='ratintadd5')
+
+
+
+      v1 = 955841.0_real64 + 2.0_real64
+      v2 = 0.0_real64 + 9998758899669745.0_real64
+      ratint1 = convert_ieee64(v1)
+      ratint2 = convert_ieee64(v2)
+      v3 = ratint1 + ratint2
+      eval = evaluate(v3)
+      vres = v1 + v2
+      result = eval == vres
+      @assertTrue(result, message='ratintadd6')
+
+
+
+      v1 = 2654.0_real64 + 9988445522.0_real64
+      v2 = 85426.0_real64 + 95.0_real64
+      ratint1 = convert_ieee64(v1)
+      ratint2 = convert_ieee64(v2)
+      v3 = ratint1 + ratint2
+      eval = evaluate(v3)
+      vres = v1 + v2
+      result = eval == vres
+      @assertTrue(result, message='ratintadd7')
+
+
+
+      v1 = 0.0_real64 + 75.0_real64
+      v2 = 1.0_real64 + 125878.0_real64
+      ratint1 = convert_ieee64(v1)
+      ratint2 = convert_ieee64(v2)
+      v3 = ratint1 + ratint2
+      eval = evaluate(v3)
+      vres = v1 + v2
+      result = eval == vres
+      @assertTrue(result, message='ratintadd8')
+
+
+    end subroutine testRatIntAddition
+
+
+
+    @Test 
+    subroutine testRatIntSubtraction() 
+      real(real64) :: v1, v2, vres, l3
+      type(ratint_t) :: ratint1, ratint2, v3
+      real(real64) :: eval
+      logical :: result
+      type(limb_t) :: l1, l2, t1, t2, rs 
+      type(limb_t) :: p1, q1
+
+      v1 = 564653.58585_real64 
+      v2 = 77985426.77789_real64 
+      ratint1 = convert_ieee64(v1)
+      ratint2 = convert_ieee64(v2)
+      v3 = ratint1 - ratint2
+      eval = evaluate(v3)
+      vres = v1 - v2
+      result = eval == vres
+      @assertTrue(result, message='ratintsub1')
+
+
+      v1 = 5599874562114.998562_real64 
+      v2 = 126.8895217_real64
+      ratint1 = convert_ieee64(v1)
+      ratint2 = convert_ieee64(v2)
+      v3 = ratint1 - ratint2
+      eval = evaluate(v3)
+      vres = v1 - v2
+      result = eval == vres
+      @assertTrue(result, message='ratintsub2')
+
+
+
+      v1 = 9999887744.0_real64 
+      v2 = 1.9984561_real64
+      ratint1 = convert_ieee64(v1)
+      ratint2 = convert_ieee64(v2)
+      v3 = ratint1 - ratint2
+      eval = evaluate(v3)
+      vres = v1 - v2
+      result = eval == vres
+      @assertTrue(result, message='ratintsub3')
+
+
+      v1 = 1.0_real64 
+      v2 = 998577985426.0_real64 
+      ratint1 = convert_ieee64(v1)
+      ratint2 = convert_ieee64(v2)
+      v3 = ratint1 - ratint2
+      eval = evaluate(v3)
+      vres = v1 - v2
+      result = eval == vres
+      @assertTrue(result, message='ratintsub4')
+
+
+
+      v1 = 1.0_real64 
+      v2 = 879.98154627_real64 
+      ratint1 = convert_ieee64(v1)
+      ratint2 = convert_ieee64(v2)
+      v3 = ratint1 - ratint2
+      eval = evaluate(v3)
+      vres = v1 - v2
+      result = eval == vres
+      @assertTrue(result, message='ratintsub5')
+
+
+      !9998758899669745.0_real64
+      v1 = 955841.9984526_real64 
+      v2 = 0.0_real64 - 99987588669745.0_real64
+      ratint1 = convert_ieee64(v1)
+      ratint2 = convert_ieee64(v2)
+      v3 = ratint1 - ratint2
+      eval = evaluate(v3)
+      vres = v1 - v2
+      result = eval == vres
+      @assertTrue(result, message='ratintsub6')
+
+
+
+      v1 = 2654.8894516_real64 
+      v2 = 85426.88954_real64 
+      ratint1 = convert_ieee64(v1)
+      ratint2 = convert_ieee64(v2)
+      v3 = ratint1 - ratint2
+      eval = evaluate(v3)
+      vres = v1 - v2
+      result = eval == vres
+      @assertTrue(result, message='ratintsub7')
+
+
+
+      v1 = 955841.9984526_real64 
+      v2 = 9998758899669745.0_real64 
+      ratint1 = convert_ieee64(v1)
+      ratint2 = convert_ieee64(v2)
+      v3 = ratint1 - ratint2
+      eval = evaluate(v3)
+      vres = v1 - v2
+      result = eval == vres
+      @assertTrue(result, message='ratintsub8')
+
+
+
+    end subroutine testRatIntSubtraction
 
 
 

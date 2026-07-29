@@ -129,19 +129,25 @@ module ratint
                 expratint%q = initlimb(1_8)
             end if 
 
-            print *, '////'
-            call printlimb(fracratint%p)
-            print *, '--'
-            call printlimb(fracratint%q)
-            print *, '==='
-            call printlimb(expratint%p)
-            print *, '--'
-            call printlimb(expratint%q)
-            r = expratint * fracratint
-            print *, '-!!!---'
-            call printRatInt(r)
+            ! print *, '////'
+            ! call printlimb(fracratint%p)
+            ! print *, '--'
+            ! call printlimb(fracratint%q)
+            ! print *, '==='
+            ! call printlimb(expratint%p)
+            ! print *, '--'
+            ! call printlimb(expratint%q)
 
-            print *, evaluate(r)
+            r = expratint * fracratint
+
+            if (sign(1.0_real64,n) == -1.0_real64) then 
+                r%p%sign = -1
+            end if
+
+            ! print *, '-!!!---'
+            ! call printRatInt(r)
+
+            ! print *, evaluate(r)
 
 
         end function convert_ieee64
@@ -164,12 +170,12 @@ module ratint
 
 
    
-        pure function evaluate(r) result(v)
+        
+        function evaluate(r) result(v)
             type(ratint_t), intent(in) :: r 
             real(8) :: v 
 
             v = r%p / r%q
-            v = v * r%p%sign
 
         end function evaluate
 
@@ -182,29 +188,38 @@ module ratint
             type(limb_t) :: lcm
   
             ! Get the greatest common divisor and least common multiple
-            gcdVal = gcd(r1%q, r2%q)
+            !gcdVal = gcd(r1%q, r2%q)
             
-            lcm = initlimb(1_8)
+            !lcm = initlimb(1_8)
             ! NOTE: the result of this division should be an exact value, so its safe to round down
-            lcm = floor(r1%q/gcdVal)*1_8 * r2%q
+            !lcm = floor(r1%q/gcdVal)*1_8 * r2%q
             ! print *, 'lcm'
             ! call printlimb(lcm)
 
 
             ! Modify numerators so that denominators are the same
             ! NOTE: Because of lcm calculation this is guaranteed to be a whole number
-            r1t%p = r1%p * initlimb(int(lcm/r1%q , 8))
+            !r1t%p = r1%p * initlimb(int(lcm/r1%q , 8))
+            r1t%p = r1%p * r2%q
+            ! print *, '----'
+            ! call printRatInt(r1)
+            ! call printRatInt(r2)
+            ! call printlimb(r1t%p)
+            ! call printlimb(r2t%p)
             !print *, 'lkfdkf'
             !call printlimb(r1t%p)
-            r2t%p = r2%p * initlimb(int(lcm/r2%q , 8))
+            !r2t%p = r2%p * initlimb(int(lcm/r2%q , 8))
+            r2t%p = r2%p * r1%q
+            ! call printlimb(r2t%p)
 
 
             r3%p = r1t%p + r2t%p
 
             ! Sets the denominator to be the lowest common multiple
-            r3%q = lcm 
+            r3%q = r1%q * r2%q 
 
             !addpure = simplify(r3)
+
 
             addpure = r3
 
@@ -243,7 +258,7 @@ module ratint
             type(ratint_t) :: r2t
 
             r2t%p = r2%p
-            r2t%p%sign = r2t%p%sign * (-1)
+            r2t%p%sign = r2%p%sign * (-1)
             r2t%q = r2%q
 
             subtractpure = addpure(r1, r2t)

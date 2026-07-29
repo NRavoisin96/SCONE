@@ -106,6 +106,11 @@ module limb_class
             type(limb_t) :: l 
             integer(4) :: i
 
+            if (n > 1977) then 
+                call setInvalid(l)
+                return
+            end if
+
             l%front = n
             l%sign = 1
             l%limbs(0) = 0
@@ -193,13 +198,36 @@ module limb_class
         end function initlimb4
 
 
+        pure subroutine setInvalid(a)
+            type(limb_t), intent(inout) :: a 
 
-     pure subroutine addOnSign(a,b, asig, bsig, s)
+            a%front = -1 
+            a%sign = 0 
+
+        end subroutine setInvalid
+
+
+        pure function checkInvalid(a) result (r)
+            type(limb_t), intent(in) :: a 
+            logical :: r 
+
+            r = a%front == -1 
+
+        end function checkInvalid
+        
+
+
+        pure subroutine addOnSign(a,b, asig, bsig, s)
             type(limb_t), intent(in) :: a,b 
             integer(8), intent(in) :: asig, bsig
             type(limb_t), intent(inout) :: s
-            integer(8) :: st, zeroIndA, zeroIndB, overflow, borrow
+            integer(8) :: st, zeroIndA, zeroIndB, overflow, borrow, va, vb
             integer :: i, maxfront
+
+            if (a%front == 1977 .and. b%front == 1977 .and. (a%limbs(a%front)*1_8+b%limbs(b%front)*1_8) > 2_8**31) then 
+                call setInvalid(s)
+                return 
+            end if
 
             st = 0
 
@@ -216,13 +244,30 @@ module limb_class
                     s%front = s%front - (1 - min(1_8, st))
                     exit
                 end if
-                ! Indicator for preventing the use of an index outside of limb size
-                zeroIndA = max(min(a%front+1-i, 1), 0)
-                zeroIndB = max(min(b%front+1-i, 1), 0)
-                
 
-                ! Add components based on sign
-                st = (a%limbs(i*zeroInda))*asig + (b%limbs(i*zeroIndb))*bsig + overflow + borrow
+
+
+                ! ! Indicator for preventing the use of an index outside of limb size
+                ! zeroIndA = max(min(a%front+1-i, 1), 0)
+                ! zeroIndB = max(min(b%front+1-i, 1), 0)
+
+                ! ! Add components based on sign
+                ! st = (a%limbs(i*zeroInda))*asig + (b%limbs(i*zeroIndb))*bsig + overflow + borrow
+                ! borrow = 0
+
+                if (i > a%front) then 
+                    va = 0
+                else 
+                    va = a%limbs(i) * asig 
+                end if 
+
+                if (i > b%front) then 
+                    vb = 0
+                else 
+                    vb = b%limbs(i)*bsig 
+                end if 
+                
+                st = va + vb + overflow + borrow
                 borrow = 0
                 
 
@@ -238,7 +283,7 @@ module limb_class
                 s%limbs(i) = st - overflow 
                 ! Any overflow is by at most one bit
                 overflow = shiftr(overflow, 31)
-
+                
                 s%front = i
                 
                 !if (i>=maxfront .and. overflow == 0) then 
@@ -256,23 +301,21 @@ module limb_class
         end subroutine addOnSign
 
 
-       pure function addLimbs(a,b) result (s)
+        pure function addLimbs(a,b) result (s)
             type(limb_t), intent(in) :: a, b 
             type(limb_t) :: s 
             logical :: greaterThan, tr1, tr2, tr3, tr4, tr5, tr6
             integer :: cd1, cd2, cd3, cd4, cd5, cd6, greaterThanInt
 
+            if (checkInvalid(a) .or. checkInvalid(b)) then 
+                call setInvalid(s)
+                return 
+            end if
+
             ! Initialising s 
             s = initlimb()
 
-            ! greaterthan = absgneq(a, b)
-
-            ! tr1 = (a%sign /= b%sign)  
-            ! tr2 = (greaterthan .and. a%sign == -1)
-            ! tr3 = ((.not. greaterthan) .and. b%sign == -1)
-            ! tr4 = (a%sign == b%sign) .and. a%sign == -1
-            ! tr5 = (a%sign == -1) .and. (.not. greaterThan)
-            ! tr6 = (b%sign == -1) .and. (greaterThan)
+            
 
             ! Alternative representation using max, min and integers to replace booleans 
             ! Less readable but im not sure if merge triggers branch prediction
@@ -292,14 +335,12 @@ module limb_class
             !                 1_8 + (-2_8)*(min((cd1 * cd3) + (cd1 * cd5), 1)), &
             !                 1_8 + (-2_8)*(min((cd1 * cd2) + (cd1 * cd6), 1)), s)
 
-            ! Cases:
+            ! Cases (for setting sign of result):
             ! (1) If signs are different and magnitudes mean their sum is negative, sets sign = -1
             ! (2) If both signs are the same and negative, sets sign = -1
             ! (3) Any other case only has positive signs, sets sign = 1
 
-            !s%sign = 1_8 + (-2_8) * merge(1, 0, (tr1 .and. (tr2 .or. tr3)) .or. tr4)
-
-            ! Cases:
+            ! Cases (for sign inputs):
             ! (1) If a,b are the same sign, both sides of 'or' fail, sets input sign to 1 (  sum)
             ! (2) If a,b signs different:
                 ! (i)  a = negative with larger magnitude, tr3 and tr5 fail so sign for a = 1
@@ -311,11 +352,23 @@ module limb_class
                     ! if a is negative, tr5 succeeds and tr6 fails (signs remain the same)
                     ! is b is negative, tr6 succeeds and tr5 fails
 
-           ! call addOnSign(a, &
+            ! greaterthan = absgneq(a, b)
+
+            ! tr1 = (a%sign /= b%sign)  
+            ! tr2 = (greaterthan .and. a%sign == -1)
+            ! tr3 = ((.not. greaterthan) .and. b%sign == -1)
+            ! tr4 = (a%sign == b%sign) .and. a%sign == -1
+            ! tr5 = (a%sign == -1) .and. (.not. greaterThan)
+            ! tr6 = (b%sign == -1) .and. (greaterThan)
+
+            ! s%sign = 1_8 + (-2_8) * merge(1, 0, (tr1 .and. (tr2 .or. tr3)) .or. tr4)
+
+            ! call addOnSign(a, &
             !                b, &
             !                1_8 + (-2_8)*merge(1, 0, (tr1 .and. tr3) .or. (tr1 .and. tr5)), &
             !                1_8 + (-2_8)*merge(1, 0, (tr1 .and. tr2) .or. (tr1 .and. tr6)), s)
 
+            
 
             if (a%sign /= b%sign) then 
                 greaterthan = absgneq(a, b)
@@ -351,7 +404,12 @@ module limb_class
             logical :: r 
             integer :: i
 
+        
             r = .false.
+
+            if (checkInvalid(a) .or. checkInvalid(b)) then 
+                return 
+            end if
    
             ! Catches any potential zero index front error (remove?? may mask issues)
             if (a%front /= b%front) then
@@ -376,7 +434,12 @@ module limb_class
             integer :: r 
             integer :: i
 
+            
             r = 0
+
+            if (checkInvalid(a) .or. checkInvalid(b)) then 
+                return 
+            end if
    
             ! min(1, ...) catches any potential zero index front error (remove?? may mask issues)
             if (a%front /= b%front) then
@@ -395,8 +458,9 @@ module limb_class
             end do 
         end function absgneqInt
 
+        
 
-     pure function addlimbmixedL(n,a) result(s)
+        pure function addlimbmixedL(n,a) result(s)
             integer(8), intent(in) :: n
             type(limb_t), intent(in) :: a 
             type(limb_t) :: s, nlimb
@@ -408,7 +472,7 @@ module limb_class
         end function addlimbmixedL
 
 
-     pure function addlimbmixedR(a,n) result(s)
+        pure function addlimbmixedR(a,n) result(s)
             integer(8), intent(in) :: n
             type(limb_t), intent(in) :: a 
             type(limb_t) :: s, nlimb
@@ -424,7 +488,7 @@ module limb_class
 
 
 
-     pure function subtractlimbs(a, b) result(s)
+        pure function subtractlimbs(a, b) result(s)
             type(limb_t), intent(in) :: a,b 
             type(limb_t) :: s, bt
 
@@ -437,7 +501,7 @@ module limb_class
 
 
 
-     pure function subtractlimbmixedL(n,a) result(s)
+        pure function subtractlimbmixedL(n,a) result(s)
             integer(8), intent(in) :: n
             type(limb_t), intent(in) :: a 
             type(limb_t) :: s, nlimb 
@@ -450,7 +514,7 @@ module limb_class
 
 
 
-     pure function subtractlimbmixedR(a,n) result(s)
+        pure function subtractlimbmixedR(a,n) result(s)
             integer(8), intent(in) :: n
             type(limb_t), intent(in) :: a 
             type(limb_t) :: s, nlimb 
@@ -463,9 +527,14 @@ module limb_class
 
 
 
-     pure function multiplylimbs(a,b) result(p)
+        pure function multiplylimbs(a,b) result(p)
             type(limb_t), intent(in) :: a,b 
             type(limb_t) :: p
+
+            if (checkInvalid(a) .or. checkInvalid(b)) then 
+                call setInvalid(p)
+                return 
+            end if
 
             p = initlimb()
 
@@ -482,10 +551,15 @@ module limb_class
         end function multiplylimbs
 
 
-     pure subroutine recursiveMultLimbs(a, b, asplitstart, asplitend, bsplitstart, bsplitend, p)
+        pure subroutine recursiveMultLimbs(a, b, asplitstart, asplitend, bsplitstart, bsplitend, p)
             type(limb_t), intent(in) :: a,b 
             integer, intent(in) :: asplitstart, bsplitstart, asplitend, bsplitend
             type(limb_t) , intent(inout) :: p
+
+            if (checkInvalid(a) .or. checkInvalid(b)) then 
+                call setInvalid(p)
+                return 
+            end if
 
             if ((asplitend-asplitstart+1) < 32 .or. (bsplitend-bsplitstart+1) < 32) then 
                 call longMultiplication(a, b, asplitstart, asplitend, bsplitstart, bsplitend, p)
@@ -499,12 +573,21 @@ module limb_class
         ! a * b, i.e.
         !   (a_m a_m-1 .... a_2 a_1)
         ! * (b_n b_n-1 .... b_2 b_1)
-     pure subroutine longMultiplication(a, b, aStart, aEnd, bStart, bEnd, p)
+        pure subroutine longMultiplication(a, b, aStart, aEnd, bStart, bEnd, p)
             type(limb_t), intent(in) :: a, b 
             integer, intent(in) :: aStart, aEnd, bStart, bEnd 
             type(limb_t), intent(inout) :: p 
             integer :: i, j, pos, zeroIndA 
-            integer(8) :: pt, overflow
+            integer(8) :: pt, overflow, va
+
+            ! Placing the check here, however, n+m is only an estimation, ideally it should be in the loop,
+            ! but this will affect performance
+            ! It seems like past numbers beginning with 316... n+m applies (verify later)
+
+            if (a%front + b%front > 1977 .or. (checkInvalid(a) .or. checkInvalid(b))) then 
+                call setInvalid(p)
+                return
+            end if
 
 
             p = initLimbSize((aEnd-aStart+1)+(bEnd-bStart+1)+1)
@@ -525,9 +608,16 @@ module limb_class
                     if (j > aEnd .and. overflow == 0) then 
                         exit 
                     end if
-                    zeroIndA = max(min(aEnd - j+1, 1), 0)
+                    ! zeroIndA = max(min(aEnd - j+1, 1), 0)
 
-                    pt = p%limbs(pos) + (b%limbs(i)*1_8 * a%limbs(j*zeroIndA)*1_8) + overflow
+                    ! pt = p%limbs(pos) + (b%limbs(i)*1_8 * a%limbs(j*zeroIndA)*1_8) + overflow
+
+                    if (j > aEnd) then 
+                        va = 0 
+                    else 
+                        va = a%limbs(j) 
+                    end if 
+                    pt = p%limbs(pos) + (b%limbs(i)*1_8 * va* 1_8) + overflow
 
                     overflow = shiftl(shiftr(pt, 31), 31) 
                     p%limbs(pos) = pt - overflow 
@@ -549,7 +639,7 @@ module limb_class
 
 
         ! NOTE: removed the p limb initialisation at the start of the subroutine, return if issues with accesss
-          recursive pure subroutine karatsubamult(a,b, asplitstart, asplitend, bsplitstart, bsplitend, p)
+        recursive pure subroutine karatsubamult(a,b, asplitstart, asplitend, bsplitstart, bsplitend, p)
             type(limb_t), intent(in) :: a,b 
             integer, intent(in) :: asplitstart, bsplitstart, asplitend, bsplitend
             type(limb_t) , intent(inout) :: p
@@ -566,42 +656,46 @@ module limb_class
 
 
 
-            ! Base case
-            ! Assumes each are at only one split (so can easily be split and multiplied)
-            if (abs(asplitstart - asplitend) <= 1 .and. abs(bsplitstart - bsplitend) <= 1) then 
+            ! ! Base case
+            ! ! Assumes each are at only one split (so can easily be split and multiplied)
+            ! if (abs(asplitstart - asplitend) <= 1 .and. abs(bsplitstart - bsplitend) <= 1) then 
 
-                ! If either one is at only size 1, then the LSB becomes start and MSB is 0
-                ! NOTE: relies on end>start, this should hold (if not, signals deeper bug)
-                a0 = a%limbs(asplitstart)
-                a1 = a%limbs(asplitend*max(min(asplitend-asplitstart, 1), 0))
-                b0 = b%limbs(bsplitstart)
-                b1 = b%limbs(bsplitend*max(min(bsplitend-bsplitstart, 1), 0))
-
-
-                ! Polynomial expansion steps
-                z0 = a0 * b0
-                z2 = a1 * b1
-
-                ! Karatsuba simplification
-                z3 = (a0 + a1) * (b0 + b1)
-                z1 = (z3 - z2) - z0
+            !     ! If either one is at only size 1, then the LSB becomes start and MSB is 0
+            !     ! NOTE: relies on end>start, this should hold (if not, signals deeper bug)
+            !     a0 = a%limbs(asplitstart)
+            !     a1 = a%limbs(asplitend*max(min(asplitend-asplitstart, 1), 0))
+            !     b0 = b%limbs(bsplitstart)
+            !     b1 = b%limbs(bsplitend*max(min(bsplitend-bsplitstart, 1), 0))
 
 
-                ! Adding these values to the limbs so that they can be shifted and combined into result p
-                ! equivalent to: p = z2*2^(31*2) + z1*2^(31) + z0
-                p0 = initlimb(z0)
-                p1 = initlimb(z1)
-                p2 = initlimb(z2)
+            !     ! Polynomial expansion steps
+            !     z0 = a0 * b0
+            !     z2 = a1 * b1
 
-                call tripleShiftSumBy(p0, p1, p2, 1, p)
-
-
-                ! Adjusts the front of the result
-                call adjustFront(p)
+            !     ! Karatsuba simplification
+            !     z3 = (a0 + a1) * (b0 + b1)
+            !     z1 = (z3 - z2) - z0
 
 
-            !Recursive step
-            else
+            !     ! Adding these values to the limbs so that they can be shifted and combined into result p
+            !     ! equivalent to: p = z2*2^(31*2) + z1*2^(31) + z0
+            !     p0 = initlimb(z0)
+            !     p1 = initlimb(z1)
+            !     p2 = initlimb(z2)
+
+            !     call tripleShiftSumBy(p0, p1, p2, 1, p)
+
+
+            !     ! Adjusts the front of the result
+            !     call adjustFront(p)
+
+
+            ! !Recursive step
+            ! else
+                if ((asplitend-asplitstart+1)+(bsplitend-bsplitstart+1) > 1977 .or. (checkInvalid(a) .or. checkInvalid(b))) then 
+                    call setInvalid(p)
+                    return
+                end if
                 ! Calculate the splits to take
                 ! NOTE : this is split LENGTH, not relative to the starting point
 
@@ -630,24 +724,6 @@ module limb_class
                 call combineIntervals(b, bsplitstart, split, bsplitstart+split, (bsplitend-bsplitstart-split+1), b0b1)
 
 
- 
-                ! Unifies the fronts in case they are different sizes
-                ! groupfront = max(a0a1%front, b0b1%front)
-
-
-                ! do i=1, groupfront 
-                !     zeroIndA = max(min(a0a1%front+1-i, 1), 0)
-                !     zeroIndB = max(min(b0b1%front+1-i, 1), 0)
-
-                !     a0a1%limbs(i) = a0a1%limbs(i*zeroIndA) 
-                !     b0b1%limbs(i) = b0b1%limbs(i*zeroIndB) 
-                ! end do
-
-                ! a0a1%front = groupfront 
-                ! b0b1%front = groupfront
-
-                !call padFronts(a0a1, b0b1, a0a1p, b0b1p)
-
                 call recursiveMultLimbs(a0a1, b0b1, 1, a0a1%front, 1, b0b1%front, p3)
 
                 p1 = (p3 - p2) - p0
@@ -664,11 +740,11 @@ module limb_class
 
 
 
-            end if 
+            ! end if 
 
         end subroutine karatsubamult
 
-     pure subroutine adjustFront(a)
+        pure subroutine adjustFront(a)
             type(limb_t), intent(inout) :: a 
             integer :: i
 
@@ -684,19 +760,34 @@ module limb_class
         end subroutine
 
         ! NOTE: Assumes that at,bt are already initialised
-     pure subroutine padFronts(a, b, at, bt)
+        pure subroutine padFronts(a, b, at, bt)
             type(limb_t), intent(in) :: a,b 
             type(limb_t), intent(inout) :: at, bt
-            integer :: i, groupfront, zeroIndA, zeroIndB 
+            integer :: i, groupfront, zeroIndA, zeroIndB, va, vb
+
 
             groupfront = max(a%front, b%front)
 
             do i=1, groupfront 
-                zeroIndA = max(min(a%front+1-i, 1), 0)
-                zeroIndB = max(min(b%front+1-i, 1), 0)
+                ! zeroIndA = max(min(a%front+1-i, 1), 0)
+                ! zeroIndB = max(min(b%front+1-i, 1), 0)
 
-                at%limbs(i) = a%limbs(i*zeroIndA) 
-                bt%limbs(i) = b%limbs(i*zeroIndB) 
+                ! at%limbs(i) = a%limbs(i*zeroIndA) 
+                ! bt%limbs(i) = b%limbs(i*zeroIndB) 
+                if (i > a%front) then 
+                    va = 0 
+                else 
+                    va = a%limbs(i)
+                end if 
+
+                if (i > b%front) then 
+                    vb = 0 
+                else 
+                    vb = a%limbs(i)
+                end if
+
+                at%limbs(i) = va 
+                at%limbs(i) = vb
             end do
 
             at%front = groupfront
@@ -707,12 +798,17 @@ module limb_class
 
 
 
-     pure subroutine combineIntervals(a, start1, len1, start2, len2, s)
+        pure subroutine combineIntervals(a, start1, len1, start2, len2, s)
             type(limb_t), intent(in) :: a 
             integer, intent(in) :: start1, len1, start2, len2
             type(limb_t), intent(inout) :: s 
             integer :: zeroIndS, zeroIndE, i, zeroIndAS, zeroIndAE
-            integer(8) :: overflow, st, maxLen
+            integer(8) :: overflow, st, maxLen, v1, v2
+
+            if (checkInvalid(a)) then 
+                call setInvalid(s)
+                return 
+            end if
 
             s = initlimb()
             s%sign = a%sign
@@ -729,16 +825,35 @@ module limb_class
                     s%front = i - (1 - min(overflow, 1_8))
                     exit
                 end if
-                ! Indicator for preventing the use of an index outside of the length to add in the same limb
-                zeroIndS = max(min(len1-i+1, 1), 0)     
-                zeroIndE = max(min(len2-i+1, 1), 0)
-                ! Indicator for preventing access outside of the limb
-                zeroIndAS = max(min((a%front-start1+1)-i+1, 1), 0)     
-                zeroIndAE = max(min((a%front-start2+1)-i+1, 1), 0)     
+                ! ! Indicator for preventing the use of an index outside of the length to add in the same limb
+                ! zeroIndS = max(min(len1-i+1, 1), 0)     
+                ! zeroIndE = max(min(len2-i+1, 1), 0)
+                ! ! Indicator for preventing access outside of the limb
+                ! zeroIndAS = max(min((a%front-start1+1)-i+1, 1), 0)     
+                ! zeroIndAE = max(min((a%front-start2+1)-i+1, 1), 0)     
                 
+                ! ! Add components based on sign
+                ! st = (a%limbs((start1+i-1)*zeroIndS*zeroIndAS))*1_8 + (a%limbs((start2 + i-1)*zeroIndE*zeroIndAE))*1_8 + overflow 
 
-                ! Add components based on sign
-                st = (a%limbs((start1+i-1)*zeroIndS*zeroIndAS))*1_8 + (a%limbs((start2 + i-1)*zeroIndE*zeroIndAE))*1_8 + overflow 
+                if (i > len1) then 
+                    v1 = 0
+                else if (i > a%front-start1+1) then 
+                    v1 = 0
+                else 
+                    v1 = a%limbs(start1+i-1)
+                end if 
+
+                if (i > len2) then 
+                    v2 = 0
+                else if (i > a%front-start2+1) then 
+                    v2 = 0
+                else 
+                    v2 = a%limbs(start2+i-1)
+                end if 
+
+                st = v1*1_8 + v2*1_8 + overflow 
+
+
 
 
                 ! Compute and remove overflow via 31-bit shifting
@@ -758,12 +873,17 @@ module limb_class
 
 
 
-      pure subroutine tripleShiftSumBy(v1, v2, v3, shift, r)
+        pure subroutine tripleShiftSumBy(v1, v2, v3, shift, r)
             type(limb_t), intent(in) :: v1, v2, v3 
             integer, intent(in) :: shift
             type(limb_t), intent(inout) :: r
             integer :: i, maxLen, zeroInd1, zeroInd2, zeroInd3, zeroIndShift1, zeroIndShift2
-            integer(8) :: overflow, st, borrow
+            integer(8) :: overflow, st, borrow, val1, val2, val3
+
+            if (checkInvalid(v1) .or. checkInvalid(v2) .or. checkInvalid(v3)) then 
+                call setInvalid(r)
+                return 
+            end if
 
             r = initlimb()
 
@@ -778,31 +898,44 @@ module limb_class
                 if (i > maxLen .and. overflow == 0) then 
                     exit 
                 end if 
-                ! Indicators for whether or not the i value (shifted by shift) is outside of limb size
-                zeroInd1 = max(min(v1%front+1-i, 1), 0)
-                zeroInd2 = max(min(v2%front+shift+1-i, 1), 0)
-                zeroInd3 = max(min(v3%front+shift*2+1-i, 1), 0)
-                ! Indicators for whether or not the value of i (based on shift) can be included in the sum yet
-                zeroIndShift1 = max(min(i-shift, 1), 0)
-                zeroIndShift2 = max(min(i - (shift*2), 1), 0)
+                ! ! Indicators for whether or not the i value (shifted by shift) is outside of limb size
+                ! zeroInd1 = max(min(v1%front+1-i, 1), 0)
+                ! zeroInd2 = max(min(v2%front+shift+1-i, 1), 0)
+                ! zeroInd3 = max(min(v3%front+shift*2+1-i, 1), 0)
+                ! ! Indicators for whether or not the value of i (based on shift) can be included in the sum yet
+                ! zeroIndShift1 = max(min(i-shift, 1), 0)
+                ! zeroIndShift2 = max(min(i - (shift*2), 1), 0)
 
-                ! print *, '----'
-                ! print *, i 
-                ! print *, v1%front 
-                ! print *, v2%front 
-                ! print *, v3%front 
-                ! print *, i*zeroInd1
-                ! print *, (i-shift)*zeroInd2*zeroIndShift1
-                ! print *, (i-shift*2)*zeroInd3*zeroIndShift2
-
-                
+                ! ! Adds components based on sign
+                ! ! Shifted based on shifts and multiplied by indicators
+                ! ! If any index is 0, value is 0 (from initialisation)
+                ! st = (v1%limbs(i*zeroInd1))*1_8 + (v2%limbs((i-shift)*zeroInd2*zeroIndShift1))*1_8 & 
+                !     + (v3%limbs((i-shift*2)*zeroInd3*zeroIndShift2))*1_8 + overflow 
 
 
-                ! Adds components based on sign
-                ! Shifted based on shifts and multiplied by indicators
-                ! If any index is 0, value is 0 (from initialisation)
-                st = (v1%limbs(i*zeroInd1))*1_8 + (v2%limbs((i-shift)*zeroInd2*zeroIndShift1))*1_8 & 
-                    + (v3%limbs((i-shift*2)*zeroInd3*zeroIndShift2))*1_8 + overflow 
+                if (i > v1%front) then 
+                    val1 = 0 
+                else 
+                    val1 = v1%limbs(i)
+                end if 
+
+                if (i > v2%front+shift) then 
+                    val2 = 0
+                else if (i > shift) then 
+                    val2 = v2%limbs(i-shift)
+                else 
+                    val2 = 0
+                end if 
+
+                if (i > v3%front+shift*2) then 
+                    val3 = 0
+                else if (i > shift*2) then 
+                    val3 = v3%limbs(i-shift*2)
+                else 
+                    val3 = 0
+                end if 
+
+                st = val1*1_8 + val2*1_8 + val3*1_8 + overflow 
 
 
                 ! Compute and remove overflow via 31-bit shifting
@@ -823,7 +956,7 @@ module limb_class
 
 
         ! Potentially add multiple functions for other types of integer (currently only integer 4 allowed to prevent overflow)
-     pure function multiplylimbmixedL(n,a) result(p)
+        pure function multiplylimbmixedL(n,a) result(p)
             type(limb_t), intent(in) :: a 
             integer(8), intent(in) :: n 
             type(limb_t) :: p
@@ -834,7 +967,7 @@ module limb_class
         end function multiplylimbmixedL
 
 
-      pure function multiplylimbmixedR(a,n) result(p)
+        pure function multiplylimbmixedR(a,n) result(p)
             type(limb_t), intent(in) :: a 
             integer(8), intent(in) :: n 
             type(limb_t) :: p, nl 
@@ -849,9 +982,38 @@ module limb_class
         end function multiplylimbmixedR
 
 
-
-
         pure function dividelimbs(a,b) result(x)
+            type(limb_t), intent(in) :: a,b 
+            real(real64) :: x, normA, normB
+            integer :: onePosA, onePosB, expA, expB, expX
+
+
+            call findFirst1(a, onePosA)
+            call findFirst1(b, onePosB)
+
+            call tosubnormalisedreal(a, normA)
+            call tosubnormalisedreal(b, normB)
+
+            expA = onePosA + (a%front-1)*31 + 1
+            expB = onePosB + (b%front-1)*31 + 1
+
+
+            expX = expA - expB 
+
+            if (expX > 1023) then 
+                x = 0 
+                return 
+            end if
+
+            x = (normA/normB) * (2.0_real64 **expX) * (a%sign*b%sign*1.0_real64)
+
+
+        end function dividelimbs
+
+
+
+
+        pure function dividelimbs2(a,b) result(x)
             type(limb_t), intent(in) :: a,b 
             type(limb_t) :: at, bt
             real(real64) :: ra, rb, x 
@@ -862,6 +1024,12 @@ module limb_class
             integer :: i
             integer :: sign
 
+            if (checkInvalid(a) .or. checkInvalid(b) .or. limbiszero(b)) then 
+                x = 0 
+                return 
+            end if
+
+
             ! First finds the position of the first one and records number of shifts made
             tr8 = 1
 
@@ -871,7 +1039,6 @@ module limb_class
             call tonormalisedreal(b, rb)
             rb = rb/(2_real64)
             
-   
 
 
             tempfront = b%limbs(b%front)
@@ -888,13 +1055,15 @@ module limb_class
             ! print *, 'shift'
             ! print *, shift
 
-
+            !NOTE: issue with the numerator normalisation, likely with the floor() way of getting the front
+            ! This was ceiling before, then was changed and it worked until it didnt (on 2654.0_real64 / 9988445522.0_real64)
             call tonormalisedrealby(a, shift, ra)
 
             ra = ra/(2_real64)
             ! print *, 'ravals'
             ! print *, ra 
             ! print *, rb
+            ! print *, shift
 
 
 
@@ -909,10 +1078,10 @@ module limb_class
 
 
 
-        end function dividelimbs 
+        end function dividelimbs2
 
 
-      pure subroutine tonormalisedreal(a, r)
+        pure subroutine tonormalisedreal(a, r)
             type(limb_t), intent(in) :: a 
             real(real64), intent(inout) :: r 
             real(real64) :: tr8 
@@ -934,12 +1103,40 @@ module limb_class
             !limit = min(51, 31*(a%front -1) + first1loc)
             !limit = 31*(a%front -1) + first1loc
 
-            call sumFractionalComponent(a, a%front, 31*(a%front -1) + first1loc, first1loc, r)
-
+            call sumFractionalComponent(a, a%front, 31*(a%front -1) + first1loc, first1loc, 1, r)
             r = r + 1
         
 
         end subroutine tonormalisedreal
+
+
+
+         pure subroutine tosubnormalisedreal(a, r)
+            type(limb_t), intent(in) :: a 
+            real(real64), intent(inout) :: r 
+            real(real64) :: tr8 
+
+            integer :: tempfront 
+            integer :: first1loc
+            integer :: limit
+
+            ! First finds the position of the first 1 and records number of shifts made
+            tempfront = a%limbs(a%front)
+            first1loc = 0
+            tr8 = 1_real64
+            r = 0
+            
+            call findFirst1(a, first1loc)
+
+            tempfront = a%limbs(a%front)
+
+            !limit = min(51, 31*(a%front -1) + first1loc)
+            !limit = 31*(a%front -1) + first1loc
+
+            call sumFractionalComponent(a, a%front, 31*(a%front -1) + first1loc+1, first1loc, 0, r)
+        
+
+        end subroutine tosubnormalisedreal
 
 
         pure subroutine tonormalisedrealby(a, n, r)
@@ -1007,31 +1204,17 @@ module limb_class
                 if (tlimit <= 0) then 
                     exit 
                 end if 
-                ! for some reason, a plus 1 here either works or doesnt (in index)
                 tempfront = a%limbs((floor(n*1.0/31.0)+1-i) * max(min(a%front-(ceiling(n*1.0/31.0)+1-i)+1, 1), 0))
                 !tempfront = a%limbs(max(ceiling(n*1.0/31.0)-i,0))
-                !   print *, '---'
-                !   print *, ceiling(n*1.0/31.0)-i
-                !   print *, a%front
-                !   print *, tempfront
-                !   print *, (ceiling(n*1.0/31.0)-i) * max(min(a%front-(ceiling(n*1.0/31.0)+1-i)+1, 1), 0)
-                ! print *, (ceiling(n*1.0/31.0)+1-i)
-                ! print *, a%front
-                ! print *, 'q'
-                ! print *, a%front - (ceiling(n*1.0/31.0)+1-i)+1
-                ! print *, a%front-ceiling(n*1.0/31.0)+1-i+1
 
                 do j=30, 0, -1
                     if (tlimit <= 0) then 
                         exit 
                     end if 
-                    
-                   ! print *, (0.5_real64**counter)*shiftr(tempfront, j)
-                    !print *, '@@'
+                
 
                     r = r + ((0.5_real64**(counter)) * ((mod(shiftr(tempfront, j), 2)))*1_real64)
-                    !print *, r
-                    !print *, ((0.5_real64**(counter)) * ((mod(shiftr(tempfront, j), 2)))*1_real64)
+
                     counter = counter + 1
                     tlimit = tlimit - 1 
                 end do
@@ -1097,9 +1280,9 @@ module limb_class
         end subroutine findFirst1
 
 
-      pure subroutine sumFractionalComponent(a, firstFront, limitBy, dpLoc, s)
+      pure subroutine sumFractionalComponent(a, firstFront, limitBy, dpLoc, normaliseTo, s)
             type(limb_t), intent(in) :: a 
-            integer, intent(in) :: dpLoc, limitBy
+            integer, intent(in) :: dpLoc, limitBy, normaliseTo
             integer(4), intent(in) :: firstFront
             real(real64), intent(inout) :: s 
             integer(8) :: tempfront
@@ -1115,7 +1298,7 @@ module limb_class
             s = 0
 
             ! Sums the decimals in the limb where the decimal point is located
-            do i=dpLoc-1, 0, -1 
+            do i=dpLoc-1 + (1-normaliseTo), 0, -1 
                 s = s + ((0.5_real64**(dpLoc-i)) * (mod(shiftr(tempfront,i),2_8)))
                 limit = limit - 1
             end do
@@ -1161,6 +1344,11 @@ module limb_class
             integer :: i
             real(8) :: r8 
 
+            if (checkInvalid(a) .or. n == 0) then 
+                call setInvalid(r)
+                return 
+            end if
+
 
             r8 = 1
             carry = 0
@@ -1186,8 +1374,13 @@ module limb_class
             logical :: r 
 
             integer :: i
-            integer(8) :: zeroIndA, zeroIndB
+            integer(8) :: zeroIndA, zeroIndB, va, vb
             integer :: maxfront 
+
+            if (checkInvalid(a) .or. checkInvalid(b)) then 
+                r = .false.
+                return 
+            end if
 
             r = .true.
 
@@ -1195,13 +1388,30 @@ module limb_class
 
 
             do i=1, maxfront 
-                zeroIndA = max(min(a%front+1-i, 1), 0)
-                zeroIndB = max(min(b%front+1-i, 1), 0)
+                ! zeroIndA = max(min(a%front+1-i, 1), 0)
+                ! zeroIndB = max(min(b%front+1-i, 1), 0)
 
-                if (a%limbs(i* zeroIndA) * a%sign /= b%limbs(i*zeroIndB)* b%sign) then 
+                ! if (a%limbs(i* zeroIndA) * a%sign /= b%limbs(i*zeroIndB)* b%sign) then 
+                !     r = .false. 
+                !     exit 
+                ! end if
+
+                if (i > a%front) then 
+                    va = 0
+                else 
+                    va = a%limbs(i)
+                end if 
+
+                if (i > b%front) then 
+                    vb = 0
+                else 
+                    vb = b%limbs(i)
+                end if 
+
+                if (va*a%sign > vb*b%sign) then 
                     r = .false. 
-                    exit 
                 end if
+
             end do 
 
             
@@ -1212,6 +1422,11 @@ module limb_class
             type(limb_t), intent(in) :: a
             logical :: r 
 
+            if (checkInvalid(a)) then 
+                r = .false.
+                return 
+            end if
+
             r = a%front == 0 .or. (a%front == 1 .and. a%limbs(a%front) == 0)
 
             
@@ -1220,6 +1435,11 @@ module limb_class
      pure function limbgeq0(a) result(r)
             type(limb_t), intent(in) :: a
             logical :: r 
+
+            if (checkInvalid(a)) then 
+                r = .false.
+                return 
+            end if
 
             r = a%limbs(a%front)*a%sign >= 0
 
@@ -1231,6 +1451,11 @@ module limb_class
             type(limb_t), intent(in) :: a
             logical :: r 
 
+            if (checkInvalid(a)) then 
+                r = .false.
+                return 
+            end if
+
             r = a%limbs(a%front)*a%sign > 0
 
 
@@ -1240,6 +1465,11 @@ module limb_class
       pure function limbgneq(a,b) result(r)
             type(limb_t), intent(in) :: a,b
             logical :: r 
+
+            if (checkInvalid(a) ) then 
+                r = .false.
+                return 
+            end if
 
             r = absgneq(a,b)
 
@@ -1259,8 +1489,14 @@ module limb_class
             integer :: i 
             integer :: maxfront 
 
+            if (checkInvalid(a) .or. checkInvalid(b)) then 
+                r = .false.
+                return 
+            end if
+
             r = .true.
 
+        
 
             maxfront = max(a%front, b%front)
 
@@ -1292,6 +1528,11 @@ module limb_class
             integer, intent(in) :: n 
             type(limb_t) :: s 
 
+            if (checkInvalid(a) .or. a%front+n > 1977) then 
+                call setInvalid(s)
+                return 
+            end if
+
             if (a%front == 1 .and. a%limbs(1) == 0) then 
                 s = initlimb()
                 return 
@@ -1308,6 +1549,11 @@ module limb_class
             type(limb_t), intent(out) :: lout 
             type(limb_t), intent(in) :: lin 
 
+            if (checkInvalid(lin)) then 
+                call setInvalid(lout)
+                return 
+            end if
+
             lout%limbs = lin%limbs 
             lout%front = lin%front
             lout%sign = lin%sign
@@ -1321,6 +1567,11 @@ module limb_class
             type(limb_t), intent(in) :: a 
             type(limb_t) :: r 
 
+            if (checkInvalid(a)) then 
+                call setInvalid(r)
+                return 
+            end if
+
             r = a 
             r%sign = abs(a%sign)
         
@@ -1331,11 +1582,36 @@ module limb_class
             type(limb_t), intent(in) :: a 
             integer :: i
 
+            if (checkInvalid(a)) then 
+                return 
+            end if
+
             do i=1, a%front
                 print *, a%limbs(i)*a%sign
             end do
 
         end subroutine printlimb
+
+
+        ! subroutine printFullLimbs(a)
+        !     type(limb_t), intent(in) :: a 
+        !     character(len=19770) :: num
+        !     character(len=10) :: limb
+        !     integer :: i
+        !     !limb = ''
+
+        !     do i=1, a%front 
+        !         write(limb, '(i10)') a%limbs(i)
+        !         num = num // limb
+        !     end do
+
+        !     print *, num
+
+        ! end subroutine printFullLimbs
+
+
+
+
 
 
 
@@ -1344,8 +1620,13 @@ module limb_class
             type(limb_t),intent(in) :: from
             integer, intent(in) :: s, e
             type(limb_t) :: to
-
             integer :: i 
+
+            if (checkInvalid(from)) then 
+                call setInvalid(to)
+                return 
+            end if
+
             to = initlimb()
             to%front = e-s+1
             to%sign = from%sign
@@ -1369,7 +1650,7 @@ end module limb_class
 !     use, intrinsic :: ieee_arithmetic
 !     implicit none 
 !     integer :: i
-!     real(real64) :: scalc, sactual, l3, l11
+!     real(real64) :: scalc, sactual, l3, l11, scalc2
 !     type(limb_t) ::  v3, v4, v5, t1, t2, v1
 !     real(real64) ::n 
 !     type(limb_t) :: d1, d2, d3, d4, d5, d6, dt1, dt2, dt3, v2
@@ -1377,22 +1658,35 @@ end module limb_class
 !    ! type(limb_t) :: sactual, scalc
 !     real(real64) :: va, vb, vc, eval
 !     type(limb_t) :: l1, l2
-!     !type(ratint_t) :: ratint1
+    !type(ratint_t) :: ratint1
 
-!     l11 = 564653.0_real64 / 75.0_real64
-!     l1 = initlimb(564653_8)
-!     l2 = initlimb(75_8)
+
+    ! v1 = initlimb(0_8)
+    ! !call printlimb(v1)
+    ! v2 = initlimb(59874_8)
+    ! scalc2 = (v1 / v2)
+    ! sactual = (0.0_real64 / 59874_8)
+    ! print *, scalc2
+    ! print *, sactual
+
+
+!     l11 = 2654.0_real64 / 9988445522.0_real64
+!     l1 = initlimb(2654_8)
+!     l2 = initlimb(9988445522_8)
 !     l3 = l1 / l2 
 !     print *, '..'
 !     print *, l3
+
+    
 !     t1 = initlimb() 
 !     t1%front = 2 
-!     t1%limbs(1) = 1947051841
-!     t1%limbs(2) = 1927348
+!     t1%limbs(1) = 1698360743
+!     t1%limbs(2) = 1168591
 !     t2 = initlimb()
-!     t2%front = 2 
+!     t2%front = 3
 !     t2%limbs(1) = 0
-!     t2%limbs(2) = 256
+!     t2%limbs(2) = 0
+!     t2%limbs(3) = 2048
     
 !     l3 = t1 / t2
 !     print *, '???' 
