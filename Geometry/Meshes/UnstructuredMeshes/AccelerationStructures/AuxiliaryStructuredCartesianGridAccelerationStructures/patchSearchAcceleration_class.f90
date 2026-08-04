@@ -12,7 +12,6 @@ module patchSearchAcceleration_class
   use faceShelf_class,             only : faceShelf
   use genericProcedures,           only : computePseudoAngle, crossProduct, findCommon, numToChar
   use numPrecision
-  use patchSearchStatistics_mod
   use universalVariables,          only : INF
   use vertexShelf_class,           only : vertexShelf
 
@@ -163,20 +162,16 @@ contains
     real(defReal), dimension(3)                  :: displacementVector, rPrime, vertexCoords
     type(CartesianCell), pointer                 :: terminalCellPtr
 
-    nQueries = nQueries + 1
-
     terminalCellPtr => self % searchGrids(r)
 
     ! Check if terminal cell is fully inside an element and return immediately if so.
     elementIdx = terminalCellPtr % getElementIdx()
     if(0 < elementIdx) then
-      nDirectElement = nDirectElement + 1
       return
 
     end if
 
     if(terminalCellPtr % isOutside()) then
-      nOutside = nOutside + 1
       return
 
     end if
@@ -184,7 +179,6 @@ contains
     ! For multi-layered Patch-Search, check if terminal cell only intersects with a single face. In this case, perform an 
     ! element inclusion test on the elements sharing this face and return.
     if(1 < self % getDepth() .and. self % getSingleFaceShortcut() .and. terminalCellPtr % intersectsOnlyOneFace()) then
-      nSingleFace = nSingleFace + 1
       call faces % testFaceHalfSpace(terminalCellPtr % getFirstIntersectedFaceIdx(), r, elementIdx)
       return
 
@@ -193,14 +187,12 @@ contains
     ! Else, begin Patch-Search procedure.
     edgeIdx = terminalCellPtr % getEdgeIdx()
     if(edgeIdx == 0) then
-      nVertexDisplacement = nVertexDisplacement + 1
       vertexCoords = vertices % getVertexCoordinates(terminalCellPtr % getVertexIdx())
       displacementVector = r - vertexCoords
       rPrime = vertexCoords + self % getWStar() * displacementVector / norm2(displacementVector)
       call self % findHostElementIdx(u, edges, elements, faces, vertices, elementIdx, rPrime)
 
     else
-      nAngularSearch = nAngularSearch + 1
       call edges % findElementIdxFromEdgeAngularSectorSearch(edgeIdx, r, vertices, elementIdx)
 
     end if

@@ -418,8 +418,11 @@ contains
                 end if
 
               end do
-              ! If still inside then the cell is contained within the element.
-              if(isInside) call self % cells(j, k, l) % setElementIdx(elementIdxs(i))
+              if(self % cells(j, k, l) % isUnprocessed()) then
+                if(elements % isPointInsideElementNoBoundaryCheck(elementIdxs(i), centroid, faces)) &
+                  call self % cells(j, k, l) % setElementIdx(elementIdxs(i))
+
+              end if
 
             elseif(self % cells(j, k, l) % isUnprocessed()) then
               centroid(1) = self % bounds(1) + self % spacing * (j - HALF)

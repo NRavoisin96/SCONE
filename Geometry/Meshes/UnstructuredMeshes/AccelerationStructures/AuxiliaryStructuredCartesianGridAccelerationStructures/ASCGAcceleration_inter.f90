@@ -265,13 +265,10 @@ contains
     call self % computeGeometricParameters(edges, elements, faces, vertices)
 
     ! Set face constants and compute caches.
-    if(.not. self % naiveInitialisation) then
-      do i = 1, faces % getSize()
-        call faces % computeFaceSATData(i, edges, vertices)
+    do i = 1, faces % getSize()
+      call faces % computeFaceSATData(i, edges, vertices)
 
-      end do
-
-    end if
+    end do
 
     ! Pre-compute sin(alpha) and sin(alpha / 2) then compute wStar and targetDistance.
     alphaGeneral = min(self % minimumAngle, THIRD * PI)
