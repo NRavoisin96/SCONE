@@ -4,6 +4,8 @@ module universalVariables
 
   implicit none
 
+  integer(shortInt), parameter, public :: VALENCE = 100
+
   ! *** DON'T CHANGE THIS. HARDCODED IS FINE
   ! CHANGE THIS: NUMBER MUST BE CALCULATED DURING INITIAL GEOMETRY PROCESSING
   ! Problematic for separating modules!

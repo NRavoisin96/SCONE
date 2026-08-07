@@ -108,6 +108,7 @@ module face_class
   end type face
 
 contains
+
   !! Subroutine 'addTriangleIdx'
   !!
   !! Basic description:

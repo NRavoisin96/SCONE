@@ -1,6 +1,7 @@
 module ratint
     
     use limb_class
+    use numPrecision
     use, intrinsic :: iso_fortran_env
     use, intrinsic :: ieee_arithmetic
 
@@ -10,6 +11,16 @@ module ratint
         type(limb_t) :: p
         type(limb_t) :: q
     end type ratint_t
+
+    interface convert_ieee 
+        module procedure convert_ieee64
+        module procedure convert_ieee64Vector
+    end interface convert_ieee
+
+    interface isZero 
+        module procedure isZero_flat 
+        module procedure isZero_Vector
+    end interface isZero
 
     interface operator (+)
         module procedure addpure 
@@ -27,6 +38,8 @@ module ratint
         module procedure multiplypure
         module procedure multiplymixedL
         module procedure multiplymixedR
+        module procedure multiplyVectorL
+        module procedure multiplyVectorR
     end interface operator (*)
 
     interface operator (/)
@@ -52,27 +65,59 @@ module ratint
         module procedure geq
     end interface operator (>=)
 
+    interface dot_product 
+        module procedure dot_product_ratint
+    end interface dot_product
+
+    interface swapSign 
+        module procedure swapSign_flat 
+        module procedure swapSign_vector 
+    end interface swapSign
+
 
     
-
-
 
     contains 
 
         pure function def_ratint(n, d, s) result(r)
-            integer(8), intent(in) :: n, d, s
+            integer(longInt), intent(in) :: n, d, s
             type(ratint_t) :: r 
 
-            r%p = initlimb(n)
+            r%p = initlimb(n) * s
             r%q = initlimb(d)
 
             !r = simplify(r)
 
         end function def_ratint
+        
+
+        pure function def_ratint_large() result (r)
+            type(ratint_t) :: r 
+
+            r%p = initlimb() 
+            r%p%limbs(1) = 0 
+            r%p%limbs(2) = 0
+            r%p%limbs(3) = 0
+            r%p%limbs(4) = 1 
+            r%p%front = 4 
+            r%q = initlimb(1_8)
+
+        end function def_ratint_large
+
+        pure function initratint_vector() result(r)
+            type(ratint_t), dimension(3) :: r 
+            integer(shortInt) :: i 
+
+            do i =1, 3 
+                r(i) = convert_int(0_8)
+            end do
+
+
+        end function initratint_vector
 
 
         pure function convert_int(n) result(r)
-            integer(8), intent(in) :: n 
+            integer(longInt), intent(in) :: n 
             type(ratint_t) :: r 
 
             r%q = initlimb(1_8) 
@@ -80,23 +125,38 @@ module ratint
 
         end function convert_int
 
-        pure function convert_ieee64(n) result(r)
-            real(real64), intent(in) :: n 
-            type(ratint_t) :: r 
-            real(real64) :: n1
-            integer(8) :: i, shift
+        pure subroutine swapSign_flat(a)
+            type(ratint_t), intent(inout) :: a 
 
-            real(real64) :: frac, exp
+            a%p%sign = a%p%sign * (-1)
+            
+        end subroutine swapSign_flat
+
+
+        pure subroutine swapSign_vector(a)
+            type(ratint_t), dimension(:), intent(inout) :: a 
+            integer(shortInt) :: i
+
+            do i =1, size(a)
+                call swapSign_flat(a(i))
+            end do
+            
+        end subroutine swapSign_vector
+
+        pure function convert_ieee64(n) result(r)
+            real(defReal), intent(in) :: n 
+            type(ratint_t) :: r 
+            real(defReal) :: n1
+            integer(longInt) :: i, shift
+
+            real(defReal) :: frac, exp
             type(ratint_t) :: expratint, fracratint
 
             !print *, n
             frac = fraction(n)
             exp = exponent(n)
 
-            ! !print *, frac * (2**exp)
-            ! print *, 'in func'
-            ! print *, frac 
-            ! print *, exp
+
             shift = 0
 
 
@@ -111,9 +171,7 @@ module ratint
 
                 frac = frac * 2
             end do
-            ! print *, shift
-            ! print *, frac
-            
+         
             
             ! Simplification based on powers of 2
             if (exp > 0) then 
@@ -142,14 +200,7 @@ module ratint
                 expratint%q = initlimb(1_8)
             end if 
 
-            ! print *, '////'
-            ! call printlimb(fracratint%p)
-            ! print *, '--'
-            ! call printlimb(fracratint%q)
-            ! print *, '==='
-            ! call printlimb(expratint%p)
-            ! print *, '--'
-            ! call printlimb(expratint%q)
+
 
             r = expratint * fracratint
 
@@ -157,13 +208,25 @@ module ratint
                 r%p%sign = -1
             end if
 
-            ! print *, '-!!!---'
-            ! call printRatInt(r)
 
-            ! print *, evaluate(r)
 
 
         end function convert_ieee64
+
+        pure function convert_ieee64Vector(n) result(r)
+            real(defReal), dimension(:), intent(in) :: n 
+            type(ratint_t), allocatable:: r(:)
+            integer(shortInt) :: i, height 
+
+            height = size(n)
+            allocate(r(height))
+
+            do i=1, height 
+                r(i) = convert_ieee64(n(i))
+            end do
+
+
+        end function convert_ieee64Vector
 
         pure function checkInvalidRatint(r) result(x)
             type(ratint_t), intent(in) :: r 
@@ -188,6 +251,39 @@ module ratint
 
         end subroutine setInvalidRatint
 
+        pure function isZero_flat(r) result(x)
+            type(ratint_t), intent(in) :: r 
+            logical :: x
+
+            x = .false.
+
+            if (limbiszero(r%p)) then 
+                x = .true.
+                return 
+            end if 
+
+        end function isZero_flat
+
+
+        pure function isZero_Vector(r) result(x)
+            type(ratint_t), dimension(:), intent(in) :: r 
+            logical :: x
+            integer(shortInt) :: i, height
+
+            x = .true.
+
+            height = size(r)
+
+            do i=1, height
+                if (.not. isZero_flat(r(i))) then 
+                    x = .false. 
+                    return 
+                end if 
+            end do 
+
+        end function isZero_Vector
+
+
 
         pure function get_numerator(r) result(n)
             type(ratint_t), intent(in) :: r 
@@ -210,7 +306,7 @@ module ratint
         
         pure function evaluate(r) result(v)
             type(ratint_t), intent(in) :: r 
-            real(8) :: v 
+            real(defReal) :: v 
 
             v = r%p / r%q
 
@@ -261,7 +357,7 @@ module ratint
 
         ! Allows addition between : int + ratint
         elemental type(ratint_t) function addmixedL(n, r1)
-            integer(8), intent(in) :: n
+            integer(longInt), intent(in) :: n
             type(ratint_t), intent(in) :: r1
             type(ratint_t) :: rn 
 
@@ -274,7 +370,7 @@ module ratint
 
         ! Allows addition between : ratint + int
         elemental type(ratint_t) function addmixedR(r1, n)
-            integer(8), intent(in) :: n
+            integer(longInt), intent(in) :: n
             type(ratint_t), intent(in) :: r1
             type(ratint_t) :: rn 
 
@@ -301,7 +397,7 @@ module ratint
 
         ! Allows subtraction between : int - ratint
         elemental type(ratint_t) function subtractmixedL(n, r1)
-            integer(8), intent(in) :: n
+            integer(longInt), intent(in) :: n
             type(ratint_t), intent(in) :: r1
             type(ratint_t) :: rn 
 
@@ -314,7 +410,7 @@ module ratint
         
         ! Allows subtraction between : ratint - int
         elemental type(ratint_t) function subtractmixedR(r1, n)
-            integer(8), intent(in) :: n
+            integer(longInt), intent(in) :: n
             type(ratint_t), intent(in) :: r1
             type(ratint_t) :: rn 
 
@@ -347,7 +443,7 @@ module ratint
 
         ! Allows multiplication between : int * ratint
         elemental type(ratint_t) function multiplymixedL(n, r1)
-            integer(8), intent(in) :: n
+            integer(longInt), intent(in) :: n
             type(ratint_t), intent(in) :: r1
             type(ratint_t) :: rn 
 
@@ -361,7 +457,7 @@ module ratint
 
         ! Allows multiplication between : ratint * int
         elemental type(ratint_t) function multiplymixedR(r1, n)
-            integer(8), intent(in) :: n
+            integer(longInt), intent(in) :: n
             type(ratint_t), intent(in) :: r1
             type(ratint_t) :: rn 
 
@@ -369,6 +465,35 @@ module ratint
 
             multiplymixedR = multiplypure(r1, rn)
         end function multiplymixedR
+
+
+        type(ratint_t) function multiplyVectorL(n, r1)
+            integer(longInt), intent(in) :: n
+            type(ratint_t), dimension(:), intent(in) :: r1
+            type(ratint_t), dimension(size(r1)) :: rn 
+            integer :: i 
+
+            do i=1, size(r1)
+                rn(i) = r1(i) * n 
+
+            end do
+
+
+        end function multiplyVectorL
+
+        type(ratint_t) function multiplyVectorR(r1, n)
+            integer(longInt), intent(in) :: n
+            type(ratint_t), dimension(:), intent(in) :: r1
+            type(ratint_t), dimension(size(r1)) :: rn 
+            integer :: i 
+
+            do i=1, size(r1)
+                rn(i) = r1(i) * n 
+
+            end do
+
+
+        end function multiplyVectorR
 
 
         
@@ -392,7 +517,7 @@ module ratint
 
         ! Allows division between : int / ratint
         elemental type(ratint_t) function dividemixedL(n, r1)
-            integer(8), intent(in) :: n
+            integer(longInt), intent(in) :: n
             type(ratint_t), intent(in) :: r1
             type(ratint_t) :: rn 
 
@@ -405,7 +530,7 @@ module ratint
         
         ! Allows division between : ratint / int
         elemental type(ratint_t) function dividemixedR(r1, n)
-            integer(8), intent(in) :: n
+            integer(longInt), intent(in) :: n
             type(ratint_t), intent(in) :: r1
             type(ratint_t) :: rn 
 
@@ -470,9 +595,9 @@ module ratint
         pure function gcd (a,b) result(v)
             type(limb_t), intent(in) :: a,b
             type(limb_t) :: at, bt
-            integer :: temp
+            integer(shortInt) :: temp
             type(limb_t) :: v
-            integer :: asign, bsign 
+            integer(shortInt) :: asign, bsign 
 
             at = a 
             bt = b
@@ -551,6 +676,8 @@ module ratint
             end if
         end function gneq 
 
+     
+
 
         pure function geq(a,b) result(r)
             type(ratint_t), intent(in) :: a,b 
@@ -580,6 +707,12 @@ module ratint
 
         end function geq
 
+        pure subroutine setZero(r)
+            type(ratint_t), intent(inout) :: r 
+            r%p = initlimb(0_8)
+            r%q = initlimb(1_8)
+        end subroutine setZero
+
 
 
         subroutine printRatInt(a)
@@ -592,16 +725,30 @@ module ratint
         end subroutine printRatInt
 
 
-        ! Potentially implement, but apparently speed difference isn't too big
-        !pure function binarygcd(a,b) result(v)
-        !    integer, intent(in) :: a,b 
-        !    integer :: at, bt
-        !    integer :: v
 
-        
-        !end function binarygcd
+        pure function dot_product_ratint(a,b) result(r)
+            type(ratint_t), intent(in) :: a(:), b(:) 
+            type(ratint_t) :: r
+            integer(shortInt) :: height, i
 
-        
+            call setZero(r)
+
+            if (size(a) /= size(b)) then 
+                call setInvalidRatint(r)
+                return 
+            end if 
+
+            height = size(a)
+
+            do i = 1, height
+                r = r + (a(i) * b(i))
+            end do
+
+        end function dot_product_ratint
+
+
+    
+
 
 
 end module
@@ -616,7 +763,7 @@ end module
 
 !     implicit none 
 
-!     real(real64) :: v1, v2, v3, eval
+!     real(defReal) :: v1, v2, v3, eval
 !     type(ratint_t) :: ratint1, ratint2, vres
 !     logical :: result
 

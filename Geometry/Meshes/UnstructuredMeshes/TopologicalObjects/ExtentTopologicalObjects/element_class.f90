@@ -14,8 +14,12 @@ module element_class
   use topologicalObject_inter,       only : buildTopologicalObjectPayload, kill_super => kill, topologicalObject, &
                                             topologicalObjectBox
   use universalVariables,            only : FOURTH, INSIDE_ELEMENT, INF, NUDGE, ON_BOUNDARY_ELEMENT, ONE, OUTSIDE_ELEMENT, &
-                                            SIXTH, ZERO
+                                            SIXTH, ZERO, VALENCE
   use vertex_class,                  only : vertexBox
+
+  use ratint 
+
+
   
   implicit none
   private
@@ -90,6 +94,8 @@ module element_class
     procedure          :: intersects_BoundingBox
     procedure          :: intersects_Ray
     procedure          :: isPointInside
+    procedure          :: hybridIsPointInside
+    procedure          :: hybridIsPointInsideGivenFaces
     procedure          :: kill
     procedure          :: minimumDistance
     procedure          :: pushFromBoundary
@@ -108,6 +114,7 @@ module element_class
   !!
   type, public, extends(intersectionTestPayload) :: elementIntersectionTestPayload
     logical(defBool)                             :: excludeZeroFaces = .false., skipBoundingBoxIntersectionTest = .false.
+  
   end type elementIntersectionTestPayload
 
   !!
@@ -115,6 +122,8 @@ module element_class
   !!
   type, public, extends(intersectionTestResult) :: elementIntersectionTestResult
     type(faceBox)                               :: intersectedFace
+    integer(shortInt), dimension(VALENCE) :: currentFaceIdxs
+    integer(shortInt) :: front
   end type elementIntersectionTestResult
 
 contains
@@ -640,6 +649,99 @@ contains
 
   end subroutine intersects_BoundingBox
 
+  ! subroutine intersects_Ray(self, payload, result)
+  !   class(element), intent(in)                    :: self
+  !   class(intersectionTestPayload), intent(in)    :: payload
+  !   class(intersectionTestResult), intent(inout)  :: result
+  !   type(elementIntersectionTestPayload), pointer :: payloadPtr
+  !   type(elementIntersectionTestResult), pointer  :: resultPtr
+  !   real(defReal), dimension(3)                   :: centroid, faceCentroid, outwardNormal, rEnd
+  !   integer(shortInt)                             :: i
+  !   real(defReal)                                 :: centroidLambda, dotProduct, faceLambda, minLambda
+  !   character(*), parameter                       :: here = 'intersects_Ray (element_class.f90)'
+
+  !   ! Downcast payload to correct type.
+  !   select type(ptr => payload)
+  !     type is(elementIntersectionTestPayload)
+  !       payloadPtr => ptr
+
+  !     class default
+  !       call fatalError(here, 'Invalid payload type.')
+
+  !   end select
+
+  !   ! Allocate result to correct return type then associate pointer.
+  !   select type(ptr => result)
+  !     type is(elementIntersectionTestResult)
+  !       resultPtr => ptr
+  !       call resetElementIntersectionTestResult(resultPtr)
+
+  !     class default
+  !       ! Should never happen.
+  !       call fatalError(here, 'Failed to downcast result.')
+
+  !   end select
+
+  !   ! Check if ray originates from inside the element (skip bounding box intersection in this case.)
+  !   if (payloadPtr % skipBoundingBoxIntersectionTest) then
+  !     ! Retrieve element's centroid then loop over all faces in the element.
+  !     rEnd = payload % r + payload % u * payload % dMax
+  !     centroid = self % getCentroid()
+  !     minLambda = INF
+  !     do i = 1, size(self % orientatedFaces)
+  !       ! Retrieve the signed normal vector of the current face.
+  !       faceCentroid = self % orientatedFaces(i) % face % ptr % getCentroid()
+  !       outwardNormal = self % orientatedFaces(i) % outwardNormal
+        
+  !       ! Retrieve the centre of the current face and compute lambda.
+  !       dotProduct = dot_product(rEnd - centroid, outwardNormal)
+  !       if (areEqual(dotProduct, ZERO)) cycle
+  !       centroidLambda = dot_product(faceCentroid - centroid, outwardNormal) / dotProduct
+        
+  !       ! If ZERO <= lambda <= ONE, append the current face to the list of potentially intersected faces.
+  !       if (ZERO <= centroidLambda .and. centroidLambda <= ONE) then
+  !         ! Compute lambda for the face using the actual particle coordinates.
+  !         dotProduct = dot_product(rEnd - payload % r, outwardNormal)
+  !         if (areEqual(dotProduct, ZERO)) cycle
+  !         faceLambda = dot_product(faceCentroid - payload % r, outwardNormal) / dotProduct
+  !         if (payloadPtr % excludeZeroFaces .and. faceLambda <= ZERO) cycle
+  !         if (faceLambda < minLambda) then
+  !           minLambda = faceLambda
+  !           resultPtr % intersectedFace = self % orientatedFaces(i) % face
+
+  !         end if
+
+  !       else
+  !         ! Check if end point is on the place of the current face.
+  !         if (areEqual(dot_product(rEnd - faceCentroid, outwardNormal), ZERO)) then
+  !           ! End point is on the plane of the face. Check if it is contained inside it.
+  !           if (self % orientatedFaces(i) % face % ptr % isPointInside(rEnd)) then
+  !             resultPtr % intersectedFace = self % orientatedFaces(i) % face
+  !             minLambda = ONE
+  !             exit
+
+  !           end if
+
+  !         end if
+
+  !       end if
+
+  !     end do
+
+  !     if (associated(resultPtr % intersectedFace % ptr)) then
+  !       resultPtr % intersects = .true.
+  !       resultPtr % d = norm2(min(ONE, max(ZERO, minLambda)) * (rEnd - payload % r))
+
+  !     end if
+
+  !   else
+  !     ! Call fatalError for now.
+  !     call fatalError(here, 'Unsupported procedure.')
+
+  !   end if
+
+  ! end subroutine intersects_Ray
+
   !!
   !!
   !!
@@ -650,9 +752,16 @@ contains
     type(elementIntersectionTestPayload), pointer :: payloadPtr
     type(elementIntersectionTestResult), pointer  :: resultPtr
     real(defReal), dimension(3)                   :: centroid, faceCentroid, outwardNormal, rEnd
-    integer(shortInt)                             :: i
-    real(defReal)                                 :: centroidLambda, dotProduct, faceLambda, minLambda
+    integer(shortInt)                             :: i, zeroFaceCount, faceArrayFront
+    real(defReal)                                 :: centroidLambda, dotProduct, faceLambda, minLambda, newMinLambda
+    type(faceBox) :: tempFace
+    type(faceBox), dimension(size(self%orientatedFaces)) :: faceArray
+    real(defReal), dimension(size(self%orientatedFaces)) :: faceArrayLambdas
+    logical :: intersected
     character(*), parameter                       :: here = 'intersects_Ray (element_class.f90)'
+
+    faceArrayFront = 1
+
 
     ! Downcast payload to correct type.
     select type(ptr => payload)
@@ -678,11 +787,20 @@ contains
 
     ! Check if ray originates from inside the element (skip bounding box intersection in this case.)
     if (payloadPtr % skipBoundingBoxIntersectionTest) then
+      ! print *, payload%r 
+      ! print *, payload%u 
+      ! print *, payload%dMax
       ! Retrieve element's centroid then loop over all faces in the element.
       rEnd = payload % r + payload % u * payload % dMax
+
+      
       centroid = self % getCentroid()
       minLambda = INF
       do i = 1, size(self % orientatedFaces)
+        if (payload%front > 0 .and. &
+            ANY(payload%currentFaceIdxs(1:payload%front)==self%orientatedFaces(i)%face%ptr%getFaceIdx())) then 
+          cycle 
+        end if
         ! Retrieve the signed normal vector of the current face.
         faceCentroid = self % orientatedFaces(i) % face % ptr % getCentroid()
         outwardNormal = self % orientatedFaces(i) % outwardNormal
@@ -691,7 +809,9 @@ contains
         dotProduct = dot_product(rEnd - centroid, outwardNormal)
         if (areEqual(dotProduct, ZERO)) cycle
         centroidLambda = dot_product(faceCentroid - centroid, outwardNormal) / dotProduct
-        
+
+
+
         ! If ZERO <= lambda <= ONE, append the current face to the list of potentially intersected faces.
         if (ZERO <= centroidLambda .and. centroidLambda <= ONE) then
           ! Compute lambda for the face using the actual particle coordinates.
@@ -699,9 +819,40 @@ contains
           if (areEqual(dotProduct, ZERO)) cycle
           faceLambda = dot_product(faceCentroid - payload % r, outwardNormal) / dotProduct
           if (payloadPtr % excludeZeroFaces .and. faceLambda <= ZERO) cycle
+
+
           if (faceLambda < minLambda) then
+
+            !! Note, this part could possibly be wrong, not sure may need to add ALL intersections, not just the lowest ones
+          ! !! Code added here
+            ! if (areEqual(faceLambda, minLambda)) then 
+            !   if (faceArrayFront == 0) then 
+            !     faceArray(1) = resultPtr % intersectedFace
+            !     faceArray(2) = self % orientatedFaces(i) % face 
+            !     faceArrayFront = 3
+            !   else 
+            !     faceArray(faceArrayFront) = self % orientatedFaces(i) % face 
+            !     faceArrayFront = faceArrayFront + 1
+            !   end if
+            ! else if (minLambda == INF) then 
+            !   faceArray(1) = self % orientatedFaces(i) % face 
+            !   faceArrayFront = 2
+            ! end if
+
+            if (faceArrayFront == 1) then 
+              faceArray(1) = self % orientatedFaces(i) % face 
+              faceArrayLambdas(1) = minLambda
+              faceArrayFront = faceArrayFront + 1 
+            else 
+              faceArray(faceArrayFront) = self % orientatedFaces(i) % face 
+              faceArrayLambdas(faceArrayFront) = minLambda
+              faceArrayFront = faceArrayFront + 1 
+            end if
+
+       
+
             minLambda = faceLambda
-            resultPtr % intersectedFace = self % orientatedFaces(i) % face
+            tempFace = self % orientatedFaces(i) % face
 
           end if
 
@@ -710,7 +861,7 @@ contains
           if (areEqual(dot_product(rEnd - faceCentroid, outwardNormal), ZERO)) then
             ! End point is on the plane of the face. Check if it is contained inside it.
             if (self % orientatedFaces(i) % face % ptr % isPointInside(rEnd)) then
-              resultPtr % intersectedFace = self % orientatedFaces(i) % face
+              tempFace = self % orientatedFaces(i) % face
               minLambda = ONE
               exit
 
@@ -722,11 +873,35 @@ contains
 
       end do
 
-      if (associated(resultPtr % intersectedFace % ptr)) then
-        resultPtr % intersects = .true.
-        resultPtr % d = norm2(min(ONE, max(ZERO, minLambda)) * (rEnd - payload % r))
+      if (associated(tempFace%ptr)) then
+        !!! code added here: check for distance less than epsilon to a vertex or edge
+        if (existsEpsilonDistance(self, payload, payloadPtr, tempFace, &
+            size(tempFace%ptr%getVertices()), size(tempFace%ptr%getEdges()), &
+              (payload % r + (minLambda * payload%u*payload%dMax)))) then 
+          call rescueParticleNearVertexEdge(self, payload, payloadPtr, faceArrayFront-1,  &
+                                            faceArray, resultPtr, intersected, newMinLambda)
+
+          if (associated(resultPtr % intersectedFace % ptr) ) then
+            resultPtr % intersects = .true.
+            resultPtr % d = norm2(min(ONE, max(ZERO, newMinLambda)) * (rEnd - payload % r))
+          end if
+        else 
+
+          do i=1, faceArrayFront-1 
+            if (areEqual(minLambda, faceArrayLambdas(i)) .and. faceArray(i)%ptr%getFaceIdx() /= tempFace%ptr%getFaceIdx()) then 
+              resultPtr%front = resultPtr%front+1
+              resultPtr % currentFaceIdxs(resultPtr%front) = faceArray(i)%ptr%getFaceIdx() 
+            end if 
+          end do
+
+          resultPtr % intersectedFace = tempFace
+          resultPtr % intersects = .true.
+          resultPtr % d = norm2(min(ONE, max(ZERO, minLambda)) * (rEnd - payload % r))
+        end if
 
       end if
+
+
 
     else
       ! Call fatalError for now.
@@ -734,7 +909,834 @@ contains
 
     end if
 
+    !print *, minLambda
+    
   end subroutine intersects_Ray
+
+
+  function checkIntersected(face, rStart, rEnd, numVertices, normal) result(intersects)
+    type(faceBox), intent(in) :: face 
+    type(ratint_t), dimension(3) :: rStart, rEnd, planePt, normal
+    logical :: intersects 
+    integer :: numVertices, i
+    real(defReal), dimension(3) :: vertex 
+    type(vertexBox), dimension(numVertices) :: vertices
+    type(ratint_t) :: dot1, dot2
+    
+
+    intersects = .true.
+
+    vertices = face%ptr%getVertices() 
+
+    vertex = vertices(1)%ptr%getCoordinates()
+
+
+    planePt = convert_ieee(vertex)
+
+    dot1 = dot_product(rStart - planePt, normal)
+
+    dot2 = dot_product(rEnd - planePt, normal)
+
+    ! call printRatInt(dot1)
+    ! call printRatInt(dot2)
+
+
+    ! Allow equal to?
+    if ((dot1 > convert_int(0_8) .and. dot2 > convert_int(0_8)) .or. (convert_int(0_8) > dot1 .and. convert_int(0_8) > dot2)) then
+      intersects = .false.
+      return 
+    end if
+
+
+  end function checkIntersected
+
+
+  function existsEpsilonDistance(elementInp, payload, payloadPtr, minFace, numVertices, numEdges, & 
+                                  intersectionPt) result(check)
+    class(element), intent(in) :: elementInp 
+    class(intersectionTestPayload), intent(in) :: payload 
+    type(elementIntersectionTestPayload), pointer, intent(in) :: payloadPtr
+    type(faceBox), intent(in) :: minFace 
+    integer, intent(in) :: numVertices
+    integer, intent(in) :: numEdges
+    real(real64), dimension(3), intent(in) :: intersectionPt
+    real(real64) :: minLambda
+    type(vertexBox), dimension(numVertices) :: vertices
+    type(edgeBox), dimension(numEdges) :: edges
+    real(real64), dimension(3) :: coords
+    real(real64), dimension(3) :: dist
+    type(vertexBox), dimension(2) :: edgeVertices
+    type(vertexBox) :: vertex
+    real(real64), dimension(3) :: edgeVertexCoordsA, edgeVertexCoordsB, edgeDirection
+
+    integer :: i 
+    logical :: check 
+
+    check = .false.
+
+    vertices = minFace%ptr%getVertices()
+    edges = minFace%ptr%getEdges()
+
+    do i=1, numVertices 
+      ! print *, 'vertex'
+      ! print *,vertices(i)%ptr%getCoordinates()
+      dist = norm2(vertices(i)%ptr%getCoordinates() - intersectionPt)
+      !print *, dist
+      if (areEqual(dist, ZERO)) then 
+        check = .true. 
+        return 
+      end if
+    end do
+
+    do i=1, numEdges 
+      edgeVertices = (edges(i)%ptr%getVertices())
+      edgeVertexCoordsA = edgeVertices(1)%ptr%getCoordinates()
+      edgeVertexCoordsB = edgeVertices(2)%ptr%getCoordinates()
+      edgeDirection = edgeVertexCoordsB - edgeVertexCoordsA
+      
+      dist = crossProduct((intersectionPt - edgeVertexCoordsA), edgeDirection)
+      dist = dist / norm2(edgeDirection)
+      !print *, dist
+      if (areEqual(dist, ZERO)) then 
+        check = .true. 
+        return 
+      end if
+    end do
+
+  end function existsEpsilonDistance
+
+
+  !! QUESTION Within the rescue operation, do they need to be equal fully or within the tolerance to count as intersected?
+  ! If i keep it within the tolerance there could be an issue of the near corner case, excluding the face it will cross into
+  ! at the next crossing
+  ! However, it technically would not have crossed that value
+  ! then anything behind the particle later won't get evaluated to that value anyway
+
+  subroutine rescueParticleNearVertexEdge(elementInp, payload, payloadPtr, faceArrayLast, faceArray, res, intersects,newMinLambda)
+    class(element), target, intent(in) :: elementInp 
+    class(intersectionTestPayload), intent(in) :: payload 
+    type(elementIntersectionTestPayload), pointer, intent(in) :: payloadPtr
+    integer, intent(in) :: faceArrayLast
+    type(elementIntersectionTestResult), intent(inout) :: res
+    logical, intent(inout) :: intersects
+    real(defReal), intent(inout) :: newMinLambda
+    type(faceBox), dimension(:), intent(in) :: faceArray
+    type(faceBox), dimension(size(faceArray)) :: faceArrayNew
+    type(ratint_t), dimension(size(faceArray)) :: faceArrayNewLambdas
+    integer(shortInt) :: faceArrayNewFront
+    type(ratint_t), dimension(3) ::  rEnd, rStart, outwardNormal, faceCentroid, elemCentroid
+    type(ratint_t) :: minLambda, centroidLambda, faceLambda, dotProduct
+    real(defReal), dimension(3) ::  rEndReal
+    type(topologicalObjectBox), dimension(:), allocatable :: faceElements
+    class(element), pointer :: neighbourElem 
+    integer :: i, j, k
+
+    intersects = .false.
+    
+
+    faceArrayNewFront = 1
+
+    call ratintElementCentroid(elementInp, size(elementInp%getVertices()), elemCentroid)
+    !! calculate directly
+    rEndReal = payload % r + payload % u * payload % dMax
+
+    call ratintCalcEndpoint(payload, rEnd)
+    rStart = convert_ieee(payload % r)
+    minLambda = def_ratint_large()
+
+    !print *, evaluate(minLambda)
+
+
+    ! Loops through face array
+    do i = 1, faceArrayLast
+
+      call ratintFaceCentroid(faceArray(i), size(faceArray(i) % ptr %getVertices()), faceCentroid)
+
+
+      call ratintOutwardNormal(faceArray(i), elemCentroid, faceCentroid, size(faceArray(i) % ptr %getVertices()), outwardNormal)
+      
+      ! Retrieve the centre of the current face and compute lambda.
+      dotProduct = dot_product(rEnd - elemCentroid, outwardNormal)
+      if (isZero(dotProduct)) cycle
+
+      centroidLambda = dot_product(faceCentroid - elemCentroid, outwardNormal) / dotProduct
+
+      ! If ZERO <= lambda <= ONE, append the current face to the list of potentially intersected faces.
+      if (centroidLambda >= convert_int(0_8) .and. convert_int(1_8) >= centroidLambda) then
+        ! Compute lambda for the face using the actual particle coordinates.
+        dotProduct = dot_product(rEnd - rStart, outwardNormal)
+        if (isZero(dotProduct)) cycle
+        faceLambda = dot_product(faceCentroid - rStart, outwardNormal) / dotProduct
+        if (payloadPtr % excludeZeroFaces .and.  convert_int(0_8) >= faceLambda) cycle
+
+        if (i == 1) then 
+            minLambda = faceLambda
+            res%intersectedFace = faceArray(i)
+        else if (minLambda > faceLambda) then
+          faceArrayNew(faceArrayNewFront)  = faceArray(i) 
+          faceArrayNewLambdas = minLambda 
+          faceArrayNewFront = faceArrayNewFront + 1
+
+          ! if (minLambda == faceLambda) then 
+          !   resultPtr %front = resultPtr %front + 1
+          !   resultPtr % intersectingFaces(front) = self % orientatedFaces(i) % face%getFaceIdx
+          ! end if
+
+          minLambda = faceLambda
+          res%intersectedFace = faceArray(i)
+        end if
+
+      else
+        ! Check if end point is on the place of the current face.
+        if (isZero(dot_product(rEnd - faceCentroid, outwardNormal))) then
+          ! End point is on the plane of the face. Check if it is contained inside it.
+          if (hybridIsPointInsideFace(faceArray(i), rEnd, rEndReal, outwardNormal, &
+                size(faceArray(i)%ptr%getVertices()))) then
+            res%intersectedFace = faceArray(i)
+            minLambda = convert_int(1_8)
+            exit
+          end if
+
+        end if
+
+      end if
+
+    end do
+
+    !call printRatInt(minLambda)
+    !print *, evaluate(minLambda)
+
+    !call printRatInt(minLambda)
+    if (associated(res%intersectedFace%ptr)) then
+      call ratintOutwardNormal(res%intersectedFace, elemCentroid, faceCentroid, &
+            size(res%intersectedFace % ptr %getVertices()), outwardNormal)
+      intersects = checkIntersected(res%intersectedFace, rStart, rEnd, size(res%intersectedFace%ptr%getVertices()), outwardNormal)
+
+      do i =1, faceArrayNewFront-1 
+        if (minLambda==faceArrayNewLambdas(i) .and. faceArrayNew(i)%ptr%getFaceIdx()/=res%intersectedFace%ptr%getFaceIdx()) then 
+          res%front = res%front + 1
+          res%currentFaceIdxs(res%front) = faceArrayNew(i)%ptr%getFaceIdx()
+        end if 
+      end do
+
+    end if 
+    newMinLambda = evaluate(minLambda)
+
+  end subroutine rescueParticleNearVertexEdge
+
+
+
+  subroutine rescueParticleNearVertexEdgeWrong(elementInp,payload,payloadPtr,faceArrayLast,faceArray,res,intersects,newMinLambda)
+    class(element), target, intent(in) :: elementInp 
+    class(intersectionTestPayload), intent(in) :: payload 
+    type(elementIntersectionTestPayload), pointer, intent(in) :: payloadPtr
+    integer, intent(in) :: faceArrayLast
+    type(faceBox), intent(inout) :: res
+    logical, intent(inout) :: intersects
+    real(defReal), intent(inout) :: newMinLambda
+    type(faceBox), dimension(:) :: faceArray
+    type(ratint_t), dimension(3) ::  rEnd, rStart, outwardNormal, faceCentroid, elemCentroid
+    type(ratint_t) :: minLambda, centroidLambda, faceLambda, dotProduct
+    real(defReal), dimension(3) ::  rEndReal
+    type(topologicalObjectBox), dimension(:), allocatable :: faceElements
+    class(element), pointer :: neighbourElem 
+    
+
+    integer :: i, j, k
+
+    call ratintElementCentroid(elementInp, size(elementInp%getVertices()), elemCentroid)
+    !! calculate directly
+    rEndReal = payload % r + payload % u * payload % dMax
+    ! print *, '????'
+    ! print *, rEndReal
+    call ratintCalcEndpoint(payload, rEnd)
+    rStart = convert_ieee(payload % r)
+    minLambda = def_ratint_large()
+
+    ! print *, evaluate(rEnd(1))
+    ! print *, '?'
+    ! call printRatInt(rEnd(1))
+
+
+    ! Loops through face array
+    do i = 1, faceArrayLast
+      faceElements = faceArray(i) % ptr % getSharingElements()
+      ! Finds the element that isn't the current element
+      if (size(faceElements) == 1) then 
+        !print *, '?'
+        !call printRatInt(minLambda)
+        call rescueParticleNearVertexEdgeBoundary(elementInp, payload, payloadPtr, faceArray(i), res, minLambda)
+      end if
+      do j = 1, size(faceElements)
+        ! Downcast element to correct type.
+        select type(ptr => faceElements(j) % ptr)
+          type is (element)
+            if (.not. associated(ptr, elementInp)) then
+
+              ! Checks the lambda values for the element faces that aren't in the intersected faces
+              do k = 1, size(ptr%getOrientatedFaces())
+
+                if (associated(faceArray(i) % ptr, ptr%orientatedFaces(k)%face%ptr)) then
+                  cycle
+                end if
+
+
+                call ratintFaceCentroid(ptr % orientatedFaces(k) % face, & 
+                  size(ptr % orientatedFaces(k) % face % ptr %getVertices()), faceCentroid)
+
+
+                call ratintOutwardNormal(ptr % orientatedFaces(k) % face, elemCentroid, faceCentroid, &
+                  size(ptr % orientatedFaces(k) % face % ptr %getVertices()), outwardNormal)
+                
+                ! Retrieve the centre of the current face and compute lambda.
+                dotProduct = dot_product(rEnd - elemCentroid, outwardNormal)
+                if (isZero(dotProduct)) cycle
+
+                centroidLambda = dot_product(faceCentroid - elemCentroid, outwardNormal) / dotProduct
+
+                ! If ZERO <= lambda <= ONE, append the current face to the list of potentially intersected faces.
+                if (centroidLambda >= convert_int(0_8) .and. convert_int(1_8) >= centroidLambda) then
+                  ! Compute lambda for the face using the actual particle coordinates.
+                  dotProduct = dot_product(rEnd - rStart, outwardNormal)
+                  if (isZero(dotProduct)) cycle
+                  faceLambda = dot_product(faceCentroid - rStart, outwardNormal) / dotProduct
+                  if (payloadPtr % excludeZeroFaces .and.  convert_int(0_8) >= faceLambda) cycle
+
+                  if (i == 1) then 
+                      minLambda = faceLambda
+     
+                  else if (minLambda > faceLambda) then
+    
+                      minLambda = faceLambda
+                      res = ptr % orientatedFaces(k) % face
+                  end if
+
+                else
+                  ! Check if end point is on the place of the current face.
+                  if (isZero(dot_product(rEnd - faceCentroid, outwardNormal))) then
+                    ! End point is on the plane of the face. Check if it is contained inside it.
+                    if (hybridIsPointInsideFace(ptr % orientatedFaces(k) % face, rEnd, rEndReal, outwardNormal, &
+                          size(ptr % orientatedFaces(k) % face%ptr%getVertices()))) then
+                      res = ptr % orientatedFaces(k) % face
+                      minLambda = convert_int(1_8)
+                      exit
+                    end if
+
+                  end if
+
+                end if
+              end do
+
+              exit
+
+            end if
+
+          class default
+
+        end select
+
+      end do
+
+      
+
+    end do
+
+    !call printRatInt(minLambda)
+    !print *, evaluate(minLambda)
+
+    !call printRatInt(minLambda)
+    call ratintOutwardNormal(res, elemCentroid, faceCentroid, size(res % ptr %getVertices()), outwardNormal)
+    intersects = checkIntersected(res, rStart, rEnd, size(res%ptr%getVertices()), outwardNormal)
+    newMinLambda = evaluate(minLambda)
+
+
+  end subroutine rescueParticleNearVertexEdgeWrong
+
+
+
+  subroutine rescueParticleNearVertexEdgeBoundary(elementInp, payload, payloadPtr, face, res, minLambda)
+    class(element), target, intent(in) :: elementInp 
+    class(intersectionTestPayload), intent(in) :: payload 
+    type(elementIntersectionTestPayload), pointer, intent(in) :: payloadPtr
+    type(faceBox), intent(in) :: face
+    type(faceBox), intent(inout) :: res
+    type(ratint_t), intent(inout) :: minLambda
+    type(ratint_t), dimension(3) ::  rEnd, rStart, outwardNormal, faceCentroid, elemCentroid
+    type(ratint_t) :: centroidLambda, faceLambda, dotProduct
+    real(defReal), dimension(3) ::  rEndReal
+    type(topologicalObjectBox), dimension(:), allocatable :: faceElements
+    class(element), pointer :: neighbourElem 
+    integer :: i, j, k
+
+
+    call ratintElementCentroid(elementInp, size(elementInp%getVertices()), elemCentroid)
+    !! calculate directly
+    rEndReal = payload % r + payload % u * payload % dMax
+    call ratintCalcEndpoint(payload, rEnd)
+    rStart = convert_ieee(payload % r)
+    minLambda = def_ratint_large()
+
+
+    call ratintFaceCentroid(face, size(face % ptr %getVertices()), faceCentroid)
+
+
+    call ratintOutwardNormal(face, elemCentroid, faceCentroid, size(face % ptr %getVertices()), outwardNormal)
+    
+    ! Retrieve the centre of the current face and compute lambda.
+    dotProduct = dot_product(rEnd - elemCentroid, outwardNormal)
+    if (isZero(dotProduct)) then 
+      return 
+    end if 
+
+    centroidLambda = dot_product(faceCentroid - elemCentroid, outwardNormal) / dotProduct
+
+    ! If ZERO <= lambda <= ONE, append the current face to the list of potentially intersected faces.
+    if (centroidLambda >= convert_int(0_8) .and. convert_int(1_8) >= centroidLambda) then
+      ! call printRatInt(centroidLambda)
+      !print *,' here'
+      ! Compute lambda for the face using the actual particle coordinates.
+      dotProduct = dot_product(rEnd - rStart, outwardNormal)
+      if (isZero(dotProduct)) then 
+        !print *,'*'
+        return 
+      end if
+      faceLambda = dot_product(faceCentroid - rStart, outwardNormal) / dotProduct
+      if (payloadPtr % excludeZeroFaces .and.  convert_int(0_8) >= faceLambda) then 
+        !print *,'**'
+        return 
+      end if
+      !call printRatInt(faceLambda)
+
+      if (minLambda > faceLambda) then
+          !print *, 'ummmm'
+          minLambda = faceLambda
+          res =face
+      end if
+
+    else
+      ! Check if end point is on the plane of the current face.
+      if (isZero(dot_product(rEnd - faceCentroid, outwardNormal))) then
+        ! End point is on the plane of the face. Check if it is contained inside it.
+        if (hybridIsPointInsideFace(face, rEnd, rEndReal, outwardNormal, size(face%ptr%getVertices()))) then
+          res = face
+          minLambda = convert_int(1_8)
+        end if
+
+      end if
+
+    end if
+
+  
+    !call printRatInt(minLambda)
+
+  end subroutine rescueParticleNearVertexEdgeBoundary
+
+
+  function hybridIsPointInsideGivenFaces(self, r, u, faces) result(result)
+    class(element), intent(in)              :: self
+    real(defReal), dimension(3), intent(in) :: r
+    real(defReal), dimension(3), intent(in) :: u
+    integer(shortInt), dimension(:), intent(in) :: faces
+    type(inclusionTestResult)               :: result
+    integer(shortInt)                       :: i
+    real(defReal)                           :: dotProduct
+    logical(defBool)                        :: isOnBoundary
+
+    isOnBoundary = .false.
+    result % status = INSIDE_ELEMENT
+
+    do i=1, size(self%orientatedFaces)
+      if (ANY(faces==self%orientatedFaces(i)%face%ptr%getFaceIdx())) then 
+        dotProduct = dot_product(self%orientatedFaces(i)%face%ptr%getNormal(), u)
+        if (areEqual(dotProduct, ZERO)) then 
+          if (dotProduct /= 0) then 
+            result = ratintIsPointInsideGivenFaces(self, r, u, faces)
+          end if 
+
+          isOnBoundary = .true.
+
+          ! Store the first face found and cycle to search other faces.
+          if (result % failedFaceIdx == 0) then 
+            result % failedFaceIdx = self % orientatedFaces(i) % face % ptr % getIdx()
+            return 
+          end if
+      
+        end if
+
+        if (dotProduct > 0) then 
+          result % status = OUTSIDE_ELEMENT
+          result % failedFaceIdx = self % orientatedFaces(i) % face % ptr % getIdx()
+          return 
+        end if
+      
+      else 
+        cycle
+      end if
+
+    end do
+
+    if (isOnBoundary) result % status = ON_BOUNDARY_ELEMENT
+
+
+  end function hybridIsPointInsideGivenFaces
+
+
+  function ratintIsPointInsideGivenFaces(self, r, u, faces) result(result)
+    class(element), intent(in)              :: self
+    real(defReal), dimension(3), intent(in) :: r
+    real(defReal), dimension(3), intent(in) :: u
+    integer(shortInt), dimension(:), intent(in) :: faces
+    type(inclusionTestResult)               :: result
+    integer(shortInt)                       :: i
+    type(ratint_t)                           :: dotProduct
+    logical(defBool)                        :: isOnBoundary
+    type(ratint_t), dimension(3) :: ratintNormal, ratintU, rintFaceCentroid, rintElementCentroid
+
+
+    isOnBoundary = .false.
+    result % status = INSIDE_ELEMENT
+    ratintU = convert_ieee(u)
+
+    do i=1, size(self%orientatedFaces)
+      if (ANY(faces==self%orientatedFaces(i)%face%ptr%getFaceIdx())) then 
+
+        call ratintFaceCentroid(self % orientatedFaces(i) % face, size(self % orientatedFaces(i) % face%ptr%getVertices()), &
+                            rintFaceCentroid)
+
+        call ratintElementCentroid(self, size(self%getVertices()), rintElementCentroid)
+
+
+        call ratintOutwardNormal(self % orientatedFaces(i) % face, rintElementCentroid, rintFaceCentroid, & 
+                                  size(self % orientatedFaces(i) % face%ptr%getVertices()), ratintNormal)
+
+
+
+        dotProduct = dot_product(ratintNormal, ratintU)
+        if (isZero(dotProduct)) then 
+
+          isOnBoundary = .true.
+
+          ! Store the first face found and cycle to search other faces.
+          if (result % failedFaceIdx == 0) then 
+            result % failedFaceIdx = self % orientatedFaces(i) % face % ptr % getIdx()
+            return 
+          end if
+      
+        end if
+
+        if (dotProduct > convert_int(0_8)) then 
+          result % status = OUTSIDE_ELEMENT
+          result % failedFaceIdx = self % orientatedFaces(i) % face % ptr % getIdx()
+          return 
+        end if
+      
+      else 
+        cycle
+      end if
+
+    end do
+
+    if (isOnBoundary) result % status = ON_BOUNDARY_ELEMENT
+
+
+
+  end function ratintIsPointInsideGivenFaces
+
+
+
+  function hybridIsPointInside(self, r) result(result)
+    class(element), intent(in)              :: self
+    real(defReal), dimension(3), intent(in) :: r
+    type(inclusionTestResult)               :: result
+    integer(shortInt)                       :: i
+    real(defReal)                           :: dotProduct
+    logical(defBool)                        :: isOnBoundary
+    
+    ! Initialise isOnBoundary = .false. and result % status = INSIDE_ELEMENT then loop over all element faces.
+    isOnBoundary = .false.
+    result % status = INSIDE_ELEMENT
+    do i = 1, size(self % orientatedFaces)
+      ! Make a vector going from the coordinates to the face's centroid and perform the dot
+      ! product between this vector and the face's normal vector.
+      dotProduct = dot_product(self % orientatedFaces(i) % face % ptr % getCentroid() - r, &
+                               self % orientatedFaces(i) % outwardNormal)
+
+      ! Check if the point is effectively on the plane of this face.
+      if (areEqual(dotProduct, ZERO)) then
+        if (dotProduct /= ZERO) then 
+          result = ratintIsPointInsideElement(self, r)
+          return
+        end if
+        isOnBoundary = .true.
+
+        ! Store the first face found and cycle to search other faces.
+        if (result % failedFaceIdx == 0) result % failedFaceIdx = self % orientatedFaces(i) % face % ptr % getIdx()
+        cycle
+
+      end if
+
+      ! If dotProduct < ZERO, update result and return early.
+      if (dotProduct < ZERO) then
+        result % status = OUTSIDE_ELEMENT
+        result % failedFaceIdx = self % orientatedFaces(i) % face % ptr % getIdx()
+        return
+
+      end if
+
+    end do
+
+    ! If point is on boundary, update result % status.
+    if (isOnBoundary) result % status = ON_BOUNDARY_ELEMENT
+
+
+  end function hybridIsPointInside
+
+
+  function ratintIsPointInsideElement(self, r) result(result)
+    class(element), intent(in)              :: self
+    real(defReal), dimension(3), intent(in) :: r
+    type(inclusionTestResult)               :: result
+    integer(shortInt)                       :: i
+    type(ratint_t)                          :: dotProduct
+    logical(defBool)                        :: isOnBoundary
+    type(ratint_t), dimension(3) :: ratintR, rintFaceCentroid, ratintNormal, rintElementCentroid
+
+    ratintR = convert_ieee(r)
+
+    call ratintFaceCentroid(self % orientatedFaces(i) % face, size(self % orientatedFaces(i) % face%ptr%getVertices()), &
+                            rintFaceCentroid)
+
+    call ratintElementCentroid(self, size(self%getVertices()), rintElementCentroid)
+
+
+    call ratintOutwardNormal(self % orientatedFaces(i) % face, rintElementCentroid, rintFaceCentroid, & 
+                              size(self % orientatedFaces(i) % face%ptr%getVertices()), ratintNormal)
+
+
+    isOnBoundary = .false.
+    result % status = INSIDE_ELEMENT
+    do i = 1, size(self % orientatedFaces)
+      ! Make a vector going from the coordinates to the face's centroid and perform the dot
+      ! product between this vector and the face's normal vector.
+      dotProduct = dot_product(rintFaceCentroid - ratintR, ratintNormal)
+
+      ! Check if the point is effectively on the plane of this face.
+      if (isZero(dotProduct)) then
+        isOnBoundary = .true.
+
+        ! Store the first face found and cycle to search other faces.
+        if (result % failedFaceIdx == 0) result % failedFaceIdx = self % orientatedFaces(i) % face % ptr % getIdx()
+        cycle
+
+      end if
+
+      ! If dotProduct < ZERO, update result and return early.
+      if (convert_int(0_8) > dotProduct) then
+        result % status = OUTSIDE_ELEMENT
+        result % failedFaceIdx = self % orientatedFaces(i) % face % ptr % getIdx()
+        return
+
+      end if
+
+    end do
+
+    ! If point is on boundary, update result % status.
+    if (isOnBoundary) result % status = ON_BOUNDARY_ELEMENT
+
+
+
+
+  end function ratintIsPointInsideElement
+
+
+  function hybridIsPointInsideFace(face, endPoint, fpEndPoint, normal, numVertices) result(inside)
+     type(faceBox), intent(in) :: face 
+      type(ratint_t), dimension(3), intent(in) :: endPoint, normal
+      real(defReal),dimension(3), intent(in) :: fpEndPoint
+      real(defReal), dimension(3) :: fpNorm
+      real(defReal) :: dotProduct
+      integer :: numVertices
+      logical(defBool) :: inside
+      integer(shortInt)                       :: i, nextIdx
+      type(vertexBox), dimension(3)             :: vertices
+      real(defReal), dimension(numVertices)             :: vertexCoords, nextCoords
+      type(ratint_t), dimension(3) :: ratintCoords
+
+      inside = .false.
+      vertices = face % ptr % getVertices()
+      fpNorm = face%ptr%getNormal()
+
+      ! Loop through all the edges in the face and check if the point lies on the same side
+      ! of each edge (note: this assumes a consistent vertex numbering).
+      do i = 1, numVertices
+        nextIdx = merge(1, i + 1, i == numVertices)
+        vertexCoords = vertices(i) % ptr % getCoordinates()
+        nextCoords = vertices(nextIdx)%ptr%getCoordinates()
+        dotProduct = dot_product(fpNorm, crossProduct(nextCoords - vertexCoords, fpEndPoint - vertexCoords))
+
+        if (areEqual(dotProduct, ZERO) .and. (dotProduct /= ZERO)) then 
+          inside = ratintIsPointInsideFace(face, endPoint, normal, numVertices)
+          return
+        else if (dotProduct < 0) then 
+          return
+        end if
+
+      end do
+
+      ! If reached here, the point is inside the face.
+      inside = .true.
+
+
+
+  end function hybridIsPointInsideFace
+
+
+
+
+
+
+
+  function ratintIsPointInsideFace(face, endPoint, normal, numVertices) result(inside)
+    type(faceBox), intent(in) :: face 
+    type(ratint_t), dimension(3), intent(in) :: endPoint, normal
+    integer :: numVertices
+    logical(defBool) :: inside
+    integer(shortInt)                       :: i, nextIdx
+    type(vertexBox), dimension(3)             :: vertices
+    real(defReal), dimension(numVertices)             :: vertexCoords
+    type(ratint_t), dimension(3) :: ratintCoords, nextRatintCoords
+    type(ratint_t) :: dotProduct
+
+    inside = .false.
+    vertices = face % ptr % getVertices()
+
+    ! Loop through all the edges in the face and check if the point lies on the same side
+    ! of each edge (note: this assumes a consistent vertex numbering).
+    do i = 1, numVertices
+      nextIdx = merge(1, i + 1, i == numVertices)
+      vertexCoords = vertices(i) % ptr % getCoordinates()
+      ratintCoords = vertices(i) % ptr % getRatintCoordinates()
+      nextRatintCoords = vertices(nextIdx)%ptr%getRatintCoordinates()
+      dotProduct = dot_product(normal, crossProduct(nextRatintCoords - ratintCoords, endPoint - ratintCoords))
+
+      if (convert_int(0_8) > dotProduct) then 
+        return 
+      end if
+
+    end do
+
+    ! If reached here, the point is inside the face.
+    inside = .true.
+
+
+
+  end function ratintIsPointInsideFace
+
+
+
+  subroutine ratintCalcEndpoint(payload, endPoint)
+    class(intersectionTestPayload), intent(in) :: payload 
+    type(ratint_t), dimension(3), intent(inout) :: endPoint
+    type(ratint_t), dimension(3) :: ratintR 
+    type(ratint_t), dimension(3) :: ratintU 
+    type(ratint_t), dimension(3) :: ratintDMax
+
+    ratintR = convert_ieee(payload % r)
+    ratintU = convert_ieee(payload % u)
+    ratintDMax = convert_ieee(payload % dmax)
+
+    endPoint = ratintR + (ratintU * ratintDMax)
+
+
+  end subroutine ratintCalcEndpoint
+
+
+
+  subroutine ratintFaceCentroid(face, numVertices, rationalCentroid)
+    type(faceBox), intent(in) :: face 
+    type(ratint_t), dimension(3), intent(inout) :: rationalCentroid
+    integer, intent(in) :: numVertices
+    type(vertexBox), dimension(numVertices) :: vertices
+    type(ratint_t), dimension(3) :: coords
+    integer :: i 
+
+    rationalCentroid = initratint_vector()
+    vertices = (face%ptr%getVertices())
+    do i = 1, size(face%ptr%getVertices())
+      coords = vertices(i)%ptr%getRatintCoordinates()
+      rationalCentroid = rationalCentroid + coords
+    end do 
+
+    rationalCentroid(1) = rationalCentroid(1) / convert_int(size(face%ptr%getVertices())*1_8)
+    rationalCentroid(2) = rationalCentroid(2) / convert_int(size(face%ptr%getVertices())*1_8)
+    rationalCentroid(3) = rationalCentroid(3) / convert_int(size(face%ptr%getVertices())*1_8)
+
+  end subroutine ratintFaceCentroid 
+
+  subroutine ratintElementCentroid(elementInp, numVertices, rationalCentroid)
+    class(element), intent(in) :: elementInp 
+    type(ratint_t), dimension(3), intent(inout) :: rationalCentroid
+    integer, intent(in) :: numVertices
+    type(vertexBox), dimension(numVertices) :: vertices
+    real(real64), dimension(3) :: coords
+    integer :: i 
+
+
+    rationalCentroid = initratint_vector()
+    vertices = elementInp%getVertices()
+    do i = 1, numVertices
+      coords = vertices(i)%ptr%getCoordinates()
+      rationalCentroid = rationalCentroid + convert_ieee(coords)
+    end do 
+
+    rationalCentroid(1) = rationalCentroid(1) / convert_int(numVertices*1_8)
+    rationalCentroid(2) = rationalCentroid(2) / convert_int(numVertices*1_8)
+    rationalCentroid(3) = rationalCentroid(3) / convert_int(numVertices*1_8)
+
+
+  end subroutine ratintElementCentroid
+
+
+  subroutine ratintOutwardNormal(face, elemCentroid, faceCentroid, numVertices, rationalNormal)
+    type(faceBox), intent(in) :: face 
+    type(ratint_t), dimension(3) :: elemCentroid, faceCentroid
+    type(ratint_t), dimension(3), intent(inout) :: rationalNormal
+    integer, intent(in) :: numVertices
+    type(ratint_t), dimension(3) :: v1, v2, v3, dir1, dir2, centroidDir
+    type(ratint_t) :: signTest
+    type(vertexBox), dimension(numVertices) :: vertices
+    real(defReal), dimension(3) :: coords
+    integer :: i
+
+    vertices = face%ptr%getVertices()
+    coords = vertices(1)%ptr%getCoordinates()
+    v1 = vertices(1)%ptr%getRatintCoordinates()
+
+    coords = vertices(2)%ptr%getCoordinates()
+    v2 = vertices(2)%ptr%getRatintCoordinates()
+
+    coords = vertices(3)%ptr%getCoordinates()
+    v3 = vertices(3)%ptr%getRatintCoordinates()
+
+
+    dir1 = v1 - v2 
+    dir2 = v1 - v3
+
+    rationalNormal = crossProduct(dir1, dir2)
+
+    centroidDir = faceCentroid - elemCentroid
+
+
+    signTest = dot_product(rationalNormal, centroidDir)
+
+    if (convert_int(0_8) > signTest) then 
+      call swapSign(rationalNormal)
+    end if
+
+
+  end subroutine ratintOutwardNormal
+
+
 
   !! Subroutine 'testForInclusion'
   !!
@@ -884,10 +1886,12 @@ contains
   !!
   !!
   !!
-  pure function newElementIntersectionTestPayload(r, u, dMax, skipBoundingBoxIntersectionTest, skipZeroFaces) &
+  pure function newElementIntersectionTestPayload(r, u,dMax, skipBoundingBoxIntersectionTest,skipZeroFaces,currentFaceIdxs,front)&
   result(payload)
     real(defReal), dimension(3), intent(in) :: r, u
     real(defReal), intent(in)               :: dMax
+    integer(shortInt), dimension(VALENCE), intent(in), optional :: currentFaceIdxs
+    integer(shortInt), intent(in), optional :: front
     logical(defBool), intent(in)            :: skipBoundingBoxIntersectionTest
     logical(defBool), intent(in), optional  :: skipZeroFaces
     type(elementIntersectionTestPayload)    :: payload
@@ -895,6 +1899,10 @@ contains
     payload % r = r
     payload % u = u
     payload % dMax = dMax
+    if (present(currentFaceIdxs) .and. present(front)) then
+      payload % currentFaceIdxs = currentFaceIdxs
+      payload%front = front
+    end if
     payload % skipBoundingBoxIntersectionTest = skipBoundingBoxIntersectionTest
     if (present(skipZeroFaces)) payload % excludeZeroFaces = skipZeroFaces
 

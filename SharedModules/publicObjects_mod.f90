@@ -3,6 +3,7 @@ module publicObjects
   use numPrecision
   use RNG_class,               only : RNG
   use universalVariables
+  use ratint
 
   implicit none
   public
@@ -38,6 +39,7 @@ module publicObjects
   type :: basicVertexInfo
     integer(shortInt)           :: idx = 0
     real(defReal), dimension(3) :: coordinates = ZERO
+    type(ratint_t), dimension(3) :: ratintCoordinates  !!!!!!!!!!!!!!!!!!!!!!
   end type basicVertexInfo
 
   !!
@@ -50,6 +52,9 @@ module publicObjects
     integer(shortInt)              :: cellIdx = 0, elementIdx = 0, faceIdx = 0, localId = 1, meshIdx = 0, &
                                       surfaceIdx = 0, universeIdx = 0, universeRootId = 0, updateLevel = 0
     logical(defBool)               :: isInside = .false., isRotated = .false.
+    integer(shortInt), dimension(VALENCE) :: currentFaceIdxs
+    integer(shortInt) :: front = 0
+    
   end type coordData
 
   !!
@@ -58,6 +63,9 @@ module publicObjects
   type :: intersectionTestPayload
     real(defReal), dimension(3) :: r = ZERO, u = ZERO
     real(defReal)               :: dMax = ZERO
+    integer(shortInt), dimension(VALENCE) :: currentFaceIdxs
+    integer(shortInt) :: front
+
   end type intersectionTestPayload
 
   !!

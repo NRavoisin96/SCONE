@@ -6,6 +6,7 @@ module genericProcedures
   use numPrecision
   use openmp_func,       only : ompGetMaxThreads
   use universalVariables
+  use ratint
 
   implicit none
 
@@ -130,6 +131,11 @@ module genericProcedures
     module procedure swap_char_nameLen
     module procedure swap_defReal_defReal
   end interface
+
+  interface crossProduct 
+      module procedure crossProduct_real
+      module procedure crossProduct_ratint
+  end interface crossProduct
 
 contains
   !! Subroutine 'append_shortInt'
@@ -1726,7 +1732,7 @@ contains
   !!
   !! Cross product for 3D vectors
   !!
-  pure function crossProduct(a, b) result(c)
+  pure function crossProduct_real(a, b) result(c)
     real(defReal), dimension(3), intent(in) :: a, b
     real(defReal), dimension(3)             :: c
 
@@ -1734,7 +1740,18 @@ contains
          a(3)*b(1) - a(1)*b(3), &
          a(1)*b(2) - a(2)*b(1)]
 
-  end function crossProduct
+  end function crossProduct_real
+
+
+  pure function crossProduct_ratint(a, b) result(c)
+    type(ratint_t), dimension(3), intent(in) :: a, b
+    type(ratint_t), dimension(3) :: c
+
+    c = [a(2)*b(3) - a(3)*b(2), &
+         a(3)*b(1) - a(1)*b(3), &
+         a(1)*b(2) - a(2)*b(1)]
+
+  end function crossProduct_ratint
 
   !!
   !! Return true if key is in the array

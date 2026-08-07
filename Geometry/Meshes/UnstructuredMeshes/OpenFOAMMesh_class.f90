@@ -8,6 +8,7 @@ module OpenFOAMMesh_class
                                            meshBoundaryConditionInfo, meshLocalIdInfo
   use universalVariables,           only : centimetresPerMetre, NOT_PRESENT
   use unstructuredMesh_inter,       only : kill_super => kill, unstructuredMesh
+  use ratint
 
   implicit none
   private
@@ -635,12 +636,17 @@ contains
     class(OpenFOAMMesh), intent(inout)          :: self
     character(*), intent(in)                    :: folderPath
     integer(shortInt), intent(in)               :: nVertices
-    integer(shortInt)                           :: i, ios
+    integer(shortInt)                           :: i, ios, j
     integer(shortInt), parameter                :: unit = 10
     real(defReal), dimension(3, nVertices)      :: coords
+    type(ratint_t), dimension(3, nVertices)      :: ratintCoords 
+    integer(longInt) :: whole, frac
+    integer(longInt),dimension(3) :: tempCoord
+    integer(shortInt) :: counter, s, m, e, sign, vertexNum
     type(basicVertexInfo), dimension(nVertices) :: vertexInfos
     logical(defBool)                            :: singleLine
     character(:), allocatable                   :: dataBuffer
+    logical :: startCoord, dp
     character(256)                              :: lineBuffer ! Note: here the string is longer than usual to deal
                                                               ! with cases when all vertices are written on a
                                                               ! single line.
@@ -669,13 +675,142 @@ contains
         if (dataBuffer(i:i) == '(' .or. dataBuffer(i:i) == ')') dataBuffer(i:i) = ' '
 
       end do
+      startCoord = .true.
       ! Read all coordinates in one go.
-      read(dataBuffer, *) coords
+      counter = 1
+      vertexNum = 1
+      dp= .false.
+      sign = 1
+      do i = 1, len(dataBuffer)
+      
+        if (dataBuffer(i:i) == ' ' .and. (startCoord)) then 
+          cycle 
+          !startCoord = .false.
+        else if (startCoord) then 
+          if (dataBuffer(i:i) == '-') then 
+            sign = -1 
+          else 
+            sign = 1 
+          end if
+          s = i 
+          startCoord = .false.
+          cycle
+        else if (dataBuffer(i:i) == '.') then 
+          !startCoord = .false.
+          m = i 
+          dp = .true.
+          cycle
+        else if (dataBuffer(i:i) == ' ' .and. (.not. startCoord) .and. dp) then 
+          startCoord = .true. 
+          e = i-1 
+
+          read(dataBuffer(s:e), *) coords(counter,vertexNum)
+          read(dataBuffer(s:m-1), *) whole 
+          read(dataBuffer(m+1:e), *) frac
+          
+          if (whole == 0) then 
+            ratintCoords(counter,vertexNum) = def_ratint(frac*1_8, 10_8**len(dataBuffer(m+1:e)), sign*1_8)
+          else
+            ratintCoords(counter,vertexNum) = whole*def_ratint(frac*1_8, 10_8**len(dataBuffer(m+1:e)), 1_8)
+          end if
+
+          ratintCoords(counter,vertexNum) = ratintCoords(counter,vertexNum) * (100_8)
+
+          counter = max(mod((counter+1),4),1)
+          if (counter == 1) then
+            vertexNum = vertexNum + 1
+          end if
+          dp = .false.
+
+        else if (dataBuffer(i:i) == ' ' .and. (.not. startCoord)) then 
+          startCoord = .true. 
+          e = i-1 
+
+          read(dataBuffer(s:e), *) coords(counter,vertexNum)
+          read(dataBuffer(s:e), *) whole 
+          ratintCoords(counter,vertexNum) = convert_int(whole*1_8)
+          counter = max(mod((counter+1),4),1)
+          if (counter == 1) then
+            vertexNum = vertexNum + 1
+          end if
+          dp = .false.
+
+        end if
+
+      end do 
+
+      !read(dataBuffer, *) coords
 
     else
+      startCoord = .true.
+      counter = 1
+      sign = 1
+      dp = .false.
       do i = 1, nVertices
         read(unit, '(a)') lineBuffer
-        read(lineBuffer(2:len_trim(lineBuffer) - 1), *) coords(:, i)
+        
+        do j =1, len(lineBuffer) 
+          if ((lineBuffer(j:j) == '(' .or. lineBuffer(j:j) == ' ' ) .and. (startCoord)) then
+            cycle 
+
+          else if (startCoord) then 
+            if (lineBuffer(j:j) == '-') then 
+              sign = -1
+            else 
+              sign = 1 
+            end if
+            s = j
+            startCoord = .false.
+            cycle
+
+          else if (lineBuffer(j:j) == '.') then 
+            m = j
+            dp = .true.
+            cycle
+          
+          else if ((lineBuffer(j:j) == ' ' .or. lineBuffer(j:j) == ')') .and. (.not. startCoord) .and. dp) then 
+            startCoord = .true. 
+            e = j-1 
+            
+            read(lineBuffer(s:e), *) coords(counter,i)
+            read(lineBuffer(s:m-1), *) whole 
+            read(lineBuffer(m+1:e), *) frac
+
+            if (whole == 0) then 
+              ratintCoords(counter,i) = def_ratint(frac*1_8, 10_8**len(lineBuffer(m+1:e)), sign*1_8)
+            else
+              ratintCoords(counter,i) = whole*def_ratint(frac*1_8, 10_8**len(lineBuffer(m+1:e)), 1_8) !!NTOE DO SOMETHING ABOUT SIGN
+            end if
+
+            ratintCoords(counter,i) = ratintCoords(counter,i) * (100_8)
+
+            counter = max(mod((counter+1),4),1)
+            dp = .false.
+
+            if (lineBuffer(j:j) == ')') then 
+              exit 
+            end if
+
+          else if ((lineBuffer(j:j) == ' ' .or. lineBuffer(j:j) == ')') .and. (.not. startCoord)) then 
+            startCoord = .true. 
+            e = j-1 
+            read(lineBuffer(s:e), *) coords(counter,i)
+            read(lineBuffer(s:e), *) whole 
+            ratintCoords(counter, i) = convert_int(whole*1_8)
+
+            counter = max(mod((counter+1),4),1)
+            dp = .false.
+
+            if (lineBuffer(j:j) == ')') then 
+              exit 
+            end if
+
+          end if 
+
+        end do
+
+
+      !read(lineBuffer(2:len_trim(lineBuffer) - 1), *) coords(:, i)
 
       end do
 
@@ -685,9 +820,11 @@ contains
 
     ! Create all infos. Convert metres (from OpenFOAM) to centimetres.
     coords = coords * centimetresPerMetre
+
     do i = 1, nVertices
       vertexInfos(i) % idx = i
       vertexInfos(i) % coordinates = coords(:, i)
+      vertexInfos(i) % ratintCoordinates = ratintCoords(:,i)
 
     end do
 

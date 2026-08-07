@@ -7,6 +7,7 @@ module vertex_class
   use topologicalObject_inter,      only : buildTopologicalObjectPayload, kill_super => kill, topologicalObject, &
                                            topologicalObjectBox
   use universalVariables
+  use ratint
   
   implicit none
   private
@@ -16,6 +17,7 @@ module vertex_class
   !!
   type, public, extends(buildTopologicalObjectPayload) :: buildVertexPayload
     real(defReal), dimension(3) :: coordinates
+    type(ratint_t), dimension(3) :: ratintCoordinates
   end type buildVertexPayload
 
   !!
@@ -39,6 +41,7 @@ module vertex_class
   type, public, extends(topologicalObject)                :: vertex
     private
     real(defReal), dimension(3)                           :: coordinates = ZERO
+    type(ratint_t), dimension(3) :: ratintCoordinates
     type(topologicalObjectBox), dimension(:), allocatable :: sharingEdges, sharingElements, sharingFaces
   contains
     ! Build procedures.
@@ -52,6 +55,7 @@ module vertex_class
     procedure :: getBoundingBoxBounds
     procedure :: getCentroid
     procedure :: getCoordinates
+    procedure :: getRatintCoordinates
     procedure :: getSharingEdges
     procedure :: getSharingElements
     procedure :: getSharingFaces
@@ -171,6 +175,7 @@ contains
     end select
 
     self % coordinates = payloadPtr % coordinates
+    self % ratintCoordinates = payloadPtr % ratintCoordinates
 
   end subroutine build
 
@@ -224,6 +229,15 @@ contains
     
     coordinates = self % coordinates
   end function getCoordinates
+
+
+
+  pure function getRatintCoordinates(self) result(ratintCoordinates)
+    class(vertex), intent(in)   :: self
+    type(ratint_t), dimension(3) :: ratintCoordinates
+    
+    ratintCoordinates = self % ratintCoordinates
+  end function getRatintCoordinates
 
   !! Function 'getEdgeIdxs'
   !!

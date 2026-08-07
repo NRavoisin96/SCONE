@@ -1,6 +1,6 @@
 module limb_class
     
-    !use numPrecision
+    use numPrecision
 
     use, intrinsic :: iso_fortran_env, only: real64
     use, intrinsic :: ieee_arithmetic
@@ -13,8 +13,8 @@ module limb_class
     ! Indexed from 0 to allow the lowest index to act as a 'null' index for managing unfilled values
     ! Only use 1-1977 in calculations
         integer, dimension(0:maxsz) :: limbs
-        integer :: front
-        integer(8) :: sign
+        integer(shortInt) front
+        integer(longInt) :: sign
     end type limb_t
 
 
@@ -124,10 +124,10 @@ module limb_class
 
 !! CREATE A GENERAL FUNCTION TO ALLOW DISTINGUISHING BETWEEN SHORT/LONG, CURRENT JUST DEFAULTS TO LONG
         pure function initlimbnumlong(n) result(l)
-            integer(8), intent(in) :: n
+            integer(longInt), intent(in) :: n
             type(limb_t) :: l 
-            integer(8) :: st
-            integer(8) :: overflow
+            integer(longInt) :: st
+            integer(longInt) :: overflow
             integer(4) :: i
 
 
@@ -219,10 +219,10 @@ module limb_class
 
         pure subroutine addOnSign(a,b, asig, bsig, s)
             type(limb_t), intent(in) :: a,b 
-            integer(8), intent(in) :: asig, bsig
+            integer(longInt), intent(in) :: asig, bsig
             type(limb_t), intent(inout) :: s
-            integer(8) :: st, zeroIndA, zeroIndB, overflow, borrow, va, vb
-            integer :: i, maxfront
+            integer(longInt) :: st, zeroIndA, zeroIndB, overflow, borrow, va, vb
+            integer(shortInt) i, maxfront
 
             if (a%front == 1977 .and. b%front == 1977 .and. (a%limbs(a%front)*1_8+b%limbs(b%front)*1_8) > 2_8**31) then 
                 call setInvalid(s)
@@ -305,7 +305,7 @@ module limb_class
             type(limb_t), intent(in) :: a, b 
             type(limb_t) :: s 
             logical :: greaterThan, tr1, tr2, tr3, tr4, tr5, tr6
-            integer :: cd1, cd2, cd3, cd4, cd5, cd6, greaterThanInt
+            integer(shortInt) cd1, cd2, cd3, cd4, cd5, cd6, greaterThanInt
 
             if (checkInvalid(a) .or. checkInvalid(b)) then 
                 call setInvalid(s)
@@ -402,7 +402,7 @@ module limb_class
         pure function absgneq(a,b) result (r)
             type(limb_t), intent(in) :: a,b
             logical :: r 
-            integer :: i
+            integer(shortInt) i
 
         
             r = .false.
@@ -431,8 +431,8 @@ module limb_class
 
         pure function absgneqInt(a,b) result (r)
             type(limb_t), intent(in) :: a,b
-            integer :: r 
-            integer :: i
+            integer(shortInt) r 
+            integer(shortInt) i
 
             
             r = 0
@@ -461,7 +461,7 @@ module limb_class
         
 
         pure function addlimbmixedL(n,a) result(s)
-            integer(8), intent(in) :: n
+            integer(longInt), intent(in) :: n
             type(limb_t), intent(in) :: a 
             type(limb_t) :: s, nlimb
 
@@ -473,7 +473,7 @@ module limb_class
 
 
         pure function addlimbmixedR(a,n) result(s)
-            integer(8), intent(in) :: n
+            integer(longInt), intent(in) :: n
             type(limb_t), intent(in) :: a 
             type(limb_t) :: s, nlimb
 
@@ -502,7 +502,7 @@ module limb_class
 
 
         pure function subtractlimbmixedL(n,a) result(s)
-            integer(8), intent(in) :: n
+            integer(longInt), intent(in) :: n
             type(limb_t), intent(in) :: a 
             type(limb_t) :: s, nlimb 
 
@@ -515,7 +515,7 @@ module limb_class
 
 
         pure function subtractlimbmixedR(a,n) result(s)
-            integer(8), intent(in) :: n
+            integer(longInt), intent(in) :: n
             type(limb_t), intent(in) :: a 
             type(limb_t) :: s, nlimb 
 
@@ -577,8 +577,8 @@ module limb_class
             type(limb_t), intent(in) :: a, b 
             integer, intent(in) :: aStart, aEnd, bStart, bEnd 
             type(limb_t), intent(inout) :: p 
-            integer :: i, j, pos, zeroIndA 
-            integer(8) :: pt, overflow, va
+            integer(shortInt) i, j, pos, zeroIndA 
+            integer(longInt) :: pt, overflow, va
 
             ! Placing the check here, however, n+m is only an estimation, ideally it should be in the loop,
             ! but this will affect performance
@@ -644,8 +644,8 @@ module limb_class
             integer, intent(in) :: asplitstart, bsplitstart, asplitend, bsplitend
             type(limb_t) , intent(inout) :: p
             type(limb_t) :: p0, p1, p2, p3, a0a1, b0b1
-            integer(8) :: z0, z1, z2, z3, a0, a1, b0, b1
-            integer :: shiftmult, splita, splitb, split
+            integer(longInt) :: z0, z1, z2, z3, a0, a1, b0, b1
+            integer(shortInt) shiftmult, splita, splitb, split
 
             p0 = initlimb()
             p1 = initlimb()
@@ -746,7 +746,7 @@ module limb_class
 
         pure subroutine adjustFront(a)
             type(limb_t), intent(inout) :: a 
-            integer :: i
+            integer(shortInt) i
 
             do i=a%front,1,-1
                 if (a%limbs(i) /= 0) then 
@@ -763,7 +763,7 @@ module limb_class
         pure subroutine padFronts(a, b, at, bt)
             type(limb_t), intent(in) :: a,b 
             type(limb_t), intent(inout) :: at, bt
-            integer :: i, groupfront, zeroIndA, zeroIndB, va, vb
+            integer(shortInt) i, groupfront, zeroIndA, zeroIndB, va, vb
 
 
             groupfront = max(a%front, b%front)
@@ -802,8 +802,8 @@ module limb_class
             type(limb_t), intent(in) :: a 
             integer, intent(in) :: start1, len1, start2, len2
             type(limb_t), intent(inout) :: s 
-            integer :: zeroIndS, zeroIndE, i, zeroIndAS, zeroIndAE
-            integer(8) :: overflow, st, maxLen, v1, v2
+            integer(shortInt) zeroIndS, zeroIndE, i, zeroIndAS, zeroIndAE
+            integer(longInt) :: overflow, st, maxLen, v1, v2
 
             if (checkInvalid(a)) then 
                 call setInvalid(s)
@@ -877,8 +877,8 @@ module limb_class
             type(limb_t), intent(in) :: v1, v2, v3 
             integer, intent(in) :: shift
             type(limb_t), intent(inout) :: r
-            integer :: i, maxLen, zeroInd1, zeroInd2, zeroInd3, zeroIndShift1, zeroIndShift2
-            integer(8) :: overflow, st, borrow, val1, val2, val3
+            integer(shortInt) i, maxLen, zeroInd1, zeroInd2, zeroInd3, zeroIndShift1, zeroIndShift2
+            integer(longInt) :: overflow, st, borrow, val1, val2, val3
 
             if (checkInvalid(v1) .or. checkInvalid(v2) .or. checkInvalid(v3)) then 
                 call setInvalid(r)
@@ -958,7 +958,7 @@ module limb_class
         ! Potentially add multiple functions for other types of integer (currently only integer 4 allowed to prevent overflow)
         pure function multiplylimbmixedL(n,a) result(p)
             type(limb_t), intent(in) :: a 
-            integer(8), intent(in) :: n 
+            integer(longInt), intent(in) :: n 
             type(limb_t) :: p
             
             p = a * n
@@ -969,7 +969,7 @@ module limb_class
 
         pure function multiplylimbmixedR(a,n) result(p)
             type(limb_t), intent(in) :: a 
-            integer(8), intent(in) :: n 
+            integer(longInt), intent(in) :: n 
             type(limb_t) :: p, nl 
 
             nl = initlimb(n)
@@ -984,8 +984,8 @@ module limb_class
 
         pure function dividelimbs(a,b) result(x)
             type(limb_t), intent(in) :: a,b 
-            real(real64) :: x, normA, normB
-            integer :: onePosA, onePosB, expA, expB, expX
+            real(defReal) :: x, normA, normB
+            integer(shortInt) onePosA, onePosB, expA, expB, expX
 
 
             call findFirst1(a, onePosA)
@@ -1016,13 +1016,13 @@ module limb_class
         pure function dividelimbs2(a,b) result(x)
             type(limb_t), intent(in) :: a,b 
             type(limb_t) :: at, bt
-            real(real64) :: ra, rb, x 
-            real(real64) :: tr8 
-            integer :: tempfront 
-            integer :: first1loc
-            integer :: shift
-            integer :: i
-            integer :: sign
+            real(defReal) :: ra, rb, x 
+            real(defReal) :: tr8 
+            integer(shortInt) tempfront 
+            integer(shortInt) first1loc
+            integer(shortInt) shift
+            integer(shortInt) i
+            integer(shortInt) sign
 
             if (checkInvalid(a) .or. checkInvalid(b) .or. limbiszero(b)) then 
                 x = 0 
@@ -1083,12 +1083,12 @@ module limb_class
 
         pure subroutine tonormalisedreal(a, r)
             type(limb_t), intent(in) :: a 
-            real(real64), intent(inout) :: r 
-            real(real64) :: tr8 
+            real(defReal), intent(inout) :: r 
+            real(defReal) :: tr8 
 
-            integer :: tempfront 
-            integer :: first1loc
-            integer :: limit
+            integer(shortInt) tempfront 
+            integer(shortInt) first1loc
+            integer(shortInt) limit
 
             ! First finds the position of the first 1 and records number of shifts made
             tempfront = a%limbs(a%front)
@@ -1113,12 +1113,12 @@ module limb_class
 
          pure subroutine tosubnormalisedreal(a, r)
             type(limb_t), intent(in) :: a 
-            real(real64), intent(inout) :: r 
-            real(real64) :: tr8 
+            real(defReal), intent(inout) :: r 
+            real(defReal) :: tr8 
 
-            integer :: tempfront 
-            integer :: first1loc
-            integer :: limit
+            integer(shortInt) tempfront 
+            integer(shortInt) first1loc
+            integer(shortInt) limit
 
             ! First finds the position of the first 1 and records number of shifts made
             tempfront = a%limbs(a%front)
@@ -1142,13 +1142,13 @@ module limb_class
         pure subroutine tonormalisedrealby(a, n, r)
             type(limb_t), intent(in) :: a 
             integer, intent(in) :: n
-            real(real64), intent(inout) :: r 
-            real(real64) :: tr8
+            real(defReal), intent(inout) :: r 
+            real(defReal) :: tr8
 
-            integer :: tempfront, front
-            integer :: shift
-            integer :: limit, tlimit, i,j
-            integer :: counter
+            integer(shortInt) tempfront, front
+            integer(shortInt) shift
+            integer(shortInt) limit, tlimit, i,j
+            integer(shortInt) counter
 
 
             tr8 = 1_real64
@@ -1234,9 +1234,9 @@ module limb_class
             type(limb_t), intent(in) :: a 
             integer, intent(in) :: limitBy
             integer(4), intent(in) :: front, dpLoc
-            real(real64), intent(inout) :: s 
-            integer(8) :: tempfront
-            integer :: i, j, counter
+            real(defReal), intent(inout) :: s 
+            integer(longInt) :: tempfront
+            integer(shortInt) i, j, counter
 
             tempfront = a%limbs(front)
             counter = 0
@@ -1262,8 +1262,8 @@ module limb_class
      pure subroutine findFirst1(a, pos)
             type(limb_t), intent(in) :: a 
             integer, intent(inout) :: pos 
-            integer(8) :: tempfront 
-            integer :: i
+            integer(longInt) :: tempfront 
+            integer(shortInt) i
 
             tempfront = a%limbs(a%front)
             pos = 0
@@ -1284,9 +1284,9 @@ module limb_class
             type(limb_t), intent(in) :: a 
             integer, intent(in) :: dpLoc, limitBy, normaliseTo
             integer(4), intent(in) :: firstFront
-            real(real64), intent(inout) :: s 
-            integer(8) :: tempfront
-            integer :: i, j, limit, tlimit, counter
+            real(defReal), intent(inout) :: s 
+            integer(longInt) :: tempfront
+            integer(shortInt) i, j, limit, tlimit, counter
 
 
             tempfront = a%limbs(firstFront)
@@ -1341,7 +1341,7 @@ module limb_class
             type(limb_t) :: r 
             integer, intent(in) :: n 
             real(8) :: carry
-            integer :: i
+            integer(shortInt) i
             real(8) :: r8 
 
             if (checkInvalid(a) .or. n == 0) then 
@@ -1373,9 +1373,9 @@ module limb_class
             type(limb_t), intent(in) :: a,b 
             logical :: r 
 
-            integer :: i
-            integer(8) :: zeroIndA, zeroIndB, va, vb
-            integer :: maxfront 
+            integer(shortInt) i
+            integer(longInt) :: zeroIndA, zeroIndB, va, vb
+            integer(shortInt) maxfront 
 
             if (checkInvalid(a) .or. checkInvalid(b)) then 
                 r = .false.
@@ -1485,9 +1485,9 @@ module limb_class
       pure function limbgeq(a,b) result(r)
             type(limb_t), intent(in) :: a,b
             logical :: r 
-            integer(8) :: zeroIndA, zeroIndB
-            integer :: i 
-            integer :: maxfront 
+            integer(longInt) :: zeroIndA, zeroIndB
+            integer(shortInt) i 
+            integer(shortInt) maxfront 
 
             if (checkInvalid(a) .or. checkInvalid(b)) then 
                 r = .false.
@@ -1580,7 +1580,7 @@ module limb_class
 
         subroutine printlimb(a)
             type(limb_t), intent(in) :: a 
-            integer :: i
+            integer(shortInt) i
 
             if (checkInvalid(a)) then 
                 return 
@@ -1597,7 +1597,7 @@ module limb_class
         !     type(limb_t), intent(in) :: a 
         !     character(len=19770) :: num
         !     character(len=10) :: limb
-        !     integer :: i
+        !     integer(shortInt) i
         !     !limb = ''
 
         !     do i=1, a%front 
@@ -1620,7 +1620,7 @@ module limb_class
             type(limb_t),intent(in) :: from
             integer, intent(in) :: s, e
             type(limb_t) :: to
-            integer :: i 
+            integer(shortInt) i 
 
             if (checkInvalid(from)) then 
                 call setInvalid(to)
@@ -1649,14 +1649,14 @@ end module limb_class
 !     use, intrinsic :: iso_fortran_env
 !     use, intrinsic :: ieee_arithmetic
 !     implicit none 
-!     integer :: i
-!     real(real64) :: scalc, sactual, l3, l11, scalc2
+!     integer(shortInt) i
+!     real(defReal) :: scalc, sactual, l3, l11, scalc2
 !     type(limb_t) ::  v3, v4, v5, t1, t2, v1
-!     real(real64) ::n 
+!     real(defReal) ::n 
 !     type(limb_t) :: d1, d2, d3, d4, d5, d6, dt1, dt2, dt3, v2
 !     logical :: result
 !    ! type(limb_t) :: sactual, scalc
-!     real(real64) :: va, vb, vc, eval
+!     real(defReal) :: va, vb, vc, eval
 !     type(limb_t) :: l1, l2
     !type(ratint_t) :: ratint1
 

@@ -3,10 +3,12 @@ module coord_class
   use genericProcedures,  only : areEqual, numToChar
   use numPrecision
   use publicObjects,      only : coordData
-  use universalVariables, only : HARDCODED_MAX_NEST, NUDGE
+  use universalVariables, only : HARDCODED_MAX_NEST, NUDGE, VALENCE
 
   implicit none
   private
+
+  
 
   !!
   !! Co-ordinates in a single geometry level
@@ -38,6 +40,9 @@ module coord_class
     logical(defBool)               :: isRotated = .false.
     real(defReal), dimension(3, 3) :: rotMat = ZERO
     integer(shortInt)              :: cellIdx = 0, elementIdx = 0, localId = 0, meshIdx = 0, universeIdx = 0, universeRootId = 0
+    integer(shortInt), dimension(VALENCE) :: currentFaceIdxs
+    integer(shortInt) :: front = 0
+    
   contains
     procedure :: display
     procedure :: getCellIdx
