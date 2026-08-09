@@ -33,18 +33,19 @@ contains
   !!
   !!
   !!
-  subroutine computeEdgeAngularSectors(self, elements, faces, vertices, edges)
+  subroutine computeEdgeAngularSectors(self, elements, faces, edges)
     class(patchSearchAcceleration), intent(in)   :: self
     type(elementShelf), intent(in)               :: elements
     type(faceShelf), intent(in)                  :: faces
-    type(vertexShelf), intent(in)                :: vertices
     type(edgeShelf), intent(inout)               :: edges
-    integer(shortInt)                            :: i, idx, j, k, nAngularSectors, nElements
-    integer(shortInt), dimension(2)              :: commonEdgeVertexIdxs, edgeVertexIdxs
-    integer(shortInt), dimension(:), allocatable :: commonEdgeIdxs, edgeElementIdxs, sharingEdgeIdxs, finalIdxsArray
+    integer(shortInt)                            :: i, idx, j, k, l, nAngularSectors, nElements
+    integer(shortInt), dimension(2)              :: edgeVertexIdxs, faceEdgeVertexIdxs
+    integer(shortInt), dimension(:), allocatable :: edgeElementIdxs, edgeFaceIdxs, elementFaceIdxs, &
+                                                    faceEdgeIdxs, finalIdxsArray
     real(defReal), dimension(2)                  :: temp
-    real(defReal), dimension(3)                  :: commonEdgeUnitVector, edgeUnitVector, localBasis1, localBasis2
+    real(defReal), dimension(3)                  :: boundingEdgeUnitVector, edgeUnitVector, localBasis1, localBasis2
     real(defReal), dimension(:, :), allocatable  :: anglesArray, finalAnglesArray
+    character(*), parameter                      :: HERE = 'computeEdgeAngularSectors (patchSearchAcceleration_class.f90)'
 
     ! Loop through all edges.
     do i = 1, edges % getSize()
@@ -79,11 +80,9 @@ contains
       !---------------------------------------------------------------------------------------------------------------
       ! retrieve relevant information
       edgeElementIdxs = edges % getEdgeElementIdxs(i)
+      edgeFaceIdxs = edges % getEdgeFaceIdxs(i)
       edgeVertexIdxs = edges % getEdgeVertexIdxs(i)
       nElements = size(edgeElementIdxs)
-
-      ! Retrieve all edges connected to the second vertex of the current edge.
-      sharingEdgeIdxs = vertices % getVertexEdgeIdxs(edgeVertexIdxs(2))
 
       ! initialise arrays for angle and face index
       if(allocated(anglesArray)) deallocate(anglesArray)
@@ -92,23 +91,43 @@ contains
       ! Loop through all the elements containing the current edge.
       nAngularSectors = 0
       do j = 1, nElements
-        ! Retrieve edges in the current element then find common edges with those sharing the second vertex of the current edge.
-        commonEdgeIdxs = findCommon(sharingEdgeIdxs, elements % getElementEdgeIdxs(edgeElementIdxs(j)))
+        ! Retrieve the indices of the faces in the current element.
+        elementFaceIdxs = elements % getElementFaceIdxs(edgeElementIdxs(j))
 
-        ! Reset idx = 0 then loop through all common edges.
+        ! Reset idx = 0 and temp = ZERO then loop through all faces.
         idx = 0
-        do k = 1, size(commonEdgeIdxs)
-          ! One of these edges is the original edge itself so skip it.
-          if(i == commonEdgeIdxs(k)) cycle
+        temp = ZERO
+        do k = 1, size(elementFaceIdxs)
+          ! Skip this face if it does not contain the current edge.
+          if(.not. any(edgeFaceIdxs == elementFaceIdxs(k))) cycle
           idx = idx + 1
 
-          ! Get the vertices in the current edge then compute pseudo-angle.
-          commonEdgeVertexIdxs = edges % getEdgeVertexIdxs(commonEdgeIdxs(k))
-          commonEdgeUnitVector = edges % getEdgeUnitVector(commonEdgeIdxs(k))
-          if(commonEdgeVertexIdxs(1) /= edgeVertexIdxs(2)) commonEdgeUnitVector = -commonEdgeUnitVector
-          temp(idx) = computePseudoAngle(commonEdgeUnitVector, localBasis1, localBasis2)
+          ! Retrieve the edge in the current face that contains the second vertex of the current edge.
+          faceEdgeIdxs = faces % getFaceEdgeIdxs(elementFaceIdxs(k))
+
+          ! Loop over all edges in the face.
+          do l = 1, size(faceEdgeIdxs)
+            ! Skip this edge if it is the current edge.
+            if(i == faceEdgeIdxs(l)) cycle
+
+            ! Check if this edge contains the second vertex of the current edge.
+            faceEdgeVertexIdxs = edges % getEdgeVertexIdxs(faceEdgeIdxs(l))
+            if(any(faceEdgeVertexIdxs == edgeVertexIdxs(2))) then
+              ! Compute pseudo-angle.
+              boundingEdgeUnitVector = edges % getEdgeUnitVector(faceEdgeIdxs(l))
+              if(faceEdgeVertexIdxs(1) /= edgeVertexIdxs(2)) boundingEdgeUnitVector = -boundingEdgeUnitVector
+              temp(idx) = computePseudoAngle(boundingEdgeUnitVector, localBasis1, localBasis2)
+              exit
+
+            end if
+
+          end do
 
         end do
+        ! Call fatalError if the current element didn't contribute exactly two pseudo-angles.
+        if(idx /= 2) call fatalError(HERE, 'Element '//numToChar(edgeElementIdxs(j))//' did not contribute two &
+                                           &pseudo-angles for edge '//numToChar(i)//'.')
+
         anglesArray(j, :) = [minval(temp), maxval(temp)]
         nAngularSectors = nAngularSectors + merge(1, 2, abs(anglesArray(j, 2) - anglesArray(j, 1)) <= TWO)
 
@@ -150,17 +169,17 @@ contains
   !!
   !!
   recursive subroutine findHostElementIdx(self, u, edges, elements, faces, vertices, elementIdx, r)
-    class(patchSearchAcceleration), intent(in)   :: self
-    real(defReal), dimension(3), intent(in)      :: u
-    type(edgeShelf), intent(in)                  :: edges
-    type(elementShelf), intent(in)               :: elements
-    type(faceShelf), intent(in)                  :: faces
-    type(vertexShelf), intent(in)                :: vertices
-    integer(shortInt), intent(inout)             :: elementIdx
-    real(defReal), dimension(3), intent(inout)   :: r
-    integer(shortInt)                            :: edgeIdx
-    real(defReal), dimension(3)                  :: displacementVector, rPrime, vertexCoords
-    type(CartesianCell), pointer                 :: terminalCellPtr
+    class(patchSearchAcceleration), intent(in) :: self
+    real(defReal), dimension(3), intent(in)    :: u
+    type(edgeShelf), intent(in)                :: edges
+    type(elementShelf), intent(in)             :: elements
+    type(faceShelf), intent(in)                :: faces
+    type(vertexShelf), intent(in)              :: vertices
+    integer(shortInt), intent(inout)           :: elementIdx
+    real(defReal), dimension(3), intent(inout) :: r
+    integer(shortInt)                          :: edgeIdx
+    real(defReal), dimension(3)                :: displacementVector, rPrime, vertexCoords
+    type(CartesianCell), pointer               :: terminalCellPtr
 
     terminalCellPtr => self % searchGrids(r)
 
@@ -212,7 +231,7 @@ contains
 
     call self % setMapCells(.true.)
     call init_super(self, dict, vertices, edges, faces, elements)
-    call self % computeEdgeAngularSectors(elements, faces, vertices, edges)
+    call self % computeEdgeAngularSectors(elements, faces, edges)
 
   end subroutine init
 
