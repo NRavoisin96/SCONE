@@ -12,4 +12,4 @@ build
 !/.gitignore
 
 # Ignore virtual environment in JCPBenchmarks.
-JCPBenchmarks/**/.venv/
+JCPBenchmarks/**/.venv/*:Zone.Identifier
