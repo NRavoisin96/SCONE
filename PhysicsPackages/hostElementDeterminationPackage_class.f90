@@ -1,22 +1,25 @@
 module hostElementDeterminationPackage_class
 
-  use coord_class,            only : coord
-  use dictionary_class,       only : dictionary
-  use errors_mod,             only : fatalError
-  use genericProcedures,      only : numToChar
-  use geometry_inter,         only : geometry
-  use geometryStd_class,      only : geometryStd
-  use geometryFactory_func,   only : new_geometry
-  use geometryReg_mod,        only : geomIdx, geomPtr
-  use meshUniverse_class,     only : meshUniverse
-  use nuclearDataReg_mod,     only : ndReg_init => init
+  use coord_class,              only : coord
+  use dictionary_class,         only : dictionary
+  use errors_mod,               only : fatalError
+  use genericProcedures,        only : numToChar
+  use geometry_inter,           only : geometry
+  use geometryStd_class,        only : geometryStd
+  use geometryFactory_func,     only : new_geometry
+  use geometryReg_mod,          only : geomIdx, geomPtr
+  use meshUniverse_class,       only : meshUniverse
+  use nuclearDataReg_mod,       only : ndReg_init => init
   use numPrecision
-  use outputFile_class,       only : outputFile
-  use physicsPackage_inter,   only : physicsPackage
-  use rng_class,              only : rng
-  use timer_mod,              only : registerTimer
-  use universe_inter,         only : universe
-  use unstructuredMesh_inter, only : unstructuredMesh
+  use outputFile_class,         only : outputFile
+#ifdef PATCH_SEARCH_STATS
+  use patchSearchStatistics_mod
+#endif
+  use physicsPackage_inter,     only : physicsPackage
+  use rng_class,                only : rng
+  use timer_mod,                only : registerTimer
+  use universe_inter,           only : universe
+  use unstructuredMesh_inter,   only : unstructuredMesh
 
   implicit none
   private
@@ -26,16 +29,22 @@ module hostElementDeterminationPackage_class
   !!
   type, public, extends(physicsPackage) :: hostElementDeterminationPackage
     private
-    character(nameLen)                           :: outputFormat = '', patchType = ''
-    character(pathLen)                           :: outputFile = ''
-    class(geometry), pointer                     :: geom => null()
-    integer(shortInt)                            :: octreeDepth = 0, octreeNMaxFaces = 0, pop = 0
-    integer(shortInt), dimension(:), allocatable :: depths, seeds
-    logical(defBool)                             :: naiveInitialisation = .false., singleFaceShortcut = .true.
-    real(defReal)                                :: octreeStorageSize = ZERO
-    real(defReal), dimension(:), allocatable     :: averageHostTimes_patch, averageInitialisationTimes_patch, hostTimes_other, &
-                                                    initialisationTimes_other, patchSearchStorageSizes
-    real(defReal), dimension(:, :), allocatable  :: hostTimes_patch, initialisationTimes_patch
+    character(nameLen)                             :: outputFormat = '', patchType = ''
+    character(pathLen)                             :: outputFile = ''
+    class(geometry), pointer                       :: geom => null()
+    integer(shortInt)                              :: octreeDepth = 0, octreeNMaxFaces = 0, pop = 0
+    integer(shortInt), dimension(:), allocatable   :: depths, seeds
+    logical(defBool)                               :: naiveInitialisation = .false., singleFaceShortcut = .true.
+    real(defReal)                                  :: octreeStorageSize = ZERO
+    real(defReal), dimension(:), allocatable       :: averageHostTimes_patch, averageInitialisationTimes_patch, hostTimes_other, &
+                                                      initialisationTimes_other, patchSearchStorageSizes
+    real(defReal), dimension(:, :), allocatable    :: hostTimes_patch, initialisationTimes_patch
+#ifdef PATCH_SEARCH_STATS
+    integer(longInt), dimension(:, :), allocatable :: nQueries_patch, nOutside_patch, nDirectElement_patch, &
+                                                      nSingleFace_patch, nAngularSearch_patch, nVertexDisplacement_patch
+    real(defReal), dimension(:), allocatable       :: edgeMappingVolumes, elementMappingVolumes, outsideVolumes, &
+                                                      singleFaceVolumes, totalVolumes, vertexMappingVolumes
+#endif
   contains
     procedure :: collectResults
     procedure :: init
@@ -113,6 +122,96 @@ contains
       name = 'patchStorageSize_D'//numToChar(self % depths(i))
       call out % printValue(self % patchSearchStorageSizes(i), name)
 
+#ifdef PATCH_SEARCH_STATS
+      ! Print cell volumes.
+      name = 'patchEdgeMappingVolume_D'//numToChar(self % depths(i))
+      call out % printValue(self % edgeMappingVolumes(i), name)
+
+      name = 'patchElementMappingVolume_D'//numToChar(self % depths(i))
+      call out % printValue(self % elementMappingVolumes(i), name)
+
+      name = 'patchOutsideVolume_D'//numToChar(self % depths(i))
+      call out % printValue(self % outsideVolumes(i), name)
+
+      name = 'patchSingleFaceVolume_D'//numToChar(self % depths(i))
+      call out % printValue(self % singleFaceVolumes(i), name)
+
+      name = 'patchVertexMappingVolume_D'//numToChar(self % depths(i))
+      call out % printValue(self % vertexMappingVolumes(i), name)
+
+      name = 'patchTotalVolume_D'//numToChar(self % depths(i))
+      call out % printValue(self % totalVolumes(i), name)
+
+      ! Print dynamic triggers.
+      name = 'rawPatchNQueries_D'//numToChar(self % depths(i))
+      call out % startBlock(name)
+      name = 'Res'
+      call out % startArray(name, [size(self % seeds)])
+      do j = 1, size(self % seeds)
+        call out % addValue(self % nQueries_patch(i, j))
+
+      end do
+      call out % endArray()
+      call out % endBlock()
+
+      name = 'rawPatchNOutside_D'//numToChar(self % depths(i))
+      call out % startBlock(name)
+      name = 'Res'
+      call out % startArray(name, [size(self % seeds)])
+      do j = 1, size(self % seeds)
+        call out % addValue(self % nOutside_patch(i, j))
+
+      end do
+      call out % endArray()
+      call out % endBlock()
+
+      name = 'rawPatchNDirectElement_D'//numToChar(self % depths(i))
+      call out % startBlock(name)
+      name = 'Res'
+      call out % startArray(name, [size(self % seeds)])
+      do j = 1, size(self % seeds)
+        call out % addValue(self % nDirectElement_patch(i, j))
+
+      end do
+      call out % endArray()
+      call out % endBlock()
+
+      name = 'rawPatchNSingleFace_D'//numToChar(self % depths(i))
+      call out % startBlock(name)
+      name = 'Res'
+      call out % startArray(name, [size(self % seeds)])
+      do j = 1, size(self % seeds)
+        call out % addValue(self % nSingleFace_patch(i, j))
+
+      end do
+      call out % endArray()
+      call out % endBlock()
+
+      name = 'rawPatchNAngularSearch_D'//numToChar(self % depths(i))
+      call out % startBlock(name)
+      name = 'Res'
+      call out % startArray(name, [size(self % seeds)])
+      do j = 1, size(self % seeds)
+        call out % addValue(self % nAngularSearch_patch(i, j))
+
+      end do
+      call out % endArray()
+      call out % endBlock()
+
+      name = 'rawPatchNVertexDisplacement_D'//numToChar(self % depths(i))
+      call out % startBlock(name)
+      name = 'Res'
+      call out % startArray(name, [size(self % seeds)])
+      do j = 1, size(self % seeds)
+        call out % addValue(self % nVertexDisplacement_patch(i, j))
+
+      end do
+      call out % endArray()
+      call out % endBlock()
+
+#endif
+
+      ! Print raw initialisation and host-determination times.
       name = 'rawPatchInitTimes_D'//numToChar(self % depths(i))
       call out % startBlock(name)
       name = 'Res'
@@ -178,6 +277,15 @@ contains
     allocate(self % hostTimes_patch(nDepths, nRuns), self % hostTimes_other(nRuns), &
              self % initialisationTimes_patch(nDepths, nRuns), self % initialisationTimes_other(nRuns), &
              self % patchSearchStorageSizes(nDepths))
+
+#ifdef PATCH_SEARCH_STATS
+    allocate(self % edgeMappingVolumes(nDepths), self % elementMappingVolumes(nDepths), self % outsideVolumes(nDepths), &
+             self % singleFaceVolumes(nDepths), self % totalVolumes(nDepths), self % vertexMappingVolumes(nDepths), &
+             self % nAngularSearch_patch(nDepths, nRuns), self % nDirectElement_patch(nDepths, nRuns), &
+             self % nOutside_patch(nDepths, nRuns), self % nQueries_patch(nDepths, nRuns), &
+             self % nSingleFace_patch(nDepths, nRuns), self % nVertexDisplacement_patch(nDepths, nRuns))
+
+#endif
 
     ! Build Nuclear Data
     call ndReg_init(dict % getDictPtr("nuclearData"))
@@ -320,6 +428,12 @@ contains
     call dict % store('naiveInitialisation', merge(1, 0, self % naiveInitialisation))
     call dict % store('singleFaceShortcut', merge(1, 0, self % singleFaceShortcut))
 
+#ifdef PATCH_SEARCH_STATS
+    ! Reset statistics for the current run.
+    call resetPatchSearchStats()
+
+#endif
+
     ! Now initialise acceleration structure in the mesh.
     call cpu_time(t1)
     call uMesh % initAccelerationStructure(dict)
@@ -343,6 +457,24 @@ contains
     call cpu_time(t2)
     self % hostTimes_patch(depthNumber, runNumber) = t2 - t1
     call uMesh % killAccelerationStructure()
+
+#ifdef PATCH_SEARCH_STATS
+    ! Collect statistics for the current run.
+    self % edgeMappingVolumes(depthNumber) = edgeMappingVolume
+    self % elementMappingVolumes(depthNumber) = elementMappingVolume
+    self % outsideVolumes(depthNumber) = outsideVolume
+    self % singleFaceVolumes(depthNumber) = singleFaceVolume
+    self % totalVolumes(depthNumber) = totalVolume
+    self % vertexMappingVolumes(depthNumber) = vertexMappingVolume
+
+    self % nAngularSearch_patch(depthNumber, runNumber) = nAngularSearch
+    self % nDirectElement_patch(depthNumber, runNumber) = nDirectElement
+    self % nOutside_patch(depthNumber, runNumber) = nOutside
+    self % nQueries_patch(depthNumber, runNumber) = nQueries
+    self % nSingleFace_patch(depthNumber, runNumber) = nSingleFace
+    self % nVertexDisplacement_patch(depthNumber, runNumber) = nVertexDisplacement
+
+#endif
 
   end subroutine runSingle_patch
 

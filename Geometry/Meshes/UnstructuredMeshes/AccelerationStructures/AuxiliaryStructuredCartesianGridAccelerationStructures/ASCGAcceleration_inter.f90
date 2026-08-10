@@ -11,6 +11,9 @@ module ASCGAcceleration_inter
   use faceShelf_class,             only : faceShelf
   use genericProcedures,           only : computePseudoAngle, crossProduct, findCommon, numToChar
   use numPrecision
+#ifdef PATCH_SEARCH_STATS
+  use patchSearchStatistics_mod
+#endif
   use universalVariables,          only : INF
   use vertexShelf_class,           only : vertexShelf
 
@@ -249,6 +252,12 @@ contains
     real(defReal), dimension(6)                    :: gridBounds
     type(CartesianGrid), dimension(:), allocatable :: temp
     character(*), parameter                        :: HERE = 'init (ASCGAcceleration_inter.f90)'
+#ifdef PATCH_SEARCH_STATS
+    integer(shortInt)                              :: j, k, l
+    integer(shortInt), dimension(3)                :: nCells
+    real(defReal)                                  :: cellVolume, spacing
+    type(CartesianCell), pointer                   :: cellPtr
+#endif
 
     ! Retrieve whether to use shortcut for single face intersections. Default to .true.
     call dict % getOrDefault(self % singleFaceShortcut, 'singleFaceShortcut', .true.)
@@ -302,6 +311,12 @@ contains
     gridBounds(1:3) = self % meshBounds(1:3) - extraDistances
     gridBounds(4:6) = self % meshBounds(4:6) + extraDistances
 
+#ifdef PATCH_SEARCH_STATS
+    ! Compute total volume here.
+    totalVolume = (gridBounds(4) - gridBounds(1)) * (gridBounds(5) - gridBounds(2)) * (gridBounds(6) - gridBounds(3))
+
+#endif
+
     ! Initialise root grid and map it.
     call self % rootGrid % init(self % spacings(1), gridBounds)
     call self % rootGrid % map([(i, i = 1, elements % getSize())], [(i, i = 1, faces % getSize())], self % depth == 1, &
@@ -319,6 +334,80 @@ contains
       end if
 
     end if
+
+#ifdef PATCH_SEARCH_STATS
+    ! Store volumes for each cell category.
+    nCells = self % rootGrid % getCellsNumber()
+    spacing = self % rootGrid % getSpacing()
+    cellVolume = spacing * spacing * spacing
+    do k = 1, nCells(3)
+      do j = 1, nCells(2)
+        do i = 1, nCells(1)
+          cellPtr => self % rootGrid % getCellPtr(i, j, k)
+          if(0 < cellPtr % getSubGridIdx()) cycle
+          if(cellPtr % isOutside()) then
+            outsideVolume = outsideVolume + cellVolume
+
+          elseif(0 < cellPtr % getElementIdx()) then
+            elementMappingVolume = elementMappingVolume + cellVolume
+
+          elseif(cellPtr % intersectsOnlyOneFace() .and. 1 < self % depth) then
+            singleFaceVolume = singleFaceVolume + cellVolume
+
+          elseif(0 < cellPtr % getEdgeIdx()) then
+            edgeMappingVolume = edgeMappingVolume + cellVolume
+
+          else
+            vertexMappingVolume = vertexMappingVolume + cellVolume
+
+          end if
+
+        end do
+
+      end do
+
+    end do
+
+    if(allocated(self % subGrids)) then
+      ! Loop over all sub-grids.
+      do l = 1, size(self % subGrids)
+        nCells = self % subGrids(l) % getCellsNumber()
+        spacing = self % subGrids(l) % getSpacing()
+        cellVolume = spacing * spacing * spacing
+
+        do k = 1, nCells(3)
+          do j = 1, nCells(2)
+            do i = 1, nCells(1)
+              cellPtr => self % subGrids(l) % getCellPtr(i, j, k)
+              if(0 < cellPtr % getSubGridIdx()) cycle
+              if(cellPtr % isOutside()) then
+                outsideVolume = outsideVolume + cellVolume
+
+              elseif(0 < cellPtr % getElementIdx()) then
+                elementMappingVolume = elementMappingVolume + cellVolume
+
+              elseif(cellPtr % intersectsOnlyOneFace() .and. 1 < self % depth) then
+                singleFaceVolume = singleFaceVolume + cellVolume
+
+              elseif(0 < cellPtr % getEdgeIdx()) then
+                edgeMappingVolume = edgeMappingVolume + cellVolume
+
+              else
+                vertexMappingVolume = vertexMappingVolume + cellVolume
+
+              end if
+
+            end do
+
+          end do
+
+        end do
+
+      end do
+
+    end if
+
+#endif
 
   end subroutine init
 

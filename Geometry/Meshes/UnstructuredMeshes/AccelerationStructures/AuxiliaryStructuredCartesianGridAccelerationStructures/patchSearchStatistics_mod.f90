@@ -15,27 +15,22 @@ module patchSearchStatistics_mod
   implicit none
   private
 
-  integer(longInt), public, save :: nQueries            = 0
-  integer(longInt), public, save :: nOutside            = 0
-  integer(longInt), public, save :: nDirectElement      = 0  ! psi(T) > 0
-  integer(longInt), public, save :: nSingleFace         = 0  ! single-face branch
-  integer(longInt), public, save :: nAngularSearch      = 0  ! phi(T) > 0
-  integer(longInt), public, save :: nVertexDisplacement = 0  ! varphi path (re-entrant)
+  integer(longInt), public, save :: nAngularSearch = 0_longInt, nDirectElement = 0_longInt, nOutside = 0_longInt, &
+                                    nQueries = 0_longInt, nSingleFace = 0_longInt, nVertexDisplacement = 0_longInt
   real(defReal), public, save    :: edgeMappingVolume = ZERO, elementMappingVolume = ZERO, outsideVolume = ZERO, &
-                                    singleFaceVolume = ZERO, vertexMappingVolume = ZERO, totalVolume = ZERO
+                                    singleFaceVolume = ZERO, totalVolume = ZERO, vertexMappingVolume = ZERO
 
-  public :: resetPatchSearchStats
-  public :: reportPatchSearchStats
+  public :: resetPatchSearchStats, reportPatchSearchStats
 
 contains
 
   subroutine resetPatchSearchStats()
-    nQueries            = 0
-    nOutside            = 0
-    nDirectElement      = 0
-    nSingleFace         = 0
-    nAngularSearch      = 0
-    nVertexDisplacement = 0
+    nQueries = 0_longInt
+    nOutside = 0_longInt
+    nDirectElement = 0_longInt
+    nSingleFace = 0_longInt
+    nAngularSearch = 0_longInt
+    nVertexDisplacement = 0_longInt
     edgeMappingVolume = ZERO
     elementMappingVolume = ZERO
     outsideVolume = ZERO
@@ -52,20 +47,15 @@ contains
     print '(A)', ''
     print '(A)', ' Patch-Search mapping trigger statistics'
     print '(A)', ' ---------------------------------------'
-    print '(A,I14)',          '  queries                 : ', nQueries
-    print '(A,I14,F9.4,A)',   '  outside mesh            : ', nOutside, &
-                              100.0_defReal * nOutside / q, ' %'
-    print '(A,I14,F9.4,A)',   '  direct element (psi)    : ', nDirectElement, &
-                              100.0_defReal * nDirectElement / q, ' %'
-    print '(A,I14,F9.4,A)',   '  single-face branch      : ', nSingleFace, &
-                              100.0_defReal * nSingleFace / q, ' %'
-    print '(A,I14,F9.4,A)',   '  angular search (phi)    : ', nAngularSearch, &
-                              100.0_defReal * nAngularSearch / q, ' %'
-    print '(A,I14,F9.4,A)',   '  vertex displ. (varphi)  : ', nVertexDisplacement, &
-                              100.0_defReal * nVertexDisplacement / q, ' %'
-    print '(A,I14)',          '  total grid descents     : ', &
-                              nQueries + nVertexDisplacement
+    print '(A,I14)',        'Queries                 : ', nQueries
+    print '(A,I14,F9.4,A)', 'Outside mesh            : ', nOutside, 100.0_defReal * nOutside / q, ' %'
+    print '(A,I14,F9.4,A)', 'Direct element (psi)    : ', nDirectElement, 100.0_defReal * nDirectElement / q, ' %'
+    print '(A,I14,F9.4,A)', 'Single-face branch      : ', nSingleFace, 100.0_defReal * nSingleFace / q, ' %'
+    print '(A,I14,F9.4,A)', 'Angular search (phi)    : ', nAngularSearch, 100.0_defReal * nAngularSearch / q, ' %'
+    print '(A,I14,F9.4,A)', 'Vertex displ. (varphi)  : ', nVertexDisplacement, 100.0_defReal * nVertexDisplacement / q, ' %'
+    print '(A,I14)',        'Total grid descents     : ', nQueries + nVertexDisplacement
     print '(A)', ''
+
   end subroutine reportPatchSearchStats
 
 end module patchSearchStatistics_mod

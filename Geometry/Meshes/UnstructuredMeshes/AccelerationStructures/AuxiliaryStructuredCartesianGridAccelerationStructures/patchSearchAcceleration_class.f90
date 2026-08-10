@@ -12,6 +12,9 @@ module patchSearchAcceleration_class
   use faceShelf_class,             only : faceShelf
   use genericProcedures,           only : computePseudoAngle, crossProduct, findCommon, numToChar
   use numPrecision
+#ifdef PATCH_SEARCH_STATS
+  use patchSearchStatistics_mod
+#endif
   use universalVariables,          only : INF
   use vertexShelf_class,           only : vertexShelf
 
@@ -40,7 +43,7 @@ contains
     type(edgeShelf), intent(inout)               :: edges
     integer(shortInt)                            :: i, idx, j, k, l, nAngularSectors, nElements
     integer(shortInt), dimension(2)              :: edgeVertexIdxs, faceEdgeVertexIdxs
-    integer(shortInt), dimension(:), allocatable :: edgeElementIdxs, edgeFaceIdxs, elementFaceIdxs, &
+    integer(shortInt), dimension(:), allocatable :: absElementFaceIdxs, edgeElementIdxs, edgeFaceIdxs, &
                                                     faceEdgeIdxs, finalIdxsArray
     real(defReal), dimension(2)                  :: temp
     real(defReal), dimension(3)                  :: boundingEdgeUnitVector, edgeUnitVector, localBasis1, localBasis2
@@ -92,18 +95,18 @@ contains
       nAngularSectors = 0
       do j = 1, nElements
         ! Retrieve the indices of the faces in the current element.
-        elementFaceIdxs = elements % getElementFaceIdxs(edgeElementIdxs(j))
+        absElementFaceIdxs = abs(elements % getElementFaceIdxs(edgeElementIdxs(j)))
 
         ! Reset idx = 0 and temp = ZERO then loop through all faces.
         idx = 0
         temp = ZERO
-        do k = 1, size(elementFaceIdxs)
+        do k = 1, size(absElementFaceIdxs)
           ! Skip this face if it does not contain the current edge.
-          if(.not. any(edgeFaceIdxs == elementFaceIdxs(k))) cycle
+          if(.not. any(edgeFaceIdxs == absElementFaceIdxs(k))) cycle
           idx = idx + 1
 
           ! Retrieve the edge in the current face that contains the second vertex of the current edge.
-          faceEdgeIdxs = faces % getFaceEdgeIdxs(elementFaceIdxs(k))
+          faceEdgeIdxs = faces % getFaceEdgeIdxs(absElementFaceIdxs(k))
 
           ! Loop over all edges in the face.
           do l = 1, size(faceEdgeIdxs)
@@ -181,16 +184,32 @@ contains
     real(defReal), dimension(3)                :: displacementVector, rPrime, vertexCoords
     type(CartesianCell), pointer               :: terminalCellPtr
 
+#ifdef PATCH_SEARCH_STATS
+    ! Increment total number of queries.
+    nQueries = nQueries + 1
+
+#endif
+
     terminalCellPtr => self % searchGrids(r)
 
     ! Check if terminal cell is fully inside an element and return immediately if so.
     elementIdx = terminalCellPtr % getElementIdx()
     if(0 < elementIdx) then
+#ifdef PATCH_SEARCH_STATS
+      ! Increment number of direct element queries.
+      nDirectElement = nDirectElement + 1
+
+#endif
       return
 
     end if
 
     if(terminalCellPtr % isOutside()) then
+#ifdef PATCH_SEARCH_STATS
+      ! Increment number of outside mesh queries.
+      nOutside = nOutside + 1
+
+#endif
       return
 
     end if
@@ -198,6 +217,11 @@ contains
     ! For multi-layered Patch-Search, check if terminal cell only intersects with a single face. In this case, perform an 
     ! element inclusion test on the elements sharing this face and return.
     if(1 < self % getDepth() .and. self % getSingleFaceShortcut() .and. terminalCellPtr % intersectsOnlyOneFace()) then
+#ifdef PATCH_SEARCH_STATS
+      ! Increment number of single face queries.
+      nSingleFace = nSingleFace + 1
+
+#endif
       call faces % testFaceHalfSpace(terminalCellPtr % getFirstIntersectedFaceIdx(), r, elementIdx)
       return
 
@@ -206,12 +230,22 @@ contains
     ! Else, begin Patch-Search procedure.
     edgeIdx = terminalCellPtr % getEdgeIdx()
     if(edgeIdx == 0) then
+#ifdef PATCH_SEARCH_STATS
+      ! Increment number of vertex displacement queries.
+      nVertexDisplacement = nVertexDisplacement + 1
+
+#endif
       vertexCoords = vertices % getVertexCoordinates(terminalCellPtr % getVertexIdx())
       displacementVector = r - vertexCoords
       rPrime = vertexCoords + self % getWStar() * displacementVector / norm2(displacementVector)
       call self % findHostElementIdx(u, edges, elements, faces, vertices, elementIdx, rPrime)
 
     else
+#ifdef PATCH_SEARCH_STATS
+      ! Increment number of angular search queries.
+      nAngularSearch = nAngularSearch + 1
+
+#endif
       call edges % findElementIdxFromEdgeAngularSectorSearch(edgeIdx, r, vertices, elementIdx)
 
     end if

@@ -14,11 +14,13 @@ cmake_policy(SET CMP0074 NEW)
 ####################################################################################################
 # DEFINE COMPILATION OPTIONS
 
-option(BUILD_TESTS "If is set to ON will compile tests" ON)
-option(LTO         "Enables link-time optimisation"     ON)
-option(COVERAGE    "Collect Coverage Info"              OFF)
-option(DEBUG       "Enable extra run-time checks"       OFF)
-option(OPENMP      "Enable parallelism with OpenMP"     ON)
+option(BUILD_TESTS        "If is set to ON will compile tests"                                                               ON)
+option(LTO                "Enables link-time optimisation"                                                                   ON)
+option(COVERAGE           "Collect Coverage Info"                                                                            OFF)
+option(DEBUG              "Enable extra run-time checks"                                                                     OFF)
+option(OPENMP             "Enable parallelism with OpenMP"                                                                   ON)
+option(PATCH_SEARCH_STATS "Instrument Patch-Search mapping-frequency counters (Section 4.2 statistics; not for timing runs)" OFF)
+option(VALIDATE           "Validate host-element index against brute-force search"                                           OFF)
 
 # Include local cmake modules. TODO: Test on WINDOWS!!!
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake")
@@ -77,6 +79,19 @@ if (OPENMP)
   set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} ${OpenMP_Fortran_FLAGS}")
 endif()
 
+# Set up Patch-Search statistics flag
+if (PATCH_SEARCH_STATS)
+  add_compile_definitions(PATCH_SEARCH_STATS)
+endif()
+
+if (PATCH_SEARCH_STATS AND OPENMP)
+  message(FATAL_ERROR "PATCH_SEARCH_STATS requires -DOPENMP=OFF: the mapping counters are not thread-safe.")
+endif()
+
+# Set up host-element validation flag.
+if (VALIDATE)
+  add_compile_definitions(VALIDATE)
+endif()
 
 ####################################################################################################
 # CHECK FOR DEPENDENCIES
@@ -206,6 +221,8 @@ message(STATUS "  Link-time optimisation:     " ${LTO})
 message(STATUS "  Code coverage logging:      " ${COVERAGE})
 message(STATUS "  Extra runtime debug checks: " ${DEBUG})
 message(STATUS "  OpenMP parallelism:         " ${OPENMP})
+message(STATUS "  Patch-Search stats:         " ${PATCH_SEARCH_STATS})
+message(STATUS "  Validation:                 " ${VALIDATE})
 message(STATUS "  Fortran compiler:     " ${CMAKE_Fortran_COMPILER})
 message(STATUS "  Compiler version:     " ${CMAKE_Fortran_COMPILER_VERSION})
 message(STATUS "  OpenMP version:       " ${OpenMP_CXX_VERSION})

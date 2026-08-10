@@ -8,6 +8,9 @@ module unstructuredMesh_inter
   use edgeShelf_class,                   only : edgeShelf
   use element_inter,                     only : elementBox, inclusionTestResult
   use elementShelf_class,                only : elementShelf
+#ifdef VALIDATE
+  use errors_mod,                        only : fatalError
+#endif
   use face_inter,                        only : faceBox
   use faceShelf_class,                   only : faceShelf
   use genericProcedures,                 only : append, findDifferent, numToChar
@@ -351,16 +354,84 @@ contains
     real(defReal), dimension(3)           :: r, u
     type(axisAlignedBoundingBox), pointer :: boundingBoxPtr
     type(inclusionTestResult)             :: testResult
+#ifdef VALIDATE
+    integer(shortInt)                     :: elementIdxCopy
+    real(defReal), dimension(3)           :: rCopy
+    character(*), parameter               :: HERE = 'findHostElement (unstructuredMesh_inter.f90)'
+#endif
     
     ! Initialise parentIdx = 0. Retrieve the mesh's bounding box. If the particle is outside the bounding box we can return early.
     elementIdx = 0
     r = coords % getPositionToNudge()
+
+#ifdef VALIDATE
+    ! Create a copy of coordinate's position for validation purposes.
+    rCopy = r
+
+#endif
+
     boundingBoxPtr => self % getBoundingBoxPtr()
     if(boundingBoxPtr % contains(r)) then
       u = coords % getDirection()
-      if (allocated(self % acceleration)) then
+      if(allocated(self % acceleration)) then
         call self % acceleration % findHostElementIdx(u, self % edges, self % elements, self % faces, self % vertices, &
                                                       elementIdx, r)
+
+#ifdef VALIDATE
+        ! Validate.
+        if(0 < elementIdx) then
+          testResult = self % elements % isPointInside(elementIdx, rCopy, self % faces)
+          if(testResult % status == INSIDE_ELEMENT) return
+
+        end if
+
+        ! If reached here, perform brute-force search.
+        bruteLoop: do
+          do i = 1, self % nElements
+            testResult = self % elements % isPointInside(i, rCopy, self % faces)
+            if (testResult % status == INSIDE_ELEMENT) then
+              elementIdxCopy = i
+              exit bruteLoop
+
+            elseif (testResult % status == ON_BOUNDARY_ELEMENT) then
+              ! If coordinates are on the element boundary (very rare), we need to push them off.
+              do while (testResult % status == ON_BOUNDARY_ELEMENT)
+                call self % elements % pushFromElementBoundary(i, u, self % faces, rCopy)
+
+                ! Perform containment test again.
+                testResult = self % elements % isPointInside(i, rCopy, self % faces)
+
+              end do
+
+              ! Now the coordinates are not on the boundary of the element anymore.
+              if (testResult % status == INSIDE_ELEMENT) then
+                ! If coordinates are now well inside the element, we have found our element.
+                elementIdxCopy = i
+                exit bruteLoop
+
+              elseif (testResult % status == OUTSIDE_ELEMENT) then
+                ! If the nudge has resulted in an overshoot, we cycle bruteLoop and begin the entire process again.
+                cycle bruteLoop
+
+              end if
+
+            end if
+
+          end do
+
+        end do bruteLoop
+
+        ! Call fatalError if results disagree.
+        if(elementIdx /= elementIdxCopy) then
+          print *, 'Element index returned by acceleration structure: ', elementIdx
+          print *, 'Element index returned by brute-force search: ', elementIdxCopy
+          print *, 'Position in acceleration structure: ', r
+          print *, 'Position in brute-force search: ', rCopy
+          call fatalError(HERE, 'Acceleration structure and brute-force search returned different host-element indices.')
+
+        end if
+
+#endif
 
       else
         ! Perform brute-force search.
