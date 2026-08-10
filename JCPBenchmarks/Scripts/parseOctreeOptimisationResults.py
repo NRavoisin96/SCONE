@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """
 Parse the octree sensitivity sweep of Section 4.3.1 (Figs. 7 and 8).
 

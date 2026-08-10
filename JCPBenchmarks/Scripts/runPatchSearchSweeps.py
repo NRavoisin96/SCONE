@@ -67,9 +67,11 @@ Usage
   python3 patchSearchSweeps.py --dry-run    # render inputs, run nothing
   python3 patchSearchSweeps.py              # full sweep (long; use tmux)
 
-Outputs are written to results/<config>/<geometry>/, each containing the SCONE
-output file, the rendered input and the captured stdout. results/sweep.log
-records progress and results/sweep_manifest.csv the wall time per run.
+Outputs are written to Results/CurrentSweep/<config>/<geometry>/, each 
+containing the SCONE output file, the rendered input and the captured stdout. 
+The archived runs under Results/MainCampaign, Results/PerformanceDecompositionStudy, 
+Results/InitialisationStudy and Results/MappingStatistics were produced by this 
+driver and subsequently sorted into those per-study directories.
 """
 
 import argparse

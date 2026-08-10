@@ -50,6 +50,9 @@ JCPBenchmarks/
 The SCONE executable is expected at `../Build/scone.out`. Set the `SCONE_BIN`
 environment variable to point elsewhere.
 
+Fresh sweeps are written to Results/CurrentSweep/; the archived runs in the 
+per-study directories were produced by the same driver and sorted afterwards.
+
 ---
 
 ## 3. Reproducing the measurements

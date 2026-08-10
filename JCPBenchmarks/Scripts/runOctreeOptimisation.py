@@ -25,7 +25,7 @@ override.
 
 Input templates
 ---------------
-octree_optimisation_templates/<geometry>.inp are ordinary SCONE optimisation
+Templates/OctreeOptimisation/<geometry>.inp are ordinary SCONE optimisation
 input files in which the swept quantities have been replaced by placeholder
 tokens:
 

@@ -1,18 +1,18 @@
 [2026-07-23 12:36:45] sweep: 14 jobs total, 14 pending, crude ETA 21.0 h
-[2026-07-23 12:36:45] DRY-RUN patch_full/Hex72: would execute /home/parallels/Desktop/Academic/SCONE_Daeyeun/SCONE/Build/scone.out results/patch_full/Hex72/Hex72_patch_full.inp
-[2026-07-23 12:36:45] DRY-RUN patch_full/Hex243: would execute /home/parallels/Desktop/Academic/SCONE_Daeyeun/SCONE/Build/scone.out results/patch_full/Hex243/Hex243_patch_full.inp
-[2026-07-23 12:36:45] DRY-RUN patch_full/Poly264: would execute /home/parallels/Desktop/Academic/SCONE_Daeyeun/SCONE/Build/scone.out results/patch_full/Poly264/Poly264_patch_full.inp
-[2026-07-23 12:36:45] DRY-RUN patch_full/Tet137: would execute /home/parallels/Desktop/Academic/SCONE_Daeyeun/SCONE/Build/scone.out results/patch_full/Tet137/Tet137_patch_full.inp
-[2026-07-23 12:36:45] DRY-RUN patch_full/Tet298: would execute /home/parallels/Desktop/Academic/SCONE_Daeyeun/SCONE/Build/scone.out results/patch_full/Tet298/Tet298_patch_full.inp
-[2026-07-23 12:36:45] DRY-RUN patch_full/Tet427: would execute /home/parallels/Desktop/Academic/SCONE_Daeyeun/SCONE/Build/scone.out results/patch_full/Tet427/Tet427_patch_full.inp
-[2026-07-23 12:36:45] DRY-RUN patch_full/Poly468: would execute /home/parallels/Desktop/Academic/SCONE_Daeyeun/SCONE/Build/scone.out results/patch_full/Poly468/Poly468_patch_full.inp
-[2026-07-23 12:36:45] DRY-RUN patch_full/Hex576: would execute /home/parallels/Desktop/Academic/SCONE_Daeyeun/SCONE/Build/scone.out results/patch_full/Hex576/Hex576_patch_full.inp
-[2026-07-23 12:36:45] DRY-RUN patch_full/Poly940: would execute /home/parallels/Desktop/Academic/SCONE_Daeyeun/SCONE/Build/scone.out results/patch_full/Poly940/Poly940_patch_full.inp
-[2026-07-23 12:36:45] DRY-RUN patch_full/Hex1125: would execute /home/parallels/Desktop/Academic/SCONE_Daeyeun/SCONE/Build/scone.out results/patch_full/Hex1125/Hex1125_patch_full.inp
-[2026-07-23 12:36:45] DRY-RUN patch_full/Tet1331: would execute /home/parallels/Desktop/Academic/SCONE_Daeyeun/SCONE/Build/scone.out results/patch_full/Tet1331/Tet1331_patch_full.inp
-[2026-07-23 12:36:45] DRY-RUN patch_full/Tet1820: would execute /home/parallels/Desktop/Academic/SCONE_Daeyeun/SCONE/Build/scone.out results/patch_full/Tet1820/Tet1820_patch_full.inp
-[2026-07-23 12:36:45] DRY-RUN patch_full/Hex1944: would execute /home/parallels/Desktop/Academic/SCONE_Daeyeun/SCONE/Build/scone.out results/patch_full/Hex1944/Hex1944_patch_full.inp
-[2026-07-23 12:36:45] DRY-RUN patch_full/Poly1560: would execute /home/parallels/Desktop/Academic/SCONE_Daeyeun/SCONE/Build/scone.out results/patch_full/Poly1560/Poly1560_patch_full.inp
+[2026-07-23 12:36:45] DRY-RUN patch_full/Hex72: would execute <SCONE_BIN> results/patch_full/Hex72/Hex72_patch_full.inp
+[2026-07-23 12:36:45] DRY-RUN patch_full/Hex243: would execute <SCONE_BIN> results/patch_full/Hex243/Hex243_patch_full.inp
+[2026-07-23 12:36:45] DRY-RUN patch_full/Poly264: would execute <SCONE_BIN> results/patch_full/Poly264/Poly264_patch_full.inp
+[2026-07-23 12:36:45] DRY-RUN patch_full/Tet137: would execute <SCONE_BIN> results/patch_full/Tet137/Tet137_patch_full.inp
+[2026-07-23 12:36:45] DRY-RUN patch_full/Tet298: would execute <SCONE_BIN> results/patch_full/Tet298/Tet298_patch_full.inp
+[2026-07-23 12:36:45] DRY-RUN patch_full/Tet427: would execute <SCONE_BIN> results/patch_full/Tet427/Tet427_patch_full.inp
+[2026-07-23 12:36:45] DRY-RUN patch_full/Poly468: would execute <SCONE_BIN> results/patch_full/Poly468/Poly468_patch_full.inp
+[2026-07-23 12:36:45] DRY-RUN patch_full/Hex576: would execute <SCONE_BIN> results/patch_full/Hex576/Hex576_patch_full.inp
+[2026-07-23 12:36:45] DRY-RUN patch_full/Poly940: would execute <SCONE_BIN> results/patch_full/Poly940/Poly940_patch_full.inp
+[2026-07-23 12:36:45] DRY-RUN patch_full/Hex1125: would execute <SCONE_BIN> results/patch_full/Hex1125/Hex1125_patch_full.inp
+[2026-07-23 12:36:45] DRY-RUN patch_full/Tet1331: would execute <SCONE_BIN> results/patch_full/Tet1331/Tet1331_patch_full.inp
+[2026-07-23 12:36:45] DRY-RUN patch_full/Tet1820: would execute <SCONE_BIN> results/patch_full/Tet1820/Tet1820_patch_full.inp
+[2026-07-23 12:36:45] DRY-RUN patch_full/Hex1944: would execute <SCONE_BIN> results/patch_full/Hex1944/Hex1944_patch_full.inp
+[2026-07-23 12:36:45] DRY-RUN patch_full/Poly1560: would execute <SCONE_BIN> results/patch_full/Poly1560/Poly1560_patch_full.inp
 [2026-07-23 12:36:45] sweep finished
 [2026-07-23 12:44:29] sweep: 14 jobs total, 14 pending, crude ETA 21.0 h
 [2026-07-23 12:44:29] START patch_full/Hex72
