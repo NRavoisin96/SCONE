@@ -1,0 +1,30 @@
+[2026-07-19 17:08:44] sweep: 14 jobs total, 14 pending, crude ETA 21.0 h
+[2026-07-19 17:08:44] START patch_full/Hex72
+[2026-07-19 17:09:10] DONE  patch_full/Hex72 in 0.01 h
+[2026-07-19 17:09:10] START patch_full/Hex243
+[2026-07-19 17:09:50] DONE  patch_full/Hex243 in 0.01 h
+[2026-07-19 17:09:50] START patch_full/Poly264
+[2026-07-19 17:12:35] DONE  patch_full/Poly264 in 0.05 h
+[2026-07-19 17:12:35] START patch_full/Tet137
+[2026-07-19 17:22:50] DONE  patch_full/Tet137 in 0.17 h
+[2026-07-19 17:22:50] START patch_full/Tet298
+[2026-07-19 17:28:06] DONE  patch_full/Tet298 in 0.09 h
+[2026-07-19 17:28:06] START patch_full/Tet427
+[2026-07-19 17:31:24] DONE  patch_full/Tet427 in 0.05 h
+[2026-07-19 17:31:24] START patch_full/Poly468
+[2026-07-19 17:34:47] DONE  patch_full/Poly468 in 0.06 h
+[2026-07-19 17:34:47] START patch_full/Hex576
+[2026-07-19 17:36:39] DONE  patch_full/Hex576 in 0.03 h
+[2026-07-19 17:36:39] START patch_full/Poly940
+[2026-07-19 17:41:51] DONE  patch_full/Poly940 in 0.09 h
+[2026-07-19 17:41:51] START patch_full/Hex1125
+[2026-07-19 17:44:46] DONE  patch_full/Hex1125 in 0.05 h
+[2026-07-19 17:44:46] START patch_full/Tet1331
+[2026-07-19 17:54:04] DONE  patch_full/Tet1331 in 0.16 h
+[2026-07-19 17:54:04] START patch_full/Tet1820
+[2026-07-19 18:37:06] DONE  patch_full/Tet1820 in 0.72 h
+[2026-07-19 18:37:06] START patch_full/Hex1944
+[2026-07-19 18:42:54] DONE  patch_full/Hex1944 in 0.10 h
+[2026-07-19 18:42:54] START patch_full/Poly1560
+[2026-07-19 18:52:00] DONE  patch_full/Poly1560 in 0.15 h
+[2026-07-19 18:52:00] sweep finished

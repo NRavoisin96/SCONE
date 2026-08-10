@@ -1,0 +1,46 @@
+[2026-07-23 12:36:45] sweep: 14 jobs total, 14 pending, crude ETA 21.0 h
+[2026-07-23 12:36:45] DRY-RUN patch_full/Hex72: would execute /home/parallels/Desktop/Academic/SCONE_Daeyeun/SCONE/Build/scone.out results/patch_full/Hex72/Hex72_patch_full.inp
+[2026-07-23 12:36:45] DRY-RUN patch_full/Hex243: would execute /home/parallels/Desktop/Academic/SCONE_Daeyeun/SCONE/Build/scone.out results/patch_full/Hex243/Hex243_patch_full.inp
+[2026-07-23 12:36:45] DRY-RUN patch_full/Poly264: would execute /home/parallels/Desktop/Academic/SCONE_Daeyeun/SCONE/Build/scone.out results/patch_full/Poly264/Poly264_patch_full.inp
+[2026-07-23 12:36:45] DRY-RUN patch_full/Tet137: would execute /home/parallels/Desktop/Academic/SCONE_Daeyeun/SCONE/Build/scone.out results/patch_full/Tet137/Tet137_patch_full.inp
+[2026-07-23 12:36:45] DRY-RUN patch_full/Tet298: would execute /home/parallels/Desktop/Academic/SCONE_Daeyeun/SCONE/Build/scone.out results/patch_full/Tet298/Tet298_patch_full.inp
+[2026-07-23 12:36:45] DRY-RUN patch_full/Tet427: would execute /home/parallels/Desktop/Academic/SCONE_Daeyeun/SCONE/Build/scone.out results/patch_full/Tet427/Tet427_patch_full.inp
+[2026-07-23 12:36:45] DRY-RUN patch_full/Poly468: would execute /home/parallels/Desktop/Academic/SCONE_Daeyeun/SCONE/Build/scone.out results/patch_full/Poly468/Poly468_patch_full.inp
+[2026-07-23 12:36:45] DRY-RUN patch_full/Hex576: would execute /home/parallels/Desktop/Academic/SCONE_Daeyeun/SCONE/Build/scone.out results/patch_full/Hex576/Hex576_patch_full.inp
+[2026-07-23 12:36:45] DRY-RUN patch_full/Poly940: would execute /home/parallels/Desktop/Academic/SCONE_Daeyeun/SCONE/Build/scone.out results/patch_full/Poly940/Poly940_patch_full.inp
+[2026-07-23 12:36:45] DRY-RUN patch_full/Hex1125: would execute /home/parallels/Desktop/Academic/SCONE_Daeyeun/SCONE/Build/scone.out results/patch_full/Hex1125/Hex1125_patch_full.inp
+[2026-07-23 12:36:45] DRY-RUN patch_full/Tet1331: would execute /home/parallels/Desktop/Academic/SCONE_Daeyeun/SCONE/Build/scone.out results/patch_full/Tet1331/Tet1331_patch_full.inp
+[2026-07-23 12:36:45] DRY-RUN patch_full/Tet1820: would execute /home/parallels/Desktop/Academic/SCONE_Daeyeun/SCONE/Build/scone.out results/patch_full/Tet1820/Tet1820_patch_full.inp
+[2026-07-23 12:36:45] DRY-RUN patch_full/Hex1944: would execute /home/parallels/Desktop/Academic/SCONE_Daeyeun/SCONE/Build/scone.out results/patch_full/Hex1944/Hex1944_patch_full.inp
+[2026-07-23 12:36:45] DRY-RUN patch_full/Poly1560: would execute /home/parallels/Desktop/Academic/SCONE_Daeyeun/SCONE/Build/scone.out results/patch_full/Poly1560/Poly1560_patch_full.inp
+[2026-07-23 12:36:45] sweep finished
+[2026-07-23 12:44:29] sweep: 14 jobs total, 14 pending, crude ETA 21.0 h
+[2026-07-23 12:44:29] START patch_full/Hex72
+[2026-07-23 14:40:40] DONE  patch_full/Hex72 in 1.94 h
+[2026-07-23 14:40:40] START patch_full/Hex243
+[2026-07-23 16:58:02] DONE  patch_full/Hex243 in 2.29 h
+[2026-07-23 16:58:02] START patch_full/Poly264
+[2026-07-23 19:18:27] DONE  patch_full/Poly264 in 2.34 h
+[2026-07-23 19:18:27] START patch_full/Tet137
+[2026-07-23 21:42:49] DONE  patch_full/Tet137 in 2.41 h
+[2026-07-23 21:42:49] START patch_full/Tet298
+[2026-07-24 00:26:42] DONE  patch_full/Tet298 in 2.73 h
+[2026-07-24 00:26:42] START patch_full/Tet427
+[2026-07-24 03:26:51] DONE  patch_full/Tet427 in 3.00 h
+[2026-07-24 03:26:51] START patch_full/Poly468
+[2026-07-24 05:55:33] DONE  patch_full/Poly468 in 2.48 h
+[2026-07-24 05:55:33] START patch_full/Hex576
+[2026-07-24 08:40:22] DONE  patch_full/Hex576 in 2.75 h
+[2026-07-24 08:40:22] START patch_full/Poly940
+[2026-07-24 11:46:07] DONE  patch_full/Poly940 in 3.10 h
+[2026-07-24 11:46:07] START patch_full/Hex1125
+[2026-07-24 15:06:08] DONE  patch_full/Hex1125 in 3.33 h
+[2026-07-24 15:06:08] START patch_full/Tet1331
+[2026-07-24 18:41:55] DONE  patch_full/Tet1331 in 3.60 h
+[2026-07-24 18:41:55] START patch_full/Tet1820
+[2026-07-24 23:55:04] DONE  patch_full/Tet1820 in 5.22 h
+[2026-07-24 23:55:04] START patch_full/Hex1944
+[2026-07-25 04:03:51] DONE  patch_full/Hex1944 in 4.15 h
+[2026-07-25 04:03:51] START patch_full/Poly1560
+[2026-07-25 07:50:18] DONE  patch_full/Poly1560 in 3.77 h
+[2026-07-25 07:50:18] sweep finished

@@ -1,0 +1,68 @@
+type octreeOptimisationPackage;
+
+pop 5000000;
+seed 1;
+depths (4 5 6 7 8);
+nMaxFaces (1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16);
+nRuns 100;
+
+outputFile octree_optimisation_results/Poly1560/output;
+
+geometry {
+	type geometryStd;
+  	boundary (2 2 2 2 2 2);
+  	graph {type shrunk;}
+
+  	surfaces {
+		boxContainer { id 1; type box; origin (0.0 0.0 0.0); halfwidth (0.630939043079365 0.630939043079365 0.300080764391406); }
+  	}
+
+	cells {
+   		hostCell {id 1; type simpleCell; surfaces (-1); filltype mat; material water;}
+  	}
+
+	meshes { 
+		testMesh {
+			id 1; 
+			type OpenFOAMMesh; 
+			path ./Meshes/OpenFOAM/FinalFuelPinPoly1560/;
+		}
+	}
+
+	universes {
+    		root { id 1; type rootUniverse; border 1; fill u<2>; }
+		mesh { id 2; type meshUniverse; origin (0.0 0.0 0.0); rotation (0.0 0.0 0.0); cell 1; mesh 1; fills (water water water fuel water fuel fuel fuel fuel); }
+  	}
+
+}
+
+
+
+nuclearData {
+	handles {
+    		ce {type aceNeutronDatabase; aceLibrary $SCONE_ACE ;}
+  	}
+
+	materials {
+
+		water {
+      			temp 75675;
+      			rgb (0 0 139); // Colour of water is dark blue
+      			moder { 1001.03 (hh2o.09); }
+      			composition {
+      				1001.03    6.700E-002;
+      				8016.03    3.350E-002;
+			}
+      		}
+
+    		fuel {
+      			temp 87476;
+       			composition {
+                    92235.03 9.0336E-004;   // 235U number density [atoms/b·cm]
+                    92238.03 2.14069E-002;  // 238U number density
+                    8016.03  4.46205E-002;  // Oxygen (assumed all 16O)
+			}
+      		}
+
+	}
+}

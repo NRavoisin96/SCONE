@@ -1,0 +1,58 @@
+[2026-07-19 22:51:25] sweep: 28 jobs total, 28 pending, crude ETA 42.0 h
+[2026-07-19 22:51:25] START patch_optimised_init/Hex72
+[2026-07-19 22:51:50] DONE  patch_optimised_init/Hex72 in 0.01 h
+[2026-07-19 22:51:50] START patch_optimised_init/Hex243
+[2026-07-19 22:52:29] DONE  patch_optimised_init/Hex243 in 0.01 h
+[2026-07-19 22:52:29] START patch_optimised_init/Poly264
+[2026-07-19 22:55:14] DONE  patch_optimised_init/Poly264 in 0.05 h
+[2026-07-19 22:55:14] START patch_optimised_init/Tet137
+[2026-07-19 23:04:38] DONE  patch_optimised_init/Tet137 in 0.16 h
+[2026-07-19 23:04:38] START patch_optimised_init/Tet298
+[2026-07-19 23:09:59] DONE  patch_optimised_init/Tet298 in 0.09 h
+[2026-07-19 23:09:59] START patch_optimised_init/Tet427
+[2026-07-19 23:13:17] DONE  patch_optimised_init/Tet427 in 0.05 h
+[2026-07-19 23:13:17] START patch_optimised_init/Poly468
+[2026-07-19 23:16:38] DONE  patch_optimised_init/Poly468 in 0.06 h
+[2026-07-19 23:16:38] START patch_optimised_init/Hex576
+[2026-07-19 23:18:27] DONE  patch_optimised_init/Hex576 in 0.03 h
+[2026-07-19 23:18:27] START patch_optimised_init/Poly940
+[2026-07-19 23:23:33] DONE  patch_optimised_init/Poly940 in 0.08 h
+[2026-07-19 23:23:33] START patch_optimised_init/Hex1125
+[2026-07-19 23:26:25] DONE  patch_optimised_init/Hex1125 in 0.05 h
+[2026-07-19 23:26:25] START patch_optimised_init/Tet1331
+[2026-07-19 23:35:39] DONE  patch_optimised_init/Tet1331 in 0.15 h
+[2026-07-19 23:35:39] START patch_optimised_init/Tet1820
+[2026-07-20 00:19:03] DONE  patch_optimised_init/Tet1820 in 0.72 h
+[2026-07-20 00:19:03] START patch_optimised_init/Hex1944
+[2026-07-20 00:24:35] DONE  patch_optimised_init/Hex1944 in 0.09 h
+[2026-07-20 00:24:35] START patch_optimised_init/Poly1560
+[2026-07-20 00:33:36] DONE  patch_optimised_init/Poly1560 in 0.15 h
+[2026-07-20 00:33:36] START patch_naive_init/Hex72
+[2026-07-20 00:34:24] DONE  patch_naive_init/Hex72 in 0.01 h
+[2026-07-20 00:34:24] START patch_naive_init/Hex243
+[2026-07-20 00:35:43] DONE  patch_naive_init/Hex243 in 0.02 h
+[2026-07-20 00:35:43] START patch_naive_init/Poly264
+[2026-07-20 00:43:48] DONE  patch_naive_init/Poly264 in 0.13 h
+[2026-07-20 00:43:48] START patch_naive_init/Tet137
+[2026-07-20 01:36:23] DONE  patch_naive_init/Tet137 in 0.88 h
+[2026-07-20 01:36:23] START patch_naive_init/Tet298
+[2026-07-20 02:00:24] DONE  patch_naive_init/Tet298 in 0.40 h
+[2026-07-20 02:00:24] START patch_naive_init/Tet427
+[2026-07-20 02:12:39] DONE  patch_naive_init/Tet427 in 0.20 h
+[2026-07-20 02:12:39] START patch_naive_init/Poly468
+[2026-07-20 02:22:28] DONE  patch_naive_init/Poly468 in 0.16 h
+[2026-07-20 02:22:28] START patch_naive_init/Hex576
+[2026-07-20 02:27:06] DONE  patch_naive_init/Hex576 in 0.08 h
+[2026-07-20 02:27:06] START patch_naive_init/Poly940
+[2026-07-20 02:41:43] DONE  patch_naive_init/Poly940 in 0.24 h
+[2026-07-20 02:41:43] START patch_naive_init/Hex1125
+[2026-07-20 02:49:05] DONE  patch_naive_init/Hex1125 in 0.12 h
+[2026-07-20 02:49:05] START patch_naive_init/Tet1331
+[2026-07-20 03:21:10] DONE  patch_naive_init/Tet1331 in 0.53 h
+[2026-07-20 03:21:10] START patch_naive_init/Tet1820
+[2026-07-20 06:41:31] DONE  patch_naive_init/Tet1820 in 3.34 h
+[2026-07-20 06:41:31] START patch_naive_init/Hex1944
+[2026-07-20 07:03:21] DONE  patch_naive_init/Hex1944 in 0.36 h
+[2026-07-20 07:03:21] START patch_naive_init/Poly1560
+[2026-07-20 07:29:33] DONE  patch_naive_init/Poly1560 in 0.44 h
+[2026-07-20 07:29:33] sweep finished

@@ -1,0 +1,43 @@
+  ><((((*>  ><((((*>  ><((((*>  ><((((*>  ><((((*>  ><((((*>  ><((((*>  ><((((*>  ><((((*>  ><((((*> 
+ 
+         _____ __________  _   ________  
+        / ___// ____/ __ \/ | / / ____/  
+        \__ \/ /   / / / /  |/ / __/     
+       ___/ / /___/ /_/ / /|  / /___     
+      /____/\____/\____/_/ |_/_____/     
+ 
+ 
+ Compiler Info :   GCC version 13.3.0
+ OpenMP Threads:    1
+
+  <*((((><  <*((((><  <*((((><  <*((((><  <*((((><  <*((((><  <*((((><  <*((((><  <*((((><  <*((((>< 
+ <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+ /\/\ READING GEOMETRY /\/\
+ Building Surfaces
+ DONE!
+ Building Cells
+ DONE!
+ Building Meshes
+ DONE!
+ Building Universes
+ DONE!
+ CHECKING GEOMETRY:
+  Recursion in definition - NOT PRESENT!
+  Nesting level - FINE!
+  Outside below root - NOT PRESENT!
+ BUILDING GEOMETRY GRAPH
+ DONE!
+ GEOMETRY INFORMATION 
+  Number of Surfaces: 1
+  Number of Cells: 1
+  Number of Universes: 2
+  Nesting Levels: 2
+  Unique Cells: 3
+  Unused universes (ID): 
+  Boundary Surface ID: 1
+  Boundary Surface Type: box
+  Boundary Conditions: 2 2 2 2 2 2
+ \/\/ FINISHED READING GEOMETRY \/\/
+ <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+ Total calculation time:   1:09:05
+ Have a good day and enjoy your result analysis!

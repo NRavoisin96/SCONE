@@ -1,0 +1,122 @@
+[2026-07-25 09:29:12] sweep: 28 jobs total, 28 pending, crude ETA 42.0 h
+[2026-07-25 09:29:12] START patch_noshort/Hex72
+[2026-07-25 10:24:44] DONE  patch_noshort/Hex72 in 0.93 h
+[2026-07-25 10:24:44] START patch_noshort/Hex243
+[2026-07-25 11:34:43] DONE  patch_noshort/Hex243 in 1.17 h
+[2026-07-25 11:34:43] START patch_noshort/Poly264
+[2026-07-25 12:48:02] DONE  patch_noshort/Poly264 in 1.22 h
+[2026-07-25 12:48:02] START patch_noshort/Tet137
+[2026-07-25 12:48:35] sweep: 28 jobs total, 25 pending, crude ETA 37.5 h
+[2026-07-25 12:48:35] skip patch_noshort/Hex72: already complete
+[2026-07-25 12:48:35] skip patch_noshort/Hex243: already complete
+[2026-07-25 12:48:35] skip patch_noshort/Poly264: already complete
+[2026-07-25 12:48:35] START patch_noshort/Tet137
+[2026-07-25 22:54:24] sweep: 28 jobs total, 25 pending, crude ETA 37.5 h
+[2026-07-25 22:54:24] skip patch_noshort/Hex72: already complete
+[2026-07-25 22:54:24] skip patch_noshort/Hex243: already complete
+[2026-07-25 22:54:24] skip patch_noshort/Poly264: already complete
+[2026-07-25 22:54:24] START patch_noshort/Tet137
+[2026-07-26 00:09:28] DONE  patch_noshort/Tet137 in 1.25 h
+[2026-07-26 00:09:28] START patch_noshort/Tet298
+[2026-07-26 01:31:25] DONE  patch_noshort/Tet298 in 1.37 h
+[2026-07-26 01:31:25] START patch_noshort/Tet427
+[2026-07-26 03:02:04] DONE  patch_noshort/Tet427 in 1.51 h
+[2026-07-26 03:02:04] START patch_noshort/Poly468
+[2026-07-26 04:20:57] DONE  patch_noshort/Poly468 in 1.31 h
+[2026-07-26 04:20:57] START patch_noshort/Hex576
+[2026-07-26 05:48:03] DONE  patch_noshort/Hex576 in 1.45 h
+[2026-07-26 05:48:03] START patch_noshort/Poly940
+[2026-07-26 07:23:54] DONE  patch_noshort/Poly940 in 1.60 h
+[2026-07-26 07:23:54] START patch_noshort/Hex1125
+[2026-07-26 09:03:41] DONE  patch_noshort/Hex1125 in 1.66 h
+[2026-07-26 09:03:41] START patch_noshort/Tet1331
+[2026-07-26 11:21:10] DONE  patch_noshort/Tet1331 in 2.29 h
+[2026-07-26 11:21:10] START patch_noshort/Tet1820
+[2026-07-26 13:40:04] DONE  patch_noshort/Tet1820 in 2.31 h
+[2026-07-26 13:40:04] START patch_noshort/Hex1944
+[2026-07-26 15:47:14] DONE  patch_noshort/Hex1944 in 2.12 h
+[2026-07-26 15:47:14] START patch_noshort/Poly1560
+[2026-07-26 17:40:33] DONE  patch_noshort/Poly1560 in 1.89 h
+[2026-07-26 17:40:33] START standard_ascg/Hex72
+[2026-07-26 18:22:09] DONE  standard_ascg/Hex72 in 0.69 h
+[2026-07-26 18:22:09] START standard_ascg/Hex243
+[2026-07-26 19:13:10] DONE  standard_ascg/Hex243 in 0.85 h
+[2026-07-26 19:13:10] START standard_ascg/Poly264
+[2026-07-26 20:11:08] DONE  standard_ascg/Poly264 in 0.97 h
+[2026-07-26 20:11:08] START standard_ascg/Tet137
+[2026-07-26 21:04:46] DONE  standard_ascg/Tet137 in 0.89 h
+[2026-07-26 21:04:46] START standard_ascg/Tet298
+[2026-07-26 22:08:59] DONE  standard_ascg/Tet298 in 1.07 h
+[2026-07-26 22:08:59] START standard_ascg/Tet427
+[2026-07-26 23:18:05] DONE  standard_ascg/Tet427 in 1.15 h
+[2026-07-26 23:18:05] START standard_ascg/Poly468
+[2026-07-27 00:18:27] DONE  standard_ascg/Poly468 in 1.01 h
+[2026-07-27 00:18:27] START standard_ascg/Hex576
+[2026-07-27 01:27:05] DONE  standard_ascg/Hex576 in 1.14 h
+[2026-07-27 01:27:05] START standard_ascg/Poly940
+[2026-07-27 02:43:17] DONE  standard_ascg/Poly940 in 1.27 h
+[2026-07-27 02:43:17] START standard_ascg/Hex1125
+[2026-07-27 04:05:43] DONE  standard_ascg/Hex1125 in 1.37 h
+[2026-07-27 04:05:43] START standard_ascg/Tet1331
+[2026-07-27 05:52:04] DONE  standard_ascg/Tet1331 in 1.77 h
+[2026-07-27 05:52:04] START standard_ascg/Tet1820
+[2026-07-27 14:25:26] sweep: 28 jobs total, 3 pending, crude ETA 4.5 h
+[2026-07-27 14:25:26] skip patch_noshort/Hex72: already complete
+[2026-07-27 14:25:26] skip patch_noshort/Hex243: already complete
+[2026-07-27 14:25:26] skip patch_noshort/Poly264: already complete
+[2026-07-27 14:25:26] skip patch_noshort/Tet137: already complete
+[2026-07-27 14:25:26] skip patch_noshort/Tet298: already complete
+[2026-07-27 14:25:26] skip patch_noshort/Tet427: already complete
+[2026-07-27 14:25:26] skip patch_noshort/Poly468: already complete
+[2026-07-27 14:25:26] skip patch_noshort/Hex576: already complete
+[2026-07-27 14:25:26] skip patch_noshort/Poly940: already complete
+[2026-07-27 14:25:26] skip patch_noshort/Hex1125: already complete
+[2026-07-27 14:25:26] skip patch_noshort/Tet1331: already complete
+[2026-07-27 14:25:26] skip patch_noshort/Tet1820: already complete
+[2026-07-27 14:25:26] skip patch_noshort/Hex1944: already complete
+[2026-07-27 14:25:26] skip patch_noshort/Poly1560: already complete
+[2026-07-27 14:25:26] skip standard_ascg/Hex72: already complete
+[2026-07-27 14:25:26] skip standard_ascg/Hex243: already complete
+[2026-07-27 14:25:26] skip standard_ascg/Poly264: already complete
+[2026-07-27 14:25:26] skip standard_ascg/Tet137: already complete
+[2026-07-27 14:25:26] skip standard_ascg/Tet298: already complete
+[2026-07-27 14:25:26] skip standard_ascg/Tet427: already complete
+[2026-07-27 14:25:26] skip standard_ascg/Poly468: already complete
+[2026-07-27 14:25:26] skip standard_ascg/Hex576: already complete
+[2026-07-27 14:25:26] skip standard_ascg/Poly940: already complete
+[2026-07-27 14:25:26] skip standard_ascg/Hex1125: already complete
+[2026-07-27 14:25:26] skip standard_ascg/Tet1331: already complete
+[2026-07-27 14:25:26] START standard_ascg/Tet1820
+[2026-07-27 15:03:21] sweep: 28 jobs total, 3 pending, crude ETA 4.5 h
+[2026-07-27 15:03:21] skip patch_noshort/Hex72: already complete
+[2026-07-27 15:03:21] skip patch_noshort/Hex243: already complete
+[2026-07-27 15:03:21] skip patch_noshort/Poly264: already complete
+[2026-07-27 15:03:21] skip patch_noshort/Tet137: already complete
+[2026-07-27 15:03:21] skip patch_noshort/Tet298: already complete
+[2026-07-27 15:03:21] skip patch_noshort/Tet427: already complete
+[2026-07-27 15:03:21] skip patch_noshort/Poly468: already complete
+[2026-07-27 15:03:21] skip patch_noshort/Hex576: already complete
+[2026-07-27 15:03:21] skip patch_noshort/Poly940: already complete
+[2026-07-27 15:03:21] skip patch_noshort/Hex1125: already complete
+[2026-07-27 15:03:21] skip patch_noshort/Tet1331: already complete
+[2026-07-27 15:03:21] skip patch_noshort/Tet1820: already complete
+[2026-07-27 15:03:21] skip patch_noshort/Hex1944: already complete
+[2026-07-27 15:03:21] skip patch_noshort/Poly1560: already complete
+[2026-07-27 15:03:21] skip standard_ascg/Hex72: already complete
+[2026-07-27 15:03:21] skip standard_ascg/Hex243: already complete
+[2026-07-27 15:03:21] skip standard_ascg/Poly264: already complete
+[2026-07-27 15:03:21] skip standard_ascg/Tet137: already complete
+[2026-07-27 15:03:21] skip standard_ascg/Tet298: already complete
+[2026-07-27 15:03:21] skip standard_ascg/Tet427: already complete
+[2026-07-27 15:03:21] skip standard_ascg/Poly468: already complete
+[2026-07-27 15:03:21] skip standard_ascg/Hex576: already complete
+[2026-07-27 15:03:21] skip standard_ascg/Poly940: already complete
+[2026-07-27 15:03:21] skip standard_ascg/Hex1125: already complete
+[2026-07-27 15:03:21] skip standard_ascg/Tet1331: already complete
+[2026-07-27 15:03:21] START standard_ascg/Tet1820
+[2026-07-27 16:57:54] DONE  standard_ascg/Tet1820 in 1.91 h
+[2026-07-27 16:57:54] START standard_ascg/Hex1944
+[2026-07-27 18:48:54] DONE  standard_ascg/Hex1944 in 1.85 h
+[2026-07-27 18:48:54] START standard_ascg/Poly1560
+[2026-07-27 20:21:41] DONE  standard_ascg/Poly1560 in 1.55 h
+[2026-07-27 20:21:41] sweep finished
