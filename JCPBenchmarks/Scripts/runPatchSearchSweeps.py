@@ -82,8 +82,8 @@ import sys
 import time
 
 SCONE_EXECUTABLE = os.environ.get("SCONE_BIN", "../Build/scone.out")
-TEMPLATES_DIRECTORY = pathlib.Path("templates")
-RESULTS_DIRECTORY = pathlib.Path("results")
+TEMPLATES_DIRECTORY = pathlib.Path("Templates/PatchSearch")
+RESULTS_DIRECTORY = pathlib.Path("Results/CurrentSweep")
 
 GEOMETRIES = [
   "Hex72", "Hex243", "Poly264", "Tet137", "Tet298", "Tet427",

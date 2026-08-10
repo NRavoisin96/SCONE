@@ -44,7 +44,7 @@ Usage
   python3 octreeOptimisation.py --dry-run # render inputs, run nothing
   python3 octreeOptimisation.py           # full sweep (long; use tmux)
 
-Outputs are written to octree_optimisation_results/<geometry>/, each containing
+Outputs are written to Results/OctreeOptimisation/<geometry>/, each containing
 the SCONE output file, the rendered input and the captured stdout. Completed
 geometries drop a DONE marker and are skipped when the driver is re-invoked, so
 an interrupted sweep can simply be restarted.
@@ -58,8 +58,8 @@ import subprocess
 import time
 
 SCONE_EXECUTABLE = os.environ.get("SCONE_BIN", "../Build/scone.out")
-TEMPLATE_DIRECTORY = pathlib.Path("octree_optimisation_templates")
-RESULTS_DIRECTORY = pathlib.Path("octree_optimisation_results")
+TEMPLATE_DIRECTORY = pathlib.Path("Templates/OctreeOptimisation")
+RESULTS_DIRECTORY = pathlib.Path("Results/OctreeOptimisation")
 
 # Ensemble sizes per the published figure legends: 100 runs on the finer
 # meshes, 50 elsewhere.

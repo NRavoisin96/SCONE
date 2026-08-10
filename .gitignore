@@ -10,3 +10,6 @@ build
 # Ignore all hidden files (except gitignore)
 .*
 !/.gitignore
+
+# Ignore virtual environment in JCPBenchmarks.
+JCPBenchmarks/**/.venv/

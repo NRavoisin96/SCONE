@@ -1,14 +1,16 @@
 module patchSearchStatistics_mod
   !!
-  !! Runtime mapping-trigger counters for the Patch-Search acceleration
-  !! structure (revision experiment, R1.4). Module-level counters are used
-  !! deliberately: findHostElementIdx takes self as intent(in), so the
-  !! statistics cannot live on the object. Single-threaded use only -- if
-  !! OpenMP is ever enabled, guard the increments with !$omp atomic.
+  !! Runtime counters for the Patch-Search mapping-trigger statistics
+  !! reported in Section 4.2 of the JCP paper. Enabled via the
+  !! PATCH_SEARCH_STATS build option; the default build leaves the query
+  !! path uninstrumented so that timing measurements are unaffected.
   !!
-  !! Usage: call resetPatchSearchStats() before a measurement run and
-  !! reportPatchSearchStats() after it. Keep this on a dedicated stats
-  !! branch/build -- never in a timing build.
+  !! Counters are module-level because findHostElementIdx takes self as
+  !! intent(in). They are not thread-safe: the build refuses to configure
+  !! with OpenMP enabled when PATCH_SEARCH_STATS is ON.
+  !!
+  !! Call resetPatchSearchStats() before a measurement run and
+  !! reportPatchSearchStats() after it.
   !!
   use numPrecision
 

@@ -10,6 +10,9 @@ codes suitable for design calculations.
 
 SCONE documentation is hosted at: <https://scone.readthedocs.io>
 
+Scripts, inputs and measurement data reproducing the JCP Patch-Search paper are in 
+[`JCPBenchmarks/`](JCPBenchmarks/README.md).
+
 ## Prerequisites
 Required
 

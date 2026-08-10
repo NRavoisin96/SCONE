@@ -174,170 +174,136 @@ def main() -> None:
                          "oct_init_std": is_, "oct_host_mean": hm, "oct_host_std": hs, "oct_storage_MB": d.get("octreeStorageSize")})
     # -- patch runs per depth --------------------------------------
     for key, vals in d.items():
-        m = re.fullmatch(r"rawPatchHostTimes_D(\d+)_Res", key)
-        if not m:
-            continue
-        depth = int(m.group(1))
-        init = d.get(f"rawPatchInitTimes_D{depth}_Res", [])
-        vals, init, dropped = drop_contaminated(vals, init)
-        for r in dropped:
-            gate_msgs.append(f"EXCLUDED: {config}/{geom} D{depth} host "
-                              f"run {r} (>{DROP_TOL:.0%} above median)")
-        tot = [a + b for a, b in zip(init, vals)] if init else []
-        hm, hs = stats(vals)
-        im, is_ = stats(init) if init else (float("nan"),) * 2
-        tm, ts = stats(tot) if tot else (float("nan"),) * 2
-        for r in outliers(vals):
-            gate_msgs.append(f"OUTLIER: {config}/{geom} D{depth} host "
-                              f"run {r} ({vals[r-1]:.3f} s, median "
-                              f"{st.median(vals):.3f})")
-        seen.setdefault(config, set()).add((geom, depth))
-        rows.append({"config": config, "geometry": geom, "Dmax": depth,
-                      "n_runs": len(vals),
-                      "init_mean": im, "init_std": is_,
-                      "host_mean": hm, "host_std": hs,
-                      "total_mean": tm, "total_std": ts,
-                      "storage_MB": d.get(f"patchStorageSize_D{depth}")})
+      m = re.fullmatch(r"rawPatchHostTimes_D(\d+)_Res", key)
+      if not m:
+        continue
+      depth = int(m.group(1))
+      init = d.get(f"rawPatchInitTimes_D{depth}_Res", [])
+      vals, init, dropped = drop_contaminated(vals, init)
+      for r in dropped:
+        gate_msgs.append(f"EXCLUDED: {config}/{geom} D{depth} host run {r} (>{DROP_TOL:.0%} above median)")
+
+      tot = [a + b for a, b in zip(init, vals)] if init else []
+      hm, hs = stats(vals)
+      im, is_ = stats(init) if init else (float("nan"),) * 2
+      tm, ts = stats(tot) if tot else (float("nan"),) * 2
+      for r in outliers(vals):
+        gate_msgs.append(f"OUTLIER: {config}/{geom} D{depth} host run {r} ({vals[r-1]:.3f} s, median {st.median(vals):.3f})")
+      seen.setdefault(config, set()).add((geom, depth))
+      rows.append({"config": config, "geometry": geom, "Dmax": depth, "n_runs": len(vals), "init_mean": im, "init_std": is_,
+                   "host_mean": hm, "host_std": hs, "total_mean": tm, "total_std": ts, "storage_MB": d.get(f"patchStorageSize_D{depth}")})
 
   # -- completeness ---------------------------------------------------
-  expect = {"patch_full": {(g, dd) for g in GEOM_ORDER for dd in
-                            range(1, 6)} - {("Tet1331", 1)},
-            "patch_noshort": {(g, 3) for g in GEOM_ORDER},
-            "standard_ascg": {(g, 3) for g in GEOM_ORDER}}
+  expect = {"patch_full": {(g, dd) for g in GEOM_ORDER for dd in range(1, 6)} - {("Tet1331", 1)},
+            "patch_noshort": {(g, 3) for g in GEOM_ORDER}, "standard_ascg": {(g, 3) for g in GEOM_ORDER}}
   print("=== [GATE] ===")
   total_expected = sum(len(v) for v in expect.values())
   total_seen = sum(len(seen.get(c, set()) & expect[c]) for c in expect)
   for c, want_set in expect.items():
-      missing = sorted(want_set - seen.get(c, set()))
-      if missing:
-          print(f"MISSING in {c}: {missing}")
-  print(f"configs present: {total_seen}/{total_expected}")
+    missing = sorted(want_set - seen.get(c, set()))
+    if missing:
+      print(f"MISSING in {c}: {missing}.")
+  print(f"Configs present: {total_seen} / {total_expected}.")
   if gate_msgs:
-      for msg in gate_msgs:
-          print(msg)
+    for msg in gate_msgs:
+      print(msg)
   else:
-      print("provenance echoes: ALL OK; no outliers above "
-            f"{OUTLIER_TOL:.0%}")
+    print(f"provenance echoes: ALL OK; no outliers above {OUTLIER_TOL:.0%}.")
 
-  with open("campaign_stats.csv", "w", newline="") as fh:
-      w = csv.DictWriter(fh, fieldnames=rows[0].keys())
-      w.writeheader()
-      w.writerows(rows)
-  with open("octree_stats.csv", "w", newline="") as fh:
-      w = csv.DictWriter(fh, fieldnames=oct_rows[0].keys())
-      w.writeheader()
-      w.writerows(oct_rows)
-  print(f"\nwrote campaign_stats.csv ({len(rows)} rows), "
-        f"octree_stats.csv ({len(oct_rows)} rows)")
+  with open("campaign_stats.csv", "w", newline = "") as fh:
+    w = csv.DictWriter(fh, fieldnames = rows[0].keys())
+    w.writeheader()
+    w.writerows(rows)
+  with open("octree_stats.csv", "w", newline = "") as fh:
+    w = csv.DictWriter(fh, fieldnames = oct_rows[0].keys())
+    w.writeheader()
+    w.writerows(oct_rows)
+  print(f"\nWrote campaign_stats.csv ({len(rows)} rows), octree_stats.csv ({len(oct_rows)} rows).")
 
   # -- pooled octree per geometry (all configs' runs) -----------------
   pooled = {}
   for g in GEOM_ORDER:
-      sub = [r for r in oct_rows if r["geometry"] == g]
-      if sub:
-          pooled[g] = (st.mean([r["oct_host_mean"] for r in sub]),
-                        st.mean([r["oct_host_std"] for r in sub]))
+    sub = [r for r in oct_rows if r["geometry"] == g]
+    if sub:
+      pooled[g] = (st.mean([r["oct_host_mean"] for r in sub]), st.mean([r["oct_host_std"] for r in sub]))
 
   by = {(r["config"], r["geometry"], r["Dmax"]): r for r in rows}
 
   # -- decomposition at D3 -------------------------------------------
   print("\n=== [DECOMP] (Dmax = 3) ===")
-  print(f"{'geometry':>9} | {'search %':>10} | {'shortcut %':>11} | "
-        f"{'mem x':>6} | {'init x':>6}")
+  print(f"{'geometry':>9} | {'search %':>10} | {'shortcut %':>11} | {'mem x':>6} | {'init x':>6}")
   dec_rows = []
   n_std_beats_oct, n_oct_beats_noshort = 0, 0
   for g in GEOM_ORDER:
-      try:
-          full = by[("patch_full", g, 3)]
-          nosc = by[("patch_noshort", g, 3)]
-          std_ = by[("standard_ascg", g, 3)]
-      except KeyError:
-          continue
-      sc_pct, sc_err = ratio_with_err(nosc["host_mean"], nosc["host_std"],
-                                      full["host_mean"], full["host_std"])
-      se_pct, se_err = ratio_with_err(std_["host_mean"], std_["host_std"],
-                                      full["host_mean"], full["host_std"])
-      memx = (nosc["storage_MB"] / full["storage_MB"]
-              if full["storage_MB"] else float("nan"))
-      initx = (nosc["init_mean"] / full["init_mean"]
-                if full["init_mean"] else float("nan"))
-      oh = pooled.get(g, (float("nan"),))[0]
-      if std_["host_mean"] < oh:
-          n_std_beats_oct += 1
-      if oh < nosc["host_mean"]:
-          n_oct_beats_noshort += 1
-      dec_rows.append({"geometry": g,
-                        "t_standard": round(std_["host_mean"], 4),
-                        "std_standard": round(std_["host_std"], 4),
-                        "t_noshort": round(nosc["host_mean"], 4),
-                        "std_noshort": round(nosc["host_std"], 4),
-                        "t_full": round(full["host_mean"], 4),
-                        "std_full": round(full["host_std"], 4),
-                        "t_octree_pooled": round(oh, 4),
-                        "shortcut_saving_pct": round(sc_pct, 2),
-                        "shortcut_saving_err": round(sc_err, 2),
-                        "search_saving_pct": round(se_pct, 2),
-                        "search_saving_err": round(se_err, 2),
-                        "mem_factor_noshort": round(memx, 2),
-                        "init_factor_noshort": round(initx, 2)})
-      print(f"{g:>9} | {se_pct:6.2f}±{se_err:4.2f} | "
-            f"{sc_pct:6.2f}±{sc_err:4.2f} | {memx:6.2f} | {initx:6.2f}")
+    try:
+      full = by[("patch_full", g, 3)]
+      nosc = by[("patch_noshort", g, 3)]
+      std_ = by[("standard_ascg", g, 3)]
+    except KeyError:
+      continue
+    sc_pct, sc_err = ratio_with_err(nosc["host_mean"], nosc["host_std"], full["host_mean"], full["host_std"])
+    se_pct, se_err = ratio_with_err(std_["host_mean"], std_["host_std"], full["host_mean"], full["host_std"])
+    memx = (nosc["storage_MB"] / full["storage_MB"] if full["storage_MB"] else float("nan"))
+    initx = (nosc["init_mean"] / full["init_mean"] if full["init_mean"] else float("nan"))
+    oh = pooled.get(g, (float("nan"),))[0]
+    if std_["host_mean"] < oh:
+      n_std_beats_oct += 1
+    if oh < nosc["host_mean"]:
+      n_oct_beats_noshort += 1
+    dec_rows.append({"geometry": g,
+                     "t_standard": round(std_["host_mean"], 4),
+                     "std_standard": round(std_["host_std"], 4),
+                     "t_noshort": round(nosc["host_mean"], 4),
+                     "std_noshort": round(nosc["host_std"], 4),
+                     "t_full": round(full["host_mean"], 4),
+                     "std_full": round(full["host_std"], 4),
+                     "t_octree_pooled": round(oh, 4),
+                     "shortcut_saving_pct": round(sc_pct, 2),
+                     "shortcut_saving_err": round(sc_err, 2),
+                     "search_saving_pct": round(se_pct, 2),
+                     "search_saving_err": round(se_err, 2),
+                     "mem_factor_noshort": round(memx, 2),
+                     "init_factor_noshort": round(initx, 2)})
+    print(f"{g:>9} | {se_pct:6.2f}±{se_err:4.2f} | {sc_pct:6.2f}±{sc_err:4.2f} | {memx:6.2f} | {initx:6.2f}")
   if not dec_rows:
-      print("no ablation configs matched -- check the discovered config "
-            "directory names printed above")
-      return
-  with open("decomposition.csv", "w", newline="") as fh:
-      w = csv.DictWriter(fh, fieldnames=dec_rows[0].keys())
-      w.writeheader()
-      w.writerows(dec_rows)
+    print("No ablation configs matched -- check the discovered config directory names printed above.")
+    return
+  with open("decomposition.csv", "w", newline = "") as fh:
+    w = csv.DictWriter(fh, fieldnames = dec_rows[0].keys())
+    w.writeheader()
+    w.writerows(dec_rows)
   scs = [r["shortcut_saving_pct"] for r in dec_rows]
   ses = [r["search_saving_pct"] for r in dec_rows]
   mems = [r["mem_factor_noshort"] for r in dec_rows]
   inits = [r["init_factor_noshort"] for r in dec_rows]
-  print(f"\nshortcut contribution range: {min(scs):.1f}-{max(scs):.1f}%")
-  print(f"search   contribution range: {min(ses):.1f}-{max(ses):.1f}%")
-  print(f"memory factor range: {min(mems):.1f}-{max(mems):.1f}x")
-  print(f"init   factor range: {min(inits):.1f}-{max(inits):.1f}x")
-  print(f"standard_ascg beats octree on {n_std_beats_oct} of "
-        f"{len(dec_rows)} geometries")
-  print(f"octree beats patch_noshort on {n_oct_beats_noshort} of "
-        f"{len(dec_rows)} geometries")
+  print(f"\nShortcut contribution range: {min(scs):.1f}-{max(scs):.1f}%.")
+  print(f"Search contribution range: {min(ses):.1f}-{max(ses):.1f}%.")
+  print(f"Memory factor range: {min(mems):.1f}-{max(mems):.1f}x.")
+  print(f"Initialisation factor range: {min(inits):.1f}-{max(inits):.1f}x.")
+  print(f"standard_ascg beats octree on {n_std_beats_oct} of {len(dec_rows)} geometries.")
+  print(f"octree beats patch_noshort on {n_oct_beats_noshort} of {len(dec_rows)} geometries.")
 
   # -- headline ranges ------------------------------------------------
   print("\n=== [RANGES] (patch_full vs pooled same-session octree) ===")
   savings = {}
   d3_vs_d1 = {}
   for g in GEOM_ORDER:
-      depths = [by[("patch_full", g, dd)] for dd in range(1, 6)
-                if ("patch_full", g, dd) in by]
-      if not depths or g not in pooled:
-          continue
-      best = min(depths, key=lambda r: r["host_mean"])
-      oh, ohs = pooled[g]
-      sv, sv_err = ratio_with_err(oh, ohs, best["host_mean"],
-                                  best["host_std"])
-      savings[g] = sv
-      print(f"{g:>9}: optimal D{best['Dmax']}  saving {sv:5.1f}±"
-            f"{sv_err:3.1f}%")
-      d1 = by.get(("patch_full", g, 1))
-      d3 = by.get(("patch_full", g, 3))
-      if d1 and d3:
-          dv, _ = ratio_with_err(d1["host_mean"], d1["host_std"],
-                                  d3["host_mean"], d3["host_std"])
-          d3_vs_d1[g] = dv
-  print(f"\nABSTRACT RANGE: {min(savings.values()):.0f}-"
-        f"{max(savings.values()):.0f}% "
-        f"(over {len(savings)} geometries)")
+    depths = [by[("patch_full", g, dd)] for dd in range(1, 6) if ("patch_full", g, dd) in by]
+    if not depths or g not in pooled:
+      continue
+    best = min(depths, key = lambda r: r["host_mean"])
+    oh, ohs = pooled[g]
+    sv, sv_err = ratio_with_err(oh, ohs, best["host_mean"], best["host_std"])
+    savings[g] = sv
+    print(f"{g:>9}: optimal D{best['Dmax']} saving {sv:5.1f} ± {sv_err:3.1f}%.")
+    d1 = by.get(("patch_full", g, 1))
+    d3 = by.get(("patch_full", g, 3))
+    if d1 and d3:
+      dv, _ = ratio_with_err(d1["host_mean"], d1["host_std"], d3["host_mean"], d3["host_std"])
+      d3_vs_d1[g] = dv
+  print(f"\nABSTRACT RANGE: {min(savings.values()):.0f}-{max(savings.values()):.0f}% (over {len(savings)} geometries).")
   wins = {g: v for g, v in d3_vs_d1.items() if v > 0}
-  print(f"D3 vs D1 host: wins on {len(wins)} of {len(d3_vs_d1)} "
-        f"(best +{max(d3_vs_d1.values()):.1f}%, "
-        f"worst {min(d3_vs_d1.values()):.1f}%)")
-  p = "Poly264"
-  if ("patch_full", p, 3) in by:
-      r = by[("patch_full", p, 3)]
-      print(f"\nPoly264 D3: host {r['host_mean']:.4f}±{r['host_std']:.4f}"
-            f" s, init {r['init_mean']:.4f} s, "
-            f"storage {r['storage_MB']:.2f} MB")
+  print(f"D3 vs D1 host: wins on {len(wins)} of {len(d3_vs_d1)} (best +{max(d3_vs_d1.values()):.1f}%, worst {min(d3_vs_d1.values()):.1f}%).")
 
 if __name__ == "__main__":
   main()
