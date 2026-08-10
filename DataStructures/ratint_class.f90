@@ -143,6 +143,7 @@ module ratint
             
         end subroutine swapSign_vector
 
+        
         pure function convert_ieee64(n) result(r)
             real(defReal), intent(in) :: n 
             type(ratint_t) :: r 
@@ -163,7 +164,7 @@ module ratint
             
             do i=0, 52
 
-                if (int(frac, 8)*1_real64 == frac) then 
+                if (int(frac, 8)*1_defReal == frac) then 
                     shift = i 
                     exit 
                 end if 
@@ -204,7 +205,7 @@ module ratint
 
             r = expratint * fracratint
 
-            if (sign(1.0_real64,n) == -1.0_real64) then 
+            if (sign(1.0_defReal,n) == -1.0_defReal) then 
                 r%p%sign = -1
             end if
 
