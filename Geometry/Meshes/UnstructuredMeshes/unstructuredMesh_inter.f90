@@ -10,7 +10,7 @@ module unstructuredMesh_inter
                                                 elementIntersectionTestResult, newElementIntersectionTestPayload
   use extentTopologicalObject_inter,     only : buildExtentTopologicalObjectPayload
   use face_class,                        only : buildFacePayload, face, faceBox
-  use genericProcedures,                 only : append, fatalError, numToChar
+  use genericProcedures,                 only : append, fatalError, numToChar, areEqual
   use mesh_inter,                        only : mesh, kill_super => kill
   use numPrecision
   use publicObjects,                     only : basicEdgeInfo, basicElementInfo, basicFaceInfo, basicVertexInfo, &
@@ -483,49 +483,47 @@ contains
     type(coordData), intent(inout)                        :: data
     type(elementBox)                                      :: currentElement
     type(elementIntersectionTestResult)                   :: intersectionResult, intersectionResultNew
-    integer(shortInt)                                     :: i, j, nElements, currentIdx 
+    integer(shortInt)                                     :: i, j, nElements, currentIdx, k
     type(faceBox) :: currentFace
-    type(topologicalObjectBox), dimension(:), allocatable :: faceElements
-    type(orientatedFaceBox), dimension(:), allocatable :: elementFaces
+    type(topologicalObjectBox), dimension(:), allocatable :: faceElements, edgeFaces, edgeElements, vertexElements, vertexFaces
+    type(orientatedFaceBox), dimension(:), allocatable :: elementFaces, tempElementFaces
+    type(edgeBox), dimension(:), allocatable :: faceEdges
+    type(vertexBox), dimension(:), allocatable :: faceVertices
+    type(edgeBox) :: currentEdge
+    type(vertexBox) ::currentVertex
     type(inclusionTestResult) :: testIn
-    real(defReal), dimension(3) :: end
-    logical :: result
+    real(defReal), dimension(3) :: endPt
+    integer(shortInt), dimension(:), allocatable :: faceIDs
+
+    logical :: result, validElem
+    
     character(*), parameter                               :: here = 'distanceToNextFace (unstructuredMesh_inter.f90)'
     
     ! Retrieve the element currently occupied by the particle and compute potential 
     ! face intersections.
     currentElement = self % elements % getElementBox(data % elementIdx)
-    print *, '#########'
     call currentElement%ptr%&
       intersects(newElementIntersectionTestPayload(data%r,data%u,data%dMax,.true., .false.,data%currentFaceIdxs,data%front),&
                                            intersectionResult)
                                       
-    print *, '#########'
     if (.not. intersectionResult % intersects) return
     data % d = intersectionResult % d
     data % faceIdx = intersectionResult % intersectedFace % ptr % getIdx()
     data % currentFaceIdxs = intersectionResult%currentFaceIdxs
     data%front = intersectionResult%front
 
-    ! if (data%elementIdx /= 0) then 
-    !   return 
-    ! end if
+    endPt = data%r + (data%u * data%dMax)
 
-print *, ';;;'
-    do i =1,(intersectionResult%front) 
-      print *, intersectionResult%currentFaceIdxs(i)
-    end do
-    print *, '==;;;'
     
     ! If the intersected face is a boundary face then the particle is leaving the mesh.
     if (intersectionResult % intersectedFace % ptr % getIsBoundary()) then
       data % elementIdx = 0
       data % localId = 0
+      return
 
     else
 
-     if (intersectionResult%front <= 1) then 
-        !print *, 'here'
+      if (intersectionResult%front <= 1) then 
         ! Else, retrieve the elements sharing the intersected face from mesh connectivity then
         ! update elementIdx and localId.
         faceElements = intersectionResult % intersectedFace % ptr % getSharingElements()
@@ -535,15 +533,16 @@ print *, ';;;'
                               ' is not associated to the correct number of elements.')
 
         do i = 1, 2
-          !print *, 'here?'
           ! Downcast element to correct type.
           select type(ptr => faceElements(i) % ptr)
             type is(element)
+            !print *, ptr%getIdx()
               !testIn = ptr%hybridIsPointInside(data % r + (data%u * data%dMax))
               if (.not. associated(currentElement % ptr, ptr)) then! .and. testIn%status == INSIDE_ELEMENT) then
                 ! We have found our new element.
                 data % elementIdx = ptr % getIdx()
                 data % localId = ptr % getLocalId()
+                return
 
               end if
 
@@ -555,202 +554,119 @@ print *, ';;;'
         end do
       else 
         elementFaces = currentElement%ptr%getOrientatedFaces()
-        !print *, 'or here?'
-        print *, (intersectionResult%front)
-        do i=1, size(elementFaces) 
-          !print *, 'or here?'
-          if (ANY(intersectionResult%currentFaceIdxs(1:intersectionResult%front)==elementFaces(i)%face%ptr%getFaceIdx()) .and. &
-                 (.not. elementFaces(i)%face % ptr % getIsBoundary())) then 
-                  
+        if (intersectionResult%front == 2) then 
 
-            print *, '---'
-            print *, elementFaces(i)%face%ptr%getFaceIdx()
+          faceEdges = intersectionResult%intersectedFace%ptr%getEdges()
 
-            faceElements = elementFaces(i)%face%ptr % getSharingElements()
-            nElements = size(faceElements)
-            if (nElements /= 2) &
-            call fatalError(here, 'Internal face: '//numToChar(intersectionResult % intersectedFace % ptr % getIdx())// &
-                                  ' is not associated to the correct number of elements.')
-
-            do j = 1, 2
-
-              !print *, '/'
-              ! Downcast element to correct type.
-              select type(ptr => faceElements(j) % ptr)
-                type is(element)
-                  !print *, '---'
-                  !print *, elementFaces(i)%face%ptr%getFaceIdx()
-                  !print *, ptr%getIdx()
-                  testIn = ptr%hybridIsPointInsideGivenFaces(data % r + (data%u * data%dMax), & 
-                                                          data%u, intersectionResult%currentFaceIdxs)
-
-
-                  !print *, testIn%status == ON_BOUNDARY_ELEMENT
-                  if (.not. associated(currentElement % ptr, ptr) .and. (testIn%status == INSIDE_ELEMENT &
-                      .or. testIn%status == ON_BOUNDARY_ELEMENT)) then
-                    ! We have found our new element.
-                    data % elementIdx = ptr % getIdx()
-                    data % localId = ptr % getLocalId()
-                    return
-
-                  end if
-
-
-                  if ((.not. associated(currentElement % ptr, ptr)) .and. testIn%status == OUTSIDE_ELEMENT) then 
-                    print *, '???'
-                    call ptr%intersects(newElementIntersectionTestPayload(data%r,data%u,data%dMax,.true.,&
-                              .false.,data%currentFaceIdxs,data%front), intersectionResultNew)
-
-                    if (intersectionResultNew%intersects) then 
-                      call verifyInElement(self, data, intersectionResultNew, faceElements(j), result)
-                      print *, 'what'
-                    end if
-
-
-
-                    if (result) then 
-                      print *, '//////////////////////////////////////////////////////////////////////'
-                      return 
-                    end if
-
-                  end if
-
-                class default
-                  call fatalError(here, 'Element with index: '//numToChar(ptr % getIdx())//' is not an element.')
-
-              end select
-
-            end do
-
+          do i=1, size(faceEdges)
+            if (areEqual(faceEdges(i)%ptr%distanceSquared(intersectionResult%intersectionPt), ZERO)) then 
+              currentEdge = faceEdges(i)
+              exit 
+            end if 
+          end do
+          if (.not. associated(currentEdge%ptr)) then 
+            return 
           end if
 
-        end do 
-        
-        !If none of the previous cases have been triggered, the particle is pointing outside of the mesh
-        data % elementIdx = 0
-        data % localId = 0
+          edgeElements = currentEdge%ptr%getSharingElements() 
+          edgeFaces = currentEdge%ptr%getSharingFaces() 
 
+          !print *, size(edgeElements)
+          elemLoop: do i=1, size(edgeElements)
+            validElem = .true.
+            select type(ptr => edgeElements(i) % ptr)
+              type is(element)
+                if (associated(ptr, currentElement%ptr)) then 
+                  cycle elemLoop 
+                end if
+                !tempElementFaces = ptr%getOrientatedFaces()
+                testIn = ptr%hybridIsPointInsideTPO(data%r, data%u, edgeFaces, size(edgeFaces))
+                !print *, testIn%status == OUTSIDE_ELEMENT
+                if (testIn%status == INSIDE_ELEMENT) then 
+                  data % elementIdx = ptr % getIdx()
+                  data % localId = ptr % getLocalId()
+                  return 
+                end if
+
+
+              class default
+                call fatalError(here, 'Element with index: '//numToChar(ptr % getIdx())//' is not an element.')
+            end select
+          end do elemLoop
+                      
+          
+        else 
+          faceVertices = intersectionResult%intersectedFace%ptr%getVertices()
+          do i=1, size(faceVertices)
+            if (areEqual(faceVertices(i)%ptr%distanceSquared(intersectionResult%intersectionPt), ZERO)) then 
+              currentVertex = faceVertices(i)
+              exit 
+            end if 
+          end do
+
+          vertexElements = currentVertex%ptr%getSharingElements() 
+          vertexFaces = currentVertex%ptr%getSharingFaces() 
+
+          elemLoopV: do i=1, size(vertexElements)
+            validElem = .true.
+            select type(ptr => vertexElements(i) % ptr)
+              type is(element)
+                if (associated(ptr, currentElement%ptr)) then 
+                  cycle elemLoopV 
+                end if
+
+              testIn = ptr%hybridIsPointInsideTPO(data%r, data%u, vertexFaces, size(vertexFaces))
+              !print *, testIn%status == OUTSIDE_ELEMENT
+              if (testIn%status == INSIDE_ELEMENT) then 
+                data % elementIdx = ptr % getIdx()
+                data % localId = ptr % getLocalId()
+                return 
+              end if
+
+              class default
+                call fatalError(here, 'Element with index: '//numToChar(ptr % getIdx())//' is not an element.')
+            end select
+
+          end do elemLoopV
+
+        end if
       end if
+    end if
+      
 
-     end if
+    !If none of the previous cases have been triggered, the particle is pointing outside of the mesh
+    data % elementIdx = 0
+    data % localId = 0
 
   
 
   end subroutine distanceToNextFace
 
 
-  subroutine verifyInElement(self, data, intersectionResult, currentElement, result)
-    class(unstructuredMesh), intent(in)                   :: self
-    type(coordData), intent(inout)                        :: data
-    type(topologicalObjectBox),intent(in)                                  :: currentElement
-    type(elementIntersectionTestResult),intent(in)                   :: intersectionResult
-    logical, intent(inout) :: result
-    type(elementIntersectionTestResult)                 :: intersectionResultNew
-    integer(shortInt)                                     :: i, j, nElements, currentIdx 
-    type(faceBox) :: currentFace
-    type(topologicalObjectBox), dimension(:), allocatable :: faceElements
-    type(orientatedFaceBox), dimension(:), allocatable :: elementFaces
-    type(inclusionTestResult) :: testIn
-    real(defReal), dimension(3) :: end
-    character(*), parameter                               :: here = 'vertifyInElement (unstructuredMesh_inter.f90)'
 
-    result = .false.
+                ! tempElementFaces = ptr%getOrientatedFaces()
 
+                ! elemFaceLoop: do j=1, size(tempElementFaces)
+                !   edgeFaceLoop: do k=1, size(edgeFaces)
 
-    select type(ptr1 => currentElement % ptr)
-      type is(element)
+                !     select type(ptrF => edgeFaces(k) % ptr)
+                !       type is(face)
+                !         if (ptrF%getIdx()==tempElementFaces(j)%face%ptr%getIdx()) then
 
-        if (intersectionResult%front == 1) then 
-          !print *, 'here'
-          ! Else, retrieve the elements sharing the intersected face from mesh connectivity then
-          ! update elementIdx and localId.
-          faceElements = intersectionResult % intersectedFace % ptr % getSharingElements()
-          nElements = size(faceElements)
-          if (nElements /= 2) &
-          call fatalError(here, 'Internal face: '//numToChar(intersectionResult % intersectedFace % ptr % getIdx())// &
-                                ' is not associated to the correct number of elements.')
+                !           if (dot_product(ptrF%getNormal(), data%u) > 0) then 
+                !             validElem = .false.
+                !             cycle elemLoop 
+                !           end if
 
-          do i = 1, 2
-            !print *, 'here?'
-            ! Downcast element to correct type.
-            select type(ptr => faceElements(i) % ptr)
-              type is(element)
-                testIn = ptr%hybridIsPointInside(data % r + (data%u * data%dMax))
-                if (.not. associated(ptr1, ptr) .and. testIn%status == INSIDE_ELEMENT) then ! comment this second part out and it works.....
-                  ! We have found our new element.
-                  print *, '@@@'
-                  result = .true.
-                  data % elementIdx = ptr % getIdx()
-                  data % localId = ptr % getLocalId()
-                  return
+                !         end if 
+                !     end select
 
-                end if
-
-              class default
-                call fatalError(here, 'Element with index: '//numToChar(ptr % getIdx())//' is not an element.')
-
-            end select
-
-          end do
-        else
-          elementFaces = ptr1%getOrientatedFaces()
-          do i=1, size(elementFaces) 
-            !print *, 'or here?'
-            if (ANY(intersectionResult%currentFaceIdxs(1:intersectionResult%front)==elementFaces(i)%face%ptr%getFaceIdx()) .and. &
-                    (.not. elementFaces(i)%face % ptr % getIsBoundary())) then 
-                    
-                  
-              faceElements = elementFaces(i)%face%ptr % getSharingElements()
-              nElements = size(faceElements)
-              if (nElements /= 2) &
-              call fatalError(here, 'Internal face: '//numToChar(intersectionResult % intersectedFace % ptr % getIdx())// &
-                                    ' is not associated to the correct number of elements.')
-
-              do j = 1, 2
-
-                ! Downcast element to correct type.
-                select type(ptr => faceElements(j) % ptr)
-                  type is(element)
-                    testIn = ptr%hybridIsPointInsideGivenFaces(data % r + (data%u * data%dMax), & 
-                                                            data%u, intersectionResult%currentFaceIdxs)
-
-
-                    !print *, testIn%status == OUTSIDE_ELEMENT
-                    if (.not. associated(ptr1, ptr) .and. (testIn%status == INSIDE_ELEMENT &
-                      .or. testIn%status == ON_BOUNDARY_ELEMENT)) then
-                      ! We have found our new element.
-                      data % elementIdx = ptr % getIdx()
-                      data % localId = ptr % getLocalId()
-                      result = .true.
-                      return
-
-                    end if
-
-                
-                  class default
-                    call fatalError(here, 'Element with index: '//numToChar(ptr % getIdx())//' is not an element.')
-
-                end select
-
-              end do
-
-            end if
-
-          end do 
-        end if
-
-
-
-    end select
-
-
-    
-
-
-
-  end subroutine verifyInElement
-
-
+                !   end do edgeFaceLoop
+                ! end do elemFaceLoop
+                ! if (validElem) then 
+                !   data % elementIdx = ptr % getIdx()
+                !   data % localId = ptr % getLocalId()
+                ! end if
 
 
   

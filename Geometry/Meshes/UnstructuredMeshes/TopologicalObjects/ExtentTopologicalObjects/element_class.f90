@@ -5,7 +5,7 @@ module element_class
                                             intersects_Ray_super => intersects_Ray
   use edge_class,                    only : edgeBox
   use errors_mod,                    only : fatalError
-  use face_class,                    only : faceBox, orientatedFaceBox
+  use face_class,                    only : faceBox, orientatedFaceBox, face
   use genericProcedures,             only : append, areEqual, crossProduct, findCommon, numToChar
   use numPrecision
   use publicObjects,                 only : basicElementInfo, intersectionTestPayload, intersectionTestResult, &
@@ -99,6 +99,7 @@ module element_class
     procedure          :: isPointInside
     procedure          :: hybridIsPointInside
     procedure          :: hybridIsPointInsideGivenFaces
+    procedure          :: hybridIsPointInsideTPO
     procedure          :: kill
     procedure          :: minimumDistance
     procedure          :: pushFromBoundary
@@ -127,6 +128,7 @@ module element_class
     type(faceBox)                               :: intersectedFace
     integer(shortInt), dimension(VALENCE) :: currentFaceIdxs
     integer(shortInt) :: front
+    real(defReal), dimension(3) :: intersectionPt
   end type elementIntersectionTestResult
 
 contains
@@ -652,105 +654,104 @@ contains
 
   end subroutine intersects_BoundingBox
 
-  ! subroutine intersects_Ray(self, payload, result)
-  !   class(element), intent(in)                    :: self
-  !   class(intersectionTestPayload), intent(in)    :: payload
-  !   class(intersectionTestResult), intent(inout)  :: result
-  !   type(elementIntersectionTestPayload), pointer :: payloadPtr
-  !   type(elementIntersectionTestResult), pointer  :: resultPtr
-  !   real(defReal), dimension(3)                   :: centroid, faceCentroid, outwardNormal, rEnd
-  !   integer(shortInt)                             :: i
-  !   real(defReal)                                 :: centroidLambda, dotProduct, faceLambda, minLambda
-  !   character(*), parameter                       :: here = 'intersects_Ray (element_class.f90)'
+  subroutine intersects_Ray1(self, payload, result)
+    class(element), intent(in)                    :: self
+    class(intersectionTestPayload), intent(in)    :: payload
+    class(intersectionTestResult), intent(inout)  :: result
+    type(elementIntersectionTestPayload), pointer :: payloadPtr
+    type(elementIntersectionTestResult), pointer  :: resultPtr
+    real(defReal), dimension(3)                   :: centroid, faceCentroid, outwardNormal, rEnd
+    integer(shortInt)                             :: i
+    real(defReal)                                 :: centroidLambda, dotProduct, faceLambda, minLambda
+    character(*), parameter                       :: here = 'intersects_Ray (element_class.f90)'
 
-  !   ! Downcast payload to correct type.
-  !   select type(ptr => payload)
-  !     type is(elementIntersectionTestPayload)
-  !       payloadPtr => ptr
+    ! Downcast payload to correct type.
+    select type(ptr => payload)
+      type is(elementIntersectionTestPayload)
+        payloadPtr => ptr
 
-  !     class default
-  !       call fatalError(here, 'Invalid payload type.')
+      class default
+        call fatalError(here, 'Invalid payload type.')
 
-  !   end select
+    end select
 
-  !   ! Allocate result to correct return type then associate pointer.
-  !   select type(ptr => result)
-  !     type is(elementIntersectionTestResult)
-  !       resultPtr => ptr
-  !       call resetElementIntersectionTestResult(resultPtr)
+    ! Allocate result to correct return type then associate pointer.
+    select type(ptr => result)
+      type is(elementIntersectionTestResult)
+        resultPtr => ptr
+        call resetElementIntersectionTestResult(resultPtr)
 
-  !     class default
-  !       ! Should never happen.
-  !       call fatalError(here, 'Failed to downcast result.')
+      class default
+        ! Should never happen.
+        call fatalError(here, 'Failed to downcast result.')
 
-  !   end select
+    end select
 
-  !   resultPtr%front = 0
+    resultPtr%front = 0
 
-  !   ! Check if ray originates from inside the element (skip bounding box intersection in this case.)
-  !   if (payloadPtr % skipBoundingBoxIntersectionTest) then
+    ! Check if ray originates from inside the element (skip bounding box intersection in this case.)
+    if (payloadPtr % skipBoundingBoxIntersectionTest) then
 
-  !     do i=1, size(self%orientatedFaces)  
-  !       print *, self%orientatedFaces(i)%face%ptr%getFaceIdx()
-  !     end do
-  !     ! Retrieve element's centroid then loop over all faces in the element.
-  !     rEnd = payload % r + payload % u * payload % dMax
-  !     centroid = self % getCentroid()
-  !     minLambda = INF
-  !     do i = 1, size(self % orientatedFaces)
-  !       ! Retrieve the signed normal vector of the current face.
-  !       faceCentroid = self % orientatedFaces(i) % face % ptr % getCentroid()
-  !       outwardNormal = self % orientatedFaces(i) % outwardNormal
+    
+      ! Retrieve element's centroid then loop over all faces in the element.
+      rEnd = payload % r + payload % u * payload % dMax
+      centroid = self % getCentroid()
+      minLambda = INF
+      do i = 1, size(self % orientatedFaces)
+        ! Retrieve the signed normal vector of the current face.
+        faceCentroid = self % orientatedFaces(i) % face % ptr % getCentroid()
+        outwardNormal = self % orientatedFaces(i) % outwardNormal
         
-  !       ! Retrieve the centre of the current face and compute lambda.
-  !       dotProduct = dot_product(rEnd - centroid, outwardNormal)
-  !       if (areEqual(dotProduct, ZERO)) cycle
-  !       centroidLambda = dot_product(faceCentroid - centroid, outwardNormal) / dotProduct
+        ! Retrieve the centre of the current face and compute lambda.
+        dotProduct = dot_product(rEnd - centroid, outwardNormal)
+        if (areEqual(dotProduct, ZERO)) cycle
+        centroidLambda = dot_product(faceCentroid - centroid, outwardNormal) / dotProduct
         
-  !       ! If ZERO <= lambda <= ONE, append the current face to the list of potentially intersected faces.
-  !       if (ZERO <= centroidLambda .and. centroidLambda <= ONE) then
-  !         ! Compute lambda for the face using the actual particle coordinates.
-  !         dotProduct = dot_product(rEnd - payload % r, outwardNormal)
-  !         if (areEqual(dotProduct, ZERO)) cycle
-  !         faceLambda = dot_product(faceCentroid - payload % r, outwardNormal) / dotProduct
-  !         if (payloadPtr % excludeZeroFaces .and. faceLambda <= ZERO) cycle
-  !         if (faceLambda < minLambda) then
-  !           minLambda = faceLambda
-  !           resultPtr % intersectedFace = self % orientatedFaces(i) % face
+        ! If ZERO <= lambda <= ONE, append the current face to the list of potentially intersected faces.
+        if (ZERO <= centroidLambda .and. centroidLambda <= ONE) then
+          ! Compute lambda for the face using the actual particle coordinates.
+          dotProduct = dot_product(rEnd - payload % r, outwardNormal)
+          if (areEqual(dotProduct, ZERO)) cycle
+          faceLambda = dot_product(faceCentroid - payload % r, outwardNormal) / dotProduct
+          if (payloadPtr % excludeZeroFaces .and. faceLambda <= ZERO) cycle
+          if (faceLambda < minLambda) then
+            minLambda = faceLambda
+            resultPtr % intersectedFace = self % orientatedFaces(i) % face
 
-  !         end if
+          end if
 
-  !       else
-  !         ! Check if end point is on the place of the current face.
-  !         if (areEqual(dot_product(rEnd - faceCentroid, outwardNormal), ZERO)) then
-  !           ! End point is on the plane of the face. Check if it is contained inside it.
-  !           if (self % orientatedFaces(i) % face % ptr % isPointInside(rEnd)) then
-  !             resultPtr % intersectedFace = self % orientatedFaces(i) % face
-  !             minLambda = ONE
-  !             exit
+        else
+          ! Check if end point is on the place of the current face.
+          if (areEqual(dot_product(rEnd - faceCentroid, outwardNormal), ZERO)) then
+            ! End point is on the plane of the face. Check if it is contained inside it.
+            if (self % orientatedFaces(i) % face % ptr % isPointInside(rEnd)) then
+              resultPtr % intersectedFace = self % orientatedFaces(i) % face
+              minLambda = ONE
+              exit
 
-  !           end if
+            end if
 
-  !         end if
+          end if
 
-  !       end if
+        end if
 
-  !     end do
+      end do
 
-  !     if (associated(resultPtr % intersectedFace % ptr)) then
-  !       resultPtr % intersects = .true.
-  !       resultPtr % d = norm2(min(ONE, max(ZERO, minLambda)) * (rEnd - payload % r))
+      if (associated(resultPtr % intersectedFace % ptr)) then
+        resultPtr % intersects = .true.
+        resultPtr % d = norm2(min(ONE, max(ZERO, minLambda)) * (rEnd - payload % r))
 
-  !     end if
+      end if
 
-  !   else
-  !     ! Call fatalError for now.
-  !     call fatalError(here, 'Unsupported procedure.')
+    else
+      ! Call fatalError for now.
+      call fatalError(here, 'Unsupported procedure.')
 
-  !   end if
+    end if
 
-  ! end subroutine intersects_Ray
+  end subroutine intersects_Ray1
 
+  
   !!
   !!
   !!
@@ -770,8 +771,6 @@ contains
     character(*), parameter                       :: here = 'intersects_Ray (element_class.f90)'
 
     faceArrayFront = 1
-    ! print *, 'new prco'
-
 
     ! Downcast payload to correct type.
     select type(ptr => payload)
@@ -797,15 +796,10 @@ contains
 
     ! Check if ray originates from inside the element (skip bounding box intersection in this case.)
     if (payloadPtr % skipBoundingBoxIntersectionTest) then
-      !print *, '>:('
 
       ! Retrieve element's centroid then loop over all faces in the element.
       rEnd = payload % r + payload % u * payload % dMax
 
-      ! print *, payload%r 
-      ! print *, payload%u 
-      ! print *, payload%dMax
-      ! print *, rEnd
 
       !! Temporary fix, somewhere the front isnt being initialised to 0, not sure where
       resultPtr%front = 0
@@ -814,16 +808,10 @@ contains
       centroid = self % getCentroid()
       minLambda = INF
 
-      ! print *, '//??//'
-      ! do i = 1, size(self % orientatedFaces) 
-      !   print *, self%orientatedFaces(i)%face%ptr%getFaceIdx()
-      ! end do 
-      ! print *, '-//??//-'
-
       do i = 1, size(self % orientatedFaces)
         if (payload%front > 0 .and. &
-            ANY(payload%currentFaceIdxs(1:payload%front)==self%orientatedFaces(i)%face%ptr%getFaceIdx()) .and. &
-              self%orientatedFaces(i)%face%ptr%getFaceIdx() /= 0) then 
+            ANY(payload%currentFaceIdxs(1:payload%front)==self%orientatedFaces(i)%face%ptr%getIdx()) .and. &
+              self%orientatedFaces(i)%face%ptr%getIdx() /= 0) then 
               !print *, self%orientatedFaces(i)%face%ptr%getFaceIdx()
           cycle 
         end if
@@ -839,8 +827,6 @@ contains
         if (areEqual(dotProduct, ZERO)) cycle
         centroidLambda = dot_product(faceCentroid - centroid, outwardNormal) / dotProduct
 
-        ! print *, centroidLambda
-
 
         ! If ZERO <= lambda <= ONE, append the current face to the list of potentially intersected faces.
         if (ZERO <= centroidLambda .and. centroidLambda <= ONE) then
@@ -852,17 +838,12 @@ contains
 
 
           if (faceLambda >= 0 .and. faceLambda <= 1)then 
-            !print *, '>:('
-            ! print *, 'facelambda'
-            ! print *, faceLambda
             if (faceArrayFront == 1) then 
               faceArray(1) = self % orientatedFaces(i) % face 
-              !print *, self % orientatedFaces(i) % face%ptr%getFaceIdx()
               faceArrayLambdas(1) = faceLambda
               faceArrayFront = faceArrayFront + 1 
             else 
               faceArray(faceArrayFront) = self % orientatedFaces(i) % face 
-              !print *, self % orientatedFaces(i) % face%ptr%getFaceIdx()
               faceArrayLambdas(faceArrayFront) = faceLambda
               faceArrayFront = faceArrayFront + 1 
             end if
@@ -870,30 +851,6 @@ contains
 
 
           if (faceLambda < minLambda) then
-            ! print *, 'here'
-
-            !! Note, this part could possibly be wrong, not sure may need to add ALL intersections, not just the lowest ones
-          ! !! Code added here
-            ! if (areEqual(faceLambda, minLambda)) then 
-            !   if (faceArrayFront == 0) then 
-            !     faceArray(1) = resultPtr % intersectedFace
-            !     faceArray(2) = self % orientatedFaces(i) % face 
-            !     faceArrayFront = 3
-            !   else 
-            !     faceArray(faceArrayFront) = self % orientatedFaces(i) % face 
-            !     faceArrayFront = faceArrayFront + 1
-            !   end if
-            ! else if (minLambda == INF) then 
-            !   faceArray(1) = self % orientatedFaces(i) % face 
-            !   faceArrayFront = 2
-            ! end if
-
-            ! print *, faceArrayFront
-
-            
-
-       
-
             minLambda = faceLambda
             tempFace = self % orientatedFaces(i) % face
 
@@ -902,7 +859,7 @@ contains
         else
           ! Check if end point is on the place of the current face.
           if (areEqual(dot_product(rEnd - faceCentroid, outwardNormal), ZERO)) then
-            !print *, '????????????????'
+
             ! End point is on the plane of the face. Check if it is contained inside it.
             if (self % orientatedFaces(i) % face % ptr % isPointInside(rEnd)) then
               
@@ -921,10 +878,8 @@ contains
 
 
       if (associated(tempFace%ptr)) then
-        print *, '^^^'
-        do i =1, faceArrayFront-1 
-          print *, faceArray(i)%ptr%getFaceIdx() 
-        end do
+
+
         !!! code added here: check for distance less than epsilon to a vertex or edge
         if (existsEpsilonDistance(self, payload, payloadPtr, tempFace, &
             size(tempFace%ptr%getVertices()), size(tempFace%ptr%getEdges()), &
@@ -932,30 +887,28 @@ contains
           call rescueParticleNearVertexEdge(self, payload, payloadPtr, faceArrayFront-1,  &
                                             faceArray, resultPtr, intersected, newMinLambda)
 
-          !print *, resultPtr%front 
-
           if (associated(resultPtr % intersectedFace % ptr) ) then
             resultPtr % intersects = .true.
+            resultPtr % intersectionPt = payload % r + min(ONE, max(ZERO, newMinLambda)) * (rEnd - payload % r)
             resultPtr % d = norm2(min(ONE, max(ZERO, newMinLambda)) * (rEnd - payload % r))
-            ! print *, '?'
-            ! print *, resultPtr%front
-            
+
           end if
 
           return
 
         else 
-          !! CALL MULT FACES RESC HERE
+
           do i=1, faceArrayFront-1 
             if (areEqual(minLambda, faceArrayLambdas(i))) then! .and. faceArray(i)%ptr%getFaceIdx() /= tempFace%ptr%getFaceIdx()) then 
               resultPtr%front = resultPtr%front+1
-              resultPtr % currentFaceIdxs(resultPtr%front) = faceArray(i)%ptr%getFaceIdx() 
+              resultPtr % currentFaceIdxs(resultPtr%front) = faceArray(i)%ptr%getIdx() 
             end if 
           end do
 
           
           resultPtr % intersectedFace = tempFace
           resultPtr % intersects = .true.
+          resultPtr % intersectionPt = payload%r + min(ONE, max(ZERO, newMinLambda)) * (rEnd - payload % r)
           resultPtr % d = norm2(min(ONE, max(ZERO, minLambda)) * (rEnd - payload % r))
         end if
 
@@ -969,8 +922,7 @@ contains
 
     end if
 
-    !print *, minLambda
-    
+
   end subroutine intersects_Ray
 
 
@@ -1009,24 +961,14 @@ contains
 
 
     call ratintElementCentroid(elementInp, size(elementInp%getVertices()), elemCentroid)
-    !! calculate directly
+
     rEndReal = payload % r + payload % u * payload % dMax
 
-    !call ratintCalcEndpoint(payload, rEnd)
     rEnd = convert_ieee(rEndReal)
-
-    ! print *,'+++++++++++++++++++++++++++++++++++++++'
-    ! do i=1, 3
-    !   call printRatInt(rEnd(i))
-    ! end do 
-    ! print *,'+++++++++++++++++++++++++++++++++++++++'
 
     rStart = convert_ieee(payload % r)
     minLambda = def_ratint_large()
 
-    !print *, evaluate(minLambda)
-
-    !print *, faceArrayLast
 
     ! Loops through face array
     do i = 1, faceArrayLast
@@ -1043,8 +985,6 @@ contains
 
       centroidLambda = dot_product(faceCentroid - elemCentroid, outwardNormal) / dotProduct
 
-    
-
 
       ! If ZERO <= lambda <= ONE, append the current face to the list of potentially intersected faces.
       if (centroidLambda >= convert_int(0_8) .and. convert_int(1_8) >= centroidLambda) then
@@ -1056,9 +996,7 @@ contains
 
 
         if (faceLambda >= convert_int(0_8) .and. convert_int(1_8) >= faceLambda) then 
-          !print *, evaluate(faceLambda)
 
-          !print *, '**'
           faceArrayNew(faceArrayNewFront)  = faceArray(i) 
           faceArrayNewLambdas(faceArrayNewFront) = faceLambda 
           faceArrayNewFront = faceArrayNewFront + 1
@@ -1089,30 +1027,24 @@ contains
 
     end do
 
-    !call printRatInt(minLambda)
-    !print *, evaluate(minLambda)
 
-    !call printRatInt(minLambda)
     if (associated(res%intersectedFace%ptr)) then
    
       call ratintOutwardNormal(res%intersectedFace, elemCentroid, faceCentroid, &
             size(res%intersectedFace % ptr %getVertices()), outwardNormal)
       intersects = checkIntersected(res%intersectedFace, rStart, rEnd, size(res%intersectedFace%ptr%getVertices()), outwardNormal)
 
-      !! CALL MULT FACES RESC HERE
       do i =1, faceArrayNewFront-1 
         
         if (minLambda==faceArrayNewLambdas(i)) then! .and. faceArrayNew(i)%ptr%getFaceIdx()/=res%intersectedFace%ptr%getFaceIdx()) then 
           !print *, i
           res%front = res%front + 1
-          res%currentFaceIdxs(res%front) = faceArrayNew(i)%ptr%getFaceIdx()
+          res%currentFaceIdxs(res%front) = faceArrayNew(i)%ptr%getIdx()
         end if 
       end do
 
     end if 
 
-    !print *, faceArrayNewFront
-    
 
     newMinLambda = evaluate(minLambda)
  
@@ -1424,6 +1356,84 @@ contains
   end function existsEpsilonDistance
 
 
+  subroutine getFaceIDs(faces, numFaces, faceIDs)
+    integer(shortInt), intent(in) :: numFaces
+    type(topologicalObjectBox), dimension(numFaces), intent(in) :: faces
+    integer(shortInt), dimension(numFaces) :: faceIDs
+    integer(shortInt) :: i 
+
+
+    do i=1, numFaces 
+      select type(ptr1 => faces(i)%ptr)
+        type is(face)
+          faceIDs(i) = ptr1%getIdx()
+      end select
+
+    end do 
+
+
+
+  end subroutine getFaceIDs
+
+
+
+  function hybridIsPointInsideTPO(self, r, u, faces, numFaces) result(result)
+    class(element), intent(in)              :: self
+    real(defReal), dimension(3), intent(in) :: r
+    real(defReal), dimension(3), intent(in) :: u
+    integer(shortInt), intent(in) :: numFaces
+    type(topologicalObjectBox), dimension(numFaces), intent(in) :: faces
+    
+    integer(shortInt), dimension(numFaces) :: faceIDs
+    type(inclusionTestResult)               :: result
+    integer(shortInt)                       :: i
+    real(defReal)                           :: dotProduct
+    logical(defBool)                        :: isOnBoundary
+
+    isOnBoundary = .false.
+    result % status = INSIDE_ELEMENT
+
+    call getFaceIDs(faces, size(faces), faceIDs)
+
+    do i=1, size(self%orientatedFaces)
+      if (ANY(faceIDs==self%orientatedFaces(i)%face%ptr%getIdx())) then 
+
+        dotProduct = dot_product(self%orientatedFaces(i)%outwardNormal, u)
+
+        if (areEqual(dotProduct, ZERO)) then 
+          if (dotProduct /= 0) then 
+            
+            result = ratintIsPointInsideGivenFaces(self, r, u, faceIDs)
+          end if 
+
+          isOnBoundary = .true.
+
+          ! Store the first face found and cycle to search other faces.
+          if (result % failedFaceIdx == 0) then 
+            result % failedFaceIdx = self % orientatedFaces(i) % face % ptr % getIdx()
+            return 
+          end if
+      
+        end if
+
+        if (dotProduct > 0) then 
+          result % status = OUTSIDE_ELEMENT
+          result % failedFaceIdx = self % orientatedFaces(i) % face % ptr % getIdx()
+          return 
+        end if
+      
+      else 
+        cycle
+      end if
+
+    end do
+
+    if (isOnBoundary) result % status = ON_BOUNDARY_ELEMENT
+
+
+  end function hybridIsPointInsideTPO
+
+
   function hybridIsPointInsideGivenFaces(self, r, u, faces) result(result)
     class(element), intent(in)              :: self
     real(defReal), dimension(3), intent(in) :: r
@@ -1438,7 +1448,7 @@ contains
     result % status = INSIDE_ELEMENT
 
     do i=1, size(self%orientatedFaces)
-      if (ANY(faces==self%orientatedFaces(i)%face%ptr%getFaceIdx())) then 
+      if (ANY(faces==self%orientatedFaces(i)%face%ptr%getIdx())) then 
 
         dotProduct = dot_product(self%orientatedFaces(i)%face%ptr%getNormal(), u)
 
@@ -1493,7 +1503,7 @@ contains
     ratintU = convert_ieee(u)
 
     do i=1, size(self%orientatedFaces)
-      if (ANY(faces==self%orientatedFaces(i)%face%ptr%getFaceIdx())) then 
+      if (ANY(faces==self%orientatedFaces(i)%face%ptr%getIdx())) then 
 
         call ratintFaceCentroid(self % orientatedFaces(i) % face, size(self % orientatedFaces(i) % face%ptr%getVertices()), &
                             rintFaceCentroid)
