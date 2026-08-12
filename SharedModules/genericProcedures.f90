@@ -1746,7 +1746,7 @@ contains
   pure function crossProduct_ratint(a, b) result(c)
     type(ratint_t), dimension(3), intent(in) :: a, b
     type(ratint_t), dimension(3) :: c
-
+    
     c = [a(2)*b(3) - a(3)*b(2), &
          a(3)*b(1) - a(1)*b(3), &
          a(1)*b(2) - a(2)*b(1)]

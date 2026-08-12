@@ -18,13 +18,17 @@ module OpenFOAMMesh_iTest
 
   character(*), parameter :: MESH_DEF1 = &
   " id 2; type OpenFOAMMesh; path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/testMesh1/; fills (fuel);"
+
+  character(*), parameter :: MESH_DEF2 = &
+  " id 2; type OpenFOAMMesh; path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/cubes/; fills (fuel);"
   
   ! Variables.
   type(charMap)      :: mats
   type(charMap)      :: mats1
+  type(charMap)      :: mats2
   type(OpenFOAMMesh) :: mesh
   type(OpenFOAMMesh) :: mesh1
-
+  type(OpenFOAMMesh) :: mesh2
 contains
   
   !!
@@ -34,6 +38,7 @@ contains
   subroutine setUp()
     type(dictionary)   :: dict
     type(dictionary)   :: dict1
+    type(dictionary)   :: dict2
     character(nameLen) :: name
     character(pathLen) :: path
 
@@ -49,6 +54,12 @@ contains
     call charToDict(dict1, MESH_DEF1)
     call dict1 % get(path, 'path')
     call mesh1 % init(trim(path), dict1, mats1)
+
+    call mats2 % add(name, 1)
+
+    call charToDict(dict2, MESH_DEF2)
+    call dict2 % get(path, 'path')
+    call mesh2 % init(trim(path), dict2, mats2)
   
   
   end subroutine setUp
@@ -61,8 +72,10 @@ contains
 
     call mats % kill()
     call mats1 % kill()
+    call mats2 % kill()
     call mesh % kill()
     call mesh1 % kill()
+    call mesh2 % kill()
 
   end subroutine cleanUp
   
@@ -422,7 +435,7 @@ contains
     @assertEqual(INF, data % d, INF * TOL) 
     @assertEqual(1, data % elementIdx) 
 
-    
+
     ! Hasn't crossed
     data=newCoordData([0.4_defReal,0.4_defReal,0.4_defReal],[ONE,ONE,ONE],dMax=0.099_defReal*norm2([ONE,ONE,ONE]))
     call mesh1 % findHostElement(data)
@@ -561,7 +574,7 @@ contains
 
     ! exits through top left edge
     data=newCoordData([0.5_defReal,0.5_defReal,0.5_defReal],[ONE,ONE,ZERO], &
-                      dMax=0.5_defReal*norm2([ONE,ONE,ZERO]))
+                      dMax=(0.5_defReal)*norm2([ONE,ONE,ZERO]))
     call mesh % findHostElement(data)
     call mesh % distanceToNextFace(data)
     @assertEqual(0.7071067811_defReal, data % d, 0.7071067811_defReal * TOL) 
@@ -588,7 +601,7 @@ contains
     call mesh % findHostElement(data)
     call mesh % distanceToNextFace(data)
     @assertEqual(0.7071067811_defReal, data % d, 0.7071067811_defReal * TOL) 
-    @assertEqual(3, data % elementIdx) 
+    @assertEqual(0, data % elementIdx) 
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 
@@ -883,8 +896,6 @@ contains
     @assertEqual(3, data % elementIdx)
 
 
-    !print *, '=================================================================='
-
 
 
     data=newCoordData([-0.5_defReal,-0.5_defReal,0.5_defReal],[0.5_defReal,0.5_defReal,ZERO], &
@@ -893,7 +904,6 @@ contains
     call mesh % distanceToNextFace(data)
     ! print *, data % elementIdx
     ! print *, data % d
-
     @assertEqual(0.7071067811_defReal, data % d, 0.7071067811_defReal * TOL) 
     @assertEqual(3, data % elementIdx)
 
@@ -904,7 +914,6 @@ contains
     call mesh % distanceToNextFace(data)
     ! print *, data % elementIdx
     ! print *, data % d
-
     @assertEqual(0.8660254037_defReal, data % d, 0.8660254037_defReal * TOL) 
     @assertEqual(3, data % elementIdx)
 
@@ -957,21 +966,1249 @@ contains
     ! print *, evaluate(val2)
 
 
-
-
-
-
-
-
-
-
-    ! print *, 'vals!'
-    ! print *, data%r 
-    ! print *, data%u 
-    ! print *, data%dMax
-
-
-
   end subroutine test_distance_rescue
+
+
+
+  @Test 
+  subroutine test_distance_rescue_8cubes() 
+    type(coordData)          :: data
+    real(defReal), parameter :: dMax = TWO, TOL = 1.0E-6
+    type(ratint_t) :: val1, val2, val3
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[ZERO,ZERO,ZERO], &
+                      dMax=0.0_defReal*norm2([ZERO,ZERO,ZERO]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(5, data % elementIdx)
+    
+
+
+    data=newCoordData([0.25_defReal,-0.25_defReal,0.25_defReal],[ZERO,ZERO,ZERO], &
+                      dMax=0.0_defReal*norm2([ZERO,ZERO,ZERO]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(6, data % elementIdx)
+
+    data=newCoordData([0.25_defReal,-0.25_defReal,-0.25_defReal],[ZERO,ZERO,ZERO], &
+                      dMax=0.0_defReal*norm2([ZERO,ZERO,ZERO]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(2, data % elementIdx)
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,-0.25_defReal],[ZERO,ZERO,ZERO], &
+                      dMax=0.0_defReal*norm2([ZERO,ZERO,ZERO]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(1, data % elementIdx)
+
+
+    data=newCoordData([0.25_defReal,0.25_defReal,-0.25_defReal],[ZERO,ZERO,ZERO], &
+                      dMax=0.0_defReal*norm2([ZERO,ZERO,ZERO]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(4, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,0.25_defReal,-0.25_defReal],[ZERO,ZERO,ZERO], &
+                      dMax=0.0_defReal*norm2([ZERO,ZERO,ZERO]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(3, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,0.25_defReal,0.25_defReal],[ZERO,ZERO,ZERO], &
+                      dMax=0.0_defReal*norm2([ZERO,ZERO,ZERO]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(7, data % elementIdx)
+
+
+    data=newCoordData([0.25_defReal,0.25_defReal,0.25_defReal],[ZERO,ZERO,ZERO], &
+                      dMax=0.0_defReal*norm2([ZERO,ZERO,ZERO]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(8, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=1.5_defReal*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    ! print *, data % elementIdx
+    ! print *, data % d
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(4, data % elementIdx)
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=1.4_defReal*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    ! print *, data % elementIdx
+    ! print *, data % d
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(4, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=1.3_defReal*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    ! print *, data % elementIdx
+    ! print *, data % d
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(4, data % elementIdx)
+
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=1.2_defReal*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    ! print *, data % elementIdx
+    ! print *, data % d
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(4, data % elementIdx)
+
+
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=1.1_defReal*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    ! print *, data % elementIdx
+    ! print *, data % d
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(4, data % elementIdx)
+
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=1.0_defReal*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    ! print *, data % elementIdx
+    ! print *, data % d
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(4, data % elementIdx)
+
+
+    !======== SIDEWAYS TOLERANCE (on vertex)=========!
+
+  
+
+    data=newCoordData([-0.25_defReal+1e-13,-0.25_defReal+1e-13,0.25_defReal+1e-13],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=1.0_defReal*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    ! print *, data % elementIdx
+    ! print *, data % d
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(2, data % elementIdx)
+
+    data=newCoordData([-0.25_defReal+1e-14,-0.25_defReal+1e-14,0.25_defReal+1e-14],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=1.0_defReal*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    ! print *, data % elementIdx
+    ! print *, data % d
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(2, data % elementIdx)
+
+    data=newCoordData([-0.25_defReal+1e-15,-0.25_defReal+1e-15,0.25_defReal+1e-15],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=1.0_defReal*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    ! print *, data % elementIdx
+    ! print *, data % d
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(2, data % elementIdx)
+
+
+
+    data=newCoordData([-0.25_defReal+1e-16,-0.25_defReal+1e-16,0.25_defReal+1e-16],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=1.0_defReal*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    ! print *, data % elementIdx
+    ! print *, data % d
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(2, data % elementIdx)
+
+
+  
+    data=newCoordData([-0.25_defReal+1e-17,-0.25_defReal+1e-17,0.25_defReal+1e-17],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=1.0_defReal*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(4, data % elementIdx)
+
+    data=newCoordData([-0.25_defReal+1e-18,-0.25_defReal+1e-18,0.25_defReal+1e-18],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=1.0_defReal*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(4, data % elementIdx)
+
+    data=newCoordData([-0.25_defReal+1e-19,-0.25_defReal+1e-19,0.25_defReal+1e-19],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=1.0_defReal*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(4, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal+1e-20,-0.25_defReal+1e-20,0.25_defReal+1e-20],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=1.0_defReal*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(4, data % elementIdx)
+
+
+    !======== SIDEWAYS TOLERANCE (past, but near vertex)=========!
+    data=newCoordData([-0.25_defReal+1e-9,-0.25_defReal+1e-9,0.25_defReal+1e-9],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=1.5_defReal*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    ! print *, data % elementIdx
+    ! print *, data % d
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(4, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal+1e-10,-0.25_defReal+1e-10,0.25_defReal+1e-10],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=1.5_defReal*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    ! print *, data % elementIdx
+    ! print *, data % d
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(4, data % elementIdx)
+
+    data=newCoordData([-0.25_defReal+1e-11,-0.25_defReal+1e-11,0.25_defReal+1e-11],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=1.5_defReal*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    ! print *, data % elementIdx
+    ! print *, data % d
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(4, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal+1e-12,-0.25_defReal+1e-12,0.25_defReal+1e-12],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=1.5_defReal*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    ! print *, data % elementIdx
+    ! print *, data % d
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(4, data % elementIdx)
+
+
+
+
+    data=newCoordData([-0.25_defReal+1e-13,-0.25_defReal+1e-13,0.25_defReal+1e-13],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=1.5_defReal*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    ! print *, data % elementIdx
+    ! print *, data % d
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(4, data % elementIdx)
+
+     data=newCoordData([-0.25_defReal+1e-14,-0.25_defReal+1e-14,0.25_defReal+1e-14],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=1.5_defReal*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    ! print *, data % elementIdx
+    ! print *, data % d
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(4, data % elementIdx)
+
+     data=newCoordData([-0.25_defReal+1e-15,-0.25_defReal+1e-15,0.25_defReal+1e-15],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=1.5_defReal*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    ! print *, data % elementIdx
+    ! print *, data % d
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(4, data % elementIdx)
+
+   
+    data=newCoordData([-0.25_defReal+1e-16,-0.25_defReal+1e-16,0.25_defReal+1e-16],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=1.5_defReal*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    ! print *, data % elementIdx
+    ! print *, data % d
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(4, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal+1e-17,-0.25_defReal+1e-17,0.25_defReal+1e-17],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=1.5_defReal*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(4, data % elementIdx)
+
+    data=newCoordData([-0.25_defReal+1e-18,-0.25_defReal+1e-18,0.25_defReal+1e-18],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=1.5_defReal*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(4, data % elementIdx)
+
+    data=newCoordData([-0.25_defReal+1e-19,-0.25_defReal+1e-19,0.25_defReal+1e-19],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=1.5_defReal*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(4, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal+1e-20,-0.25_defReal+1e-20,0.25_defReal+1e-20],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=1.5_defReal*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(4, data % elementIdx)
+
+
+    !=========VERTEX TOLERANCE (after) ================!
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=(1.0_defReal+1e-10)*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(4, data % elementIdx)
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=(1.0_defReal+1e-11)*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(4, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=(1.0_defReal+1e-12)*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(4, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=(1.0_defReal+1e-13)*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(4, data % elementIdx)
+
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=(1.0_defReal+1e-14)*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(4, data % elementIdx)
+
+
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=(1.0_defReal+1e-15)*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(4, data % elementIdx)
+
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=(1.0_defReal+1e-16)*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(4, data % elementIdx)
+
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=(1.0_defReal+1e-17)*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(4, data % elementIdx)
+
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=(1.0_defReal+1e-18)*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(4, data % elementIdx)
+
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=(1.0_defReal+1e-19)*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(4, data % elementIdx)
+
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=(1.0_defReal+1e-20)*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(4, data % elementIdx)
+
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=(1.0_defReal+1e-21)*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(4, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=(1.0_defReal+1e-22)*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(4, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=(1.0_defReal+1e-23)*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(4, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=(1.0_defReal+1e-24)*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(4, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=(1.0_defReal+1e-25)*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(4, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=(1.0_defReal+1e-26)*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(4, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=(1.0_defReal+1e-27)*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(4, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=(1.0_defReal+1e-28)*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(4, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=(1.0_defReal+1e-29)*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(4, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=(1.0_defReal+1e-30)*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(4, data % elementIdx)
+
+
+    !=========VERTEX TOLERANCE (before) ================!
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=(1.0_defReal-1e-10)*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(INF, data % d, INF * TOL) 
+    @assertEqual(5, data % elementIdx)
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=(1.0_defReal-1e-11)*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(INF, data % d, INF * TOL) 
+    @assertEqual(5, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=(1.0_defReal-1e-12)*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(INF, data % d, INF * TOL) 
+    @assertEqual(5, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=(1.0_defReal-1e-13)*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(INF, data % d, INF * TOL) 
+    @assertEqual(5, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=(1.0_defReal-1e-14)*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(INF, data % d, INF * TOL) 
+    @assertEqual(5, data % elementIdx)
+
+
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+                      dMax=(1.0_defReal-1e-15)*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(INF, data % d, INF * TOL) 
+    @assertEqual(5, data % elementIdx)
+
+
+    !!!FAILS PAST THIS POINT
+    ! data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+    !                   dMax=(1.0_defReal-1e-16)*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    ! call mesh2 % findHostElement(data)
+    ! call mesh2 % distanceToNextFace(data)
+    ! @assertEqual(INF, data % d, INF * TOL) 
+    ! @assertEqual(5, data % elementIdx)
+
+
+
+    ! data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+    !                   dMax=(1.0_defReal-1e-17)*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    ! call mesh2 % findHostElement(data)
+    ! call mesh2 % distanceToNextFace(data)
+    ! @assertEqual(INF, data % d, INF * TOL) 
+    ! @assertEqual(5, data % elementIdx)
+
+
+
+    ! data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+    !                   dMax=(1.0_defReal-1e-18)*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    ! call mesh2 % findHostElement(data)
+    ! call mesh2 % distanceToNextFace(data)
+    ! @assertEqual(INF, data % d, INF * TOL) 
+    ! @assertEqual(5, data % elementIdx)
+
+
+
+    ! data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+    !                   dMax=(1.0_defReal-1e-19)*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    ! call mesh2 % findHostElement(data)
+    ! call mesh2 % distanceToNextFace(data)
+    ! @assertEqual(INF, data % d, INF * TOL) 
+    ! @assertEqual(5, data % elementIdx)
+
+
+
+    ! data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+    !                   dMax=(1.0_defReal-1e-20)*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    ! call mesh2 % findHostElement(data)
+    ! call mesh2 % distanceToNextFace(data)
+    ! @assertEqual(INF, data % d, INF * TOL) 
+    ! @assertEqual(5, data % elementIdx)
+
+
+
+    ! data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,-0.25_defReal], &
+    !                   dMax=(1.0_defReal-1e-21)*norm2([0.25_defReal,0.25_defReal,-0.25_defReal]))
+    ! call mesh2 % findHostElement(data)
+    ! call mesh2 % distanceToNextFace(data)
+    ! @assertEqual(INF, data % d, INF * TOL) 
+    ! @assertEqual(5, data % elementIdx)
+
+
+    !=======================EDGE TOLERANCE=========================!
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,ZERO], &
+                      dMax=1.5_defReal*norm2([0.25_defReal,0.25_defReal,ZERO]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    ! print *, data % elementIdx
+    ! print *, data % d
+    @assertEqual(0.3535533906_defReal, data % d, 0.3535533906_defReal * TOL) 
+    @assertEqual(8, data % elementIdx)
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,ZERO], &
+                      dMax=1.4_defReal*norm2([0.25_defReal,0.25_defReal,ZERO]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.3535533906_defReal, data % d, 0.3535533906_defReal * TOL) 
+    @assertEqual(8, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,ZERO], &
+                      dMax=1.3_defReal*norm2([0.25_defReal,0.25_defReal,ZERO]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.3535533906_defReal, data % d, 0.3535533906_defReal * TOL) 
+    @assertEqual(8, data % elementIdx)
+
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,ZERO], &
+                      dMax=1.2_defReal*norm2([0.25_defReal,0.25_defReal,ZERO]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.3535533906_defReal, data % d, 0.3535533906_defReal * TOL) 
+    @assertEqual(8, data % elementIdx)
+
+
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,ZERO], &
+                      dMax=1.1_defReal*norm2([0.25_defReal,0.25_defReal,ZERO]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.3535533906_defReal, data % d, 0.3535533906_defReal * TOL) 
+    @assertEqual(8, data % elementIdx)
+
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,ZERO], &
+                      dMax=1.0_defReal*norm2([0.25_defReal,0.25_defReal,ZERO]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.3535533906_defReal, data % d, 0.3535533906_defReal * TOL) 
+    @assertEqual(8, data % elementIdx)
+
+
+
+    !=======================EDGE TOLERANCE (after)=========================!
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,ZERO], &
+                      dMax=(1.0_defReal+1e-10)*norm2([0.25_defReal,0.25_defReal,ZERO]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.3535533906_defReal, data % d, 0.3535533906_defReal * TOL) 
+    @assertEqual(8, data % elementIdx)
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,ZERO], &
+                      dMax=(1.0_defReal+1e-11)*norm2([0.25_defReal,0.25_defReal,ZERO]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.3535533906_defReal, data % d, 0.3535533906_defReal * TOL) 
+    @assertEqual(8, data % elementIdx)
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,ZERO], &
+                      dMax=(1.0_defReal+1e-12)*norm2([0.25_defReal,0.25_defReal,ZERO]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.3535533906_defReal, data % d, 0.3535533906_defReal * TOL) 
+    @assertEqual(8, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,ZERO], &
+                      dMax=(1.0_defReal+1e-13)*norm2([0.25_defReal,0.25_defReal,ZERO]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.3535533906_defReal, data % d, 0.3535533906_defReal * TOL) 
+    @assertEqual(8, data % elementIdx)
+
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,ZERO], &
+                      dMax=(1.0_defReal+1e-14)*norm2([0.25_defReal,0.25_defReal,ZERO]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.3535533906_defReal, data % d, 0.3535533906_defReal * TOL) 
+    @assertEqual(8, data % elementIdx)
+
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,ZERO], &
+                      dMax=(1.0_defReal+1e-15)*norm2([0.25_defReal,0.25_defReal,ZERO]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.3535533906_defReal, data % d, 0.3535533906_defReal * TOL) 
+    @assertEqual(8, data % elementIdx)
+
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,ZERO], &
+                      dMax=(1.0_defReal+1e-16)*norm2([0.25_defReal,0.25_defReal,ZERO]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.3535533906_defReal, data % d, 0.3535533906_defReal * TOL) 
+    @assertEqual(8, data % elementIdx)
+
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,ZERO], &
+                      dMax=(1.0_defReal+1e-17)*norm2([0.25_defReal,0.25_defReal,ZERO]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.3535533906_defReal, data % d, 0.3535533906_defReal * TOL) 
+    @assertEqual(8, data % elementIdx)
+
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,ZERO], &
+                      dMax=(1.0_defReal+1e-18)*norm2([0.25_defReal,0.25_defReal,ZERO]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.3535533906_defReal, data % d, 0.3535533906_defReal * TOL) 
+    @assertEqual(8, data % elementIdx)
+
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,ZERO], &
+                      dMax=(1.0_defReal+1e-19)*norm2([0.25_defReal,0.25_defReal,ZERO]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.3535533906_defReal, data % d, 0.3535533906_defReal * TOL) 
+    @assertEqual(8, data % elementIdx)
+
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,ZERO], &
+                      dMax=(1.0_defReal+1e-20)*norm2([0.25_defReal,0.25_defReal,ZERO]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.3535533906_defReal, data % d, 0.3535533906_defReal * TOL) 
+    @assertEqual(8, data % elementIdx)
+
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,ZERO], &
+                      dMax=(1.0_defReal+1e-21)*norm2([0.25_defReal,0.25_defReal,ZERO]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.3535533906_defReal, data % d, 0.3535533906_defReal * TOL) 
+    @assertEqual(8, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,ZERO], &
+                      dMax=(1.0_defReal+1e-22)*norm2([0.25_defReal,0.25_defReal,ZERO]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.3535533906_defReal, data % d, 0.3535533906_defReal * TOL) 
+    @assertEqual(8, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,ZERO], &
+                      dMax=(1.0_defReal+1e-23)*norm2([0.25_defReal,0.25_defReal,ZERO]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.3535533906_defReal, data % d, 0.3535533906_defReal * TOL) 
+    @assertEqual(8, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,ZERO], &
+                      dMax=(1.0_defReal+1e-24)*norm2([0.25_defReal,0.25_defReal,ZERO]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.3535533906_defReal, data % d, 0.3535533906_defReal * TOL) 
+    @assertEqual(8, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,ZERO], &
+                      dMax=(1.0_defReal+1e-25)*norm2([0.25_defReal,0.25_defReal,ZERO]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.3535533906_defReal, data % d, 0.3535533906_defReal * TOL) 
+    @assertEqual(8, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,ZERO], &
+                      dMax=(1.0_defReal+1e-26)*norm2([0.25_defReal,0.25_defReal,ZERO]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.3535533906_defReal, data % d, 0.3535533906_defReal * TOL) 
+    @assertEqual(8, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,ZERO], &
+                      dMax=(1.0_defReal+1e-27)*norm2([0.25_defReal,0.25_defReal,ZERO]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.3535533906_defReal, data % d, 0.3535533906_defReal * TOL) 
+    @assertEqual(8, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,ZERO], &
+                      dMax=(1.0_defReal+1e-28)*norm2([0.25_defReal,0.25_defReal,ZERO]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.3535533906_defReal, data % d, 0.3535533906_defReal * TOL) 
+    @assertEqual(8, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,ZERO], &
+                      dMax=(1.0_defReal+1e-29)*norm2([0.25_defReal,0.25_defReal,ZERO]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.3535533906_defReal, data % d, 0.3535533906_defReal * TOL) 
+    @assertEqual(8, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,ZERO], &
+                      dMax=(1.0_defReal+1e-30)*norm2([0.25_defReal,0.25_defReal,ZERO]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.3535533906_defReal, data % d, 0.3535533906_defReal * TOL) 
+    @assertEqual(8, data % elementIdx)
+
+
+
+    !=======================EDGE TOLERANCE (before)=========================!
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,ZERO], &
+                      dMax=(1.0_defReal-1e-10)*norm2([0.25_defReal,0.25_defReal,ZERO]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(INF, data % d, INF * TOL) 
+    @assertEqual(5, data % elementIdx)
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,ZERO], &
+                      dMax=(1.0_defReal-1e-11)*norm2([0.25_defReal,0.25_defReal,ZERO]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(INF, data % d, INF * TOL) 
+    @assertEqual(5, data % elementIdx)
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,ZERO], &
+                      dMax=(1.0_defReal-1e-12)*norm2([0.25_defReal,0.25_defReal,ZERO]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(INF, data % d, INF * TOL) 
+    @assertEqual(5, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,ZERO], &
+                      dMax=(1.0_defReal-1e-13)*norm2([0.25_defReal,0.25_defReal,ZERO]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(INF, data % d, INF * TOL) 
+    @assertEqual(5, data % elementIdx)
+
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,ZERO], &
+                      dMax=(1.0_defReal-1e-14)*norm2([0.25_defReal,0.25_defReal,ZERO]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(INF, data % d, INF * TOL) 
+    @assertEqual(5, data % elementIdx)
+
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,ZERO], &
+                      dMax=(1.0_defReal-1e-15)*norm2([0.25_defReal,0.25_defReal,ZERO]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(INF, data % d, INF * TOL) 
+    @assertEqual(5, data % elementIdx)
+
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,ZERO], &
+                      dMax=(1.0_defReal-1e-16)*norm2([0.25_defReal,0.25_defReal,ZERO]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(INF, data % d, INF * TOL) 
+    @assertEqual(5, data % elementIdx)
+
+
+    !!!!!!! NOTE: FAILS FROM HERE
+    ! data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,0.25_defReal,ZERO], &
+    !                   dMax=(1.0_defReal-1e-17)*norm2([0.25_defReal,0.25_defReal,ZERO]))
+    ! call mesh2 % findHostElement(data)
+    ! call mesh2 % distanceToNextFace(data)
+    ! @assertEqual(INF, data % d, INF * TOL) 
+    ! @assertEqual(5, data % elementIdx)
+
+    !========= EXIT THROUGH BOTTOM MIDDLE VERTEX (well after -> on vertex) ================!
+
+
+    
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,-0.25_defReal,0.25_defReal], &
+                      dMax=(1.5_defReal)*norm2([0.25_defReal,-0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(0, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,-0.25_defReal,0.25_defReal], &
+                      dMax=(1.4_defReal)*norm2([0.25_defReal,-0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(0, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,-0.25_defReal,0.25_defReal], &
+                      dMax=(1.3_defReal)*norm2([0.25_defReal,-0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(0, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,-0.25_defReal,0.25_defReal], &
+                      dMax=(1.2_defReal)*norm2([0.25_defReal,-0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(0, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,-0.25_defReal,0.25_defReal], &
+                      dMax=(1.1_defReal)*norm2([0.25_defReal,-0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(0, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,-0.25_defReal,0.25_defReal], &
+                      dMax=(1.0_defReal)*norm2([0.25_defReal,-0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(0, data % elementIdx)
+
+
+
+    !========= EXIT THROUGH BOTTOM MIDDLE VERTEX (after) ================!
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,-0.25_defReal,0.25_defReal], &
+                      dMax=(1.0_defReal+1e-10)*norm2([0.25_defReal,-0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(0, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,-0.25_defReal, 0.25_defReal], &
+                      dMax=(1.0_defReal+1e-11)*norm2([0.25_defReal,-0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(0, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,-0.25_defReal,0.25_defReal], &
+                      dMax=(1.0_defReal+1e-12)*norm2([0.25_defReal,-0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(0, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,-0.25_defReal,0.25_defReal], &
+                      dMax=(1.0_defReal+1e-13)*norm2([0.25_defReal,-0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(0, data % elementIdx)
+
+
+!=============================================================
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,-0.25_defReal,0.25_defReal], &
+                      dMax=(1.0_defReal+1e-14)*norm2([0.25_defReal,-0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(0, data % elementIdx)
+!========================================================
+
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,-0.25_defReal, 0.25_defReal], &
+                      dMax=(1.0_defReal+1e-15)*norm2([0.25_defReal,-0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(0, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,-0.25_defReal, 0.25_defReal], &
+                      dMax=(1.0_defReal+1e-16)*norm2([0.25_defReal,-0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(0, data % elementIdx)
+
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,-0.25_defReal,0.25_defReal], &
+                      dMax=(1.0_defReal+1e-17)*norm2([0.25_defReal,-0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.43301270189221930_defReal, data % d, 0.43301270189221930_defReal * TOL) 
+    @assertEqual(0, data % elementIdx)
+
+
+
+
+    !=========EXIT THROUGH BOTTOM MIDDLE VERTEX (before) ================!
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,-0.25_defReal,0.25_defReal], &
+                      dMax=(1.0_defReal-1e-10)*norm2([0.25_defReal,-0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(INF, data % d, INF * TOL) 
+    @assertEqual(5, data % elementIdx)
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,-0.25_defReal,0.25_defReal], &
+                      dMax=(1.0_defReal-1e-11)*norm2([0.25_defReal,-0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(INF, data % d, INF * TOL) 
+    @assertEqual(5, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,-0.25_defReal,0.25_defReal], &
+                      dMax=(1.0_defReal-1e-12)*norm2([0.25_defReal,-0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(INF, data % d, INF * TOL) 
+    @assertEqual(5, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,-0.25_defReal,0.25_defReal], &
+                      dMax=(1.0_defReal-1e-13)*norm2([0.25_defReal,-0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(INF, data % d, INF * TOL) 
+    @assertEqual(5, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,-0.25_defReal,0.25_defReal], &
+                      dMax=(1.0_defReal-1e-14)*norm2([0.25_defReal,-0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(INF, data % d, INF * TOL) 
+    @assertEqual(5, data % elementIdx)
+
+
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,-0.25_defReal,0.25_defReal], &
+                      dMax=(1.0_defReal-1e-15)*norm2([0.25_defReal,-0.25_defReal,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(INF, data % d, INF * TOL) 
+    @assertEqual(5, data % elementIdx)
+
+
+
+
+
+
+
+     !========= EXIT THROUGH BOTTOM MIDDLE EDGE (well after -> on vertex) ================!
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,ZERO,0.25_defReal], &
+                      dMax=(1.5_defReal)*norm2([0.25_defReal,ZERO,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.35355339059327379_defReal, data % d, 0.35355339059327379_defReal * TOL) 
+    @assertEqual(0, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,ZERO,0.25_defReal], &
+                      dMax=(1.4_defReal)*norm2([0.25_defReal,ZERO,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.35355339059327379_defReal, data % d, 0.35355339059327379_defReal * TOL) 
+    @assertEqual(0, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,ZERO,0.25_defReal], &
+                      dMax=(1.3_defReal)*norm2([0.25_defReal,ZERO,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.35355339059327379_defReal, data % d, 0.35355339059327379_defReal * TOL) 
+    @assertEqual(0, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,ZERO,0.25_defReal], &
+                      dMax=(1.2_defReal)*norm2([0.25_defReal,ZERO,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.35355339059327379_defReal, data % d, 0.35355339059327379_defReal * TOL) 
+    @assertEqual(0, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,ZERO,0.25_defReal], &
+                      dMax=(1.1_defReal)*norm2([0.25_defReal,ZERO,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.35355339059327379_defReal, data % d, 0.35355339059327379_defReal * TOL) 
+    @assertEqual(0, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,ZERO,0.25_defReal], &
+                      dMax=(1.0_defReal)*norm2([0.25_defReal,ZERO,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.35355339059327379_defReal, data % d, 0.35355339059327379_defReal * TOL) 
+    @assertEqual(0, data % elementIdx)
+
+
+
+    !========= EXIT THROUGH BOTTOM MIDDLE EDGE (after) ================!
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,ZERO,0.25_defReal], &
+                      dMax=(1.0_defReal+1e-10)*norm2([0.25_defReal,ZERO,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.35355339059327379_defReal, data % d, 0.35355339059327379_defReal * TOL) 
+    @assertEqual(0, data % elementIdx)
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,ZERO, 0.25_defReal], &
+                      dMax=(1.0_defReal+1e-11)*norm2([0.25_defReal,ZERO,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.35355339059327379_defReal, data % d, 0.35355339059327379_defReal * TOL) 
+    @assertEqual(0, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,ZERO,0.25_defReal], &
+                      dMax=(1.0_defReal+1e-12)*norm2([0.25_defReal,ZERO,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.35355339059327379_defReal, data % d, 0.35355339059327379_defReal * TOL) 
+    @assertEqual(0, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,ZERO,0.25_defReal], &
+                      dMax=(1.0_defReal+1e-13)*norm2([0.25_defReal,ZERO,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.35355339059327379_defReal, data % d, 0.35355339059327379_defReal * TOL) 
+    @assertEqual(0, data % elementIdx)
+
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,ZERO,0.25_defReal], &
+                      dMax=(1.0_defReal+1e-14)*norm2([0.25_defReal,ZERO,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.35355339059327379_defReal, data % d, 0.35355339059327379_defReal * TOL) 
+    @assertEqual(0, data % elementIdx)
+
+
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,ZERO, 0.25_defReal], &
+                      dMax=(1.0_defReal+1e-15)*norm2([0.25_defReal,ZERO,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.35355339059327379_defReal, data % d, 0.35355339059327379_defReal * TOL) 
+    @assertEqual(0, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,ZERO, 0.25_defReal], &
+                      dMax=(1.0_defReal+1e-16)*norm2([0.25_defReal,ZERO,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.35355339059327379_defReal, data % d, 0.35355339059327379_defReal * TOL) 
+    @assertEqual(0, data % elementIdx)
+
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,ZERO,0.25_defReal], &
+                      dMax=(1.0_defReal+1e-17)*norm2([0.25_defReal,ZERO,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(0.35355339059327379_defReal, data % d, 0.35355339059327379_defReal * TOL) 
+    @assertEqual(0, data % elementIdx)
+
+
+
+
+    !=========EXIT THROUGH BOTTOM MIDDLE EDGE (before) ================!
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,ZERO,0.25_defReal], &
+                      dMax=(1.0_defReal-1e-10)*norm2([0.25_defReal,ZERO,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(INF, data % d, INF * TOL) 
+    @assertEqual(5, data % elementIdx)
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,ZERO,0.25_defReal], &
+                      dMax=(1.0_defReal-1e-11)*norm2([0.25_defReal,ZERO,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(INF, data % d, INF * TOL) 
+    @assertEqual(5, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,ZERO,0.25_defReal], &
+                      dMax=(1.0_defReal-1e-12)*norm2([0.25_defReal,ZERO,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(INF, data % d, INF * TOL) 
+    @assertEqual(5, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,ZERO,0.25_defReal], &
+                      dMax=(1.0_defReal-1e-13)*norm2([0.25_defReal,ZERO,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(INF, data % d, INF * TOL) 
+    @assertEqual(5, data % elementIdx)
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,ZERO,0.25_defReal], &
+                      dMax=(1.0_defReal-1e-14)*norm2([0.25_defReal,ZERO,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(INF, data % d, INF * TOL) 
+    @assertEqual(5, data % elementIdx)
+
+
+
+
+    data=newCoordData([-0.25_defReal,-0.25_defReal,0.25_defReal],[0.25_defReal,ZERO,0.25_defReal], &
+                      dMax=(1.0_defReal-1e-15)*norm2([0.25_defReal,ZERO,-0.25_defReal]))
+    call mesh2 % findHostElement(data)
+    call mesh2 % distanceToNextFace(data)
+    @assertEqual(INF, data % d, INF * TOL) 
+    @assertEqual(5, data % elementIdx)
+
+
+
+  end subroutine test_distance_rescue_8cubes
 
 end module OpenFOAMMesh_iTest

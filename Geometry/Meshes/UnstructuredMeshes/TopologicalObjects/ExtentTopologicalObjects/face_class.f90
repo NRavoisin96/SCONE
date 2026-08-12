@@ -11,6 +11,7 @@ module face_class
   use topologicalObject_inter,       only : buildTopologicalObjectPayload, kill_super => kill, topologicalObjectBox
   use universalVariables
   use vertex_class,                  only : vertexBox
+  use ratint
   
   implicit none
   private
@@ -41,10 +42,11 @@ module face_class
   !!
   !!
   !!
-  type, public                  :: orientatedFaceBox
-    type(faceBox)               :: face
-    logical(defBool)            :: isOwner = .false.
-    real(defReal), dimension(3) :: outwardNormal = ZERO
+  type, public                    :: orientatedFaceBox
+    type(faceBox)                 :: face
+    logical(defBool)              :: isOwner = .false.
+    real(defReal), dimension(3)   :: outwardNormal = ZERO
+    type(ratint_t), dimension(3)  :: ratintOutwardNormal
   end type orientatedFaceBox
   
   !! Face of an unstructured mesh. Consists of a list of vertices indices making the face up and 
@@ -70,6 +72,7 @@ module face_class
     real(defReal)                                         :: area = ZERO
     real(defReal), dimension(N_BC_TYPES)                  :: boundaryValues = ZERO
     real(defReal), dimension(3)                           :: normal = ZERO
+    type(ratint_t), dimension(3)                          :: ratintNormal
     type(edgeBox), dimension(:), allocatable              :: edges
     type(topologicalObjectBox), dimension(:), allocatable :: sharingElements
     type(vertexBox), dimension(:), allocatable            :: vertices
@@ -94,6 +97,7 @@ module face_class
     procedure          :: getFaceIdx
     procedure          :: getIsBoundary
     procedure          :: getNormal
+    procedure          :: getRatintNormal
     procedure          :: getType
     procedure          :: getVertices
     procedure          :: intersects_BoundingBox
@@ -262,6 +266,7 @@ contains
         self % vertices(1) = payloadPtr % vertices(2)
         self % vertices(2) = payloadPtr % vertices(1)
         self % normal = -self % normal
+        self % ratintNormal = (-1_8) * (self % ratintNormal)
 
       end if
 
@@ -323,6 +328,10 @@ contains
 
     end if
 
+    call ratintNormal(self, nVertices, self%ratintNormal)
+
+
+
   contains
     !!
     !!
@@ -336,6 +345,95 @@ contains
     end function computeTriangleNormal
     
   end subroutine buildComponents
+
+
+
+  ! subroutine ratintFaceCentroid(face, numVertices, rationalCentroid)
+  !   type(faceBox), intent(in) :: face 
+  !   type(ratint_t), dimension(3), intent(inout) :: rationalCentroid
+  !   integer, intent(in) :: numVertices
+  !   type(vertexBox), dimension(numVertices) :: vertices
+  !   type(ratint_t), dimension(3) :: coords
+  !   integer :: i 
+
+  !   rationalCentroid = initratint_vector()
+  !   vertices = (face%ptr%getVertices())
+  !   do i = 1, size(face%ptr%getVertices())
+  !     coords = vertices(i)%ptr%getRatintCoordinates()
+  !     rationalCentroid = rationalCentroid + coords
+  !   end do 
+
+  !   rationalCentroid(1) = rationalCentroid(1) / convert_int(size(face%ptr%getVertices())*1_8)
+  !   rationalCentroid(2) = rationalCentroid(2) / convert_int(size(face%ptr%getVertices())*1_8)
+  !   rationalCentroid(3) = rationalCentroid(3) / convert_int(size(face%ptr%getVertices())*1_8)
+
+  ! end subroutine ratintFaceCentroid 
+
+
+  subroutine ratintNormal(self, numVertices, rationalNormal)
+    class(face), intent(in) :: self 
+    type(ratint_t), dimension(3), intent(inout) :: rationalNormal
+    integer, intent(in) :: numVertices
+    type(ratint_t), dimension(3) :: v1, v2, v3, dir1, dir2, centroidDir
+    type(vertexBox), dimension(numVertices) :: vertices
+
+
+    vertices = self%getVertices()
+    v1 = vertices(1)%ptr%getRatintCoordinates()
+    v2 = vertices(2)%ptr%getRatintCoordinates()
+    v3 = vertices(3)%ptr%getRatintCoordinates()
+
+    dir1 = v1 - v2 
+    dir2 = v1 - v3
+
+    rationalNormal = crossProduct(dir1, dir2)
+
+  end subroutine ratintNormal
+
+
+
+  ! subroutine ratintOutwardNormal(face, elemCentroid, faceCentroid, numVertices, rationalNormal)
+  !   type(faceBox), intent(in) :: face 
+  !   type(ratint_t), dimension(3) :: elemCentroid, faceCentroid
+  !   type(ratint_t), dimension(3), intent(inout) :: rationalNormal
+  !   integer, intent(in) :: numVertices
+  !   type(ratint_t), dimension(3) :: v1, v2, v3, dir1, dir2, centroidDir
+  !   type(ratint_t) :: signTest
+  !   type(vertexBox), dimension(numVertices) :: vertices
+  !   real(defReal), dimension(3) :: coords
+  !   integer :: i
+
+  !   vertices = face%ptr%getVertices()
+  !   coords = vertices(1)%ptr%getCoordinates()
+  !   v1 = vertices(1)%ptr%getRatintCoordinates()
+
+  !   coords = vertices(2)%ptr%getCoordinates()
+  !   v2 = vertices(2)%ptr%getRatintCoordinates()
+
+  !   coords = vertices(3)%ptr%getCoordinates()
+  !   v3 = vertices(3)%ptr%getRatintCoordinates()
+
+
+  !   dir1 = v1 - v2 
+  !   dir2 = v1 - v3
+
+  !   rationalNormal = crossProduct(dir1, dir2)
+
+
+  !   centroidDir = faceCentroid - elemCentroid
+
+
+  !   signTest = dot_product(rationalNormal, centroidDir)
+
+  !   if (convert_int(0_8) > signTest) then 
+  !     call swapSign(rationalNormal)
+  !   end if
+
+
+  ! end subroutine ratintOutwardNormal
+
+
+
 
   !!
   !!
@@ -595,6 +693,20 @@ contains
     if (idx < 0) normal = -normal
 
   end function getNormal
+
+
+
+  pure function getRatintNormal(self, idx) result(ratintNormal)
+    class(face), intent(in)                 :: self
+    type(ratint_t), dimension(3)             :: ratintNormal
+    integer(shortInt), intent(in), optional :: idx
+    
+    ratintNormal = self % ratintNormal
+    
+    if (.not. present(idx)) return
+    if (idx < 0) ratintNormal = (-1_8)*ratintNormal
+
+  end function getRatintNormal
 
   !! Function 'getTriangleIdxs'
   !!

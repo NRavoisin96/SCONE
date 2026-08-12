@@ -469,6 +469,7 @@ contains
   ! end subroutine distanceToNextFace
 
 
+
   !! Subroutine 'distanceToNextFace'
   !!
   !! Basic description:
@@ -505,7 +506,7 @@ contains
     call currentElement%ptr%&
       intersects(newElementIntersectionTestPayload(data%r,data%u,data%dMax,.true., .false.,data%currentFaceIdxs,data%front),&
                                            intersectionResult)
-                                      
+
     if (.not. intersectionResult % intersects) return
     data % d = intersectionResult % d
     data % faceIdx = intersectionResult % intersectedFace % ptr % getIdx()
@@ -514,7 +515,7 @@ contains
 
     endPt = data%r + (data%u * data%dMax)
 
-    
+
     ! If the intersected face is a boundary face then the particle is leaving the mesh.
     if (intersectionResult % intersectedFace % ptr % getIsBoundary()) then
       data % elementIdx = 0
@@ -536,9 +537,9 @@ contains
           ! Downcast element to correct type.
           select type(ptr => faceElements(i) % ptr)
             type is(element)
-            !print *, ptr%getIdx()
-              !testIn = ptr%hybridIsPointInside(data % r + (data%u * data%dMax))
-              if (.not. associated(currentElement % ptr, ptr)) then! .and. testIn%status == INSIDE_ELEMENT) then
+              testIn = ptr%hybridIsPointInside(data % r + (data%u * data%dMax))
+              if (.not. associated(currentElement % ptr, ptr) .and. &
+                  (testIn%status == INSIDE_ELEMENT .or. testIn%status == ON_BOUNDARY_ELEMENT)) then !! comment this out and tests fail
                 ! We have found our new element.
                 data % elementIdx = ptr % getIdx()
                 data % localId = ptr % getLocalId()
@@ -593,7 +594,7 @@ contains
                 call fatalError(here, 'Element with index: '//numToChar(ptr % getIdx())//' is not an element.')
             end select
           end do elemLoop
-                      
+
           
         else 
           faceVertices = intersectionResult%intersectedFace%ptr%getVertices()
@@ -615,13 +616,14 @@ contains
                   cycle elemLoopV 
                 end if
 
-              testIn = ptr%hybridIsPointInsideTPO(data%r, data%u, vertexFaces, size(vertexFaces))
-              !print *, testIn%status == OUTSIDE_ELEMENT
-              if (testIn%status == INSIDE_ELEMENT) then 
-                data % elementIdx = ptr % getIdx()
-                data % localId = ptr % getLocalId()
-                return 
-              end if
+
+                testIn = ptr%hybridIsPointInsideTPO(data%r, data%u, vertexFaces, size(vertexFaces))
+
+                if (testIn%status == INSIDE_ELEMENT) then 
+                  data % elementIdx = ptr % getIdx()
+                  data % localId = ptr % getLocalId()
+                  return 
+                end if
 
               class default
                 call fatalError(here, 'Element with index: '//numToChar(ptr % getIdx())//' is not an element.')
@@ -1041,9 +1043,11 @@ contains
         if (0 < elementInfos(i) % faceIdxs(j)) then
           payloads(i) % orientatedFaces(j) % isOwner = .true.
           payloads(i) % orientatedFaces(j) % outwardNormal = face % ptr % getNormal()
+          payloads(i) % orientatedFaces(j) % ratintOutwardNormal = face % ptr % getRatintNormal()
 
         else
           payloads(i) % orientatedFaces(j) % outwardNormal = -face % ptr % getNormal()
+          payloads(i) % orientatedFaces(j) % ratintOutwardNormal = (-1_8)*(face % ptr % getRatintNormal())
 
         end if
 

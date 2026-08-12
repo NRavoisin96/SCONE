@@ -468,7 +468,7 @@ module ratint
         end function multiplymixedR
 
 
-        type(ratint_t) function multiplyVectorL(n, r1)
+        pure function multiplyVectorL(n, r1) result(rn)
             integer(longInt), intent(in) :: n
             type(ratint_t), dimension(:), intent(in) :: r1
             type(ratint_t), dimension(size(r1)) :: rn 
@@ -482,7 +482,7 @@ module ratint
 
         end function multiplyVectorL
 
-        type(ratint_t) function multiplyVectorR(r1, n)
+        pure function multiplyVectorR(r1, n) result(rn)
             integer(longInt), intent(in) :: n
             type(ratint_t), dimension(:), intent(in) :: r1
             type(ratint_t), dimension(size(r1)) :: rn 
