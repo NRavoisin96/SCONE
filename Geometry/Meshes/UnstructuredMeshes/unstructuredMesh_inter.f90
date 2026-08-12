@@ -525,6 +525,7 @@ contains
     else
 
       if (intersectionResult%front <= 1) then 
+        print *, 'face intersection'
         ! Else, retrieve the elements sharing the intersected face from mesh connectivity then
         ! update elementIdx and localId.
         faceElements = intersectionResult % intersectedFace % ptr % getSharingElements()
@@ -541,6 +542,7 @@ contains
               if (.not. associated(currentElement % ptr, ptr) .and. &
                   (testIn%status == INSIDE_ELEMENT .or. testIn%status == ON_BOUNDARY_ELEMENT)) then !! comment this out and tests fail
                 ! We have found our new element.
+                print *, 'face found'
                 data % elementIdx = ptr % getIdx()
                 data % localId = ptr % getLocalId()
                 return
@@ -556,6 +558,7 @@ contains
       else 
         elementFaces = currentElement%ptr%getOrientatedFaces()
         if (intersectionResult%front == 2) then 
+          print *, 'edge intersection'
 
           faceEdges = intersectionResult%intersectedFace%ptr%getEdges()
 
@@ -597,6 +600,7 @@ contains
 
           
         else 
+          print *, 'vertex intersection'
           faceVertices = intersectionResult%intersectedFace%ptr%getVertices()
           do i=1, size(faceVertices)
             if (areEqual(faceVertices(i)%ptr%distanceSquared(intersectionResult%intersectionPt), ZERO)) then 

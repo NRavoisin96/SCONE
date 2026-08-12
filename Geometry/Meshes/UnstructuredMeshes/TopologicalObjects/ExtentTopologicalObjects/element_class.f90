@@ -1010,6 +1010,7 @@ contains
     intersects = .false.
     
     faceArrayNewFront = 1
+    print *, 'rescue'
 
 
 
@@ -1065,15 +1066,9 @@ contains
         faceLambda = dot_product(faceCentroid - rStart, outwardNormal) / dotProduct
 
 
-
-    
-      
-
         if (payloadPtr % excludeZeroFaces .and.  convert_int(0_8) >= faceLambda) cycle
 
-        
-
-
+      
         if (faceLambda >= convert_int(0_8) .and. convert_int(1_8) >= faceLambda) then 
           !print *, evaluate(faceLambda)
           
@@ -1119,8 +1114,11 @@ contains
       
       intersects = checkIntersected(res%intersectedFace, rStart, rEnd, size(res%intersectedFace%ptr%getVertices()), outwardNormal)
       
+      print *, 'minlambda'
+      print *, evaluate(minLambda)
+      print *, 'intersection lambdas'
       do i =1, faceArrayNewFront-1 
-        !print *, evaluate(minLambda)
+        print *, evaluate(faceArrayNewLambdas(i))
         if (minLambda==faceArrayNewLambdas(i)) then! .and. faceArrayNew(i)%ptr%getFaceIdx()/=res%intersectedFace%ptr%getFaceIdx()) then 
           !print *, evaluate(minLambda)
           res%front = res%front + 1
