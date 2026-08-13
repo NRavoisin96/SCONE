@@ -8,6 +8,7 @@ module patchSearchAcceleration_class
   use numPrecision
   use publicObjects,                only : coordData
   use topologicalObjectShelf_class, only : topologicalObjectShelf
+  use universalVariables,           only : VALENCE
 
   implicit none
   private
@@ -29,15 +30,18 @@ contains
   !!
   !!
   !!
-  subroutine findEntranceBoundaryFace(self, faces, data, boundaryFace)
-    class(patchSearchAcceleration), intent(in) :: self
-    type(topologicalObjectShelf), intent(in)   :: faces
-    type(coordData), intent(inout)             :: data
-    type(faceBox), intent(out)                 :: boundaryFace
-    character(*), parameter                    :: here = 'distanceToBoundaryFace (patchSearchAcceleration_class.f90)'
+  subroutine findEntranceBoundaryFace(self, faces, data, nIntersectedFaces, intersectedFaceIdxs)
+    class(patchSearchAcceleration), intent(in)         :: self
+    type(topologicalObjectShelf), intent(in)           :: faces
+    type(coordData), intent(inout)                     :: data
+    integer(shortInt), intent(out)                     :: nIntersectedFaces
+    integer(shortInt), dimension(VALENCE), intent(out) :: intersectedFaceIdxs
+    character(*), parameter                            :: HERE = 'distanceToBoundaryFace (patchSearchAcceleration_class.f90)'
 
     ! Call fatalError for now.
-    call fatalError(here, 'Unsupported procedure.')
+    nIntersectedFaces = 0
+    intersectedFaceIdxs = 0
+    call fatalError(HERE, 'Unsupported procedure.')
 
   end subroutine findEntranceBoundaryFace
 

@@ -404,7 +404,7 @@ contains
 
           ! Skip test if current face is not a boundary face.
           if (.not. facePtr % getIsBoundary()) cycle
-          call facePtr % intersects(newIntersectionTestPayload(data % r, data % u, data % dMax), intersectionResult)
+          call facePtr % intersects_Ray(newIntersectionTestPayload(data % r, data % u, data % dMax), intersectionResult)
           if (intersectionResult % intersects .and. intersectionResult % d < dMin) then
             dMin = intersectionResult % d
             data % d = dMin

@@ -47,9 +47,7 @@ module topologicalObject_inter
     procedure, non_overridable                  :: getIdx
     procedure, non_overridable                  :: getIsActive
     procedure(getSharingElements), deferred     :: getSharingElements
-    generic                                     :: intersects => intersects_BoundingBox, intersects_Ray
     procedure(intersects_BoundingBox), deferred :: intersects_BoundingBox
-    procedure(intersects_Ray), deferred         :: intersects_Ray
     procedure                                   :: kill
   end type topologicalObject
 
@@ -109,16 +107,6 @@ module topologicalObject_inter
       type(axisAlignedBoundingBox), intent(in) :: boundingBox
       logical(defBool), intent(out)            :: doesIt
     end subroutine intersects_BoundingBox
-
-    !!
-    !!
-    !!
-    subroutine intersects_Ray(self, payload, result)
-      import                                       :: intersectionTestPayload, intersectionTestResult, topologicalObject
-      class(topologicalObject), intent(in)         :: self
-      class(intersectionTestPayload), intent(in)   :: payload
-      class(intersectionTestResult), intent(inout) :: result
-    end subroutine intersects_Ray
 
   end interface
 

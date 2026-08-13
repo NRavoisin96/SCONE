@@ -16,7 +16,7 @@ module vertex_class
   !!
   !!
   type, public, extends(buildTopologicalObjectPayload) :: buildVertexPayload
-    real(defReal), dimension(3) :: coordinates
+    real(defReal), dimension(3)  :: coordinates = ZERO
     type(ratint_t), dimension(3) :: ratintCoordinates
   end type buildVertexPayload
 
@@ -58,6 +58,7 @@ module vertex_class
     procedure :: getRatintCoordinates
     procedure :: getSharingEdges
     procedure :: getSharingElements
+    procedure :: getSharingFaceIdxs
     procedure :: getSharingFaces
     procedure :: intersects_BoundingBox
     procedure :: intersects_Ray
@@ -182,7 +183,7 @@ contains
   !!
   !!
   !!
-  function distanceSquared(self, r) result(dSquared)
+  pure function distanceSquared(self, r) result(dSquared)
     class(vertex), intent(in)               :: self
     real(defReal), dimension(3), intent(in) :: r
     real(defReal)                           :: dSquared
@@ -282,6 +283,30 @@ contains
     end if
 
   end function getSharingElements
+
+  !!
+  !!
+  !!
+  pure function getSharingFaceIdxs(self) result(sharingFaceIdxs)
+    class(vertex), intent(in)                    :: self
+    integer(shortInt)                            :: i, nSharingFaces
+    integer(shortInt), dimension(:), allocatable :: sharingFaceIdxs
+
+    if(allocated(self % sharingFaces)) then
+      nSharingFaces = size(self % sharingFaces)
+      allocate(sharingFaceIdxs(nSharingFaces))
+
+      do i = 1, nSharingFaces
+        sharingFaceIdxs(i) = self % sharingFaces(i) % ptr % getIdx()
+
+      end do
+
+    else
+      allocate(sharingFaceIdxs(0))
+
+    end if
+
+  end function getSharingFaceIdxs
   
   !! Function 'getVertexToFaces'
   !!

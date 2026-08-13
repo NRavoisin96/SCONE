@@ -5,6 +5,7 @@ module triangulationMethod_inter
   use face_class,                    only : buildFacePayload, faceBox, orientatedFaceBox
   use genericProcedures,             only : fatalError
   use numPrecision
+  use ratint
   use topologicalObjectShelf_class,  only : topologicalObjectShelf
   use universalVariables,            only : FOURTH, NOT_PRESENT
 
@@ -45,14 +46,15 @@ contains
     class(triangulationMethod), intent(in)                 :: self
     type(buildElementPayload), dimension(:), intent(inout) :: tetrahedraPayloads
     type(topologicalObjectShelf), intent(inout)            :: edges, elements, faces
-    type(buildFacePayload)                                 :: facePayload
     integer(shortInt)                                      :: edgeIdx, i, j, k, newEdgeIdx, newFaceIdx, triangleIdx
-    type(buildExtentTopologicalObjectPayload)              :: edgePayload
-    type(elementBox)                                       :: element
-    type(orientatedFaceBox), dimension(:), allocatable     :: elementOrientatedFaces
     integer(shortInt), dimension(:), allocatable           :: childrenIdxs
-    type(faceBox)                                          :: triangle
     real(defReal), dimension(3)                            :: outwardNormal
+    type(buildExtentTopologicalObjectPayload)              :: edgePayload
+    type(buildFacePayload)                                 :: facePayload
+    type(elementBox)                                       :: element
+    type(faceBox)                                          :: triangle
+    type(orientatedFaceBox), dimension(:), allocatable     :: elementOrientatedFaces
+    type(ratint_t), dimension(3)                           :: rationalOutwardNormal
     character(*), parameter :: here = 'buildTetrahedraFromVertices (triangulationMethod_inter.f90)'
 
     ! Initialise variables.
@@ -147,8 +149,14 @@ contains
         triangle = faces % getFaceBox(triangleIdx)
         tetrahedraPayloads(i) % orientatedFaces(j) % face = triangle
         outwardNormal = triangle % ptr % getNormal()
-        if (.not. tetrahedraPayloads(i) % orientatedFaces(j) % isOwner) outwardNormal = -outwardNormal
+        rationalOutwardNormal = triangle % ptr % getRatintNormal()
+        if(.not. tetrahedraPayloads(i) % orientatedFaces(j) % isOwner) then
+          outwardNormal = -outwardNormal
+          call swapSign(rationalOutwardNormal)
+
+        end if
         tetrahedraPayloads(i) % orientatedFaces(j) % outwardNormal = outwardNormal
+        tetrahedraPayloads(i) % orientatedFaces(j) % ratintOutwardNormal = rationalOutwardNormal
 
       end do
 

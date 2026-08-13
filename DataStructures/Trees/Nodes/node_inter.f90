@@ -313,7 +313,7 @@ contains
     if (self % isLeaf) then
       if (.not. allocated(self % containedObjects)) return
       do i = 1, size(self % containedObjects)
-        call self % containedObjects(i) % ptr % intersects(boundingBox, doesIt)
+        call self % containedObjects(i) % ptr % intersects_BoundingBox(boundingBox, doesIt)
         if (doesIt) then
           if (allocated(intersectedObjects)) then
             nIntersectedObjects = size(intersectedObjects)

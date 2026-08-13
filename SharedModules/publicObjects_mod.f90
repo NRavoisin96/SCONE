@@ -1,9 +1,9 @@
 module publicObjects
 
   use numPrecision
-  use RNG_class,               only : RNG
-  use universalVariables
   use ratint
+  use RNG_class,         only : RNG
+  use universalVariables
 
   implicit none
   public
@@ -46,34 +46,42 @@ module publicObjects
   !!
   !!
   type :: coordData
-    real(defReal)                  :: d = INF, dMax = ZERO
-    real(defReal), dimension(3)    :: r = ZERO, u = ZERO
-    real(defReal), dimension(3, 3) :: rotationMatrix = ZERO
-    integer(shortInt)              :: cellIdx = 0, elementIdx = 0, faceIdx = 0, localId = 1, meshIdx = 0, &
-                                      surfaceIdx = 0, universeIdx = 0, universeRootId = 0, updateLevel = 0
-    logical(defBool)               :: isInside = .false., isRotated = .false.
-    integer(shortInt), dimension(VALENCE) :: currentFaceIdxs
-    integer(shortInt) :: front = 0
-    
+    integer(shortInt)                     :: cellIdx = 0, elementIdx = 0, faceIdx = 0, front = 0, localId = 1, meshIdx = 0, &
+                                             surfaceIdx = 0, universeIdx = 0, universeRootId = 0, updateLevel = 0
+    integer(shortInt), dimension(VALENCE) :: currentFaceIdxs = 0
+    logical(defBool)                      :: isInside = .false., isRotated = .false.
+    real(defReal)                         :: d = INF, dMax = ZERO
+    real(defReal), dimension(3)           :: r = ZERO, u = ZERO
+    real(defReal), dimension(3, 3)        :: rotationMatrix = ZERO
   end type coordData
 
   !!
   !!
   !!
   type :: intersectionTestPayload
-    real(defReal), dimension(3) :: r = ZERO, u = ZERO
-    real(defReal)               :: dMax = ZERO
-    integer(shortInt), dimension(VALENCE) :: currentFaceIdxs
-    integer(shortInt) :: front
-
+    integer(shortInt)                     :: front = 0
+    integer(shortInt), dimension(VALENCE) :: currentFaceIdxs = 0
+    real(defReal)                         :: dMax = ZERO
+    real(defReal), dimension(3)           :: r = ZERO, u = ZERO
   end type intersectionTestPayload
 
   !!
   !!
   !!
+  type :: rationalIntersectionTestPayload
+    integer(shortInt)                     :: front = 0
+    integer(shortInt), dimension(VALENCE) :: currentFaceIdxs = 0
+    type(ratint_t)                        :: dMax
+    type(ratint_t), dimension(3)          :: r, u
+  end type rationalIntersectionTestPayload
+
+  !!
+  !!
+  !!
   type :: intersectionTestResult
-    logical(defBool) :: intersects = .false.
+    logical(defBool) :: intersects = .false., needsRescue = .false.
     real(defReal)    :: d = INF
+    type(ratint_t)   :: d_rational
   end type intersectionTestResult
 
   !!
@@ -145,6 +153,20 @@ contains
     payload % dMax = dMax
 
   end function newIntersectionTestPayload
+
+  !!
+  !!
+  !!
+  pure function newRationalIntersectionTestPayload(r, u, dMax) result(payload)
+    type(ratint_t), intent(in)               :: dMax
+    type(ratint_t), dimension(3), intent(in) :: r, u
+    type(rationalIntersectionTestPayload)    :: payload
+
+    payload % r = r
+    payload % u = u
+    payload % dMax = dMax
+
+  end function newRationalIntersectionTestPayload
 
   !!
   !!

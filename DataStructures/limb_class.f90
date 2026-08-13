@@ -12,9 +12,8 @@ module limb_class
     type limb_t
     ! Indexed from 0 to allow the lowest index to act as a 'null' index for managing unfilled values
     ! Only use 1-1977 in calculations
-        integer, dimension(0:maxsz) :: limbs
-        integer(shortInt) front
-        integer(longInt) :: sign
+      integer(shortInt)                     :: front = -1, sign = 1
+      integer(shortInt), dimension(0:maxsz) :: limbs
     end type limb_t
 
 
@@ -218,11 +217,11 @@ module limb_class
 
 
         pure subroutine addOnSign(a,b, asig, bsig, s)
-            type(limb_t), intent(in) :: a,b 
-            integer(longInt), intent(in) :: asig, bsig
-            type(limb_t), intent(inout) :: s
-            integer(longInt) :: st, zeroIndA, zeroIndB, overflow, borrow, va, vb
-            integer(shortInt) i, maxfront
+            type(limb_t), intent(in)      :: a,b 
+            integer(shortInt), intent(in) :: asig, bsig
+            type(limb_t), intent(inout)   :: s
+            integer(longInt)              :: st, zeroIndA, zeroIndB, overflow, borrow, va, vb
+            integer(shortInt)             :: i, maxfront
 
             if (a%front == 1977 .and. b%front == 1977 .and. (a%limbs(a%front)*1_8+b%limbs(b%front)*1_8) > 2_8**31) then 
                 call setInvalid(s)
@@ -375,26 +374,24 @@ module limb_class
 
                 if (greaterthan .and. a%sign == -1) then 
                     s%sign = -1
-                    call addOnSign(a, b, 1_8, -1_8, s)
+                    call addOnSign(a, b, 1, -1, s)
                     return
 
                 else if ((.not. greaterthan) .and. b%sign == -1) then 
                     s%sign = -1
-                    call addOnSign(a, b, -1_8, 1_8, s)
+                    call addOnSign(a, b, -1, 1, s)
                     return
 
                 end if
             else 
                 s%sign = a%sign
-                call addOnSign(a, b, 1_8, 1_8, s)
+                call addOnSign(a, b, 1, 1, s)
                 return
                 
             end if
             
             s%sign = 1
             call addOnSign(a, b, a%sign, b%sign, s)
-
-
 
         end function addLimbs
 
@@ -1047,30 +1044,22 @@ module limb_class
 
 
             call findFirst1(b, first1loc)
-           ! print *, first1loc
 
             
 
             shift = first1loc + (b%front - 1)*31
-            ! print *, 'shift'
-            ! print *, shift
 
             !NOTE: issue with the numerator normalisation, likely with the floor() way of getting the front
             ! This was ceiling before, then was changed and it worked until it didnt (on 2654.0_real64 / 9988445522.0_real64)
             call tonormalisedrealby(a, shift, ra)
 
             ra = ra/(2_real64)
-            ! print *, 'ravals'
-            ! print *, ra 
-            ! print *, rb
-            ! print *, shift
 
 
 
 
             x = (48.0_real64/17.0_real64) - (32.0_real64/17.0_real64) * rb 
             do i = 1, 6
-                !print *, x
                 x = x + x * (1.0_real64 - (rb * x))
             end do
 
@@ -1164,8 +1153,6 @@ module limb_class
             !     tempfront = 0
             ! end if
             front = max(ceiling(n*1.0/31.0), 1) * max(min(a%front-ceiling(n*1.0/31.0)+1, 1), 0)
-            ! print *, ceiling(n*1.0/31.0)
-            ! print *, front
             tempfront = a%limbs(front)
 
     
@@ -1369,51 +1356,41 @@ module limb_class
         end function dividelimbsmixedR
 
 
-     pure function limbequality(a,b) result (r)
-            type(limb_t), intent(in) :: a,b 
-            logical :: r 
+        pure function limbequality(a, b) result(r)
+          type(limb_t), intent(in) :: a, b
+          integer(shortInt)        :: i, maxfront, va, vb
+          logical(defBool)         :: r
 
-            integer(shortInt) i
-            integer(longInt) :: zeroIndA, zeroIndB, va, vb
-            integer(shortInt) maxfront 
+          if(checkInvalid(a) .or. checkInvalid(b)) then
+            r = .false.
+            return
 
-            if (checkInvalid(a) .or. checkInvalid(b)) then 
-                r = .false.
-                return 
-            end if
+          end if
 
-            r = .true.
+          r = .false.
+          maxfront = max(a%front, b%front)
 
-            maxfront = max(a%front, b%front)
+          do i = 1, maxfront 
+            if(a % front < i) then 
+              va = 0
 
+            else 
+              va = a % limbs(i)
 
-            do i=1, maxfront 
-                ! zeroIndA = max(min(a%front+1-i, 1), 0)
-                ! zeroIndB = max(min(b%front+1-i, 1), 0)
+            end if 
 
-                ! if (a%limbs(i* zeroIndA) * a%sign /= b%limbs(i*zeroIndB)* b%sign) then 
-                !     r = .false. 
-                !     exit 
-                ! end if
+            if(b % front < i) then 
+              vb = 0
 
-                if (i > a%front) then 
-                    va = 0
-                else 
-                    va = a%limbs(i)
-                end if 
+            else 
+              vb = b % limbs(i)
 
-                if (i > b%front) then 
-                    vb = 0
-                else 
-                    vb = b%limbs(i)
-                end if 
+            end if 
 
-                if (va*a%sign > vb*b%sign) then 
-                    r = .false. 
-                end if
+            if(va * a % sign < vb * b % sign .or. vb * b % sign < va * a % sign) return
 
-            end do 
-
+          end do
+          r = .true.
             
         end function limbequality
 

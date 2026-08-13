@@ -174,6 +174,8 @@ contains
     else
       data % localId = 1
       data % meshIdx = 0
+      data % front = 0
+      data % currentFaceIdxs = 0
 
     end if
     

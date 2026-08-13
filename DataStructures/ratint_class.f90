@@ -8,13 +8,12 @@ module ratint
     implicit none 
 
     type ratint_t
-        type(limb_t) :: p
-        type(limb_t) :: q
+      type(limb_t) :: p, q
     end type ratint_t
 
     interface convert_ieee 
-        module procedure convert_ieee64
-        module procedure convert_ieee64Vector
+      module procedure convert_ieee64
+      module procedure convert_ieee64Vector
     end interface convert_ieee
 
     interface isZero 

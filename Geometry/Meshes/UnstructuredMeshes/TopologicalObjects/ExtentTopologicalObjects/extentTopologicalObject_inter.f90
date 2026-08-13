@@ -4,6 +4,7 @@ module extentTopologicalObject_inter
   use genericProcedures,            only : fatalError
   use numPrecision
   use publicObjects,                only : intersectionTestPayload, intersectionTestResult
+  use ratint
   use topologicalObject_inter,      only : buildTopologicalObjectPayload, init_super => init, kill_super => kill, &
                                            topologicalObject
   use universalVariables,           only : INF
@@ -13,15 +14,16 @@ module extentTopologicalObject_inter
   private
 
   ! Extendable procedures.
-  public :: intersects_Ray, kill
+  public :: kill
 
   !!
   !!
   !!
   type, public, extends(buildTopologicalObjectPayload) :: buildExtentTopologicalObjectPayload
-    real(defReal), dimension(3)                        :: centroid
-    real(defReal), dimension(:, :), allocatable        :: allCoords
-    type(vertexBox), dimension(:), allocatable         :: vertices
+    real(defReal), dimension(3)                 :: centroid
+    real(defReal), dimension(:, :), allocatable :: allCoords
+    type(ratint_t), dimension(3)                :: rationalCentroid
+    type(vertexBox), dimension(:), allocatable  :: vertices
   end type buildExtentTopologicalObjectPayload
 
   !!
@@ -31,6 +33,7 @@ module extentTopologicalObject_inter
     private
     real(defReal), dimension(3)  :: centroid
     type(axisAlignedBoundingBox) :: boundingBox
+    type(ratint_t), dimension(3) :: rationalCentroid
   contains
     ! Build procedures.
     procedure(connectComponents), deferred :: connectComponents
@@ -38,11 +41,11 @@ module extentTopologicalObject_inter
     procedure                              :: kill
     ! Runtime procedures.
     procedure                              :: getBoundingBoxBounds
-    procedure, non_overridable             :: getBoundingBoxPtr
+    procedure                              :: getBoundingBoxPtr
     procedure                              :: getCentroid
+    procedure                              :: getRationalCentroid
     generic                                :: intersectsBoundingBox => intersectsBoundingBox_BoundingBox
     procedure, private                     :: intersectsBoundingBox_BoundingBox
-    procedure                              :: intersects_Ray
   end type extentTopologicalObject
 
   abstract interface
@@ -93,6 +96,17 @@ contains
   !!
   !!
   !!
+  pure function getRationalCentroid(self) result(rationalCentroid)
+    class(extentTopologicalObject), intent(in) :: self
+    type(ratint_t), dimension(3)               :: rationalCentroid
+
+    rationalCentroid = self % rationalCentroid
+
+  end function getRationalCentroid
+
+  !!
+  !!
+  !!
   subroutine init(self, payload)
     class(extentTopologicalObject), intent(inout)       :: self
     class(buildTopologicalObjectPayload), intent(inout) :: payload
@@ -114,6 +128,7 @@ contains
         call fatalError(here, 'Unallocated coordinates array for bounding box computation.')
         
         self % centroid = payloadPtr % centroid
+        self % rationalCentroid = payloadPtr % rationalCentroid
         call self % boundingBox % computeBounds(payloadPtr % allCoords)
 
       class default
@@ -134,19 +149,6 @@ contains
     call self % boundingBox % intersects(boundingBox, doesIt)
 
   end function intersectsBoundingBox_BoundingBox
-
-  !!
-  !!
-  !!
-  subroutine intersects_Ray(self, payload, result)
-    class(extentTopologicalObject), intent(in)   :: self
-    class(intersectionTestPayload), intent(in)   :: payload
-    class(intersectionTestResult), intent(inout) :: result
-
-    ! Check for intersection between object's bounding box and ray.
-    call self % boundingBox % intersects(payload, result)
-
-  end subroutine intersects_Ray
 
   !!
   !!

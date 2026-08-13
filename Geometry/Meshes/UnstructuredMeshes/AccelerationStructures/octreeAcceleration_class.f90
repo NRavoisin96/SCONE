@@ -14,7 +14,8 @@ module octreeAcceleration_class
   use octreeNode_class,             only : buildOctreeNodePayload, octreeNode
   use topologicalObject_inter,      only : topologicalObjectBox
   use topologicalObjectShelf_class, only : topologicalObjectShelf
-  use universalVariables,           only : INF, INSIDE_ELEMENT, NUDGE, ON_BOUNDARY_ELEMENT, OUTSIDE_ELEMENT, TWO
+  use universalVariables,           only : INF, INSIDE_ELEMENT, NUDGE, ON_BOUNDARY_ELEMENT, OUTSIDE_ELEMENT, &
+                                           TWO, VALENCE
 
   implicit none
   private
@@ -36,67 +37,18 @@ contains
   !!
   !!
   !!
-  subroutine findEntranceBoundaryFace(self, faces, data, boundaryFace)
-    class(octreeAcceleration), intent(in)    :: self
-    type(topologicalObjectShelf), intent(in) :: faces
-    type(coordData), intent(inout)           :: data
-    type(faceBox), intent(out)               :: boundaryFace
-    integer(shortInt)                        :: i
-    type(faceBox)                            :: boundaryFaceBruteForce, testFace
-    type(intersectionTestResult)             :: intersectionResult
-    real(defReal)                            :: distanceBruteForce, dMax
-    type(topologicalObjectBox)               :: firstIntersectedObject
-    real(defReal), dimension(3)              :: originalCoords
-    character(*), parameter                  :: here = 'distanceToBoundaryFace (octreeAcceleration_class.f90)'
+  subroutine findEntranceBoundaryFace(self, faces, data, nIntersectedFaces, intersectedFaceIdxs)
+    class(octreeAcceleration), intent(in)              :: self
+    type(topologicalObjectShelf), intent(in)           :: faces
+    type(coordData), intent(inout)                     :: data
+    integer(shortInt), intent(out)                     :: nIntersectedFaces
+    integer(shortInt), dimension(VALENCE), intent(out) :: intersectedFaceIdxs
+    character(*), parameter                            :: HERE = 'distanceToBoundaryFace (octreeAcceleration_class.f90)'
     
-    ! Find boundary face using brute-force.
-    originalCoords = data % r
-    distanceBruteForce = INF
-    do i = 1, faces % getObjectsNumber()
-      testFace = faces % getFaceBox(i)
-      ! Cycle to next face if current face is not active or not a boundary face.
-      if (.not. (testFace % ptr % getIsActive() .and. testFace % ptr % getIsBoundary())) cycle
-
-      ! Compute distance to boundary face.
-      dMax = min(data % dMax, data % d)
-      call testFace % ptr % intersects(newIntersectionTestPayload(data % r, data % u, dMax), intersectionResult)
-      if (intersectionResult % intersects .and. intersectionResult % d < distanceBruteForce) then
-        distanceBruteForce = intersectionResult % d
-        boundaryFaceBruteForce = testFace
-
-      end if
-
-    end do
-
-    ! First compute the intersection with the bounding box of the octree's root node.
-    call self % tree % findFirstIntersectedObject(data, firstIntersectedObject)
-
-    ! Downcast firstIntersectedObject to correct type.
-    if (associated(firstIntersectedObject % ptr)) then
-      select type(ptr => firstIntersectedObject % ptr)
-        type is(face)
-          boundaryFace % ptr => ptr
-
-        class default
-          call fatalError(here, 'First intersected object is not a face.')
-
-      end select
-
-    end if
-    if (distanceBruteForce /= data % d) then
-      print *, 'Original coordinates:', originalCoords
-      print *, 'Current coordinates:', data % r
-      print *, 'Direction:', data % u
-      print *, 'Brute force distance:', distanceBruteForce
-      print *, 'Octree distance:', data % d
-      if (associated(boundaryFaceBruteForce % ptr)) &
-      print *, 'Boundary face brute force:', boundaryFaceBruteForce % ptr % getIdx()
-
-      if (associated(boundaryFace % ptr)) &
-      print *, 'Boundary face octree:', boundaryFace % ptr % getIdx()
-      call fatalError(here, 'Dummy distance.')
-
-    end if
+    ! Call fatalError for now.
+    nIntersectedFaces = 0
+    intersectedFaceIdxs = 0
+    call fatalError(HERE, 'Unsupported procedure.')
 
   end subroutine findEntranceBoundaryFace
 

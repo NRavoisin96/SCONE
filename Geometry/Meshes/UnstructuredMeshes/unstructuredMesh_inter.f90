@@ -10,7 +10,7 @@ module unstructuredMesh_inter
                                                 elementIntersectionTestResult, newElementIntersectionTestPayload
   use extentTopologicalObject_inter,     only : buildExtentTopologicalObjectPayload
   use face_class,                        only : buildFacePayload, face, faceBox
-  use genericProcedures,                 only : append, fatalError, numToChar, areEqual
+  use genericProcedures,                 only : append, areEqual, fatalError, findCommon, numToChar
   use mesh_inter,                        only : mesh, kill_super => kill
   use numPrecision
   use publicObjects,                     only : basicEdgeInfo, basicElementInfo, basicFaceInfo, basicVertexInfo, &
@@ -91,6 +91,7 @@ module unstructuredMesh_inter
     procedure                                        :: distanceToNextFace
     procedure                                        :: explicitBoundaryConditions
     procedure                                        :: findHostElement
+    procedure, private                               :: findHostElementIdxFromDirection
     procedure                                        :: getEdgesNumber
     procedure                                        :: getElementBox
     procedure                                        :: getElementIsActive
@@ -353,328 +354,80 @@ contains
   !! See mesh_inter for details.
   !!
   subroutine distanceToBoundary(self, data)
-    class(unstructuredMesh), intent(in)                   :: self
-    type(coordData), intent(inout)                        :: data
-    type(axisAlignedBoundingBox), pointer                 :: boundingBoxPtr
-    type(intersectionTestResult)                          :: boundingBoxIntersectionResult
-    type(faceBox)                                         :: boundaryFace
-    type(topologicalObjectBox), dimension(:), allocatable :: faceElements
-    type(coordData)                                       :: endData
-    type(inclusionTestResult)                             :: testResult
-    logical(defBool)                                      :: overshoot
-    real(defReal)                                         :: d
-    character(*), parameter                               :: here = 'distanceToBoundary (unstructuredMesh_inter.f90)'
+    class(unstructuredMesh), intent(in)   :: self
+    type(coordData), intent(inout)        :: data
+    type(axisAlignedBoundingBox), pointer :: boundingBoxPtr
+    type(intersectionTestResult)          :: boundingBoxIntersectionResult
+    integer(shortInt)                     :: nIntersectedFaces
+    integer(shortInt), dimension(VALENCE) :: intersectedFaceIdxs
+    character(*), parameter               :: HERE = 'distanceToBoundary (unstructuredMesh_inter.f90)'
     
-    ! Initialise parentIdx = 0, edgeIdx = 0 and vertexIdx = 0 then search the tree for the intersected boundary face.
+    ! First check whether the ray intersects the bounding box of the mesh.
     boundingBoxPtr => self % getBoundingBoxPtr()
     call boundingBoxPtr % intersects(newIntersectionTestPayload(data % r, data % u, data % dMax), boundingBoxIntersectionResult)
-    if (.not. boundingBoxIntersectionResult % intersects) return
+    if(.not. boundingBoxIntersectionResult % intersects) return
 
-    call self % acceleration % findEntranceBoundaryFace(self % faces, data, boundaryFace)
-    if (.not. associated(boundaryFace % ptr)) return
+    call self % acceleration % findEntranceBoundaryFace(self % faces, data, nIntersectedFaces, intersectedFaceIdxs)
+    
+    ! If no faces were intersected, return.
+    if(nIntersectedFaces == 0) return
 
-    ! Retrieve the element associated with the boundary face.
-    faceElements = boundaryFace % ptr % getSharingElements()
-    ! Downcast elements to correct type.
-    select type(ptr => faceElements(1) % ptr)
-      type is(element)
-        ! Set coords % endPosition to the minimum computed distance plus a slight forward nudge.
-        endData = newCoordData(data % r + (data % d + NUDGE) * data % u, data % u)
+    ! Update data then determine the element the entered by the ray.
+    data % front = nIntersectedFaces
+    data % currentFaceIdxs(1:data % front) = intersectedFaceIdxs(1:data % front)
+    data % faceIdx = intersectedFaceIdxs(1)
+    call self % findHostElementIdxFromDirection(data % front, data % currentFaceIdxs, data % u, data % elementIdx, data % localId)
 
-        ! If the element associated with the intersected face does not contain the end position, begin rescue.
-        testResult = ptr % isPointInside(endData % r)
-        if (testResult % status == INSIDE_ELEMENT) then
-          data % elementIdx = ptr % getIdx()
-          data % faceIdx = boundaryFace % ptr % getIdx()
-          data % localId = ptr % getLocalId()
-
-        else
-          call self % findHostElement(endData)
-          ! Update distance.
-          data % elementIdx = endData % elementIdx
-          data % localId = endData % localId
-          
-          overshoot = data % elementIdx == 0
-          d = norm2(endData % r - data % r)
-          data % d = merge(INF, d, overshoot)
-          data % u = merge(data % u, (endData % r - data % r) / d, overshoot)
-
-        end if
-
-      class default
-        call fatalError(here, 'Element with index: '//numToChar(ptr % getIdx())//' is not an element.')
-
-    end select
+    ! If no element was found, set distance to INF.
+    if(data % elementIdx == 0) data % d = INF
 
   end subroutine distanceToBoundary
-
-
-  ! subroutine distanceToNextFace(self, data)
-  !   class(unstructuredMesh), intent(in)                   :: self
-  !   type(coordData), intent(inout)                        :: data
-  !   type(elementBox)                                      :: currentElement
-  !   type(elementIntersectionTestResult)                   :: intersectionResult
-  !   integer(shortInt)                                     :: i, nElements
-  !   type(topologicalObjectBox), dimension(:), allocatable :: faceElements
-  !   type(faceBox) :: currentFace
-  !   type(orientatedFaceBox), dimension(:), allocatable :: elementFaces
-  !   type(inclusionTestResult) :: testIn
-  !   real(defReal), dimension(3) :: end
-  !   character(*), parameter                               :: here = 'distanceToNextFace (unstructuredMesh_inter.f90)'
-    
-  !   ! Retrieve the element currently occupied by the particle and compute potential 
-  !   ! face intersections.
-  !   currentElement = self % elements % getElementBox(data % elementIdx)
-  !   call currentElement%ptr%&
-  !     intersects(newElementIntersectionTestPayload(data%r,data%u,data%dMax,.true., .false.,data%currentFaceIdxs,data%front),&
-  !                                          intersectionResult)
-  !   if (.not. intersectionResult % intersects) return
-  !   data % d = intersectionResult % d
-  !   data % faceIdx = intersectionResult % intersectedFace % ptr % getIdx()
-    
-  !   ! If the intersected face is a boundary face then the particle is leaving the mesh.
-  !   if (intersectionResult % intersectedFace % ptr % getIsBoundary()) then
-  !     data % elementIdx = 0
-  !     data % localId = 0
-
-  !   else
-  !     ! Else, retrieve the elements sharing the intersected face from mesh connectivity then
-  !     ! update elementIdx and localId.
-  !     faceElements = intersectionResult % intersectedFace % ptr % getSharingElements()
-  !     nElements = size(faceElements)
-  !     if (nElements /= 2) &
-  !     call fatalError(here, 'Internal face: '//numToChar(intersectionResult % intersectedFace % ptr % getIdx())// &
-  !                           ' is not associated to the correct number of elements.')
-
-  !     do i = 1, 2
-  !       ! Downcast element to correct type.
-  !       select type(ptr => faceElements(i) % ptr)
-  !         type is(element)
-  !           if (.not. associated(currentElement % ptr, ptr)) then
-  !             ! We have found our new element.
-  !             data % elementIdx = ptr % getIdx()
-  !             data % localId = ptr % getLocalId()
-
-  !           end if
-
-  !         class default
-  !           call fatalError(here, 'Element with index: '//numToChar(ptr % getIdx())//' is not an element.')
-
-  !       end select
-
-  !     end do
-
-  !   end if
-
-  ! end subroutine distanceToNextFace
-
-
 
   !! Subroutine 'distanceToNextFace'
   !!
   !! Basic description:
   !!   Returns the distance to the next face intersected by the particle's path. Returns INF if the particle
-  !!   does not intersect any face (i.e., if its path is entirely contained in the element the particle 
-  !!   currently is). Algorithm adapted from Macpherson, et al. (2009). DOI: 10.1002/cnm.1128.
+  !!   does not intersect any face.
   !!
   !! See mesh_inter for details.
   !!
   subroutine distanceToNextFace(self, data)
-    class(unstructuredMesh), intent(in)                   :: self
-    type(coordData), intent(inout)                        :: data
-    type(elementBox)                                      :: currentElement
-    type(elementIntersectionTestResult)                   :: intersectionResult, intersectionResultNew
-    integer(shortInt)                                     :: i, j, nElements, currentIdx, k
-    type(faceBox) :: currentFace
-    type(topologicalObjectBox), dimension(:), allocatable :: faceElements, edgeFaces, edgeElements, vertexElements, vertexFaces
-    type(orientatedFaceBox), dimension(:), allocatable :: elementFaces, tempElementFaces
-    type(edgeBox), dimension(:), allocatable :: faceEdges
-    type(vertexBox), dimension(:), allocatable :: faceVertices
-    type(edgeBox) :: currentEdge
-    type(vertexBox) ::currentVertex
-    type(inclusionTestResult) :: testIn
-    real(defReal), dimension(3) :: endPt
-    integer(shortInt), dimension(:), allocatable :: faceIDs
-
-    logical :: result, validElem
-    
-    character(*), parameter                               :: here = 'distanceToNextFace (unstructuredMesh_inter.f90)'
+    class(unstructuredMesh), intent(in) :: self
+    type(coordData), intent(inout)      :: data
+    type(elementBox)                    :: currentElement
+    type(elementIntersectionTestResult) :: intersectionResult
+    character(*), parameter             :: HERE = 'distanceToNextFace (unstructuredMesh_inter.f90)'
     
     ! Retrieve the element currently occupied by the particle and compute potential 
     ! face intersections.
     currentElement = self % elements % getElementBox(data % elementIdx)
-    call currentElement%ptr%&
-      intersects(newElementIntersectionTestPayload(data%r,data%u,data%dMax,.true., .false.,data%currentFaceIdxs,data%front),&
-                                           intersectionResult)
+    call currentElement % ptr % intersects_ray(newElementIntersectionTestPayload(data % r, data % u, data % dMax, .true., &
+                                                                                 data % front, data % currentFaceIdxs, .false.), &
+                                                                                 intersectionResult)
 
-    if (.not. intersectionResult % intersects) return
+    if(.not. intersectionResult % intersects) return
     data % d = intersectionResult % d
     data % faceIdx = intersectionResult % intersectedFace % ptr % getIdx()
-    data % currentFaceIdxs = intersectionResult%currentFaceIdxs
-    data%front = intersectionResult%front
+    data % front = intersectionResult % front
+    data % currentFaceIdxs(1:data % front) = intersectionResult % currentFaceIdxs(1:data % front)
 
-    endPt = data%r + (data%u * data%dMax)
-
-
-    ! If the intersected face is a boundary face then the particle is leaving the mesh.
-    if (intersectionResult % intersectedFace % ptr % getIsBoundary()) then
+    ! Early return optimisation for cases where only one face is intersected and this is a boundary face.
+    if(intersectionResult % front == 1 .and. intersectionResult % intersectedFace % ptr % getIsBoundary()) then
       data % elementIdx = 0
       data % localId = 0
       return
 
+    elseif(data % front == 0) then
+      ! Should never happen.
+      call fatalError(HERE, 'Invalid number of faces intersected.')
+
     else
+      call self % findHostElementIdxFromDirection(data % front, data % currentFaceIdxs, data % u, &
+                                                  data % elementIdx, data % localId, currentElement)
 
-      if (intersectionResult%front <= 1) then 
-        print *, 'face intersection'
-        ! Else, retrieve the elements sharing the intersected face from mesh connectivity then
-        ! update elementIdx and localId.
-        faceElements = intersectionResult % intersectedFace % ptr % getSharingElements()
-        nElements = size(faceElements)
-        if (nElements /= 2) &
-        call fatalError(here, 'Internal face: '//numToChar(intersectionResult % intersectedFace % ptr % getIdx())// &
-                              ' is not associated to the correct number of elements.')
-
-        do i = 1, 2
-          ! Downcast element to correct type.
-          select type(ptr => faceElements(i) % ptr)
-            type is(element)
-              testIn = ptr%hybridIsPointInside(data % r + (data%u * data%dMax))
-              if (.not. associated(currentElement % ptr, ptr) .and. &
-                  (testIn%status == INSIDE_ELEMENT .or. testIn%status == ON_BOUNDARY_ELEMENT)) then !! comment this out and tests fail
-                ! We have found our new element.
-                print *, 'face found'
-                data % elementIdx = ptr % getIdx()
-                data % localId = ptr % getLocalId()
-                return
-
-              end if
-
-            class default
-              call fatalError(here, 'Element with index: '//numToChar(ptr % getIdx())//' is not an element.')
-
-          end select
-
-        end do
-      else 
-        elementFaces = currentElement%ptr%getOrientatedFaces()
-        if (intersectionResult%front == 2) then 
-          print *, 'edge intersection'
-
-          faceEdges = intersectionResult%intersectedFace%ptr%getEdges()
-
-          do i=1, size(faceEdges)
-            if (areEqual(faceEdges(i)%ptr%distanceSquared(intersectionResult%intersectionPt), ZERO)) then 
-              currentEdge = faceEdges(i)
-              exit 
-            end if 
-          end do
-          if (.not. associated(currentEdge%ptr)) then 
-            return 
-          end if
-
-          edgeElements = currentEdge%ptr%getSharingElements() 
-          edgeFaces = currentEdge%ptr%getSharingFaces() 
-
-          !print *, size(edgeElements)
-          elemLoop: do i=1, size(edgeElements)
-            validElem = .true.
-            select type(ptr => edgeElements(i) % ptr)
-              type is(element)
-                if (associated(ptr, currentElement%ptr)) then 
-                  cycle elemLoop 
-                end if
-                !tempElementFaces = ptr%getOrientatedFaces()
-                testIn = ptr%hybridIsPointInsideTPO(data%r, data%u, edgeFaces, size(edgeFaces))
-                !print *, testIn%status == OUTSIDE_ELEMENT
-                if (testIn%status == INSIDE_ELEMENT) then 
-                  data % elementIdx = ptr % getIdx()
-                  data % localId = ptr % getLocalId()
-                  return 
-                end if
-
-
-              class default
-                call fatalError(here, 'Element with index: '//numToChar(ptr % getIdx())//' is not an element.')
-            end select
-          end do elemLoop
-
-          
-        else 
-          print *, 'vertex intersection'
-          faceVertices = intersectionResult%intersectedFace%ptr%getVertices()
-          do i=1, size(faceVertices)
-            if (areEqual(faceVertices(i)%ptr%distanceSquared(intersectionResult%intersectionPt), ZERO)) then 
-              currentVertex = faceVertices(i)
-              exit 
-            end if 
-          end do
-
-          vertexElements = currentVertex%ptr%getSharingElements() 
-          vertexFaces = currentVertex%ptr%getSharingFaces() 
-
-          elemLoopV: do i=1, size(vertexElements)
-            validElem = .true.
-            select type(ptr => vertexElements(i) % ptr)
-              type is(element)
-                if (associated(ptr, currentElement%ptr)) then 
-                  cycle elemLoopV 
-                end if
-
-
-                testIn = ptr%hybridIsPointInsideTPO(data%r, data%u, vertexFaces, size(vertexFaces))
-
-                if (testIn%status == INSIDE_ELEMENT) then 
-                  data % elementIdx = ptr % getIdx()
-                  data % localId = ptr % getLocalId()
-                  return 
-                end if
-
-              class default
-                call fatalError(here, 'Element with index: '//numToChar(ptr % getIdx())//' is not an element.')
-            end select
-
-          end do elemLoopV
-
-        end if
-      end if
     end if
-      
-
-    !If none of the previous cases have been triggered, the particle is pointing outside of the mesh
-    data % elementIdx = 0
-    data % localId = 0
-
-  
 
   end subroutine distanceToNextFace
-
-
-
-                ! tempElementFaces = ptr%getOrientatedFaces()
-
-                ! elemFaceLoop: do j=1, size(tempElementFaces)
-                !   edgeFaceLoop: do k=1, size(edgeFaces)
-
-                !     select type(ptrF => edgeFaces(k) % ptr)
-                !       type is(face)
-                !         if (ptrF%getIdx()==tempElementFaces(j)%face%ptr%getIdx()) then
-
-                !           if (dot_product(ptrF%getNormal(), data%u) > 0) then 
-                !             validElem = .false.
-                !             cycle elemLoop 
-                !           end if
-
-                !         end if 
-                !     end select
-
-                !   end do edgeFaceLoop
-                ! end do elemFaceLoop
-                ! if (validElem) then 
-                !   data % elementIdx = ptr % getIdx()
-                !   data % localId = ptr % getLocalId()
-                ! end if
-
-
   
   !!
   !!
@@ -750,6 +503,105 @@ contains
     end do searchLoop
 
   end subroutine findHostElement
+
+  !!
+  !!
+  !!
+  subroutine findHostElementIdxFromDirection(self, nIntersectedFaces, intersectedFaceIdxs, u, elementIdx, localId, &
+                                             currentElement)
+    class(unstructuredMesh), intent(in)                   :: self
+    integer(shortInt), intent(in)                         :: nIntersectedFaces
+    integer(shortInt), dimension(VALENCE), intent(in)     :: intersectedFaceIdxs
+    real(defReal), dimension(3), intent(in)               :: u
+    integer(shortInt), intent(out)                        :: elementIdx, localId
+    type(elementBox), intent(in), optional                :: currentElement
+    integer(shortInt)                                     :: currentElementIdx, i
+    integer(shortInt), dimension(:), allocatable          :: commonEdgeIdxs, commonVertexIdxs, faceIdxs
+    type(edgeBox)                                         :: commonEdge
+    type(faceBox)                                         :: currentFace
+    type(topologicalObjectBox), dimension(:), allocatable :: elements
+    type(vertexBox)                                       :: commonVertex
+    character(*), parameter                               :: HERE = 'findHostElementIdxFromDirection (unstructuredMesh_inter.f90)'
+
+    select case(nIntersectedFaces)
+        case(1)
+          currentFace = self % faces % getFaceBox(intersectedFaceIdxs(1))
+          elements = currentFace % ptr % getSharingElements()
+          faceIdxs = currentFace % ptr % getSharingFaceIdxs()
+
+        case(2)
+          ! Find unique common edge index between the two intersected faces.
+          currentFace = self % faces % getFaceBox(intersectedFaceIdxs(1))
+          commonEdgeIdxs = currentFace % ptr % getEdgeIdxs()
+
+          currentFace = self % faces % getFaceBox(intersectedFaceIdxs(2))
+          commonEdgeIdxs = findCommon(commonEdgeIdxs, currentFace % ptr % getEdgeIdxs())
+
+          ! Ensure that only one common edge was found.
+          if(size(commonEdgeIdxs) /= 1) &
+            call fatalError(HERE, 'Failed to retrieve common edge between faces '&
+                                  //numToChar(intersectedFaceIdxs(1:nIntersectedFaces))//'.')
+
+          ! Now retrieve elements and faces from the common edge.
+          commonEdge = self % edges % getEdgeBox(commonEdgeIdxs(1))
+          elements = commonEdge % ptr % getSharingElements()
+          faceIdxs = commonEdge % ptr % getSharingFaceIdxs()
+
+        case default
+          ! Find unique common vertex between all intersected faces.
+          currentFace = self % faces % getFaceBox(intersectedFaceIdxs(1))
+          commonVertexIdxs = currentFace % ptr % getVertexIdxs()
+
+          ! Loop through remaining faces.
+          do i = 2, nIntersectedFaces
+            currentFace = self % faces % getFaceBox(intersectedFaceIdxs(i))
+            commonVertexIdxs = findCommon(commonVertexIdxs, currentFace % ptr % getVertexIdxs())
+
+          end do
+
+          ! Ensure that only one common vertex was found.
+          if(size(commonVertexIdxs) /= 1) &
+            call fatalError(HERE, 'Failed to retrieve common vertex between faces '&
+                                  //numToChar(intersectedFaceIdxs(1:nIntersectedFaces))//'.')
+
+          ! Now retrieve elements and faces from the common vertex.
+          commonVertex = self % vertices % getVertexBox(commonVertexIdxs(1))
+          elements = commonVertex % ptr % getSharingElements()
+          faceIdxs = commonVertex % ptr % getSharingFaceIdxs()
+
+      end select
+      
+      ! Loop over all elements and find which element the particle enters into.
+      elementIdx = 0
+      localId = 0
+      do i = 1, size(elements)
+        ! Downcast pointer.
+        select type(ptr => elements(i) % ptr)
+          type is(element)
+            if(present(currentElement)) then
+              ! Skip this element if it is the element the particle is leaving.
+              if(associated(currentElement % ptr, ptr)) cycle
+
+            end if
+
+            ! Retrieve element index then check if particle enters the current element.
+            currentElementIdx = ptr % getIdx()
+            if(ptr % entersThroughFaces(faceIdxs, u) .and. &
+               (elementIdx == 0 .or. currentElementIdx < elementIdx)) then
+              ! Update lowest element index and corresponding local ID.
+              elementIdx = currentElementIdx
+              localId = ptr % getLocalId()
+
+            end if
+
+          class default
+            call fatalError(HERE, 'Element '//numToChar(ptr % getIdx())//' is not an element.')
+
+        end select
+
+      end do
+
+  end subroutine findHostElementIdxFromDirection
 
   !!
   !!

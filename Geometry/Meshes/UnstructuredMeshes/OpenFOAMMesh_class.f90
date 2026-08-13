@@ -641,7 +641,6 @@ contains
     real(defReal), dimension(3, nVertices)      :: coords
     type(ratint_t), dimension(3, nVertices)      :: ratintCoords 
     integer(longInt) :: whole, frac
-    integer(longInt),dimension(3) :: tempCoord
     integer(shortInt) :: counter, s, m, e, sign, vertexNum
     type(basicVertexInfo), dimension(nVertices) :: vertexInfos
     logical(defBool)                            :: singleLine

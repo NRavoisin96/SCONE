@@ -34,15 +34,14 @@ module coord_class
   !!   display    -> Prints coordinates to the console
   !!   kill       -> Returns to uninitialised state
   !!
-  type, public                     :: coord
+  type, public :: coord
     private
-    real(defReal), dimension(3)    :: r = ZERO, dir = ZERO
-    logical(defBool)               :: isRotated = .false.
-    real(defReal), dimension(3, 3) :: rotMat = ZERO
-    integer(shortInt)              :: cellIdx = 0, elementIdx = 0, localId = 0, meshIdx = 0, universeIdx = 0, universeRootId = 0
-    integer(shortInt), dimension(VALENCE) :: currentFaceIdxs
-    integer(shortInt) :: front = 0
-    
+    integer(shortInt)                     :: cellIdx = 0, elementIdx = 0, front = 0, localId = 0, meshIdx = 0, &
+                                             universeIdx = 0, universeRootId = 0
+    integer(shortInt), dimension(VALENCE) :: currentFaceIdxs = 0
+    logical(defBool)                      :: isRotated = .false.
+    real(defReal), dimension(3)           :: r = ZERO, dir = ZERO
+    real(defReal), dimension(3, 3)        :: rotMat = ZERO
   contains
     procedure :: display
     procedure :: getCellIdx
@@ -107,14 +106,16 @@ contains
     class(coord), intent(in) :: self
     type(coordData)          :: data
 
-    data % r = self % r
-    data % u = self % dir
     data % cellIdx = self % cellIdx
     data % elementIdx = self % elementIdx
+    data % front = self % front
     data % localId = self % localId
     data % meshIdx = self % meshIdx
     data % universeIdx = self % universeIdx
     data % universeRootId = self % universeRootId
+    data % currentFaceIdxs = self % currentFaceIdxs
+    data % r = self % r
+    data % u = self % dir
 
   end function getData
 
@@ -418,15 +419,17 @@ contains
     class(coord), intent(inout) :: self
     type(coordData), intent(in) :: data
 
-    self % r = data % r
-    self % dir = data % u
-    self % universeIdx = data % universeIdx
-    self % universeRootId = data % universeRootId
     self % cellIdx = data % cellIdx
     self % elementIdx = data % elementIdx
-    self % meshIdx = data % meshIdx
+    self % front = data % front
     self % localId = data % localId
+    self % meshIdx = data % meshIdx
+    self % universeIdx = data % universeIdx
+    self % universeRootId = data % universeRootId
+    self % currentFaceIdxs = data % currentFaceIdxs
     self % isRotated = data % isRotated
+    self % r = data % r
+    self % dir = data % u
     self % rotMat = data % rotationMatrix
 
   end subroutine updateFromData

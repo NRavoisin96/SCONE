@@ -6,6 +6,7 @@ module accelerationStructure_inter
   use numPrecision
   use publicObjects,                only : coordData
   use topologicalObjectShelf_class, only : topologicalObjectShelf
+  use universalVariables,           only : VALENCE
 
   implicit none
   private
@@ -34,12 +35,13 @@ module accelerationStructure_inter
     !!
     !!
     !!
-    subroutine findEntranceBoundaryFace(self, faces, data, boundaryFace)
-      import :: accelerationStructure, coordData, faceBox, topologicalObjectShelf
-      class(accelerationStructure), intent(in) :: self
-      type(topologicalObjectShelf), intent(in) :: faces
-      type(coordData), intent(inout)           :: data
-      type(faceBox), intent(out)               :: boundaryFace
+    subroutine findEntranceBoundaryFace(self, faces, data, nIntersectedFaces, intersectedFaceIdxs)
+      import :: accelerationStructure, coordData, shortInt, topologicalObjectShelf, VALENCE
+      class(accelerationStructure), intent(in)           :: self
+      type(topologicalObjectShelf), intent(in)           :: faces
+      type(coordData), intent(inout)                     :: data
+      integer(shortInt), intent(out)                     :: nIntersectedFaces
+      integer(shortInt), dimension(VALENCE), intent(out) :: intersectedFaceIdxs
     end subroutine findEntranceBoundaryFace
 
     !!

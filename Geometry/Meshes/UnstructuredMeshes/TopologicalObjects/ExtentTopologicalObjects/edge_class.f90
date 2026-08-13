@@ -45,6 +45,7 @@ module edge_class
     procedure :: distanceSquared
     procedure :: getEdgeVector
     procedure :: getSharingElements
+    procedure :: getSharingFaceIdxs
     procedure :: getSharingFaces
     procedure :: getVertices
     procedure :: intersects_BoundingBox
@@ -113,7 +114,7 @@ contains
   !!
   !!
   !!
-  function distanceSquared(self, r) result(dSquared)
+  pure function distanceSquared(self, r) result(dSquared)
     class(edge), intent(in)                 :: self
     real(defReal), dimension(3), intent(in) :: r
     real(defReal)                           :: dSquared
@@ -127,8 +128,8 @@ contains
 
     ! Handle the case of a zero-length segment.
     if (areEqual(lSquared, ZERO)) then
-        dSquared = dot_product(pointVector, pointVector)
-        return
+      dSquared = dot_product(pointVector, pointVector)
+      return
         
     end if
 
@@ -174,6 +175,30 @@ contains
     end if
 
   end function getSharingElements
+
+  !!
+  !!
+  !!
+  pure function getSharingFaceIdxs(self) result(sharingFaceIdxs)
+    class(edge), intent(in)                      :: self
+    integer(shortInt)                            :: i, nSharingFaces
+    integer(shortInt), dimension(:), allocatable :: sharingFaceIdxs
+
+    if(allocated(self % sharingFaces)) then
+      nSharingFaces = size(self % sharingFaces)
+      allocate(sharingFaceIdxs(nSharingFaces))
+
+      do i = 1, nSharingFaces
+        sharingFaceIdxs(i) = self % sharingFaces(i) % ptr % getIdx()
+
+      end do
+
+    else
+      allocate(sharingFaceIdxs(0))
+
+    end if
+
+  end function getSharingFaceIdxs
 
   !! Function 'getFaceIdxs'
   !!

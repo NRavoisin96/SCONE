@@ -130,6 +130,7 @@ contains
       newVertexIdx = newVertexIdx + 1
       vertexPayload % idx = newVertexIdx
       vertexPayload % coordinates = element % ptr % getCentroid()
+      vertexPayload % ratintCoordinates = element % ptr % getRationalCentroid()
       call vertices % initObject(vertexPayload)
 
       elementOrientatedFaces = element % ptr % getOrientatedFaces()

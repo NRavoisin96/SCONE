@@ -522,7 +522,8 @@ contains
         ! Compute the distance to the next intersection.
         call chosenElementPtr % intersects_Ray(newElementIntersectionTestPayload(coordsPtr % getPosition(1), &
                                                                                  coordsPtr % getDirection(1), &
-                                                                                 remainingDistance, .true., .true.), &
+                                                                                 remainingDistance, .true., &
+                                                                                 skipZeroFaces = .true.), &
                                                faceIntersectionResults)
 
         ! If no intersection is detected, simply transport the walker to its end destination and exit.
