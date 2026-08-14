@@ -510,8 +510,8 @@ contains
     if (.not. intersectionResult % intersects) return
     data % d = intersectionResult % d
     data % faceIdx = intersectionResult % intersectedFace % ptr % getIdx()
-    data % currentFaceIdxs = intersectionResult%currentFaceIdxs
-    data%front = intersectionResult%front
+    data % currentFaceIdxs = intersectionResult%ignoreNextFaceIdxs
+    data%front = intersectionResult%frontIgnore
 
     endPt = data%r + (data%u * data%dMax)
 
@@ -521,10 +521,9 @@ contains
       data % elementIdx = 0
       data % localId = 0
       return
-
     else
 
-      if (intersectionResult%front <= 1) then 
+      if (intersectionResult%frontCurrent <= 1) then 
         print *, 'face intersection'
         ! Else, retrieve the elements sharing the intersected face from mesh connectivity then
         ! update elementIdx and localId.
@@ -539,10 +538,10 @@ contains
           select type(ptr => faceElements(i) % ptr)
             type is(element)
               testIn = ptr%hybridIsPointInside(data % r + (data%u * data%dMax))
-              if (.not. associated(currentElement % ptr, ptr) .and. &
-                  (testIn%status == INSIDE_ELEMENT .or. testIn%status == ON_BOUNDARY_ELEMENT)) then !! comment this out and tests fail
+              if (.not. associated(currentElement % ptr, ptr) ) then !.and. &
+              !     (testIn%status == INSIDE_ELEMENT .or. testIn%status == ON_BOUNDARY_ELEMENT)) then !! comment this out and tests fail
                 ! We have found our new element.
-                print *, 'face found'
+                !print *, 'face found'
                 data % elementIdx = ptr % getIdx()
                 data % localId = ptr % getLocalId()
                 return
@@ -557,7 +556,7 @@ contains
         end do
       else 
         elementFaces = currentElement%ptr%getOrientatedFaces()
-        if (intersectionResult%front == 2) then 
+        if (intersectionResult%frontCurrent == 2 .and. intersectionResult%epsilonIntersects) then 
           print *, 'edge intersection'
 
           faceEdges = intersectionResult%intersectedFace%ptr%getEdges()
@@ -584,7 +583,8 @@ contains
                   cycle elemLoop 
                 end if
                 !tempElementFaces = ptr%getOrientatedFaces()
-                testIn = ptr%hybridIsPointInsideTPO(data%r, data%u, edgeFaces, size(edgeFaces))
+                call ptr%hybridIsPointInsideTPO(data%r, data%u, edgeFaces, size(edgeFaces), &
+                        data%currentFaceIdxs, data%front, testIn)
                 !print *, testIn%status == OUTSIDE_ELEMENT
                 if (testIn%status == INSIDE_ELEMENT) then 
                   data % elementIdx = ptr % getIdx()
@@ -599,7 +599,7 @@ contains
           end do elemLoop
 
           
-        else 
+        else if (intersectionResult%frontCurrent > 2 .and. intersectionResult%epsilonIntersects) then 
           print *, 'vertex intersection'
           faceVertices = intersectionResult%intersectedFace%ptr%getVertices()
           do i=1, size(faceVertices)
@@ -621,7 +621,9 @@ contains
                 end if
 
 
-                testIn = ptr%hybridIsPointInsideTPO(data%r, data%u, vertexFaces, size(vertexFaces))
+                !testIn = ptr%hybridIsPointInsideTPO(data%r, data%u, vertexFaces, size(vertexFaces))
+                call ptr%hybridIsPointInsideTPO(data%r, data%u, vertexFaces, size(vertexFaces), & 
+                          data%currentFaceIdxs, data%front, testIn)
 
                 if (testIn%status == INSIDE_ELEMENT) then 
                   data % elementIdx = ptr % getIdx()
@@ -634,6 +636,36 @@ contains
             end select
 
           end do elemLoopV
+
+
+        else 
+          faceElements = intersectionResult % intersectedFace % ptr % getSharingElements()
+          nElements = size(faceElements)
+          if (nElements /= 2) &
+          call fatalError(here, 'Internal face: '//numToChar(intersectionResult % intersectedFace % ptr % getIdx())// &
+                                ' is not associated to the correct number of elements.')
+
+          do i = 1, 2
+            ! Downcast element to correct type.
+            select type(ptr => faceElements(i) % ptr)
+              type is(element)
+                testIn = ptr%hybridIsPointInside(data % r + (data%u * data%dMax))
+                if (.not. associated(currentElement % ptr, ptr) ) then !.and. &
+                !     (testIn%status == INSIDE_ELEMENT .or. testIn%status == ON_BOUNDARY_ELEMENT)) then !! comment this out and tests fail
+                  ! We have found our new element.
+                  !print *, 'face found'
+                  data % elementIdx = ptr % getIdx()
+                  data % localId = ptr % getLocalId()
+                  return
+
+                end if
+
+              class default
+                call fatalError(here, 'Element with index: '//numToChar(ptr % getIdx())//' is not an element.')
+
+            end select
+
+          end do
 
         end if
       end if
