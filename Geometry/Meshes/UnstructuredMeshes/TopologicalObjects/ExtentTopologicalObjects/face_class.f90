@@ -868,9 +868,9 @@ contains
     ! Compute numerator and denominator.
     numerator = dot_product(firstVertexCoordinates - payload % r, self % normal)
     denominator = dot_product(self % normal, payload % u)
-    if(areEqual(denominator, ZERO) .and. areEqual(numerator, ZERO)) then
+    if(areEqual(denominator, ZERO)) then
       ! If denominator is nearly equal to zero, and the ray lies in the plane of the face, escalate to exact computation.
-      result % needsRescue = .true.
+      if(areEqual(numerator, ZERO)) result % needsRescue = .true.
       return
 
     end if
@@ -912,10 +912,10 @@ contains
     ! Retrieve the coordinates of the first vertex in the face.
     firstVertexCoordinates = self % getFirstVertexRationalCoordinates()
 
-    ! Compute numerator and denominator.
+    ! Compute denominator.
     denominator = dot_product(self % ratintNormal, payload % u)
     if(isZero(denominator)) return
-    
+
     ! Compute distance along the ray to intersection.
     t = dot_product(firstVertexCoordinates - payload % r, self % ratintNormal) / denominator
 

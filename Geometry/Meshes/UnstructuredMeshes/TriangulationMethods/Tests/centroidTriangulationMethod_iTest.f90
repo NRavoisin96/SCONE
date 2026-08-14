@@ -1,5 +1,45 @@
 module centroidTriangulationMethod_iTest
 
+  !! Module 'centroidTriangulationMethod_iTest'
+  !!
+  !! Basic description:
+  !!   Integration tests for the centroid-based triangulation method.
+  !!
+  !! Detailed description:
+  !!   A tetrahedralised mesh describes the same geometry as the mesh it was built from
+  !!   and only the decomposition differs, so the physically meaningful outputs of
+  !!   tracking are identical between the two. The tests assert that rather than any
+  !!   hand-computed tetrahedron indices:
+  !!
+  !!     d       -> distance to entry must agree.
+  !!     localId -> tetrahedra inherit their parent element's local ID, so the local ID
+  !!                must agree even though the element indices do not.
+  !!
+  !!   elementIdx is deliberately not compared. The two meshes number their cells
+  !!   differently and the tetrahedron indices carry no independent meaning. Asserting
+  !!   them was the previous design and it produced a long table of numbers that had to
+  !!   be recomputed by hand whenever the decomposition changed, with no way to tell a
+  !!   wrong expectation from a wrong answer.
+  !!
+  !!   Using the undecomposed mesh as the oracle is also stronger than a fixed table.
+  !!   Any defect specific to the tetrahedralised path, such as missing rational face
+  !!   normals or missing coordinates on the manufactured centroid vertices, shows up as
+  !!   a disagreement instead of a plausible-looking number.
+  !!
+  !!   NOT COMPARED:
+  !!     A single tracking step. One crossing means different things in the two meshes,
+  !!     since the decomposition adds internal faces: after one step the undecomposed
+  !!     mesh may have left the mesh while the tetrahedralised one is still inside it.
+  !!     Neither the step distance nor the state after one step is comparable. Comparing
+  !!     the total distance travelled through the mesh would be valid but needs the real
+  !!     transport loop rather than a hand-rolled walk, and is left as a follow-up.
+  !!
+  !!   Rays are built from exactly representable coordinates and integer direction
+  !!   patterns. See OpenFOAMMesh_iTest for why: decimals such as 0.2 do not round the
+  !!   same way as 1.2, and directions with unequal component magnitudes cannot place a
+  !!   crossing exactly on a feature.
+  !!
+
   use charMap_class,      only : charMap
   use dictionary_class,   only : dictionary
   use dictParser_func,    only : charToDict
@@ -8,38 +48,49 @@ module centroidTriangulationMethod_iTest
   use OpenFOAMMesh_class, only : OpenFOAMMesh
   use publicObjects,      only : coordData, newCoordData
   use universalVariables
-  
+
   implicit none
-  
-  ! Parameters.
-  character(*), parameter :: MESH_DEF = &
+
+  ! Same mesh, imported with and without the triangulation method.
+  character(*), parameter :: MESH_DEF_TET = &
   " id 2; type OpenFOAMMesh; path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/testMesh/; triangulationMethod centroidBased;&
   & fills (water);"
-  
-  ! Variables.
-  type(charMap)      :: mats
-  type(OpenFOAMMesh) :: mesh
+
+  character(*), parameter :: MESH_DEF_PLAIN = &
+  " id 3; type OpenFOAMMesh; path ./IntegrationTestFiles/Geometry/Meshes/OpenFOAM/testMesh/; fills (water);"
+
+  ! Geometry constants. All exactly representable. The mesh spans [-1, 1] in x and
+  ! y with an internal plane at x = 0 and y = 0, and [-1, 1] in z as a single layer.
+  real(defReal), parameter :: EXTENT = ONE, HALF_CELL = HALF, QUARTER_CELL = FOURTH
+  real(defReal), parameter :: FAR = TWO, TOL = 1.0E-6_defReal
+
+  type(charMap)      :: mats, matsPlain
+  type(OpenFOAMMesh) :: mesh, meshPlain
 
 contains
-  
+
   !!
-  !! Import the mesh.
+  !! Import the mesh twice, once tetrahedralised and once as it comes.
   !!
 @Before
   subroutine setUp()
-    type(dictionary)   :: dict
+    type(dictionary)   :: dict, dictPlain
     character(nameLen) :: name
     character(pathLen) :: path
 
     name = 'water'
     call mats % add(name, 1)
-    
-    call charToDict(dict, MESH_DEF)
+    call charToDict(dict, MESH_DEF_TET)
     call dict % get(path, 'path')
     call mesh % init(trim(path), dict, mats)
-  
+
+    call matsPlain % add(name, 1)
+    call charToDict(dictPlain, MESH_DEF_PLAIN)
+    call dictPlain % get(path, 'path')
+    call meshPlain % init(trim(path), dictPlain, matsPlain)
+
   end subroutine setUp
-  
+
   !!
   !! Clean after tests.
   !!
@@ -47,586 +98,225 @@ contains
   subroutine cleanUp()
 
     call mats % kill()
+    call matsPlain % kill()
     call mesh % kill()
+    call meshPlain % kill()
 
   end subroutine cleanUp
-  
+
+  !! ------------------------------------------------------------------------------
+  !! Helpers
+  !! ------------------------------------------------------------------------------
+
+  !! Function 'newRay'
+  !!
+  !! Basic description:
+  !!   Builds a ray starting at r and travelling along the integer direction pattern
+  !!   uPattern for at most dMax.
+  !!
+  !! Arguments:
+  !!   r [in]        -> Starting coordinates of the ray.
+  !!   uPattern [in] -> Direction pattern. Components must be in {-1, 0, 1}.
+  !!   dMax [in]     -> Optional. Maximum distance travelled. Defaults to FAR.
+  !!
+  !! Result:
+  !!   data          -> Coordinate data for the ray.
+  !!
+  function newRay(r, uPattern, dMax) result(data)
+    real(defReal), dimension(3), intent(in)     :: r
+    integer(shortInt), dimension(3), intent(in) :: uPattern
+    real(defReal), intent(in), optional         :: dMax
+    real(defReal)                               :: maximumDistance
+    type(coordData)                             :: data
+
+    maximumDistance = FAR
+    if (present(dMax)) maximumDistance = dMax
+
+    data = newCoordData(r, real(uPattern, defReal), dMax = maximumDistance)
+
+  end function newRay
+
+  !! Subroutine 'reportDisagreement'
+  !!
+  !! Basic description:
+  !!   Prints the case name when the two meshes disagree.
+  !!
+  !! Detailed description:
+  !!   This pFUnit build takes no message argument on the assertions used here, and both
+  !!   helpers are called from several tests, so without this a failure only gives a line
+  !!   number inside the helper.
+  !!
+  !! Arguments:
+  !!   dataPlain [in] -> Coordinate data obtained from the undecomposed mesh.
+  !!   dataTet [in]   -> Coordinate data obtained from the tetrahedralised mesh.
+  !!   message [in]   -> Name of the case, printed on disagreement.
+  !!
+  subroutine reportDisagreement(dataPlain, dataTet, message)
+    type(coordData), intent(in) :: dataPlain, dataTet
+    character(*), intent(in)    :: message
+    logical(defBool)            :: disagrees
+
+    disagrees = (dataPlain % elementIdx == 0) .neqv. (dataTet % elementIdx == 0)
+    if (dataPlain % localId /= dataTet % localId) disagrees = .true.
+
+    if (disagrees) then
+      print *, 'DISAGREEMENT: '//message
+      print *, '  undecomposed: d =', dataPlain % d, ' elementIdx =', dataPlain % elementIdx, &
+               ' localId =', dataPlain % localId
+      print *, '  tetrahedral : d =', dataTet % d, ' elementIdx =', dataTet % elementIdx, &
+               ' localId =', dataTet % localId
+
+    end if
+
+  end subroutine reportDisagreement
+
+  !! Subroutine 'assertEntryAgrees'
+  !!
+  !! Basic description:
+  !!   Enters the mesh from outside along the same ray in both meshes and checks that the
+  !!   decomposition made no difference.
+  !!
+  !! Arguments:
+  !!   r [in]        -> Starting coordinates of the ray.
+  !!   uPattern [in] -> Direction pattern. Components must be in {-1, 0, 1}.
+  !!   message [in]  -> Name of the case, printed on disagreement.
+  !!
+  subroutine assertEntryAgrees(r, uPattern, message)
+    real(defReal), dimension(3), intent(in)     :: r
+    integer(shortInt), dimension(3), intent(in) :: uPattern
+    character(*), intent(in)                    :: message
+    type(coordData)                             :: dataPlain, dataTet
+
+    dataPlain = newRay(r, uPattern)
+    call meshPlain % distanceToBoundary(dataPlain)
+
+    dataTet = newRay(r, uPattern)
+    call mesh % distanceToBoundary(dataTet)
+
+    call reportDisagreement(dataPlain, dataTet, message)
+
+    @assertTrue((dataPlain % elementIdx == 0) .eqv. (dataTet % elementIdx == 0))
+    @assertEqual(dataPlain % d, dataTet % d, max(abs(dataPlain % d), ONE) * TOL)
+    @assertEqual(dataPlain % localId, dataTet % localId)
+
+  end subroutine assertEntryAgrees
+
+  !! ------------------------------------------------------------------------------
+  !! Mesh information
+  !! ------------------------------------------------------------------------------
+
   !!
   !! Test miscellaneous functionality.
   !!
 @Test
   subroutine test_misc()
-    
-    ! Test id.
+
     @assertEqual(2, mesh % getId())
     call mesh % setId(7)
     @assertEqual(7, mesh % getId())
 
   end subroutine test_misc
-  
+
   !!
-  !! Test mesh information.
+  !! Test mesh information. These are properties of the decomposition itself, so this is
+  !! the one place where fixed numbers belong.
   !!
 @Test
   subroutine test_info()
-    real(defReal)     :: TOL = 1.0E-6
-    integer(shortInt) :: i
-    
-    ! Test number of vertices.
+
     @assertEqual(22, mesh % getVerticesNumber())
-    ! Test number of faces.
     @assertEqual(112, mesh % getFacesNumber(.true.))
-    ! Test number of internal faces.
     @assertEqual(80, mesh % getInternalFacesNumber(.true.))
-    ! Test number of edges.
     @assertEqual(85, mesh % getEdgesNumber())
-    ! Test number of tetrahedra.
     @assertEqual(48, mesh % getElementsNumber(.true.))
 
   end subroutine test_info
-  
+
   !!
-  !! Test inside / outside determination.
-  !!
-@Test
-  subroutine test_inside()
-    real(defReal), dimension(3) :: r, u
-    type(coordData)             :: data
-    
-    ! Few points inside.
-    r = [0.31_defReal, 0.42_defReal, 0.13_defReal]
-    u = [ONE, ZERO, ZERO]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(40, data % elementIdx)
-
-    r = [0.02_defReal, 0.97_defReal, -0.5_defReal]
-    u = [ZERO, ONE, ZERO]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(39, data % elementIdx)
-
-    ! Few points outside.
-    r = [1.2_defReal, 0.8_defReal, 0.0_defReal]
-    u = [ZERO, ONE, ZERO]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(0, data % elementIdx)
-    
-    r = [0.1_defReal, 0.1_defReal, 1.13_defReal]
-    u = [ZERO, ZERO, -ONE]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(0, data % elementIdx)
-
-    ! Few more difficult points.
-    
-    ! A point on a face.
-    r = [-1.0_defReal, 0.1_defReal, 0.1_defReal]
-
-    ! Points into the mesh.
-    u = [ONE, ZERO, ZERO]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(19, data % elementIdx)
-
-    ! Points away from the mesh.
-    u = [-ONE, ZERO, ZERO]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(0, data % elementIdx)
-
-    ! A point on an internal edge. Different directions.
-    r = ZERO
-    u = [2.0_defReal, ONE, ONE]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(30, data % elementIdx)
-
-    u = [ONE, 2.0_defReal, ZERO]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(40, data % elementIdx)
-
-    u = [-2.0_defReal, ONE, -ONE]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(28, data % elementIdx)
-
-    u = [-ONE, 2.0_defReal, ZERO]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(18, data % elementIdx)
-    
-    u = [2.0_defReal, -ONE, -ONE]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(52, data % elementIdx)
-
-    u = [ONE, -2.0_defReal, ZERO]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(49, data % elementIdx)
-    
-    u = [-2.0_defReal, -ONE, ONE]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(6, data % elementIdx)
-
-    u = [-ONE, -2.0_defReal, -ONE]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(7, data % elementIdx)
-
-    ! A point on an internal vertex. Different directions.
-    r = [0.5_defReal, -0.5_defReal, ZERO]
-    u = [2.0_defReal, ONE, ONE]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(41, data % elementIdx)
-
-    u = [ONE, 2.0_defReal, -ONE]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(51, data % elementIdx)
-
-    u = [-2.0_defReal, ONE, ZERO]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(49, data % elementIdx)
-
-    u = [-ONE, 2.0_defReal, ZERO]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(52, data % elementIdx)
-
-    u = [-2.0_defReal, -ONE, -ONE]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(50, data % elementIdx)
-
-    u = [-ONE, -2.0_defReal, -ONE]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(44, data % elementIdx)
-
-    u = [2.0_defReal, -ONE, ONE]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(42, data % elementIdx)
-
-    u = [ONE, -2.0_defReal, ONE]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(43, data % elementIdx)
-
-    u = [-ONE, ONE, -3.0_defReal]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(45, data % elementIdx)
-
-    u = [ONE, -ONE, -3.0_defReal]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(46, data % elementIdx)
-
-    u = [-ONE, ONE, 3.0_defReal]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(48, data % elementIdx)
-
-    u = [ONE, -ONE, 3.0_defReal]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(47, data % elementIdx)
-
-    ! A point on a boundary edge. Different directions.
-    r = [ONE, ZERO, 0.5_defReal]
-
-    ! Points inside the mesh.
-    u = [-2.0_defReal, ONE, ONE]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(29, data % elementIdx)
-
-    u = [-ONE, 2.0_defReal, ONE]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(32, data % elementIdx)
-
-    u = [-2.0_defReal, -ONE, -ONE]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(51, data % elementIdx)
-
-    u = [-ONE, -2.0_defReal, -ONE]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(41, data % elementIdx)
-
-    ! Points away from the mesh.
-    u = [2.0_defReal, ONE, ONE]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(0, data % elementIdx)
-
-    u = [ONE, 2.0_defReal, ONE]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(0, data % elementIdx)
-
-    u = [2.0_defReal, -ONE, -ONE]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(0, data % elementIdx)
-
-    u = [ONE, -2.0_defReal, -ONE]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(0, data % elementIdx)
-
-    ! A point on a boundary vertex. Different directions.
-    r = [ZERO, ZERO, ONE]
-
-    ! Points into the mesh.
-    u = [-3.0_defReal, -ONE, -3.0_defReal]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(5, data % elementIdx)
-
-    u = [-2.0_defReal, -ONE, -5.0_defReal]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(6, data % elementIdx)
-
-    u = [-ONE, -2.0_defReal, -5.0_defReal]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(7, data % elementIdx)
-
-    u = [-ONE, -3.0_defReal, -3.0_defReal]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(8, data % elementIdx)
-
-    u = [-ONE, -2.0_defReal, -ONE]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(15, data % elementIdx)
-
-    u = [-2.0_defReal, -ONE, -ONE]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(16, data % elementIdx)
-
-    u = [-ONE, 3.0_defReal, -3.0_defReal]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(18, data % elementIdx)
-
-    u = [-ONE, 2.0_defReal, -ONE]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(25, data % elementIdx)
-
-    u = [-3.0_defReal, ONE, -3.0_defReal]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(27, data % elementIdx)
-
-    u = [-2.0_defReal, ONE, -5.0_defReal]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(28, data % elementIdx)
-
-    u = [2.0_defReal, ONE, -5.0_defReal]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(30, data % elementIdx)
-
-    u = [2.0_defReal, ONE, -ONE]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(37, data % elementIdx)
-
-    u = [ONE, 2.0_defReal, -ONE]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(38, data % elementIdx)
-
-    u = [ONE, 2.0_defReal, -5.0_defReal]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(40, data % elementIdx)
-
-    u = [ONE, -2.0_defReal, -ONE]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(48, data % elementIdx)
-
-    u = [ONE, -2.0_defReal, -5.0_defReal]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(49, data % elementIdx)
-
-    u = [ONE, -3.0_defReal, -3.0_defReal]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(50, data % elementIdx)
-
-    u = [3.0_defReal, -ONE, -3.0_defReal]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(52, data % elementIdx)
-
-    ! Points away from the mesh.
-    u = [-3.0_defReal, -ONE, 3.0_defReal]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(0, data % elementIdx)
-
-    u = [-2.0_defReal, -ONE, 5.0_defReal]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(0, data % elementIdx)
-
-    u = [-ONE, -2.0_defReal, 5.0_defReal]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(0, data % elementIdx)
-
-    u = [-ONE, -3.0_defReal, 3.0_defReal]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(0, data % elementIdx)
-
-    u = [-ONE, -2.0_defReal, ONE]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(0, data % elementIdx)
-
-    u = [-2.0_defReal, -ONE, ONE]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(0, data % elementIdx)
-
-    u = [-ONE, 3.0_defReal, 3.0_defReal]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(0, data % elementIdx)
-
-    u = [-ONE, 2.0_defReal, ONE]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(0, data % elementIdx)
-
-    u = [-3.0_defReal, ONE, 3.0_defReal]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(0, data % elementIdx)
-
-    u = [-2.0_defReal, ONE, 5.0_defReal]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(0, data % elementIdx)
-
-    u = [2.0_defReal, ONE, 5.0_defReal]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(0, data % elementIdx)
-
-    u = [2.0_defReal, ONE, ONE]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(0, data % elementIdx)
-
-    u = [ONE, 2.0_defReal, ONE]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(0, data % elementIdx)
-
-    u = [ONE, 2.0_defReal, 5.0_defReal]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(0, data % elementIdx)
-
-    u = [ONE, -2.0_defReal, ONE]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(0, data % elementIdx)
-
-    u = [ONE, -2.0_defReal, 5.0_defReal]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(0, data % elementIdx)
-
-    u = [ONE, -3.0_defReal, 3.0_defReal]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(0, data % elementIdx)
-
-    u = [3.0_defReal, -ONE, 3.0_defReal]
-    data = newCoordData(r, u)
-    call mesh % findHostElement(data)
-    @assertEqual(0, data % elementIdx)
-
-  end subroutine test_inside
-  
-  !!
-  !! Test distance calculations.
+  !! The tetrahedralisation must cover exactly the same region as the mesh it came from.
+  !! A point is inside one if and only if it is inside the other.
   !!
 @Test
-  subroutine test_distance()
-    real(defReal), dimension(3) :: r, u
-    type(coordData)             :: data
-    real(defReal), parameter    :: dMax = TWO, TOL = 1.0E-6
+  subroutine test_inside_agrees_with_undecomposed_mesh()
+    integer(shortInt)           :: i, j, k
+    real(defReal), dimension(3) :: r
+    type(coordData)             :: dataPlain, dataTet
 
-    ! Few points inside mesh.
-    data = newCoordData([0.98_defReal, 0.1_defReal, 0.1_defReal], [ONE, ZERO, ZERO], dMax = dMax)
-    call mesh % findHostElement(data)
-    call mesh % distanceToNextFace(data)
-    @assertEqual(0.02_defReal, data % d, 0.02_defReal * TOL)
+    do i = -3, 3
+      do j = -3, 3
+        do k = -3, 3
+          ! Sweep a lattice of exactly representable points covering the mesh and its
+          ! surroundings, including points on the boundary and on the internal planes.
+          r = HALF_CELL * real([i, j, k], defReal)
 
-    data = newCoordData([-0.65_defReal, 0.33_defReal, -0.47_defReal], [ONE, ZERO, ZERO], dMax = dMax)
-    call mesh % findHostElement(data)
-    call mesh % distanceToNextFace(data)
-    @assertEqual(0.385_defReal, data % d, 0.385_defReal * TOL)    
-    
-    ! Few points outside the mesh but entering.
-    data = newCoordData([-1.13_defReal, -0.8_defReal, 0.3_defReal], [ONE, ZERO, ZERO], dMax = dMax)
-    call mesh % distanceToBoundary(data)
-    @assertEqual(9, data % elementIdx)
-    @assertEqual(0.13_defReal, data % d, 0.13_defReal * TOL)
-    
-    data = newCoordData([0.65_defReal, 0.1_defReal, 1.25_defReal], [ZERO, ZERO, -ONE], dMax = dMax)
-    call mesh % distanceToBoundary(data)
-    @assertEqual(37, data % elementIdx)
-    @assertEqual(0.25_defReal, data % d, 0.25_defReal * TOL)
+          dataPlain = newRay(r, [1, 0, 0])
+          call meshPlain % findHostElement(dataPlain)
 
-    ! Few more difficult points entering.
-    
-    ! Entering through boundary edges.
-    data = newCoordData([-0.6_defReal, 0.2_defReal, -1.25_defReal], [6.0_defReal, -4.0_defReal, 5.0_defReal], dMax = dMax)
-    call mesh % distanceToBoundary(data)
-    @assertEqual(13, data % elementIdx)
-    @assertEqual(sqrt(77.0_defReal) / 20.0_defReal, data % d, sqrt(77.0_defReal) / 20.0_defReal * TOL)    
+          dataTet = newRay(r, [1, 0, 0])
+          call mesh % findHostElement(dataTet)
 
-    data = newCoordData([-0.6_defReal, -0.2_defReal, -1.25_defReal], [6.0_defReal, 4.0_defReal, 5.0_defReal], dMax = dMax)
-    call mesh % distanceToBoundary(data)
-    @assertEqual(24, data % elementIdx)
-    @assertEqual(sqrt(77.0_defReal) / 20.0_defReal, data % d, sqrt(77.0_defReal) / 20.0_defReal * TOL)
+          @assertTrue((dataPlain % elementIdx == 0) .eqv. (dataTet % elementIdx == 0))
+          if (0 < dataPlain % elementIdx) then
+            @assertEqual(dataPlain % localId, dataTet % localId)
 
-    data = newCoordData([1.1_defReal, -0.1_defReal, 1.1_defReal], [-5.0_defReal, 2.0_defReal, -2.0_defReal], dMax = dMax)
-    call mesh % distanceToBoundary(data)
-    @assertEqual(37, data % elementIdx)
-    @assertEqual(sqrt(33.0_defReal) / 20.0_defReal, data % d, sqrt(33.0_defReal) / 20.0_defReal * TOL)
+          end if
 
-    data = newCoordData([1.1_defReal, 0.1_defReal, 1.1_defReal], [-5.0_defReal, -2.0_defReal, -2.0_defReal], dMax = dMax)
-    call mesh % distanceToBoundary(data)
-    @assertEqual(48, data % elementIdx)
-    @assertEqual(sqrt(33.0_defReal) / 20.0_defReal, data % d, sqrt(33.0_defReal) / 20.0_defReal * TOL)
+        end do
 
-    ! Entering through boundary vertices.
-    data = newCoordData([0.2_defReal, 0.15_defReal, -1.2_defReal], [-4.0_defReal, -3.0_defReal, 4.0_defReal], dMax = dMax)
-    call mesh % distanceToBoundary(data)
-    @assertEqual(13, data % elementIdx)
-    @assertEqual(sqrt(41.0_defReal) / 20.0_defReal, data % d, sqrt(41.0_defReal) * TOL / 20.0_defReal)
+      end do
 
-    data = newCoordData([0.35_defReal, -0.35_defReal, -1.35_defReal], [-ONE, ONE, ONE], dMax = dMax)
-    call mesh % distanceToBoundary(data)
-    @assertEqual(24, data % elementIdx)
-    @assertEqual(7.0_defReal * sqrt(3.0_defReal) / 20.0_defReal, data % d, 7.0_defReal * sqrt(3.0_defReal) * TOL / 20.0_defReal)
+    end do
 
-    data = newCoordData([-0.1_defReal, -0.25_defReal, 1.13_defReal], [10.0_defReal, 25.0_defReal, -13.0_defReal], dMax = dMax)
-    call mesh % distanceToBoundary(data)
-    @assertEqual(38, data % elementIdx)
-    @assertEqual(sqrt(894.0_defReal) / 100.0_defReal, data % d, sqrt(894.0_defReal) * TOL / 100.0_defReal)
+  end subroutine test_inside_agrees_with_undecomposed_mesh
 
-    data = newCoordData([-0.33_defReal, 0.56_defReal, 1.27_defReal], [33.0_defReal, -56.0_defReal, -27.0_defReal], dMax = dMax)
-    call mesh % distanceToBoundary(data)
-    @assertEqual(48, data % elementIdx)
-    @assertEqual(sqrt(4954.0_defReal) / 100.0_defReal, data % d, sqrt(4954.0_defReal) * TOL / 100.0_defReal)
-    
-    ! Few points outside the mesh and not entering.
-    data = newCoordData([-1.13_defReal, -0.8_defReal, 0.3_defReal], [-ONE, ZERO, ZERO], dMax = dMax)
-    call mesh % distanceToBoundary(data)
-    @assertEqual(0, data % elementIdx)
-    @assertEqual(INF, data % d)
-    
-    data = newCoordData([0.65_defReal, 0.0_defReal, 1.25_defReal], [ZERO, ZERO, ONE], dMax = dMax)
-    call mesh % distanceToBoundary(data)
-    @assertEqual(0, data % elementIdx)
-    @assertEqual(INF, data % d)
+  !! ------------------------------------------------------------------------------
+  !! Entry into the mesh from outside
+  !! ------------------------------------------------------------------------------
 
-    ! Few more difficult points still not entering.
-    ! On a face.
-    data = newCoordData([ONE, 0.1_defReal, 0.3_defReal], [ONE, ONE, ONE], dMax = dMax)
-    call mesh % distanceToBoundary(data)
-    @assertEqual(0, data % elementIdx)
-    @assertEqual(INF, data % d)
+  !!
+  !! Entry through the interior of a boundary face.
+  !!
+@Test
+  subroutine test_entry_through_face_interiors()
 
-    ! Going through boundary edges but still pointing outside after intersecting. Use dirty values.
-    data = newCoordData([0.9_defReal, 0.43_defReal, 1.1_defReal], [ONE, ZERO, -ONE], dMax = dMax)
-    call mesh % distanceToBoundary(data)
-    @assertEqual(0, data % elementIdx)
-    @assertEqual(INF, data % d)
+    call assertEntryAgrees([-TWO, -HALF_CELL, ZERO], [1, 0, 0], 'entering along +x')
+    call assertEntryAgrees([HALF_CELL, TWO, ZERO], [0, -1, 0], 'entering along -y')
 
-    data = newCoordData([0.55_defReal, 0.67_defReal, 1.23_defReal], [-22.0_defReal, 33.0_defReal, -23.0_defReal], dMax = dMax)
-    call mesh % distanceToBoundary(data)
-    @assertEqual(0, data % elementIdx)
-    @assertEqual(INF, data % d)
+  end subroutine test_entry_through_face_interiors
 
-    data = newCoordData([-0.43_defReal, -0.78_defReal, -1.05_defReal], [-57.0_defReal, 3.0_defReal, 5.0_defReal], dMax = dMax)
-    call mesh % distanceToBoundary(data)
-    @assertEqual(0, data % elementIdx)
-    @assertEqual(INF, data % d)
+  !!
+  !! Entry aimed exactly at boundary edges and corners.
+  !!
+@Test
+  subroutine test_entry_through_features()
 
-    data = newCoordData([-0.68_defReal, -0.98_defReal, -1.76_defReal], [ZERO, -ONE, 38.0_defReal], dMax = dMax)
-    call mesh % distanceToBoundary(data)
-    @assertEqual(0, data % elementIdx)
-    @assertEqual(INF, data % d)
+    ! Aimed at the boundary edge x = -1, y = 0.
+    call assertEntryAgrees([-TWO, -EXTENT, ZERO], [1, 1, 0], 'entering at boundary edge')
 
-    ! Going through boundary vertices but still pointing outside after intersecting. Use dirty values.
-    data = newCoordData([1.42_defReal, 0.77_defReal, 0.87_defReal], [-42.0_defReal, 23.0_defReal, 13.0_defReal], dMax = dMax)
-    call mesh % distanceToBoundary(data)
-    @assertEqual(0, data % elementIdx)
-    @assertEqual(INF, data % d)
+    ! Aimed at the boundary corner (-1, -1, -1).
+    call assertEntryAgrees([-TWO, -TWO, -TWO], [1, 1, 1], 'entering at boundary corner')
 
-    data = newCoordData([-0.54_defReal, 0.99_defReal, 1.02_defReal], [-46.0_defReal, ONE, -2.0_defReal], dMax = dMax)
-    call mesh % distanceToBoundary(data)
-    @assertEqual(0, data % elementIdx)
-    @assertEqual(INF, data % d)
+    ! Aimed at the centre of the mesh from outside, through a boundary face interior and
+    ! on towards the internal features.
+    call assertEntryAgrees([-TWO, -TWO, ZERO], [1, 1, 0], 'entering towards mesh centre')
 
-    data = newCoordData([0.98_defReal, -0.99_defReal, 2.05_defReal], [2.0_defReal, -ONE, -105.0_defReal], dMax = dMax)
-    call mesh % distanceToBoundary(data)
-    @assertEqual(0, data % elementIdx)
-    @assertEqual(INF, data % d)
+  end subroutine test_entry_through_features
 
-    data = newCoordData([-1.1_defReal, -0.9_defReal, 1.1_defReal], [ONE, -ONE, -ONE], dMax = dMax)
-    call mesh % distanceToBoundary(data)
-    @assertEqual(0, data % elementIdx)
-    @assertEqual(INF, data % d)
+  !!
+  !! Rays that do not enter the mesh must not enter either version of it.
+  !!
+@Test
+  subroutine test_no_entry_agrees()
 
-    data = newCoordData([1.31_defReal, 0.54_defReal, -1.45_defReal], [-31.0_defReal, 46.0_defReal, 45.0_defReal], dMax = dMax)
-    call mesh % distanceToBoundary(data)
-    @assertEqual(0, data % elementIdx)
-    @assertEqual(INF, data % d)
+    ! Points away from the mesh.
+    call assertEntryAgrees([-TWO, ZERO, ZERO], [-1, 0, 0], 'pointing away')
 
-    data = newCoordData([-0.21_defReal, 0.18_defReal, -1.01_defReal], [-79.0_defReal, 82.0_defReal, ONE], dMax = dMax)
-    call mesh % distanceToBoundary(data)
-    @assertEqual(0, data % elementIdx)
-    @assertEqual(INF, data % d)
+    ! Passes the mesh entirely.
+    call assertEntryAgrees([-TWO, -TWO, ZERO], [1, 0, 0], 'missing the mesh')
 
-    data = newCoordData([1.98_defReal, -0.98_defReal, -1.66_defReal], [-49.0_defReal, -ONE, 33.0_defReal], dMax = dMax)
-    call mesh % distanceToBoundary(data)
-    @assertEqual(0, data % elementIdx)
-    @assertEqual(INF, data % d)
+    ! Grazes the boundary corner from outside without entering.
+    call assertEntryAgrees([-TWO, -TWO, -TWO], [1, -1, 0], 'grazing the corner')
 
-    data = newCoordData([-0.99_defReal, -0.99_defReal, -2.67_defReal], [-ONE, -ONE, 167.0_defReal], dMax = dMax)
-    call mesh % distanceToBoundary(data)
-    @assertEqual(0, data % elementIdx)
-    @assertEqual(INF, data % d)
-  
-  end subroutine test_distance
+  end subroutine test_no_entry_agrees
 
 end module centroidTriangulationMethod_iTest

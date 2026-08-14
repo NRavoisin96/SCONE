@@ -16,12 +16,9 @@ module limb_class
       integer(shortInt), dimension(0:maxsz) :: limbs
     end type limb_t
 
-
-
     interface initlimb 
         module procedure initlimbempty, initlimbnumlong!, initlimbnumshort
     end interface initlimb
-
 
     interface operator (+)
         module procedure addlimbs
@@ -62,9 +59,6 @@ module limb_class
     interface assignment (=)
         module procedure assignlimbs
     end interface assignment (=)
-
-
-    
 
     contains
 

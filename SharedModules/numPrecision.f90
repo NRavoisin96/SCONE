@@ -19,6 +19,7 @@ module numPrecision
                                       ZERO = 0._defReal, &
                                       ONE = 1.0_defReal, &
                                       TWO = 2.0_defReal, &
+                                      THREE = 3.0_defReal, &
                                       TWO_PI  = TWO * PI, &
                                       SQRT_PI = sqrt(PI), &
                                       HALF    = 0.5_defReal, &
